@@ -17,10 +17,11 @@
  *  of the core are matching against your project build for these
  *  public functions.  BE AWARE.
  */
-#if defined(__WIN32__) && (!defined(_TCHAR_DEFINED) && !defined(__TCHAR_DEFINED))
+#if defined(__WIN32__) && !defined(_TCHAR_DEFINED)
 #   include <tchar.h>
 #   ifndef _TCHAR_DEFINED
-	/* tchar.h doesn't set this.  winnt.h checks this. */
+	/* Borland seems to forget to set this. */
+	typedef wchar_t     TCHAR;
 #	define _TCHAR_DEFINED
 #   endif
 #endif
