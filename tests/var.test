@@ -459,6 +459,20 @@ test var-7.13 {Tcl_VariableObjCmd, variable named ":"} {
 	p
     }
 } {{My name is ":"} :}
+test var-7.14 {Tcl_VariableObjCmd, array element parameter} {
+    catch {namespace eval test_ns_var { variable arrayvar(1) }} res
+    set res
+} "can't define \"arrayvar(1)\": name refers to an element in an array"
+test var-7.15 {Tcl_VariableObjCmd, array element parameter} {
+    catch {
+	namespace eval test_ns_var { 
+	    variable arrayvar
+	    set arrayvar(1) x
+	    variable arrayvar(1) y
+	}   
+    } res
+    set res
+} "can't define \"arrayvar(1)\": name refers to an element in an array"
 
 test var-8.1 {TclDeleteVars, "unset" traces are called with fully-qualified var names} {
     catch {namespace delete test_ns_var}
@@ -618,6 +632,7 @@ test var-12.1 {TclFindCompiledLocals, {} array name} {
 } {0 1 2 2,foo}
 
 test var-13.1 {Tcl_UnsetVar2, unset array with trace set on element} {
+    catch {unset t}
     proc foo {var ind op} {
 	global t
 	set foo bar
@@ -648,15 +663,3 @@ catch {unset aaaaa}
 # cleanup
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-
