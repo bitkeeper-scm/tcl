@@ -1,9 +1,15 @@
+2003-08-18  Mo DeJong  <mdejong@users.sourceforge.net>
+
+	* win/configure: Regen.
+	* win/tcl.m4 (SC_ENABLE_SYMBOLS): Use test instead
+	of -eq, which does not work. [Bug 781109]
+
 2003-08-13  Chengye Mao <chengye.geo@yahoo.com>
 
-        * generic/win/tclWinPipe.c: fixed a bug in BuildCommandLine.
-        This bug built a command line with a missing space between
-        tclpipe.dll and the following arguments.  It caused error
-        in Windows 98 when exec command.com (e.g. dir) [Bug 789040]
+	* win/tclWinPipe.c: fixed a bug in BuildCommandLine.
+	This bug built a command line with a missing space between
+	tclpipe.dll and the following arguments.  It caused error
+	in Windows 98 when exec command.com (e.g. dir) [Bug 789040]
 
 2003-08-11  Donal K. Fellows  <fellowsd@cs.man.ac.uk>
 
