@@ -344,11 +344,12 @@ AC_DEFUN(SC_CONFIG_CFLAGS, [
 	SHLIB_LD=""
 	SHLIB_LD_LIBS=""
 	LIBS=""
-	LIBS_GUI="-lgdi32 -lcomdlg32"
+	LIBS_GUI="-lgdi32 -lcomdlg32 -limm32"
 	STLIB_LD="${AR}"
 	RC_OUT=-o
 	RC_TYPE=
 	RC_INCLUDE=--include
+	RC_DEFINE=--define
 	RES=res.o
 	MAKE_LIB="\${AR} crv \[$]@"
 	POST_MAKE_LIB="\${RANLIB} \[$]@"
@@ -432,6 +433,7 @@ AC_DEFUN(SC_CONFIG_CFLAGS, [
 	RC_OUT=-fo
 	RC_TYPE=-r
 	RC_INCLUDE=-i
+	RC_DEFINE=-d
 	RES=res
 	MAKE_LIB="\${AR} -out:\[$]@"
 	POST_MAKE_LIB=
