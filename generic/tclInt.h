@@ -1404,8 +1404,6 @@ typedef struct Interp {
  *			called to record information for the current
  *			error.	Zero means Tcl_Eval must clear the
  *			errorCode variable if an error is returned.
- * EXPR_INITIALIZED:	Non-zero means initialization specific to
- *			expressions has	been carried out.
  * DONT_COMPILE_CMDS_INLINE: Non-zero means that the bytecode compiler
  *			should not compile any commands into an inline
  *			sequence of instructions. This is set 1, for
@@ -1416,10 +1414,6 @@ typedef struct Interp {
  * SAFE_INTERP:		Non zero means that the current interp is a
  *			safe interp (ie it has only the safe commands
  *			installed, less priviledge than a regular interp).
- * USE_EVAL_DIRECT:	Non-zero means don't use the compiler or byte-code
- *			interpreter; instead, have Tcl_EvalObj call
- *			Tcl_EvalEx. Used primarily for testing the
- *			new parser.
  * INTERP_TRACE_IN_PROGRESS: Non-zero means that an interp trace is currently
  *			active; so no further trace callbacks should be
  *			invoked.
@@ -1429,11 +1423,9 @@ typedef struct Interp {
 #define ERR_IN_PROGRESS			    2
 #define ERR_ALREADY_LOGGED		    4
 #define ERROR_CODE_SET			    8
-#define EXPR_INITIALIZED		 0x10
 #define DONT_COMPILE_CMDS_INLINE	 0x20
 #define RAND_SEED_INITIALIZED		 0x40
 #define SAFE_INTERP			 0x80
-#define USE_EVAL_DIRECT			0x100
 #define INTERP_TRACE_IN_PROGRESS	0x200
 
 /*
