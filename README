@@ -1,14 +1,15 @@
 Tcl
 
-SCCS: @(#) README 1.52 97/11/20 12:43:16
+SCCS: %Z% $Id$ 
 
 1. Introduction
 ---------------
 
 This directory and its descendants contain the sources and documentation
 for Tcl, an embeddable scripting language.  The information here
-corresponds to release 8.0p2, which is the second patch update for Tcl
-8.0. Tcl 8.0 is a major new release that replaces the core of the
+corresponds to release 8.0.3, which is the third patch update for Tcl
+8.0. This patch provides compatibility with [incr Tcl] 3.0.
+Tcl 8.0 is a major new release that replaces the core of the
 interpreter with an on-the-fly bytecode compiler to improve execution
 speed.  It also includes several other new features such as namespaces
 and binary I/O, plus many bug fixes.  The compiler introduces a few
