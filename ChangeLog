@@ -1,7 +1,7 @@
 2004-10-27  David Gravereaux <davygrvy@pobox.com>
 
 	* generic/tclInt.decls:	  The following 9 functions were moved from
-	* generic/tclInt.h:	  tclInt.h to the internal Stubs table for
+	* generic/tclInt.h:	  tclInt.h to the private/int Stubs table for
 	* generic/tclIntDecls.h:  use by the test suite.  As tclTest.obj is
 	* generic/tclStubInit.c:  linked to the shell, these functions need
 	"blessed" status so as to always be exported from the library. Being
@@ -11,6 +11,17 @@
 		TclpObjCopyFile,	TclpObjRenameFile,
 		TclpObjStat,		TclpObjAccess,
 		TclpOpenFileChannel
+
+	* tests/registry.test:	Fixed test files to load the correct
+	* tests/winDde.test:	registry and dde packages by using the info
+	* win/Makefile.in:	from makefiles to tell tcltest where to load
+	* win/makefile.vc:	them from.  This avoids grabbing the wrong
+	package from $auto_path which might be the install point rather than
+	the dev location.  Kudos to Jennifer Hom for adding -load and
+	-loadfile to the tcltest package. [Bug 926088]
+
+	* win/tclWinThrd.c (TclFinalizeLock): release the critical section
+	before deleting it. [Bug 731778]
 
 2004-10-27  Andreas Kupries <andreask@activestate.com>
 
