@@ -514,7 +514,7 @@ static Tcl_FSUnloadFileProc FSUnloadTempFile;
  * operation when we want to unload the code.
  */
 typedef struct FsDivertLoad {
-    ClientData clientData;
+    TclLoadHandle loadHandle;
     Tcl_FSUnloadFileProc *unloadProcPtr;	
     Tcl_Obj *divertedFile;
     Tcl_Filesystem *divertedFilesystem;
@@ -2557,13 +2557,14 @@ Tcl_FSLoadFile(interp, pathPtr, sym1, sym2, proc1Ptr, proc2Ptr,
 		 * Tcl_DecrRefCount(perm);
 		 * 
 		 */
-		ClientData newClientData = NULL;
+		TclLoadHandle newLoadHandle = NULL;
 		Tcl_FSUnloadFileProc *newUnloadProcPtr = NULL;
 		FsDivertLoad *tvdlPtr;
 		int retVal;
 		
 		retVal = Tcl_FSLoadFile(interp, copyToPtr, sym1, sym2,
-					proc1Ptr, proc2Ptr, &newClientData,
+					proc1Ptr, proc2Ptr, 
+					(ClientData*)&newLoadHandle,
 					&newUnloadProcPtr);
 	        if (retVal != TCL_OK) {
 		    /* The file didn't load successfully */
@@ -2594,7 +2595,7 @@ Tcl_FSLoadFile(interp, pathPtr, sym1, sym2, proc1Ptr, proc2Ptr,
 		 * us to cleanup the diverted load completely, on
 		 * platforms which allow proper unloading of code.
 		 */
-		tvdlPtr->clientData = newClientData;
+		tvdlPtr->loadHandle = newLoadHandle;
 		tvdlPtr->unloadProcPtr = newUnloadProcPtr;
 		/* copyToPtr is already incremented for this reference */
 		tvdlPtr->divertedFile = copyToPtr;
@@ -2689,13 +2690,13 @@ TclpLoadFile(interp, pathPtr, sym1, sym2, proc1Ptr, proc2Ptr,
  *---------------------------------------------------------------------------
  */
 static void 
-FSUnloadTempFile(clientData)
-    ClientData clientData;    /* ClientData returned by a previous call
-			       * to Tcl_FSLoadFile().  The clientData is 
+FSUnloadTempFile(loadHandle)
+    TclLoadHandle loadHandle; /* loadHandle returned by a previous call
+			       * to Tcl_FSLoadFile().  The loadHandle is 
 			       * a token that represents the loaded 
 			       * file. */
 {
-    FsDivertLoad *tvdlPtr = (FsDivertLoad*)clientData;
+    FsDivertLoad *tvdlPtr = (FsDivertLoad*)loadHandle;
     /* 
      * This test should never trigger, since we give
      * the client data in the function above.
@@ -2710,7 +2711,7 @@ FSUnloadTempFile(clientData)
      * use.
      */
     if (tvdlPtr->unloadProcPtr != NULL) {
-	(*tvdlPtr->unloadProcPtr)(tvdlPtr->clientData);
+	(*tvdlPtr->unloadProcPtr)(tvdlPtr->loadHandle);
     }
     
     /* Remove the temporary file we created. */
