@@ -1,3 +1,7 @@
+2000-04-26  Brent Welch <welch@scriptics.com>
+
+	* README: Updating URLs to reference dev.scriptics.com
+
 2000-04-25  Jeff Hobbs  <hobbs@scriptics.com>
 
 	8.3.1 RELEASE
@@ -13,6 +17,12 @@
 	[Bug: 5254]
 
 	* unix/tclLoadDyld.c (TclpLoadFile): removed use of interp->result
+
+2000-04-25  Eric Melski  <ericm@scriptics.com>
+
+	* unix/mkLinks: 
+	* doc/AddErrInfo.3: Added information about Tcl_LogCommandInfo
+	[Bug: 1818].
 
 2000-04-24  Eric Melski  <ericm@scriptics.com>
 
