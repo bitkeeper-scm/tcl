@@ -210,6 +210,10 @@ GetDefaultLibraryDir()
     }
 
     if (NULL == defaultLibraryDir) {
+	/*
+	 * Careful here.  This may be bogus, calling TclpInitLibraryPath
+	 * when not in TclpInitLock.  OTOH, this branch shouldn't happen.
+	 */
 	TclpInitLibraryPath(NULL);
 	if (NULL != *savedDirectoryPtr) {
 	    return *savedDirectoryPtr;
@@ -220,6 +224,7 @@ GetDefaultLibraryDir()
 
     *savedDirectoryPtr =
 	    Tcl_NewStringObj(defaultLibraryDir, defaultLibraryDirLength);
+    Tcl_IncrRefCount(*savedDirectoryPtr);
     Tcl_CreateThreadExitHandler(FreeThreadDefaultLibraryDir,
 		(ClientData) savedDirectoryPtr);
     return *savedDirectoryPtr;
