@@ -894,7 +894,9 @@ TclCompEvalObj(interp, objPtr)
      * Check that the interpreter is ready to execute scripts
      */
 
+    iPtr->numLevels++;
     if (TclInterpReady(interp) == TCL_ERROR) {
+	iPtr->numLevels--;
 	return TCL_ERROR;
     }
 
@@ -916,6 +918,7 @@ TclCompEvalObj(interp, objPtr)
 	iPtr->errorLine = 1; 
 	result = tclByteCodeType.setFromAnyProc(interp, objPtr);
 	if (result != TCL_OK) {
+	    iPtr->numLevels--;
 	    return result;
 	}
 	iPtr->evalFlags = 0;
@@ -980,9 +983,7 @@ TclCompEvalObj(interp, objPtr)
 	    iPtr->returnOpts = iPtr->defaultReturnOpts;
 	    Tcl_IncrRefCount(iPtr->returnOpts);
 	}
-	iPtr->numLevels++;
 	result = TclExecuteByteCode(interp, codePtr);
-	iPtr->numLevels--;
 	codePtr->refCount--;
 	if (codePtr->refCount <= 0) {
 	    TclCleanupByteCode(codePtr);
@@ -990,6 +991,8 @@ TclCompEvalObj(interp, objPtr)
     } else {
 	result = TCL_OK;
     }
+    iPtr->numLevels--;
+
 
     /*
      * If no commands at all were executed, check for asynchronous
