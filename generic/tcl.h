@@ -170,12 +170,10 @@
 # else
 #  define DLLIMPORT
 #  define DLLEXPORT
-#  define EXPORT
 # endif
 #else
 # define DLLIMPORT
 # define DLLEXPORT
-# define EXPORT
 #endif
 
 #ifdef EXPORT
@@ -1542,4 +1540,8 @@ EXTERN void		Tcl_WrongNumArgs _ANSI_ARGS_((Tcl_Interp *interp,
 			    int objc, Tcl_Obj *CONST objv[], char *message));
 
 #endif /* RESOURCE_INCLUDED */
+
+#undef EXPORT
+#define EXPORT DLLIMPORT
+
 #endif /* _TCL */
