@@ -931,6 +931,20 @@ dnl AC_CHECK_TOOL(AR, ar, :)
 	    DL_LIBS=""
 	    LDFLAGS=""
 	    LD_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+
+	    # Check to enable 64-bit flags for compiler/linker
+
+	    if test "$do64bit" = "yes" ; then
+	        if test "$GCC" = "yes" ; then
+	            AC_MSG_WARN([64bit mode not supported by gcc])
+	        else
+	            do64bit_ok=yes
+	            SHLIB_LD="ld -64 -shared -rdata_shared"
+	            EXTRA_CFLAGS="-64"
+	            LDFLAGS="-64"
+	        fi
+	    fi
+
 	    ;;
 	Linux*)
 	    SHLIB_CFLAGS="-fPIC"
@@ -1736,28 +1750,27 @@ AC_DEFUN(SC_PATH_X, [
     fi
     if test "$no_x" = "yes" -o "$not_really_there" = "yes"; then
 	AC_MSG_CHECKING(for X11 header files)
-	XINCLUDES="# no special path needed"
-	AC_TRY_CPP([#include <X11/Intrinsic.h>], , XINCLUDES="nope")
-	if test "$XINCLUDES" = nope; then
+	found_xincludes="no"
+	AC_TRY_CPP([#include <X11/Intrinsic.h>], found_xincludes="yes", found_xincludes="no")
+	if test "$found_xincludes" = "no"; then
 	    dirs="/usr/unsupported/include /usr/local/include /usr/X386/include /usr/X11R6/include /usr/X11R5/include /usr/include/X11R5 /usr/include/X11R4 /usr/openwin/include /usr/X11/include /usr/sww/include"
 	    for i in $dirs ; do
 		if test -r $i/X11/Intrinsic.h; then
 		    AC_MSG_RESULT($i)
 		    XINCLUDES=" -I$i"
+		    found_xincludes="yes"
 		    break
 		fi
 	    done
 	fi
     else
 	if test "$x_includes" != ""; then
-	    XINCLUDES=-I$x_includes
-	else
-	    XINCLUDES="# no special path needed"
+	    XINCLUDES="-I$x_includes"
+	    found_xincludes="yes"
 	fi
     fi
-    if test "$XINCLUDES" = nope; then
+    if test found_xincludes = "no"; then
 	AC_MSG_RESULT(couldn't find any!)
-	XINCLUDES="# no include files found"
     fi
 
     if test "$no_x" = yes; then

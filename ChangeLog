@@ -1,3 +1,21 @@
+2002-07-23  Mo DeJong  <mdejong@users.sourceforge.net>
+
+	* unix/configure: Regen.
+	* unix/tcl.m4 (SC_CONFIG_CFLAGS): Enable 64 bit compilation
+	when using the native compiler on a 64 bit version of IRIX.
+	[Tcl bug 219220]
+
+2002-07-23  Mo DeJong  <mdejong@users.sourceforge.net>
+
+	* unix/Makefile.in: Combine ranlib tests and
+	avoid printing unless ranlib is actually run.
+
+2002-07-23  Mo DeJong  <mdejong@users.sourceforge.net>
+
+	* unix/tcl.m4 (SC_PATH_X): Set XINCLUDES to "" instead
+	of "# no special path needed" or "# no include files found"
+	when x headers cannot be located.
+
 2002-07-22  Vince Darley  <vincentdarley@users.sourceforge.net>
 
 	* generic/tclIOUtil.c: made tclNativeFilesystem static
