@@ -41,7 +41,7 @@ Tcl_Obj *
 int
 \fBTcl_EvalTokensStandard\fR(\fIinterp, tokenPtr, numTokens\fR)
 .SH ARGUMENTS
-.AS Tcl_Interp *usedParsePtr
+.AS Tcl_Interp *usedParsePtr out
 .AP Tcl_Interp *interp out
 For procedures other than \fBTcl_FreeParse\fR, \fBTcl_EvalTokens\fR
 and \fBTcl_EvalTokensStandard\fR, used only for error reporting;
@@ -212,14 +212,14 @@ of \fBTcl_EvalTokens\fR is deprecated.
 return parse information in two data structures, Tcl_Parse and Tcl_Token:
 .CS
 typedef struct Tcl_Parse {
-	CONST char *\fIcommentStart\fR;
-	int \fIcommentSize\fR;
-	CONST char *\fIcommandStart\fR;
-	int \fIcommandSize\fR;
-	int \fInumWords\fR;
-	Tcl_Token *\fItokenPtr\fR;
-	int \fInumTokens\fR;
-	...
+        CONST char *\fIcommentStart\fR;
+        int \fIcommentSize\fR;
+        CONST char *\fIcommandStart\fR;
+        int \fIcommandSize\fR;
+        int \fInumWords\fR;
+        Tcl_Token *\fItokenPtr\fR;
+        int \fInumTokens\fR;
+        ...
 } Tcl_Parse;
 
 typedef struct Tcl_Token {
