@@ -115,7 +115,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 	char *name;
 	int index;
 
-	name = Tcl_GetString(objv[i]);
+	name = TclGetString(objv[i]);
 	if (name[0] != '-') {
 	    break;
 	}
@@ -354,7 +354,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
 		if (valuePtr == NULL) {
 		    Tcl_DecrRefCount(newPtr);
 		    Tcl_AppendResult(interp, "couldn't set variable \"",
-			    Tcl_GetString(objv[i]), "\"", (char *) NULL);
+			    TclGetString(objv[i]), "\"", (char *) NULL);
 		    return TCL_ERROR;
 		}
 	    }
@@ -449,7 +449,7 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
 	char *name;
 	int index;
 	
-	name = Tcl_GetString(objv[idx]);
+	name = TclGetString(objv[idx]);
 	if (name[0] != '-') {
 	    break;
 	}
@@ -511,8 +511,8 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
     objv += idx;
 
     if (all && (offset == 0)
-	    && (strpbrk(Tcl_GetString(objv[2]), "&\\") == NULL)
-	    && (strpbrk(Tcl_GetString(objv[0]), "*+?{}()[].\\|^$") == NULL)) {
+	    && (strpbrk(TclGetString(objv[2]), "&\\") == NULL)
+	    && (strpbrk(TclGetString(objv[0]), "*+?{}()[].\\|^$") == NULL)) {
 	/*
 	 * This is a simple one pair string map situation.  We make use of
 	 * a slightly modified version of the one pair STR_MAP code.
@@ -757,7 +757,7 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
     if (objc == 4) {
 	if (Tcl_ObjSetVar2(interp, objv[3], NULL, resultPtr, 0) == NULL) {
 	    Tcl_AppendResult(interp, "couldn't set variable \"",
-		    Tcl_GetString(objv[3]), "\"", (char *) NULL);
+		    TclGetString(objv[3]), "\"", (char *) NULL);
 	    result = TCL_ERROR;
 	} else {
 	    /*
@@ -813,8 +813,8 @@ Tcl_RenameObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    oldName = Tcl_GetString(objv[1]);
-    newName = Tcl_GetString(objv[2]);
+    oldName = TclGetString(objv[1]);
+    newName = TclGetString(objv[2]);
     return TclRenameCommand(interp, oldName, newName);
 }
 
@@ -909,7 +909,7 @@ TclProcessReturn(interp, code, level, returnOpts)
 		    iPtr->returnErrorinfoKey, &valuePtr);
 	    if (valuePtr != NULL) {
 		int infoLen;
-		CONST char *info = Tcl_GetStringFromObj(valuePtr,&infoLen);
+		CONST char *info = Tcl_GetStringFromObj(valuePtr, &infoLen);
 		if (infoLen) {
 		    Tcl_AddObjErrorInfo(interp, info, infoLen);
 		    iPtr->flags |= ERR_ALREADY_LOGGED;
@@ -994,7 +994,7 @@ TclMergeReturnOptions(interp, objc, objv, optionsPtrPtr, codePtr, levelPtr)
 		Tcl_ResetResult(interp);
 		Tcl_AppendResult(interp, "bad ",
 			compare, " value: expected dictionary but got \"",
-			Tcl_GetString(objv[1]), "\"", (char *) NULL);
+			TclGetString(objv[1]), "\"", (char *) NULL);
 		goto error;
 	    }
 
@@ -1028,7 +1028,7 @@ TclMergeReturnOptions(interp, objc, objv, optionsPtrPtr, codePtr, levelPtr)
 	    /* Value is not a legal return code */
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "bad completion code \"",
-		    Tcl_GetString(valuePtr),
+		    TclGetString(valuePtr),
 		    "\": must be ok, error, return, break, ",
 		    "continue, or an integer", (char *) NULL);
 	    goto error;
@@ -1045,7 +1045,7 @@ TclMergeReturnOptions(interp, objc, objv, optionsPtrPtr, codePtr, levelPtr)
 	Tcl_ResetResult(interp);
 	Tcl_AppendResult(interp,
 		"bad -level value: expected non-negative integer but got \"",
-		Tcl_GetString(valuePtr), "\"", (char *) NULL);
+		TclGetString(valuePtr), "\"", (char *) NULL);
 	goto error;
     }
 
@@ -1135,7 +1135,7 @@ Tcl_SourceObjCmd(dummy, interp, objc, objv)
 		options, "option", TCL_EXACT, &index)) {
 	    return TCL_ERROR;
 	}
-	encodingName = Tcl_GetString(objv[2]);
+	encodingName = TclGetString(objv[2]);
     }
     return Tcl_FSEvalFileEx(interp, fileName, encodingName);
 }
@@ -1167,7 +1167,7 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 {
     Tcl_UniChar ch;
     int len;
-    char *splitChars, *string, *end;
+    char *splitChars, *stringPtr, *end;
     int splitCharLen, stringLen;
     Tcl_Obj *listPtr, *objPtr;
 
@@ -1181,8 +1181,8 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 	return TCL_ERROR;
     }
 
-    string = Tcl_GetStringFromObj(objv[1], &stringLen);
-    end = string + stringLen;
+    stringPtr = Tcl_GetStringFromObj(objv[1], &stringLen);
+    end = stringPtr + stringLen;
     listPtr = Tcl_NewObj();
     
     if (stringLen == 0) {
@@ -1204,12 +1204,12 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 	 */
 
 	Tcl_InitHashTable(&charReuseTable, TCL_ONE_WORD_KEYS);
-	for ( ; string < end; string += len) {
-	    len = TclUtfToUniChar(string, &ch);
+	for ( ; stringPtr < end; stringPtr += len) {
+	    len = TclUtfToUniChar(stringPtr, &ch);
 	    /* Assume Tcl_UniChar is an integral type... */
 	    hPtr = Tcl_CreateHashEntry(&charReuseTable, (char*)0 + ch, &isNew);
 	    if (isNew) {
-		objPtr = Tcl_NewStringObj(string, len);
+		objPtr = Tcl_NewStringObj(stringPtr, len);
 		/* Don't need to fiddle with refcount... */
 		Tcl_SetHashValue(hPtr, (ClientData) objPtr);
 	    } else {
@@ -1227,12 +1227,12 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 	 * char is > 1 byte in length.
 	 */
 
-	while (*string && (p = strchr(string, (int) *splitChars)) != NULL) {
-	    objPtr = Tcl_NewStringObj(string, p - string);
+	while (*stringPtr && (p=strchr(stringPtr,(int)*splitChars)) != NULL) {
+	    objPtr = Tcl_NewStringObj(stringPtr, p - stringPtr);
 	    Tcl_ListObjAppendElement(NULL, listPtr, objPtr);
-	    string = p + 1;
+	    stringPtr = p + 1;
 	}
-	objPtr = Tcl_NewStringObj(string, end - string);
+	objPtr = Tcl_NewStringObj(stringPtr, end - stringPtr);
 	Tcl_ListObjAppendElement(NULL, listPtr, objPtr);
     } else {
 	char *element, *p, *splitEnd;
@@ -1246,19 +1246,19 @@ Tcl_SplitObjCmd(dummy, interp, objc, objv)
 
 	splitEnd = splitChars + splitCharLen;
 
-	for (element = string; string < end; string += len) {
-	    len = TclUtfToUniChar(string, &ch);
+	for (element = stringPtr; stringPtr < end; stringPtr += len) {
+	    len = TclUtfToUniChar(stringPtr, &ch);
 	    for (p = splitChars; p < splitEnd; p += splitLen) {
 		splitLen = TclUtfToUniChar(p, &splitChar);
 		if (ch == splitChar) {
-		    objPtr = Tcl_NewStringObj(element, string - element);
+		    objPtr = Tcl_NewStringObj(element, stringPtr - element);
 		    Tcl_ListObjAppendElement(NULL, listPtr, objPtr);
-		    element = string + len;
+		    element = stringPtr + len;
 		    break;
 		}
 	    }
 	}
-	objPtr = Tcl_NewStringObj(element, string - element);
+	objPtr = Tcl_NewStringObj(element, stringPtr - element);
 	Tcl_ListObjAppendElement(NULL, listPtr, objPtr);
     }
     Tcl_SetObjResult(interp, listPtr);
@@ -2401,11 +2401,11 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 	    if (objc == 3) {
 		Tcl_Obj *resultPtr = Tcl_NewStringObj(string1, length1);
 		if ((enum options) index == STR_TOLOWER) {
-		    length1 = Tcl_UtfToLower(Tcl_GetString(resultPtr));
+		    length1 = Tcl_UtfToLower(TclGetString(resultPtr));
 		} else if ((enum options) index == STR_TOUPPER) {
-		    length1 = Tcl_UtfToUpper(Tcl_GetString(resultPtr));
+		    length1 = Tcl_UtfToUpper(TclGetString(resultPtr));
 		} else {
-		    length1 = Tcl_UtfToTitle(Tcl_GetString(resultPtr));
+		    length1 = Tcl_UtfToTitle(TclGetString(resultPtr));
 		}
 		Tcl_SetObjLength(resultPtr, length1);
 		Tcl_SetObjResult(interp, resultPtr);
@@ -2729,8 +2729,8 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
     int objc;			/* Number of arguments. */
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
-    int i, j, index, mode, matched, result, splitObjs, numMatchesSaved;
-    char *string, *pattern;
+    int i, j, index, mode, result, splitObjs, numMatchesSaved;
+    char *pattern;
     Tcl_Obj *stringObj, *indexVarObj, *matchVarObj;
     Tcl_Obj *CONST *savedObjv = objv;
     Tcl_RegExp regExpr = NULL;
@@ -2747,8 +2747,7 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
     matchVarObj = NULL;
     numMatchesSaved = 0;
     for (i = 1; i < objc; i++) {
-	string = Tcl_GetString(objv[i]);
-	if (string[0] != '-') {
+	if (TclGetString(objv[i])[0] != '-') {
 	    break;
 	}
 	if (Tcl_GetIndexFromObj(interp, objv[i], options, "option", 0, 
@@ -2856,7 +2855,7 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
 
 	if (splitObjs) {
 	    for (i=0 ; i<objc ; i+=2) {
-		if (Tcl_GetString(objv[i])[0] == '#') {
+		if (TclGetString(objv[i])[0] == '#') {
 		    Tcl_AppendResult(interp, ", this may be due to a ",
 			    "comment incorrectly placed outside of a ",
 			    "switch body - see the \"switch\" ",
@@ -2874,10 +2873,10 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
      * check assumes that the list is non-empty!
      */
 
-    if (strcmp(Tcl_GetString(objv[objc-1]), "-") == 0) {
+    if (strcmp(TclGetString(objv[objc-1]), "-") == 0) {
 	Tcl_ResetResult(interp);
 	Tcl_AppendResult(interp, "no body specified for pattern \"",
-		Tcl_GetString(objv[objc-2]), "\"", NULL);
+		TclGetString(objv[objc-2]), "\"", NULL);
 	return TCL_ERROR;
     }
 
@@ -2886,15 +2885,12 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
 	 * See if the pattern matches the string.
 	 */
 
-	pattern = Tcl_GetString(objv[i]);
+	pattern = TclGetString(objv[i]);
 
-	matched = 0;
-	if ((i == objc - 2) 
-		&& (*pattern == 'd') 
+	if ((i == objc - 2) && (*pattern == 'd') 
 		&& (strcmp(pattern, "default") == 0)) {
 	    Tcl_Obj *emptyObj = NULL;
 
-	    matched = 1;
 	    /*
 	     * If either indexVarObj or matchVarObj are non-NULL,
 	     * we're in REGEXP mode but have reached the default
@@ -2922,142 +2918,153 @@ Tcl_SwitchObjCmd(dummy, interp, objc, objv)
 		    return TCL_ERROR;
 		}
 	    }
-	    numMatchesSaved = 0;
+	    goto matchFound;
 	} else {
 	    switch (mode) {
 	    case OPT_EXACT:
-		matched = (strcmp(Tcl_GetString(stringObj), pattern) == 0);
+		if (strcmp(TclGetString(stringObj), pattern) == 0) {
+		    goto matchFound;
+		}
 		break;
 	    case OPT_GLOB:
-		matched = Tcl_StringMatch(Tcl_GetString(stringObj), pattern);
+		if (Tcl_StringMatch(TclGetString(stringObj), pattern)) {
+		    goto matchFound;
+		}
 		break;
 	    case OPT_REGEXP:
 		regExpr = Tcl_GetRegExpFromObj(interp, objv[i],
 			TCL_REG_ADVANCED);
 		if (regExpr == NULL) {
 		    return TCL_ERROR;
-		}
-		matched = Tcl_RegExpExecObj(interp, regExpr, stringObj, 0,
-			numMatchesSaved, 0);
-		if (matched < 0) {
-		    return TCL_ERROR;
-		}
-		break;
-	    }
-	}
-	if (matched == 0) {
-	    continue;
-	}
-
-	/*
-	 * We are operating in REGEXP mode and we need to store
-	 * information about what we matched in some user-nominated
-	 * arrays.  So build the lists of values and indices to write
-	 * here.  [TIP#75]
-	 */
-
-	if (numMatchesSaved) {
-	    Tcl_RegExpInfo info;
-	    Tcl_Obj *matchesObj, *indicesObj = NULL;
-
-	    Tcl_RegExpGetInfo(regExpr, &info);
-	    if (matchVarObj != NULL) {
-		TclNewObj(matchesObj);
-	    } else {
-		matchesObj = NULL;
-	    }
-	    if (indexVarObj != NULL) {
-		TclNewObj(indicesObj);
-	    }
-	    for (j=0 ; j<=info.nsubs ; j++) {
-		if (indexVarObj != NULL) {
-		    Tcl_Obj *rangeObjAry[2];
-
-		    rangeObjAry[0] = Tcl_NewLongObj(info.matches[j].start);
-		    rangeObjAry[1] = Tcl_NewLongObj(info.matches[j].end);
-		    /*
-		     * Never fails; the object is always clean at this point.
-		     */
-		    Tcl_ListObjAppendElement(NULL, indicesObj,
-			    Tcl_NewListObj(2, rangeObjAry));
-		}
-		if (matchVarObj != NULL) {
-		    Tcl_Obj *substringObj;
-
-		    substringObj = Tcl_GetRange(stringObj,
-			    info.matches[j].start, info.matches[j].end-1);
-		    /*
-		     * Never fails; the object is always clean at this point.
-		     */
-		    Tcl_ListObjAppendElement(NULL, matchesObj, substringObj);
-		}
-	    }
-	    if (indexVarObj != NULL) {
-		if (Tcl_ObjSetVar2(interp, indexVarObj, NULL, indicesObj,
-			TCL_LEAVE_ERR_MSG) == NULL) {
-		    Tcl_DecrRefCount(indicesObj);
-		    /*
-		     * Careful!  Check to see if we have allocated the
-		     * list of matched strings; if so (but there was
-		     * an error assigning the indices list) we have a
-		     * potential memory leak because the match list
-		     * has not been written to a variable.  Except
-		     * that we'll clean that up right now.
-		     */
-		    if (matchesObj != NULL) {
-			Tcl_DecrRefCount(matchesObj);
+		} else {
+		    int matched = Tcl_RegExpExecObj(interp, regExpr,
+			    stringObj, 0, numMatchesSaved, 0);
+		    if (matched < 0) {
+			return TCL_ERROR;
+		    } else if (matched) {
+			goto matchFoundRegexp;
 		    }
-		    return TCL_ERROR;
 		}
-	    }
-	    if (matchVarObj != NULL) {
-		if (Tcl_ObjSetVar2(interp, matchVarObj, NULL, matchesObj,
-			TCL_LEAVE_ERR_MSG) == NULL) {
-		    Tcl_DecrRefCount(matchesObj);
-		    /*
-		     * Unlike above, if indicesObj is non-NULL at this
-		     * point, it will have been written to a variable
-		     * already and will hence not be leaked.
-		     */
-		    return TCL_ERROR;
-		}
-	    }
-	}
-
-	/*
-	 * We've got a match. Find a body to execute, skipping bodies
-	 * that are "-".
-	 */
-
-	for (j = i + 1; ; j += 2) {
-	    if (j >= objc) {
-		/*
-		 * This shouldn't happen since we've checked that the
-		 * last body is not a continuation...
-		 */
-		Tcl_Panic("fall-out when searching for body to match pattern");
-	    }
-	    if (strcmp(Tcl_GetString(objv[j]), "-") != 0) {
 		break;
 	    }
 	}
-	result = Tcl_EvalObjEx(interp, objv[j], 0);
-	if (result == TCL_ERROR) {
-	    Tcl_Obj *msg = Tcl_NewStringObj("\n    (\"", -1);
-	    Tcl_Obj *errorLine = Tcl_NewIntObj(interp->errorLine);
-	    Tcl_IncrRefCount(msg);
-	    Tcl_IncrRefCount(errorLine);
-	    TclAppendLimitedToObj(msg, pattern, -1, 50, "");
-	    Tcl_AppendToObj(msg,"\" arm line ", -1);
-	    Tcl_AppendObjToObj(msg, errorLine);
-	    Tcl_DecrRefCount(errorLine);
-	    Tcl_AppendToObj(msg,")", -1);
-	    TclAppendObjToErrorInfo(interp, msg);
-	    Tcl_DecrRefCount(msg);
-	}
-	return result;
     }
     return TCL_OK;
+
+  matchFoundRegexp:
+    /*
+     * We are operating in REGEXP mode and we need to store
+     * information about what we matched in some user-nominated
+     * arrays.  So build the lists of values and indices to write
+     * here.  [TIP#75]
+     */
+
+    if (numMatchesSaved) {
+	Tcl_RegExpInfo info;
+	Tcl_Obj *matchesObj, *indicesObj = NULL;
+
+	Tcl_RegExpGetInfo(regExpr, &info);
+	if (matchVarObj != NULL) {
+	    TclNewObj(matchesObj);
+	} else {
+	    matchesObj = NULL;
+	}
+	if (indexVarObj != NULL) {
+	    TclNewObj(indicesObj);
+	}
+	for (j=0 ; j<=info.nsubs ; j++) {
+	    if (indexVarObj != NULL) {
+		Tcl_Obj *rangeObjAry[2];
+
+		rangeObjAry[0] = Tcl_NewLongObj(info.matches[j].start);
+		rangeObjAry[1] = Tcl_NewLongObj(info.matches[j].end);
+		/*
+		 * Never fails; the object is always clean at this point.
+		 */
+		Tcl_ListObjAppendElement(NULL, indicesObj,
+			Tcl_NewListObj(2, rangeObjAry));
+	    }
+	    if (matchVarObj != NULL) {
+		Tcl_Obj *substringObj;
+
+		substringObj = Tcl_GetRange(stringObj,
+			info.matches[j].start, info.matches[j].end-1);
+		/*
+		 * Never fails; the object is always clean at this point.
+		 */
+		Tcl_ListObjAppendElement(NULL, matchesObj, substringObj);
+	    }
+	}
+	if (indexVarObj != NULL) {
+	    if (Tcl_ObjSetVar2(interp, indexVarObj, NULL, indicesObj,
+		    TCL_LEAVE_ERR_MSG) == NULL) {
+		Tcl_DecrRefCount(indicesObj);
+		/*
+		 * Careful!  Check to see if we have allocated the
+		 * list of matched strings; if so (but there was an
+		 * error assigning the indices list) we have a
+		 * potential memory leak because the match list has
+		 * not been written to a variable.  Except that we'll
+		 * clean that up right now.
+		 */
+		if (matchesObj != NULL) {
+		    Tcl_DecrRefCount(matchesObj);
+		}
+		return TCL_ERROR;
+	    }
+	}
+	if (matchVarObj != NULL) {
+	    if (Tcl_ObjSetVar2(interp, matchVarObj, NULL, matchesObj,
+		    TCL_LEAVE_ERR_MSG) == NULL) {
+		Tcl_DecrRefCount(matchesObj);
+		/*
+		 * Unlike above, if indicesObj is non-NULL at this
+		 * point, it will have been written to a variable
+		 * already and will hence not be leaked.
+		 */
+		return TCL_ERROR;
+	    }
+	}
+    }
+
+  matchFound:
+    /*
+     * We've got a match. Find a body to execute, skipping bodies that
+     * are "-".
+     */
+
+    for (j = i + 1; ; j += 2) {
+	if (j >= objc) {
+	    /*
+	     * This shouldn't happen since we've checked that the
+	     * last body is not a continuation...
+	     */
+	    Tcl_Panic("fall-out when searching for body to match pattern");
+	}
+	if (strcmp(TclGetString(objv[j]), "-") != 0) {
+	    break;
+	}
+    }
+
+    result = Tcl_EvalObjEx(interp, objv[j], 0);
+
+    /*
+     * Generate an error message if necessary.
+     */
+    if (result == TCL_ERROR) {
+	Tcl_Obj *msg = Tcl_NewStringObj("\n    (\"", -1);
+	Tcl_Obj *errorLine = Tcl_NewIntObj(interp->errorLine);
+	Tcl_IncrRefCount(msg);
+	Tcl_IncrRefCount(errorLine);
+	TclAppendLimitedToObj(msg, pattern, -1, 50, "");
+	Tcl_AppendToObj(msg,"\" arm line ", -1);
+	Tcl_AppendObjToObj(msg, errorLine);
+	Tcl_DecrRefCount(errorLine);
+	Tcl_AppendToObj(msg,")", -1);
+	TclAppendObjToErrorInfo(interp, msg);
+	Tcl_DecrRefCount(msg);
+    }
+    return result;
 }
 
 /*
