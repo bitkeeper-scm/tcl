@@ -11,7 +11,7 @@
 #
 # RCS: @(#) $Id$
 
-package provide http 2.1	;# This uses Tcl namespaces
+package provide http 2.2	;# This uses Tcl namespaces
 
 namespace eval http {
     variable http
@@ -19,7 +19,7 @@ namespace eval http {
 	-accept */*
 	-proxyhost {}
 	-proxyport {}
-	-useragent {Tcl http client package 2.1}
+	-useragent {Tcl http client package 2.2}
 	-proxyfilter http::ProxyRequired
     }
 
