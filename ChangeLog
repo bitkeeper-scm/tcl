@@ -1,5 +1,7 @@
 2002-08-08  Jeff Hobbs  <jeffh@ActiveState.com>
 
+	*** 8.4b2 TAGGED FOR RELEASE ***
+
 	* tests/fCmd.test:
 	* tests/unixFCmd.test: updated tests for new link copy behavior.
 	* generic/tclFCmd.c (CopyRenameOneFile): changed the behavior to
@@ -7,6 +9,9 @@
 	just copying the surface link.  This means that trying to copy a
 	link that has no endpoint (danling link) is an error.
 	[Patch #591647] (darley)
+	(CopyRenameOneFile): this is currently disabled by default until
+	further issues with such behavior (like relative links) can be
+	handled correctly.
 
 	* tests/README: slight wording improvements
 
