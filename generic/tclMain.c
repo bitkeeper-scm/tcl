@@ -152,10 +152,10 @@ Tcl_Main(argc, argv, appInitProc)
     Tcl_DString argString;
     ThreadSpecificData *tsdPtr;
 
+    Tcl_FindExecutable(argv[0]);
+
     tsdPtr = (ThreadSpecificData *) 
 	Tcl_GetThreadData(&dataKey, sizeof(ThreadSpecificData));
-
-    Tcl_FindExecutable(argv[0]);
     tsdPtr->interp = interp = Tcl_CreateInterp();
 #ifdef TCL_MEM_DEBUG
     Tcl_InitMemory(interp);
@@ -349,7 +349,7 @@ Tcl_Main(argc, argv, appInitProc)
 	    Tcl_DStringInit(&tsdPtr->command);
 	    Tcl_DStringInit(&tsdPtr->line);
 
-	    mainLoopProc();
+	    (*mainLoopProc)();
 	    mainLoopProc = NULL;
 	    break;
 	}
@@ -376,7 +376,7 @@ Tcl_Main(argc, argv, appInitProc)
 	 * events at this point.
 	 */
 
-	mainLoopProc();
+	(*mainLoopProc)();
     }
     if (commandPtr != NULL) {
 	Tcl_DecrRefCount(commandPtr);
