@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * SCCS: @(#) tcl.h 1.326 97/11/20 12:40:43
+ * SCCS: %Z% $Id$ 
  */
 
 #ifndef _TCL
@@ -179,6 +179,24 @@ typedef short SHORT;
 typedef long LONG;
 #endif
 #endif /* __WIN32__ */
+
+/*
+ * Macro used to declare a function to be exported by a DLL.
+ * Used by windows, maps to a simple declaration on non-windows systems
+ */
+#ifdef __WIN32__
+#   if defined(_MSC_VER)
+#      define EXPORT(a,b) __declspec(dllexport) a b
+#   else
+#      if defined(__BORLANDC__)
+#	   define EXPORT(a,b) a _export b
+#      else
+#	   define EXPORT(a,b) a b
+#      endif
+#   endif
+#else
+#   define EXPORT(a,b) a b
+#endif
 
 /*
  * Miscellaneous declarations.
