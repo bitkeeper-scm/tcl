@@ -1,3 +1,12 @@
+2003-10-23  Vince Darley  <vincentdarley@users.sourceforge.net>
+
+	* tests/resource.test:
+	* mac/tclMacResource.c: fix to resource freeing problem in 'resource'
+	command reported by Bernard Desgraupes.
+	
+	* doc/FileSystem.3: updated documentation for 'glob' fix on 2003-10-13
+	below
+
 2003-10-22  Donal K. Fellows  <fellowsd@cs.man.ac.uk>
 
 	* generic/tclCmdAH.c (Tcl_FileObjCmd): Changed FILE_ prefix to FCMD_
