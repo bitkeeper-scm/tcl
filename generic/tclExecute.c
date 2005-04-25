@@ -4713,7 +4713,10 @@ TclExecuteByteCode(interp, codePtr)
 	     * If some var in some var list still has a remaining list
 	     * element iterate one more time. Assign to var the next
 	     * element from its value list. We already checked above
-	     * that each list temp holds a valid list object.
+	     * that each list temp holds a valid list object (by calling
+	     * Tcl_ListObjLength), but cannot rely on that check remaining
+	     * valid: one list could have been shimmered as a side effect of
+	     * setting a traced variable.
 	     */
 		
 	    if (continueLoop) {
@@ -4724,7 +4727,7 @@ TclExecuteByteCode(interp, codePtr)
 
 		    listVarPtr = &(compiledLocals[listTmpIndex]);
 		    listPtr = listVarPtr->value.objPtr;
-		    TclListObjGetElements(listPtr, listLen, elements);
+		    Tcl_ListObjGetElements(interp, listPtr, &listLen, &elements);
 			
 		    valIndex = (iterNum * numVars);
 		    for (j = 0;  j < numVars;  j++) {
