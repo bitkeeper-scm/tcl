@@ -185,7 +185,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
     endOfForLoop:
     if ((objc - i) < (2 - about)) {
 	Tcl_WrongNumArgs(interp, 1, objv, 
-	  "?switches? exp string ?matchVar? ?subMatchVar subMatchVar ...?");
+	    "?switches? exp string ?matchVar? ?subMatchVar subMatchVar ...?");
 	goto optionError;
     }
     objc -= i;
@@ -206,7 +206,7 @@ Tcl_RegexpObjCmd(dummy, interp, objc, objv)
     if (about) {
 	regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
 	if ((regExpr == NULL) || (TclRegAbout(interp, regExpr) < 0)) {
-optionError:
+	  optionError:
 	    if (startIndex) {
 		Tcl_DecrRefCount(startIndex);
 	    }
@@ -518,15 +518,15 @@ Tcl_RegsubObjCmd(dummy, interp, objc, objv)
 	    }
 	}
     }
-    endOfForLoop:
+  endOfForLoop:
     if (objc-idx < 3 || objc-idx > 4) {
 	Tcl_WrongNumArgs(interp, 1, objv,
 		"?switches? exp string subSpec ?varName?");
-optionError:
-	    if (startIndex) {
-		Tcl_DecrRefCount(startIndex);
-	    }
-	    return TCL_ERROR;
+      optionError:
+	if (startIndex) {
+	  Tcl_DecrRefCount(startIndex);
+	}
+	return TCL_ERROR;
     }
 
     objc -= idx;
@@ -2146,7 +2146,7 @@ Tcl_StringObjCmd(dummy, interp, objc, objv)
 
 	    if (objc < 5 || objc > 6) {
 	        Tcl_WrongNumArgs(interp, 2, objv,
-				 "string first last ?string?");
+			"string first last ?string?");
 		return TCL_ERROR;
 	    }
 
