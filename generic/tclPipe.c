@@ -13,6 +13,12 @@
  */
 
 #include "tclInt.h"
+#ifdef	BK
+#include "tomcrypt/mycrypt.h"
+#include "tomcrypt/randseed.h"
+
+extern int	enable_secure_bk_calls;
+#endif
 
 /*
  * A linked list of the following structures is used to keep track of child
@@ -881,6 +887,15 @@ TclCreatePipeline(interp, argc, argv, pidArrayPtr, inPipePtr,
 	} else {
 	    curErrFile = errorFile;
 	}
+
+#ifdef	BK
+	assert(enable_secure_bk_calls >= 0);
+	if (enable_secure_bk_calls == 1) {
+	    	rand_setSeed(1);
+	} else {
+	    	putenv("RANDSEED=");
+	}
+#endif
 
 	/*
 	 * Restore argv[i], since a caller wouldn't expect the contents of

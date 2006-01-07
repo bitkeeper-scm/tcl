@@ -246,6 +246,13 @@ COMPAT_DIR		= $(TOP_DIR)/compat
 TOOL_DIR		= $(TOP_DIR)/tools
 UNIX_DIR		= $(SRC_DIR)
 MAC_OSX_DIR		= $(TOP_DIR)/macosx
+BK_DIR			= @BK_DIR@
+BK_INCLUDES		= @BK_INCLUDES@
+@BK_LIBS@
+@BK_OBJS@
+@BK_HDRS@
+@BK_SRCS@
+BK_LIBS			?= $(BK_DIR)/tomcrypt/libtomcrypt.a
 # Must be absolute because of the cd dltest $(DLTEST_DIR)/configure below.
 DLTEST_DIR		= @TCL_SRC_DIR@/unix/dltest
 # Must be absolute to so the corresponding tcltest's tcl_library is absolute.
@@ -277,14 +284,14 @@ DDD			= ddd
 CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} \
 -I${BUILD_DIR} -I${UNIX_DIR} -I${GENERIC_DIR} -DTCL_TOMMATH -DMP_PREC=4 \
 -I${TOMMATH_DIR} ${AC_FLAGS} ${GENERIC_FLAGS} ${PROTO_FLAGS} \
-${NO_DEPRECATED_FLAGS} ${ENV_FLAGS} @EXTRA_CC_SWITCHES@
+${NO_DEPRECATED_FLAGS} ${ENV_FLAGS} ${BK_INCLUDES} @EXTRA_CC_SWITCHES@
 
 STUB_CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} \
 -I${BUILD_DIR} -I${UNIX_DIR} -I${GENERIC_DIR} -DTCL_TOMMATH -DMP_PREC=4 \
 -I${TOMMATH_DIR} ${AC_FLAGS} ${GENERIC_FLAGS} ${PROTO_FLAGS} ${ENV_FLAGS} \
 @EXTRA_CC_SWITCHES@
 
-LIBS		= @TCL_LIBS@
+LIBS		= @TCL_LIBS@ ${BK_LIBS}
 
 DEPEND_SWITCHES	= ${CFLAGS} -I${UNIX_DIR} -I${GENERIC_DIR} \
 ${AC_FLAGS} ${GENERIC_FLAGS} ${PROTO_FLAGS} @EXTRA_CC_SWITCHES@
@@ -338,8 +345,10 @@ STUB_LIB_OBJS = tclStubLib.o ${COMPAT_OBJS}
 
 MAC_OSX_OBJS = tclMacOSXBundle.o tclMacOSXFCmd.o tclMacOSXNotify.o
 
+BK_OBJS	?= blowfish.o keydecode.o
+
 OBJS = ${GENERIC_OBJS} ${TOMMATH_OBJS} ${UNIX_OBJS} ${NOTIFY_OBJS} \
-	${COMPAT_OBJS} @DL_OBJS@ @PLAT_OBJS@
+	${COMPAT_OBJS} ${BK_OBJS} @DL_OBJS@ @PLAT_OBJS@
 
 TCL_DECLS = \
 	$(GENERIC_DIR)/tcl.decls \
@@ -429,6 +438,15 @@ GENERIC_SRCS = \
 	$(GENERIC_DIR)/tclTrace.c \
 	$(GENERIC_DIR)/tclUtil.c \
 	$(GENERIC_DIR)/tclVar.c
+
+BK_HDRS ?= \
+	$(BK_DIR)/tclkey.h \
+	$(BK_DIR)/tomcrypt/mycrypt.h \
+	$(BK_DIR)/tomcrypt/randseed.h
+
+BK_SRCS	?= \
+	$(GENERIC_DIR)/blowfish.c \
+	$(GENERIC_DIR)/keydecode.c 
 
 STUB_SRCS = \
 	$(GENERIC_DIR)/tclStubLib.c
@@ -537,6 +555,7 @@ MAC_OSX_SRCS = \
 
 SRCS = $(GENERIC_SRCS) $(TOMMATH_SRCS) \
 	$(UNIX_SRCS) $(NOTIFY_SRCS) $(STUB_SRCS) \
+	$(BK_SRCS) \
 	@PLAT_SRCS@
 
 all: binaries libraries doc
@@ -1022,7 +1041,7 @@ tclIOGT.o: $(GENERIC_DIR)/tclIOGT.c
 tclIOSock.o: $(GENERIC_DIR)/tclIOSock.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclIOSock.c
 
-tclIOUtil.o: $(GENERIC_DIR)/tclIOUtil.c
+tclIOUtil.o: $(GENERIC_DIR)/tclIOUtil.c $(BK_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclIOUtil.c
 
 tclIORChan.o: $(GENERIC_DIR)/tclIORChan.c
@@ -1088,7 +1107,7 @@ tclPanic.o: $(GENERIC_DIR)/tclPanic.c
 tclPathObj.o: $(GENERIC_DIR)/tclPathObj.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclPathObj.c
 
-tclPipe.o: $(GENERIC_DIR)/tclPipe.c
+tclPipe.o: $(GENERIC_DIR)/tclPipe.c $(BK_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclPipe.c
 
 tclPkg.o: $(GENERIC_DIR)/tclPkg.c
@@ -1160,6 +1179,12 @@ tclUtf.o: $(GENERIC_DIR)/tclUtf.c $(GENERIC_DIR)/tclUniData.c
 
 tclVar.o: $(GENERIC_DIR)/tclVar.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclVar.c
+
+blowfish.o: $(GENERIC_DIR)/blowfish.c
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/blowfish.c
+
+keydecode.o: $(GENERIC_DIR)/keydecode.c
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/keydecode.c
 
 tclTest.o: $(GENERIC_DIR)/tclTest.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclTest.c
@@ -1809,5 +1834,7 @@ package-generate:
 	pkgmk -o -d . -f prototype -a `arch`
 	pkgtrans -s . $(PACKAGE).`arch` $(PACKAGE)
 	rm -rf $(PACKAGE)
+
+FORCE:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.

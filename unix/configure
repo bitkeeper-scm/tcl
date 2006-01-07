@@ -1411,6 +1411,73 @@ echo "${ECHO_T}$enableval" >&6
 
 
 #------------------------------------------------------------------------
+# Try to find BitKeeper source repo
+#------------------------------------------------------------------------
+
+	if test x"${no_bk}" = x ; then
+		# reset no_bk in case something fails
+		no_bk=true
+		# Check whether --with-bk or --without-bk was given.
+if test "${with_bk+set}" = set; then
+  withval="$with_bk"
+  with_bksource=${withval}
+fi
+
+		echo $ac_n "checking for BK source tree""... $ac_c" 1>&6
+echo "configure:618: checking for BK source tree" >&5
+		if test x"${with_bksource}" != x ; then
+			if test -f "${with_bksource}/tclkey.h" ; then
+				ac_cv_c_bksource=`(cd ${with_bksource}/src ; pwd)`
+			else
+				{ echo "configure: error: ${with_bksource}/src directory does not contain tclkey.h" 1>&2; exit 1; }
+			fi
+		fi
+		
+		# Now check for it in the parent directory
+		if test x"${ac_cv_c_bksource}" = x ; then
+			if test -f "../../../../tclkey.h" ; then
+				ac_cv_c_bksource=`(cd ../../../.. ; pwd)`
+			fi
+		fi
+		
+		if test x"${ac_cv_c_bksource}" = x ; then
+			BK_DIR=""
+			BK_HDRS="BK_HDRS = "
+			BK_SRCS="BK_SRCS = "
+			BK_OBJS="BK_OBJS = "
+			BK_LIBS="BK_LIBS = "
+			BK_INCLUDES=""
+			
+			
+			
+			
+			
+			
+			echo "configure: warning: Can't find BK source tree encryption disabled" 1>&2
+		else
+			no_bk=
+			BK_DIR=${ac_cv_c_bksource}
+			BK_HDRS=""
+			BK_SRCS=""
+			BK_OBJS=""
+			BK_LIBS=""
+			BK_INCLUDES="-I$BK_DIR"
+			cat >> confdefs.h <<\EOF
+#define BK 1
+EOF
+
+			
+			
+			
+			
+			
+			
+			echo "$ac_t""found $BK_DIR" 1>&6
+		fi
+	fi
+
+
+#------------------------------------------------------------------------
 # Standard compiler checks
 #------------------------------------------------------------------------
 

@@ -25,6 +25,15 @@
 #   include "tclWinInt.h"
 #endif
 #include "tclFileSystem.h"
+#ifdef	BK
+#include "blowfish.h"
+#include "tclkey.h"
+#include "tomcrypt/mycrypt.h"
+#include "tomcrypt/randseed.h"
+
+extern	char *keydecode(char *key);
+int	enable_secure_bk_calls = -1;
+#endif
 
 /*
  * Prototypes for procedures defined later in this file.
@@ -1732,6 +1741,9 @@ Tcl_FSEvalFileEx(interp, pathPtr, encodingName)
     char *string;
     Tcl_Channel chan;
     Tcl_Obj *objPtr;
+#ifdef	BK
+    int	oldbk;
+#endif
 
     if (Tcl_FSGetNormalizedPath(interp, pathPtr) == NULL) {
 	return TCL_ERROR;
@@ -1793,7 +1805,71 @@ Tcl_FSEvalFileEx(interp, pathPtr, encodingName)
     iPtr->scriptFile = pathPtr;
     Tcl_IncrRefCount(iPtr->scriptFile);
     string = Tcl_GetStringFromObj(objPtr, &length);
+#ifdef	BK
+    /*
+     * Here we create a stack for the security stuff.  We were called
+     * from bk then !rand_checkSeed() will be true and only when that
+     * is true do we decode encrypted scripts and we enable those
+     * scripts to call restricted bk commands.  Non-encrypted scripts
+     * cannot call bk.
+     *
+     * But we make a special case for the first time we get here, then
+     * enable secure bk when we return.  This is so commands from the
+     * main Tk loop will also work.
+     */
+    if (enable_secure_bk_calls < 0) {
+	    /*
+	     * We need to make sure that rand_checkSeed() is only
+	     * called once at the beginning of the program.  Both
+	     * because calls to rand_setSeed() will invalidate the
+	     * data in the environment and because the RANDSEED data
+	     * is time sensitive and will get stale.
+	     */
+	    keydecode((char *)bkey);
+	    oldbk = !rand_checkSeed();
+    } else {
+	    oldbk = enable_secure_bk_calls;
+    }
+    if ((strncmp(string, "#%-\n", 4) == 0) && oldbk) {
+	FILE *f;
+	unsigned len;
+	unsigned long outlen;
+	char buf[8196], out[8196];
+	blf_ctx C;
+
+	f = fopen(Tcl_GetString(pathPtr), "rb");
+	length = 0;
+	while (fgets(buf, sizeof(buf), f)) {
+		len = strlen(buf);
+		outlen = sizeof(out);
+		if (base64_decode((unsigned char *)buf,
+		    len, (unsigned char *)out, &outlen)) {
+			fclose(f);
+        		Tcl_ResetResult(interp);
+			Tcl_AppendResult(interp,
+			    "couldn't decode file \"", Tcl_GetString(pathPtr),
+			      "\": ", Tcl_PosixError(interp), (char *) NULL);
+			goto end;
+		}
+	    	memcpy(&string[length], out, outlen);
+	    	length += outlen;
+	}
+	fclose(f);
+	blf_key(&C, bkey, 10);
+	blf_dec(&C, (u32 *)(string), length/8);
+
+	enable_secure_bk_calls = 1;
+    } else {
+	enable_secure_bk_calls = 0;
+    }
+#endif
+
+
     result = Tcl_EvalEx(interp, string, length, 0);
+#ifdef	BK
+    enable_secure_bk_calls = oldbk;
+#endif
+
 
     /*
      * Now we have to be careful; the script may have changed the
