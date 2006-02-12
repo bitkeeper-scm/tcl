@@ -321,6 +321,8 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 	tclStubLib.o tclTimer.o tclTrace.o tclUtf.o tclUtil.o tclVar.o \
 	tclTomMathInterface.o
 
+L_OBJS = Lscanner.o Lgrammar.o
+
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
 	bn_fast_s_mp_sqr.o bn_mp_add.o bn_mp_and.o \
         bn_mp_add_d.o bn_mp_clamp.o bn_mp_clear.o bn_mp_clear_multi.o \
@@ -347,7 +349,7 @@ MAC_OSX_OBJS = tclMacOSXBundle.o tclMacOSXFCmd.o tclMacOSXNotify.o
 
 BK_OBJS	?= blowfish.o keydecode.o
 
-OBJS = ${GENERIC_OBJS} ${TOMMATH_OBJS} ${UNIX_OBJS} ${NOTIFY_OBJS} \
+OBJS = ${GENERIC_OBJS} ${TOMMATH_OBJS} ${L_OBJS} ${UNIX_OBJS} ${NOTIFY_OBJS} \
 	${COMPAT_OBJS} ${BK_OBJS} @DL_OBJS@ @PLAT_OBJS@
 
 TCL_DECLS = \
@@ -447,6 +449,13 @@ BK_HDRS ?= \
 BK_SRCS	?= \
 	$(GENERIC_DIR)/blowfish.c \
 	$(GENERIC_DIR)/keydecode.c 
+
+L_HDRS = \
+	$(GENERIC_DIR)/Ltokens.h
+	
+L_SRCS = \
+	$(GENERIC_DIR)/Lscanner.l \
+	$(GENERIC_DIR)/Lgrammar.y
 
 STUB_SRCS = \
 	$(GENERIC_DIR)/tclStubLib.c
@@ -553,7 +562,7 @@ MAC_OSX_SRCS = \
 # files won't compile on the current machine, and they will cause
 # problems for things like "make depend".
 
-SRCS = $(GENERIC_SRCS) $(TOMMATH_SRCS) \
+SRCS = $(GENERIC_SRCS) $(TOMMATH_SRCS) $(L_SRCS) \
 	$(UNIX_SRCS) $(NOTIFY_SRCS) $(STUB_SRCS) \
 	$(BK_SRCS) \
 	@PLAT_SRCS@
@@ -1215,6 +1224,20 @@ tclThreadTest.o: $(GENERIC_DIR)/tclThreadTest.c
 
 tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclTomMathInterface.c
+	
+	
+Lscanner.c: $(L_SRCS) $(L_HDRS) Lgrammar.c
+	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
+
+Lscanner.o: Lscanner.c $(L_SRCS)
+	$(CC) -c $(CC_SWITCHES) Lscanner.c
+	
+Lgrammar.c: $(L_SRCS)
+	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
+
+Lgrammar.o: Lgrammar.c $(L_SRCS)
+	$(CC) -c $(CC_SWITCHES) Lgrammar.c
+	
 
 bncore.o: $(TOMMATH_DIR)/bncore.c
 	$(CC) -c $(CC_SWITCHES) $(TOMMATH_DIR)/bncore.c
