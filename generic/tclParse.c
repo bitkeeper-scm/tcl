@@ -173,10 +173,81 @@ static CONST char charTypeTable[] = {
 
 static int		CommandComplete _ANSI_ARGS_((CONST char *script,
 			    int numBytes));
+static int		ParsePragma  _ANSI_ARGS_((CONST char *src,
+			    int numBytes, Tcl_Parse *parsePtr));
 static int		ParseComment _ANSI_ARGS_((CONST char *src,
 			    int numBytes, Tcl_Parse *parsePtr));
 static int		ParseTokens _ANSI_ARGS_((CONST char *src, int numBytes,
 			    int mask, int flags, Tcl_Parse *parsePtr));
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * ParsePragma --
+ *
+ *	Scans up to numBytes bytes starting at src, consuming a Tcl pragma
+ *
+ * Results:
+ * 	Records in parsePtr information about the parse. Returns the number of
+ * 	bytes consumed.
+ *
+ * Side effects:
+ * 	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+ParsePragma(
+    CONST char *src,		/* First character to parse. */
+    register int numBytes,	/* Max number of bytes to scan. */
+    Tcl_Parse *parsePtr)	/* Information about parse in progress.
+				 * Updated if parsing indicates an incomplete
+				 * command. */
+{
+    register CONST char *p = src;
+    char *end, type;
+    Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
+    int wordIndex;		/* Index of word token for current word. */
+    int scanned;
+
+    do {
+	scanned = TclParseWhiteSpace(p, numBytes, parsePtr, &type);
+	p += scanned;
+	numBytes -= scanned;
+    } while (numBytes && (*p == '\n') && (p++,numBytes--));
+
+    if (strncmp(p, "#pragma language L\n", 19) != 0) {
+	return TCL_RETURN;
+    }
+
+    parsePtr->commentStart = p;
+    parsePtr->commentSize = 19;
+    p += 20;
+    parsePtr->commandStart = p;
+    numBytes -= 20;
+
+    end = strstr(p, "#pragma language tcl");
+    if (end == NULL) {
+	parsePtr->commandSize = numBytes;
+    } else {
+	parsePtr->commandSize = end - p;
+    }
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_PRAGMA;
+    tokenPtr->start = parsePtr->commandStart;
+    tokenPtr->size  = parsePtr->commandSize;
+    tokenPtr->numComponents = 1;
+    parsePtr->numTokens++;
+    parsePtr->numWords++;
+    parsePtr->term = parsePtr->commandStart + parsePtr->commandSize;
+
+    return TCL_OK;
+}
 
 /*
  *----------------------------------------------------------------------
@@ -285,6 +356,31 @@ Tcl_ParseCommand(interp, start, numBytes, nested, parsePtr)
 	terminators = TYPE_COMMAND_END | TYPE_CLOSE_BRACK;
     } else {
 	terminators = TYPE_COMMAND_END;
+    }
+
+    /*
+     * Check for pragmas
+     */
+
+    switch (ParsePragma(start, numBytes, parsePtr)) {
+	case TCL_ERROR:
+	    /*
+	     * Should indicate actual pragma parsing error
+	    parsePtr->errorType = TCL_PARSE_SYNTAX;
+	     */
+	    Tcl_FreeParse(parsePtr);
+	    return TCL_ERROR;
+	case TCL_OK:
+	    /*
+	     * Parsed a pragma - return now
+	     */
+	    return TCL_OK;
+	case TCL_BREAK:
+	case TCL_RETURN:
+	    /*
+	     * No pragma - fall through
+	     */
+	    break;
     }
 
     /*

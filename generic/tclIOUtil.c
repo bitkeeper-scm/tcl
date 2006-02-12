@@ -1751,6 +1751,7 @@ Tcl_FSEvalFileEx(interp, pathPtr, encodingName)
 
     result = TCL_ERROR;
     objPtr = Tcl_NewObj();
+    Tcl_IncrRefCount(objPtr);
 
     if (Tcl_FSStat(pathPtr, &statBuf) == -1) {
 	Tcl_SetErrno(errno);
@@ -1804,8 +1805,8 @@ Tcl_FSEvalFileEx(interp, pathPtr, encodingName)
     oldScriptFile = iPtr->scriptFile;
     iPtr->scriptFile = pathPtr;
     Tcl_IncrRefCount(iPtr->scriptFile);
-    string = Tcl_GetStringFromObj(objPtr, &length);
 #ifdef	BK
+    string = Tcl_GetStringFromObj(objPtr, &length);
     /*
      * Here we create a stack for the security stuff.  We were called
      * from bk then !rand_checkSeed() will be true and only when that
@@ -1858,18 +1859,24 @@ Tcl_FSEvalFileEx(interp, pathPtr, encodingName)
 	blf_key(&C, bkey, 10);
 	blf_dec(&C, (u32 *)(string), length/8);
 
+	/* put the decrypted script back into the Tcl_Obj */
+	Tcl_SetStringObj(objPtr, strlen(string), string);
+
 	enable_secure_bk_calls = 1;
     } else {
 	enable_secure_bk_calls = 0;
     }
 #endif
 
+    /*
+     * Let the compiler/engine subsystem do the evaluation
+     */
+    string = NULL; /* lint */
+    result = Tcl_EvalObjEx(interp, objPtr, 0);
 
-    result = Tcl_EvalEx(interp, string, length, 0);
 #ifdef	BK
     enable_secure_bk_calls = oldbk;
 #endif
-
 
     /*
      * Now we have to be careful; the script may have changed the

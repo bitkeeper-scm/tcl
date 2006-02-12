@@ -5,7 +5,7 @@
 #include "tclCompile.h"
 
 static	Tcl_Interp	*L_interp;
-static	CompileEnv	*L_compEnv;
+static	CompileEnv	*L_envPtr;
 %}
 
 %union {
@@ -120,8 +120,8 @@ expr:	  "(" expr ")"		{ }
 	| expr "||" expr	{ }
 	| T_STR			{ 
 		TclEmitPush(
-		    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s),
-		    L_envPtr));
+		    TclRegisterNewNSLiteral(L_envPtr, $1.s, strlen($1.s)),
+		    L_envPtr);
 	}
 	| T_INT			{ 
 		TclEmitInt4($1.i, L_envPtr);
@@ -130,8 +130,8 @@ expr:	  "(" expr ")"		{ }
 	| T_ID			{ }
 	| T_ID {
 		TclEmitPush(
-	    	    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s), 
-	    	    L_envPtr));
+	    	    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s)), 
+	    	    L_envPtr);
 	 } "(" expr ")"	{ 
 		/* XXX: Only one argument for now */
 	    	TclEmitInstInt4(INST_INVOKE_STK4, 1, L_envPtr);
@@ -152,7 +152,7 @@ LCompileScript(
 	
 	/* save arguments in global variables so the parser can see them */
 	L_interp = interp;
-	L_compEnv = envPtr;
+	L_envPtr = envPtr;
 	
 	lex_buffer = (void *)L__scan_bytes(str, numBytes);
 

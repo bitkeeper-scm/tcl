@@ -1107,6 +1107,36 @@ TclCompileScript(interp, script, numBytes, envPtr)
 	    EnterCmdStartData(envPtr, currCmdIndex,
 		    (parse.commandStart - envPtr->source), startCodeOffset);
 
+	    tokenPtr = parse.tokenPtr;
+	    if ((parse.numWords == 1) &&
+	    	    (tokenPtr->type == TCL_TOKEN_PRAGMA)) {
+		/*
+		 * L SCRIPT: We know that we have one word that is the
+		 * script to compile. Push it as 'puts $script'
+		 */
+		wordIdx = 2;
+		cmdPtr = (Command *) Tcl_FindCommand(interp,
+			"puts", (Tcl_Namespace *) cmdNsPtr, /*flags*/ 0);
+		
+		objIndex = TclRegisterNewNSLiteral(envPtr, "puts", 4);
+		if (cmdPtr != NULL) {
+		    TclSetCmdNameObj(interp,
+		            envPtr->literalArrayPtr[objIndex].objPtr, cmdPtr);
+		}
+		TclEmitPush(objIndex, envPtr);
+		
+		/*
+		 * Emit an invoke instruction for the command. We skip this if a
+		 * compile procedure was found for the command.
+		 */
+		if (wordIdx <= 255) {
+		    TclEmitInstInt1(INST_INVOKE_STK1, wordIdx, envPtr);
+		} else {
+		    TclEmitInstInt4(INST_INVOKE_STK4, wordIdx, envPtr);
+		}
+		
+		goto finishCommand;
+	    }
 	    /*
 	     * Each iteration of the following loop compiles one word from the
 	     * command.
