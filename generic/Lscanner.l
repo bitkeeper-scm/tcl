@@ -10,7 +10,6 @@ TAG	[a-zA-Z_][0-9a-zA-Z_.]*
 #include <string.h>
 #include "Ltokens.h"
 #include "Lgrammar.h"
-static int tok;
 static char *str;
 /* XXX string collection buffer; change to arb len string soon */
 static char strbuf[1024];

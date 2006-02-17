@@ -10,6 +10,7 @@ static	CompileEnv	*L_envPtr;
 
 %union {
 	val	v;
+	int	i;
 }
 
 %token T_LPAREN "("
@@ -60,6 +61,8 @@ static	CompileEnv	*L_envPtr;
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS
 %nonassoc T_LPAREN T_RPAREN
 
+%type <i> expr exprlist
+
 %%
 
 start:	  funclist	{ }
@@ -81,82 +84,88 @@ stmt:	  "if" "(" expr ")" "{" sl "}"
 	| "if" "(" expr ")" "{" sl "}" "else" "{" sl "}"
 	| "unless" "(" expr ")" "{" sl "}"
 	| "unless" "(" expr ")" "{" sl "}" "else" "{" sl "}"
-	| T_ID "(" exprlist ")" ";" { }
-	| T_ID "=" expr ";" { }
+	| T_ID {
+		TclEmitPush(
+	    	    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s)),
+	    	    L_envPtr);
+	 } "(" exprlist ")" ";" {
+	    	TclEmitInstInt4(INST_INVOKE_STK4, $4+1, L_envPtr);
+	 }
+	| T_ID "=" expr ";"	{ }
 	;
 
-exprlist: exprlist "," expr
-	| expr		{ }
-	|		{ }
+exprlist: exprlist "," expr	{ $$ = $3 + 1; }
+	| expr			{ $$ = 1; }
+	|			{ $$ = 0; }
 	;
 
-expr:	  "(" expr ")"		{ }
-	| "!" expr		{ }
-	| "-" expr %prec UMINUS	{ }
-	| "++" expr		{ }
-	| "--" expr		{ }
-	| expr "++"		{ }
-	| expr "--"		{ }
-	| expr "*" expr		{ }
-	| expr "/" expr		{ }
-	| expr "%" expr		{ }
-	| expr "+" expr		{ }
-	| expr "-" expr		{ }
-	| expr "lt" expr	{ }
-	| expr "le" expr	{ }
-	| expr "gt" expr	{ }
-	| expr "ge" expr	{ }
-	| expr "eq" expr	{ }
-	| expr "ne" expr	{ }
-	| expr "==" expr	{ }
-	| expr "!=" expr	{ }
-	| expr ">" expr		{ }
-	| expr ">=" expr	{ }
-	| expr "<" expr		{ }
-	| expr "<=" expr	{ }
-	| expr "=~" T_RE	{ }
-	| expr "!~" T_RE	{ }
-	| expr "&&" expr	{ }
-	| expr "||" expr	{ }
-	| T_STR			{ 
+expr:	  "(" expr ")"		{ $$ = 1; }
+	| "!" expr		{ $$ = 1; }
+	| "-" expr %prec UMINUS	{ $$ = 1; }
+	| "++" expr		{ $$ = 1; }
+	| "--" expr		{ $$ = 1; }
+	| expr "++"		{ $$ = 1; }
+	| expr "--"		{ $$ = 1; }
+	| expr "*" expr		{ $$ = 1; }
+	| expr "/" expr		{ $$ = 1; }
+	| expr "%" expr		{ $$ = 1; }
+	| expr "+" expr		{ $$ = 1; }
+	| expr "-" expr		{ $$ = 1; }
+	| expr "lt" expr	{ $$ = 1; }
+	| expr "le" expr	{ $$ = 1; }
+	| expr "gt" expr	{ $$ = 1; }
+	| expr "ge" expr	{ $$ = 1; }
+	| expr "eq" expr	{ $$ = 1; }
+	| expr "ne" expr	{ $$ = 1; }
+	| expr "==" expr	{ $$ = 1; }
+	| expr "!=" expr	{ $$ = 1; }
+	| expr ">" expr		{ $$ = 1; }
+	| expr ">=" expr	{ $$ = 1; }
+	| expr "<" expr		{ $$ = 1; }
+	| expr "<=" expr	{ $$ = 1; }
+	| expr "=~" T_RE	{ $$ = 1; }
+	| expr "!~" T_RE	{ $$ = 1; }
+	| expr "&&" expr	{ $$ = 1; }
+	| expr "||" expr	{ $$ = 1; }
+	| T_STR			{
 		TclEmitPush(
 		    TclRegisterNewNSLiteral(L_envPtr, $1.s, strlen($1.s)),
 		    L_envPtr);
+		$$ = 1;
 	}
-	| T_INT			{ 
+	| T_INT			{
 		TclEmitInt4($1.i, L_envPtr);
+		$$ = 1;
 	}
 	| T_FLOAT		{ }
 	| T_ID			{ }
-	| T_ID {
-		TclEmitPush(
-	    	    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s)), 
-	    	    L_envPtr);
-	 } "(" expr ")"	{ 
-		/* XXX: Only one argument for now */
-	    	TclEmitInstInt4(INST_INVOKE_STK4, 1, L_envPtr);
-	}
 	;
 %%
 
-/* XXX: Needs to be made re-entrant to support multiple interpreters */
 void
 LCompileScript(
-	Tcl_Interp *interp, 
-	CONST char *str, 
-	int numBytes, 
+	Tcl_Interp *interp,
+	CONST char *str,
+	int numBytes,
 	CompileEnv *envPtr
 )
 {
-	void	*lex_buffer = 0;
-	
-	/* save arguments in global variables so the parser can see them */
+	void		*lex_buffer = (void *)L__scan_bytes(str, numBytes);
+	Tcl_Interp	*svinterp = L_interp;
+	CompileEnv	*svenvPtr = L_envPtr;
+
+	/*
+	 * Save arguments in global variables so the parser can see them,
+	 * then restore previous values so the parser is re-entrant.
+	 */
 	L_interp = interp;
 	L_envPtr = envPtr;
-	
-	lex_buffer = (void *)L__scan_bytes(str, numBytes);
 
 	L_parse();
+	L__delete_buffer(lex_buffer);
+
+	L_interp = svinterp;
+	L_envPtr = svenvPtr;
 }
 
 int
