@@ -105,6 +105,12 @@ GENERIC_DIR		= @srcdir@/../generic
 TOMMATH_DIR		= @srcdir@/../libtommath
 WIN_DIR			= @srcdir@
 COMPAT_DIR		= @srcdir@/../compat
+BK_DIR			= @BK_DIR@
+BK_INCLUDES		= @BK_INCLUDES@
+@BK_LIBS@
+@BK_OBJS@
+@BK_HDRS@
+BK_LIBS			?= $(BK_DIR)/tomcrypt/libtomcrypt.a
 
 # Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
@@ -179,7 +185,7 @@ SHLIB_LD	= @SHLIB_LD@
 SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@ $(LIBS)
 SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_SUFFIX	= @SHLIB_SUFFIX@
-LIBS		= @LIBS@
+LIBS		= @LIBS@ $(BK_LIBS)
 
 RMDIR		= rm -rf
 MKDIR		= mkdir -p
@@ -345,6 +351,15 @@ TOMMATH_OBJS = \
 	bn_s_mp_sqr.${OBJEXT} \
 	bn_s_mp_sub.${OBJEXT}
 
+
+BK_HDRS ?= \
+	$(BK_DIR)/tclkey.h \
+	$(BK_DIR)/tomcrypt/mycrypt.h \
+	$(BK_DIR)/tomcrypt/randseed.h
+	
+BK_OBJS ?= \
+	blowfish.$(OBJEXT) \
+	keydecode.$(OBJEXT)
 
 WIN_OBJS = \
 	tclWin32Dll.$(OBJEXT) \
@@ -523,6 +538,8 @@ tclStubLib.${OBJEXT}: tclStubLib.c
 
 
 # Implicit rule for all object files that will end up in the Tcl library
+tclIOUtil.$(OBJEXT): $(BK_HDRS)
+tclPipe.$(OBJEXT): $(BK_HDRS)
 
 .c.${OBJEXT}:
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
@@ -753,3 +770,6 @@ genstubs:
 	    "$(GENERIC_DIR_NATIVE)\tcl.decls" \
             "$(GENERIC_DIR_NATIVE)\tclInt.decls" \
 	    "$(GENERIC_DIR_NATIVE)\tclTomMath.decls"
+
+FORCE:
+
