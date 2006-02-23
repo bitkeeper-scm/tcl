@@ -321,7 +321,7 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 	tclStubLib.o tclTimer.o tclTrace.o tclUtf.o tclUtil.o tclVar.o \
 	tclTomMathInterface.o
 
-L_OBJS = Lscanner.o Lgrammar.o
+L_OBJS = Lscanner.o Lgrammar.o Lcompile.o
 
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
 	bn_fast_s_mp_sqr.o bn_mp_add.o bn_mp_and.o \
@@ -454,11 +454,13 @@ BK_SRCS	?= \
 	$(GENERIC_DIR)/keydecode.c 
 
 L_HDRS = \
-	$(GENERIC_DIR)/Ltokens.h
-	
+	$(GENERIC_DIR)/Ltokens.h \
+	$(GENERIC_DIR)/Lcompile.h
+
 L_SRCS = \
 	$(GENERIC_DIR)/Lscanner.l \
-	$(GENERIC_DIR)/Lgrammar.y
+	$(GENERIC_DIR)/Lgrammar.y \
+	$(GENERIC_DIR)/Lcompile.c
 
 STUB_SRCS = \
 	$(GENERIC_DIR)/tclStubLib.c
@@ -1246,20 +1248,23 @@ tclThreadTest.o: $(GENERIC_DIR)/tclThreadTest.c
 
 tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclTomMathInterface.c
-	
-	
-Lscanner.c: $(L_SRCS) $(L_HDRS) Lgrammar.c
-	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
+
+
+Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
+	flex --header-file=Lscanner.h -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
 Lscanner.o: Lscanner.c $(L_SRCS)
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
-	
-Lgrammar.c: $(L_SRCS)
+
+Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.o: Lgrammar.c $(L_SRCS)
+Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS)
 	$(CC) -c $(CC_SWITCHES) Lgrammar.c
-	
+
+Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
+
 
 bncore.o: $(TOMMATH_DIR)/bncore.c $(MATHHDRS)
 	$(CC) -c $(CC_SWITCHES) $(TOMMATH_DIR)/bncore.c

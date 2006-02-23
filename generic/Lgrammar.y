@@ -1,17 +1,12 @@
 %{
 #include <stdio.h>
 #include "Ltokens.h"
+#include "Lscanner.h"
+#include "Lcompile.h"
 #include "tclInt.h"
 #include "tclCompile.h"
 
-static	Tcl_Interp	*L_interp;
-static	CompileEnv	*L_envPtr;
 %}
-
-%union {
-	val	v;
-	int	i;
-}
 
 %token T_LPAREN "("
 %token T_RPAREN ")"
@@ -48,9 +43,9 @@ static	CompileEnv	*L_envPtr;
 %token T_LESSTHANEQ "<="
 %token T_COMMA ","
 
-%token <v> T_ID T_STR T_RE
-%token <v> T_INT
-%token <v> T_FLOAT
+%token T_ID T_STR T_RE
+%token T_INT
+%token T_FLOAT
 
 %left T_OROR
 %left T_ANDAND
@@ -61,112 +56,81 @@ static	CompileEnv	*L_envPtr;
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS
 %nonassoc T_LPAREN T_RPAREN
 
-%type <i> expr exprlist
-
 %%
 
 start:	  funclist	{ }
 	;
 
-funclist: funclist func	{ }
+funclist: funclist function_declaration	{ }
 	|		{ }
 	;
 
-func:	  T_ID "(" T_ID ")" "{" sl "}"
-			{ }
+function_declaration:	
+        T_ID { L_begin_function_decl(&$1); } "(" formal_parameter_list ")" "{" stmt_list "}"
+                                { L_end_function_decl(&$1); }
 	;
 
-sl:	  sl stmt	{ }
-	|		{ }
+stmt_list: stmt_list stmt       { }
+ 	|		        { }
 	;
 
-stmt:	  "if" "(" expr ")" "{" sl "}"
-	| "if" "(" expr ")" "{" sl "}" "else" "{" sl "}"
-	| "unless" "(" expr ")" "{" sl "}"
-	| "unless" "(" expr ")" "{" sl "}" "else" "{" sl "}"
-	| T_ID {
-		TclEmitPush(
-	    	    TclRegisterNewLiteral(L_envPtr, $1.s, strlen($1.s)),
-	    	    L_envPtr);
-	 } "(" exprlist ")" ";" {
-	    	TclEmitInstInt4(INST_INVOKE_STK4, $4+1, L_envPtr);
-	 }
+stmt:	  "if" "(" expr ")" "{" stmt_list "}"
+	| "if" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
+	| "unless" "(" expr ")" "{" stmt_list "}"
+	| "unless" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
+        | T_ID { L_begin_function_call(&$1); } "(" actual_parameter_list ")" ";" 
+                        { L_end_function_call(&$1, $4.v.i); }
 	| T_ID "=" expr ";"	{ }
 	;
 
-exprlist: exprlist "," expr	{ $$ = $3 + 1; }
-	| expr			{ $$ = 1; }
-	|			{ $$ = 0; }
+formal_parameter_list: 
+        formal_parameter_list "," T_ID { }
+        | T_ID                  { $$ = $1 }
+        |                       { }
+        ;
+
+actual_parameter_list: 
+        actual_parameter_list "," expr	{ L_pass_parameter(&$3); $$.type = LTOKEN_INT; $$.v.i = $1.v.i + 1; }
+	| expr			{ L_pass_parameter(&$1); $$.type = LTOKEN_INT; $$.v.i = 1; }
+	|			{ $$.type = LTOKEN_INT; $$.v.i = 0; }
 	;
 
-expr:	  "(" expr ")"		{ $$ = 1; }
-	| "!" expr		{ $$ = 1; }
-	| "-" expr %prec UMINUS	{ $$ = 1; }
-	| "++" expr		{ $$ = 1; }
-	| "--" expr		{ $$ = 1; }
-	| expr "++"		{ $$ = 1; }
-	| expr "--"		{ $$ = 1; }
-	| expr "*" expr		{ $$ = 1; }
-	| expr "/" expr		{ $$ = 1; }
-	| expr "%" expr		{ $$ = 1; }
-	| expr "+" expr		{ $$ = 1; }
-	| expr "-" expr		{ $$ = 1; }
-	| expr "lt" expr	{ $$ = 1; }
-	| expr "le" expr	{ $$ = 1; }
-	| expr "gt" expr	{ $$ = 1; }
-	| expr "ge" expr	{ $$ = 1; }
-	| expr "eq" expr	{ $$ = 1; }
-	| expr "ne" expr	{ $$ = 1; }
-	| expr "==" expr	{ $$ = 1; }
-	| expr "!=" expr	{ $$ = 1; }
-	| expr ">" expr		{ $$ = 1; }
-	| expr ">=" expr	{ $$ = 1; }
-	| expr "<" expr		{ $$ = 1; }
-	| expr "<=" expr	{ $$ = 1; }
-	| expr "=~" T_RE	{ $$ = 1; }
-	| expr "!~" T_RE	{ $$ = 1; }
-	| expr "&&" expr	{ $$ = 1; }
-	| expr "||" expr	{ $$ = 1; }
-	| T_STR			{
-		TclEmitPush(
-		    TclRegisterNewNSLiteral(L_envPtr, $1.s, strlen($1.s)),
-		    L_envPtr);
-		$$ = 1;
-	}
-	| T_INT			{
-		TclEmitInt4($1.i, L_envPtr);
-		$$ = 1;
-	}
-	| T_FLOAT		{ }
+expr:	/* "(" expr ")"		{ $$ = 1; } */
+/* 	| "!" expr		{ $$ = 1; } */
+/* 	| "-" expr %prec UMINUS	{ $$ = 1; } */
+/* 	| "++" expr		{ $$ = 1; } */
+/* 	| "--" expr		{ $$ = 1; } */
+/* 	| expr "++"		{ $$ = 1; } */
+/* 	| expr "--"		{ $$ = 1; } */
+/* 	| expr "*" expr		{ $$ = 1; } */
+/* 	| expr "/" expr		{ $$ = 1; } */
+/* 	| expr "%" expr		{ $$ = 1; } */
+/* 	| expr "+" expr		{ $$ = 1; } */
+/* 	| expr "-" expr		{ $$ = 1; } */
+/* 	| expr "lt" expr	{ $$ = 1; } */
+/* 	| expr "le" expr	{ $$ = 1; } */
+/* 	| expr "gt" expr	{ $$ = 1; } */
+/* 	| expr "ge" expr	{ $$ = 1; } */
+/* 	| expr "eq" expr	{ $$ = 1; } */
+/* 	| expr "ne" expr	{ $$ = 1; } */
+/* 	| expr "==" expr	{ $$ = 1; } */
+/* 	| expr "!=" expr	{ $$ = 1; } */
+/* 	| expr ">" expr		{ $$ = 1; } */
+/* 	| expr ">=" expr	{ $$ = 1; } */
+/* 	| expr "<" expr		{ $$ = 1; } */
+/* 	| expr "<=" expr	{ $$ = 1; } */
+/* 	| expr "=~" T_RE	{ $$ = 1; } */
+/* 	| expr "!~" T_RE	{ $$ = 1; } */
+/* 	| expr "&&" expr	{ $$ = 1; } */
+/* 	| expr "||" expr	{ $$ = 1; } */
+/*         |  */
+        T_STR                 { $$ = $1; }
+        | T_INT                 { $$ = $1; }
+        | T_FLOAT               { $$ = $1; }
 	| T_ID			{ }
 	;
+
 %%
-
-void
-LCompileScript(
-	Tcl_Interp *interp,
-	CONST char *str,
-	int numBytes,
-	CompileEnv *envPtr
-)
-{
-	void		*lex_buffer = (void *)L__scan_bytes(str, numBytes);
-	Tcl_Interp	*svinterp = L_interp;
-	CompileEnv	*svenvPtr = L_envPtr;
-
-	/*
-	 * Save arguments in global variables so the parser can see them,
-	 * then restore previous values so the parser is re-entrant.
-	 */
-	L_interp = interp;
-	L_envPtr = envPtr;
-
-	L_parse();
-	L__delete_buffer(lex_buffer);
-
-	L_interp = svinterp;
-	L_envPtr = svenvPtr;
-}
 
 int
 L_error(char *s)

@@ -40,6 +40,7 @@ static char strbuf[1024];
 	"/"		{
 				BEGIN(INITIAL);
 				*str++ = 0;
+                                L_lval.type = LTOKEN_STRING;
 				L_lval.v.s = malloc(strlen(strbuf)+1);
 				strcpy(L_lval.v.s, strbuf);
 				return T_RE;
@@ -61,12 +62,13 @@ static char strbuf[1024];
 "<"		return T_LESSTHAN;
 "<="		return T_LESSTHANEQ;
 {ID}		{
+                        L_lval.type = LTOKEN_STRING;
 			L_lval.v.s = malloc(yyleng+1);
 			strcpy(L_lval.v.s, yytext);
 			return T_ID;
 }
-[0-9]*		L_lval.v.i = atoi(yytext); return T_INT;
-[0-9]+\.[0-9]+	L_lval.v.f = atof(yytext); return T_FLOAT;
+[0-9]*		L_lval.type = LTOKEN_INT; L_lval.v.i = atoi(yytext); return T_INT;
+[0-9]+\.[0-9]+	L_lval.type = LTOKEN_FLOAT; L_lval.v.f = atof(yytext); return T_FLOAT;
 \"		BEGIN(str_double); str = strbuf;
 <str_double>{
 	\\n		*str++ = '\n';
@@ -76,6 +78,7 @@ static char strbuf[1024];
 	\"		{
 				BEGIN(INITIAL);
 				*str++ = 0;
+                                L_lval.type = LTOKEN_STRING;
 				L_lval.v.s = malloc(strlen(strbuf)+1);
 				strcpy(L_lval.v.s, strbuf);
 				return T_STR;
@@ -90,6 +93,7 @@ static char strbuf[1024];
 	\'		{
 				BEGIN(INITIAL);
 				*str++ = 0;
+                                L_lval.type = LTOKEN_STRING;
 				L_lval.v.s = malloc(strlen(strbuf)+1);
 				strcpy(L_lval.v.s, strbuf);
 				return T_STR;
