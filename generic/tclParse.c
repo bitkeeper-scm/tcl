@@ -183,7 +183,6 @@ static int		ParseTokens(CONST char *src, int numBytes,
  *----------------------------------------------------------------------
  *
  * ParsePragma --
- *
  *	Scans up to numBytes bytes starting at src, consuming a Tcl pragma
  *
  * Results:
@@ -195,7 +194,6 @@ static int		ParseTokens(CONST char *src, int numBytes,
  *
  *----------------------------------------------------------------------
  */
-
 static int
 ParsePragma(
     CONST char *src,		/* First character to parse. */
@@ -205,7 +203,7 @@ ParsePragma(
 				 * command. */
 {
     register CONST char *p = src;
-    char *end, type;
+    char *s, *end, type;
     Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
     int wordIndex;		/* Index of word token for current word. */
     int scanned;
@@ -216,16 +214,16 @@ ParsePragma(
 	numBytes -= scanned;
     } while (numBytes && (*p == '\n') && (p++,numBytes--));
 
-    if (strncmp(p, "#pragma language L\n", 19) != 0) {
+    if (strncmp(p, "#pragma language L", 18) != 0) {
 	return TCL_RETURN;
     }
 
+    s = strchr(p, '\n');
     parsePtr->commentStart = p;
-    parsePtr->commentSize = 19;
-    p += 20;
+    parsePtr->commentSize = s - p;
+    p += parsePtr->commentSize + 1;
     parsePtr->commandStart = p;
-    numBytes -= 20;
-
+    numBytes -= parsePtr->commentSize + 1;
     end = strstr(p, "#pragma language tcl");
     if (end == NULL) {
 	parsePtr->commandSize = numBytes;
@@ -2386,7 +2384,6 @@ TclObjCommandComplete(
  *
  *----------------------------------------------------------------------
  */
-
 int
 TclIsLocalScalar(
     CONST char *src,
