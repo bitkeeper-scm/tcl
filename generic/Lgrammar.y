@@ -1,7 +1,6 @@
 %{
 #include <stdio.h>
 #include "Ltokens.h"
-#include "Lscanner.h"
 #include "Lcompile.h"
 #include "tclInt.h"
 #include "tclCompile.h"
@@ -80,7 +79,7 @@ stmt:	  "if" "(" expr ")" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
         | T_ID { L_begin_function_call(&$1); } "(" actual_parameter_list ")" ";" 
                         { L_end_function_call(&$1, $4.v.i); }
-	| T_ID "=" expr ";"	{ }
+	| T_ID "=" expr ";"	{ L_assignment(&$1, &$3); }
 	;
 
 formal_parameter_list: 
@@ -127,7 +126,7 @@ expr:	/* "(" expr ")"		{ $$ = 1; } */
         T_STR                 { $$ = $1; }
         | T_INT                 { $$ = $1; }
         | T_FLOAT               { $$ = $1; }
-	| T_ID			{ }
+	| T_ID			{ $$ = $1; }
 	;
 
 %%

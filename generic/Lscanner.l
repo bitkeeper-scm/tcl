@@ -62,7 +62,7 @@ static char strbuf[1024];
 "<"		return T_LESSTHAN;
 "<="		return T_LESSTHANEQ;
 {ID}		{
-                        L_lval.type = LTOKEN_STRING;
+                        L_lval.type = LTOKEN_ID;
 			L_lval.v.s = malloc(yyleng+1);
 			strcpy(L_lval.v.s, yytext);
 			return T_ID;

@@ -1251,7 +1251,7 @@ tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 
 
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
-	flex --header-file=Lscanner.h -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
+	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
 Lscanner.o: Lscanner.c $(L_SRCS)
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
