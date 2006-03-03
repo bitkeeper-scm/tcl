@@ -42,6 +42,8 @@ L_begin_function_decl(ltoken *name)
     TclInitCompileEnv(lframe->interp, compEnv, "L Compiler", 
       strlen("L Compiler"));
     lframe->originalCodeNext = compEnv->codeNext;
+    TclEmitPush( TclAddLiteralObj(lframe->compEnv, Tcl_NewObj(), NULL),
+      lframe->compEnv);
 }
 
 void 
@@ -60,9 +62,6 @@ L_end_function_decl(ltoken *name)
     procPtr->numCompiledLocals = 0;
     procPtr->firstLocalPtr = NULL;
     procPtr->lastLocalPtr = NULL;
-
-    TclEmitPush( TclAddLiteralObj(lframe->compEnv, Tcl_NewObj(), NULL),
-      lframe->compEnv);
 
     TclEmitOpcode(INST_DONE, lframe->compEnv);
 
