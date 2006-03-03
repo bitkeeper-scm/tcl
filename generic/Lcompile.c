@@ -61,7 +61,8 @@ L_end_function_decl(ltoken *name)
     procPtr->firstLocalPtr = NULL;
     procPtr->lastLocalPtr = NULL;
 
-    maybeFixupEmptyCode(lframe);
+    TclEmitPush( TclAddLiteralObj(lframe->compEnv, Tcl_NewObj(), NULL),
+      lframe->compEnv);
 
     TclEmitOpcode(INST_DONE, lframe->compEnv);
 
@@ -94,40 +95,49 @@ L_end_function_call(ltoken *name, int param_count)
     TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->compEnv);
 }
 
+void
+L_push_str(ltoken *str)
+{
+        TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, 
+          str->v.s, strlen(str->v.s)), lframe->compEnv);
+}
+
+void
+L_push_int(ltoken *i)
+{
+        TclEmitPush(TclAddLiteralObj(lframe->compEnv, 
+          Tcl_NewIntObj(i->v.i), NULL), lframe->compEnv);
+}
+
+void
+L_push_id(ltoken *id)
+{
+	TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, 
+          id->v.s, strlen(id->v.s)), lframe->compEnv);
+        TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->compEnv);
+}
 
 void 
 L_pass_parameter(ltoken *parameter) 
 {
-    switch (parameter->type) {
-        case LTOKEN_INT:
-            TclEmitInt4(parameter->v.i, lframe->compEnv);
-            break;
-        case LTOKEN_FLOAT:
-            L_bomb("Floats aren't implemented yet.");
-            break;
-        case LTOKEN_STRING:
-            TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, 
-              parameter->v.s, strlen(parameter->v.s)), lframe->compEnv);
-            break;
-        case LTOKEN_ID:
-            TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, 
-              parameter->v.s, strlen(parameter->v.s)), lframe->compEnv);
-            TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->compEnv);
-            break;
-        default:
-            L_bomb("Please set the ltoken type correctly.");
-    }
 }
 
 void
-L_assignment(ltoken *lvalue, ltoken *rvalue)
+L_lhs_assignment(ltoken *lvalue)
 {
-    if (lvalue->type != LTOKEN_ID) L_bomb("Assignment to non lvalue.");
     TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, lvalue->v.s,
       strlen(lvalue->v.s)), lframe->compEnv);
-    TclEmitPush(TclRegisterNewNSLiteral(lframe->compEnv, rvalue->v.s,
-      strlen(rvalue->v.s)), lframe->compEnv);
+}
+
+void
+L_rhs_assignment(ltoken *rvalue)
+{
     TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->compEnv);
+}
+
+void
+L_end_stmt() {
+	TclEmitOpcode(INST_POP, lframe->compEnv);
 }
 
 /**

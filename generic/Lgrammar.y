@@ -69,7 +69,7 @@ function_declaration:
                                 { L_end_function_decl(&$1); }
 	;
 
-stmt_list: stmt_list stmt       { }
+stmt_list: stmt_list stmt       {L_end_stmt();}
  	|		        { }
 	;
 
@@ -77,9 +77,7 @@ stmt:	  "if" "(" expr ")" "{" stmt_list "}"
 	| "if" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
-        | T_ID { L_begin_function_call(&$1); } "(" actual_parameter_list ")" ";" 
-                        { L_end_function_call(&$1, $4.v.i); }
-	| T_ID "=" expr ";"	{ L_assignment(&$1, &$3); }
+	| expr ";"
 	;
 
 formal_parameter_list: 
@@ -123,10 +121,13 @@ expr:	/* "(" expr ")"		{ $$ = 1; } */
 /* 	| expr "&&" expr	{ $$ = 1; } */
 /* 	| expr "||" expr	{ $$ = 1; } */
 /*         |  */
-        T_STR                 { $$ = $1; }
-        | T_INT                 { $$ = $1; }
+        T_STR                   {L_push_str(&$1);}
+        | T_INT                 {L_push_int(&$1);}
         | T_FLOAT               { $$ = $1; }
-	| T_ID			{ $$ = $1; }
+	| T_ID			{L_push_id(&$1);}
+        | T_ID { L_begin_function_call(&$1); } "(" actual_parameter_list ")" 
+                        { L_end_function_call(&$1, $4.v.i); }
+	| T_ID {L_lhs_assignment(&$1);} "=" expr {L_rhs_assignment(&$3);}
 	;
 
 %%
