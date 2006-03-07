@@ -7,6 +7,7 @@
 #include "tclInt.h"
 #include "tclCompile.h"
 
+#define YYERROR_VERBOSE
 %}
 
 %token T_LPAREN "("
@@ -71,16 +72,19 @@ function_declaration:
                                 { L_end_function_decl(&$1); }
 	;
 
-stmt_list: stmt_list stmt       {L_end_stmt();}
+stmt_list: stmt_list stmt       { }
  	|		        { }
 	;
 
-stmt:	  "if" "(" expr ")" "{" stmt_list "}"
-	| "if" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
+stmt:	  "if" if_condition "{" stmt_list "}" { L_if_end(); }
+	| "if" if_condition "{" stmt_list "}" "else" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
 	| expr ";"
 	;
+
+if_condition: "(" expr ")" { L_if_condition(); }
+        
 
 formal_parameter_list: 
         formal_parameter_list "," T_ID { }

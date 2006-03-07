@@ -16,6 +16,8 @@ typedef struct L_compile_frame {
      * pointer so we can check if any code was emitted in this frame.
      * Yikk.  --timjr 2006.2.23 */
     unsigned char *originalCodeNext;
+    /* If statement relocs. */
+    JumpFixupArray *jumpFalseFixupArrayPtr;
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
@@ -26,10 +28,12 @@ void L_begin_function_decl(ltoken *name);
 void L_end_function_decl(ltoken *name);
 void L_begin_function_call(ltoken *name);
 void L_end_function_call(ltoken *name, int param_count);
+void L_if_condition();
+void L_if_end();
 void L_pass_parameter(ltoken *parameter);
 void L_lhs_assignment(ltoken *rvalue);
 void L_rhs_assignment(ltoken *rvalue);
-void L_end_stmt();
+/* void L_end_stmt(); */
 void L_push_str(ltoken *str);
 void L_push_int(ltoken *i);
 void L_push_id(ltoken *id);
@@ -39,3 +43,11 @@ void L_frame_pop();
 void L_bomb(const char *msg);
 
 #endif /* L_COMPILE_H */
+
+/*
+ * Local Variables:
+ * mode: c
+ * c-basic-offset: 4
+ * fill-column: 78
+ * End:
+ */

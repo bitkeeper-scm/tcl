@@ -17,7 +17,7 @@ LCompileScript(
 	CompileEnv *envPtr
 )
 {
-	void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
+    void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
 
     L_frame_push(interp, envPtr);
     lframe->originalCodeNext = envPtr->codeNext;
@@ -42,10 +42,10 @@ L_begin_function_decl(ltoken *name)
     envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
     L_frame_push(lframe->interp, envPtr);
     TclInitCompileEnv(lframe->interp, envPtr, "L Compiler", 
-      strlen("L Compiler"));
+                      strlen("L Compiler"));
     lframe->originalCodeNext = envPtr->codeNext;
     TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
-      lframe->envPtr);
+                 lframe->envPtr);
 }
 
 void 
@@ -87,7 +87,8 @@ void
 L_begin_function_call(ltoken *name) 
 {
     TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, name->v.s, 
-      strlen(name->v.s)), lframe->envPtr);
+                                      strlen(name->v.s)), 
+                lframe->envPtr);
 }
 
 void 
@@ -96,26 +97,64 @@ L_end_function_call(ltoken *name, int param_count)
     TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
 }
 
+void 
+L_if_condition() {
+    int jumpIndex;
+    JumpFixupArray *jumpFalsePtr;
+
+    jumpFalsePtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
+    /* save the fixup array in a compile frame so that we can do the fixups at
+       the end of this if statement. */
+    L_frame_push(lframe->interp, lframe->envPtr);
+    lframe->jumpFalseFixupArrayPtr = jumpFalsePtr;
+
+    TclInitJumpFixupArray(jumpFalsePtr);
+    if (jumpFalsePtr->next >= jumpFalsePtr->end) {
+        TclExpandJumpFixupArray(jumpFalsePtr);
+    }
+    jumpIndex = jumpFalsePtr->next;
+    jumpFalsePtr->next++;
+    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, 
+                       jumpFalsePtr->fixup + jumpIndex);
+}
+
+void 
+L_if_end() 
+{
+    if (TclFixupForwardJumpToHere(lframe->envPtr,
+                                  /* this should actually be more like:
+                                     lframe->jumpFalseFixupArrayPtr->fixup+jumpIndex,  */
+                                  lframe->jumpFalseFixupArrayPtr->fixup, 
+                                  127)) {
+    }
+
+    TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr);
+    L_frame_pop();
+}
+
 void
 L_push_str(ltoken *str)
 {
-        TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, 
-          str->v.s, strlen(str->v.s)), lframe->envPtr);
+    TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, 
+                                        str->v.s, strlen(str->v.s)), 
+                lframe->envPtr);
 }
 
 void
 L_push_int(ltoken *i)
 {
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, 
-          Tcl_NewIntObj(i->v.i), NULL), lframe->envPtr);
+    TclEmitPush(TclAddLiteralObj(lframe->envPtr, 
+                                 Tcl_NewIntObj(i->v.i), NULL), 
+                lframe->envPtr);
 }
 
 void
 L_push_id(ltoken *id)
 {
-	TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, 
-          id->v.s, strlen(id->v.s)), lframe->envPtr);
-        TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
+    TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, 
+                                        id->v.s, strlen(id->v.s)), 
+                lframe->envPtr);
+    TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
 }
 
 void 
@@ -127,7 +166,8 @@ void
 L_lhs_assignment(ltoken *lvalue)
 {
     TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, lvalue->v.s,
-      strlen(lvalue->v.s)), lframe->envPtr);
+                                        strlen(lvalue->v.s)), 
+                lframe->envPtr);
 }
 
 void
@@ -136,10 +176,10 @@ L_rhs_assignment(ltoken *rvalue)
     TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
 }
 
-void
-L_end_stmt() {
-	TclEmitOpcode(INST_POP, lframe->envPtr);
-}
+/* void */
+/* L_end_stmt() { */
+/*     TclEmitOpcode(INST_POP, lframe->envPtr); */
+/* } */
 
 /**
  * In case no bytecode was emitted, emit something, because
