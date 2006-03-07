@@ -16,6 +16,7 @@
 
 #include "tclInt.h"
 #include "tclCompile.h"
+#include "Lcompile.h"
 
 /*
  * Table of all AuxData types.
