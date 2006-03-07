@@ -129,6 +129,7 @@ L_if_end()
     }
 
     TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr);
+    ckfree(lframe->jumpFalseFixupArrayPtr);
     L_frame_pop();
 }
 
