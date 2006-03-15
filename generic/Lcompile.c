@@ -7,7 +7,8 @@
 #include "Ltokens.h"
 
 static L_compile_frame *lframe = NULL;
-
+char *L_parse_errors = NULL;
+int L_line_number = 0;
 
 int 
 L_PragmaObjCmd(
@@ -16,7 +17,6 @@ L_PragmaObjCmd(
     int objc,
     Tcl_Obj *CONST objv[])
 { 
-/*     int i;  */
     int stringLen; 
     char *stringPtr;
 
@@ -25,36 +25,44 @@ L_PragmaObjCmd(
                objc - 1);
     }
     stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
-    LCompileScript(interp, stringPtr, stringLen, NULL);
-
-/*     for (i = 1; i < objc; i++) { */
-/*     printf("woo! L code: \n"); */
-/*         stringPtr = Tcl_GetStringFromObj (objv [i], &stringLen); */
-/*         printf("%s", stringPtr); /\* if (i < objc - 1) printf( );  *\/ */
-/*     } */
-/*     printf("\n"); */
-    return TCL_OK;
+    return LCompileScript(interp, stringPtr, stringLen, NULL);
 }
 
 /* LCompileScript() is the main entry point into the land of L. */
-void
+int
 LCompileScript(
-	Tcl_Interp *interp,
-	CONST char *str,
-	int numBytes,
-	CompileEnv *envPtr
-)
+    Tcl_Interp *interp,
+    CONST char *str,
+    int numBytes,
+    CompileEnv *envPtr)
 {
+    int parseError;
     void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
+
+    L_line_number = 1;
 
     L_frame_push(interp, envPtr);
     if (envPtr)
         lframe->originalCodeNext = envPtr->codeNext;
-    L_parse();        
+    parseError = L_parse();
     L__delete_buffer(lex_buffer);
     if (envPtr)
         maybeFixupEmptyCode(lframe);
     L_frame_pop();
+
+    /* In case there was a parse error, store the error in interp and return
+       TCL_ERROR. */
+    if (parseError) {
+        Tcl_Obj *result  = Tcl_NewObj();
+        /* I would like to just set interp->errorLine, but that doesn't work
+           for some reason. --timjr 2006.3.15 */
+        TclObjPrintf(interp, result, "L Error: %s on line %d", 
+                     L_parse_errors, L_line_number);
+        Tcl_SetObjResult(interp, result);
+        ckfree(L_parse_errors);
+        return TCL_ERROR;
+    }
+    return TCL_OK;
 }
 
 /**
@@ -166,7 +174,7 @@ L_if_statements_end(int finalBlock)
         
         
 
-    fprintf(stderr, "fixing up false jump\n");
+/*     fprintf(stderr, "fixing up false jump\n"); */
         if (TclFixupForwardJumpToHere(lframe->envPtr,
                                       lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
                                       127))
@@ -185,7 +193,7 @@ L_if_statements_end(int finalBlock)
 void 
 L_if_end(int elseClause) 
 {
-    fprintf(stderr, "also fixing up false jump\n");
+/*     fprintf(stderr, "also fixing up false jump\n"); */
     if (elseClause) {
         TclFixupForwardJumpToHere(lframe->envPtr,
                                   /* this should actually be more like:
@@ -301,6 +309,21 @@ L_bomb(const char *format, ...)
     fprintf(stderr, "\n");
     exit(1);
 }
+
+/* L_error is yyerror */
+void
+L_error(char *s)
+{
+    int len = strlen(s) + 1;
+
+    if (L_parse_errors != NULL) {
+        L_bomb("L_error is only able to report one parse error at a time");
+    } else {
+        L_parse_errors = ckalloc(len); 
+        strncpy(L_parse_errors, s, len);
+    }
+}
+
 
 /*
  * Local Variables:
@@ -309,3 +332,5 @@ L_bomb(const char *format, ...)
  * fill-column: 78
  * End:
  */
+
+

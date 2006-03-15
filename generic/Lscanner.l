@@ -13,6 +13,29 @@ TAG	[a-zA-Z_][0-9a-zA-Z_.]*
 static char *str;
 /* XXX string collection buffer; change to arb len string soon */
 static char strbuf[1024];
+
+extern int L_line_number;
+
+/**
+ * Count the newlines in a string and add the number to L_line_number.
+ */
+void 
+tally_newlines(
+        char *s,        /* the string with the newlines */
+        int len)        /* the length of the string */
+{
+    char *p, *end;
+
+    for (p = s, end = p + len; p < end; p++) {
+        if (*p == '\n') {
+            L_line_number++;
+        } else if ((*p == '\r') && (p+1 < end) && (*(p+1) != '\n')) {
+            /* mac line endings */
+            L_line_number++;
+        }
+    }  
+}
+
 %}
 %%
 "("		return T_LPAREN;
@@ -101,12 +124,11 @@ static char strbuf[1024];
 }
 "/*"		BEGIN(comment);
 <comment>{
-	[^*\n]*
-	"*"+[^*/\n]*
-	\n
-	"*"+"/"		BEGIN(INITIAL);
+	[^*]+           tally_newlines(yytext, yyleng);
+        "*"
+	"*/"		BEGIN(INITIAL);
 }
-[ \t\n]
+[ \t\n\r]+              tally_newlines(yytext, yyleng);
 .		{
 			fprintf(stderr, "illegal character %c\n", *yytext);
 			exit(1);

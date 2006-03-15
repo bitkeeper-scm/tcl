@@ -22,7 +22,7 @@ typedef struct L_compile_frame {
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
-void LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
+int LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
                     CompileEnv *envPtr);
 void L_assignment(ltoken *lvalue, ltoken *rvalue);
 void L_begin_function_decl(ltoken *name);

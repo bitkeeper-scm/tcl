@@ -138,9 +138,11 @@ expr:	/* "(" expr ")"		{ $$ = 1; } */
 
 %%
 
-int
-L_error(char *s)
-{
-	fprintf(stderr, "syntax error: %s\n", s);
-	return 0;
-}
+
+/*
+ * Local Variables:
+ * mode: c
+ * c-basic-offset: 4
+ * fill-column: 78
+ * End:
+ */
