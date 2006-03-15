@@ -2494,6 +2494,9 @@ MODULE_SCOPE int	Tcl_VwaitObjCmd(ClientData clientData,
 MODULE_SCOPE int	Tcl_WhileObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *CONST objv[]);
+MODULE_SCOPE int	L_PragmaObjCmd(ClientData clientData,
+			    Tcl_Interp *interp, int objc,
+			    Tcl_Obj *CONST objv[]);
 
 /*
  *----------------------------------------------------------------

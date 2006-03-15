@@ -8,6 +8,34 @@
 
 static L_compile_frame *lframe = NULL;
 
+
+int 
+L_PragmaObjCmd(
+    ClientData clientData,
+    Tcl_Interp *interp, 
+    int objc,
+    Tcl_Obj *CONST objv[])
+{ 
+/*     int i;  */
+    int stringLen; 
+    char *stringPtr;
+
+    if (objc != 2) {
+        L_bomb("Assertion failed in L_PragmaObjCmd: we expected only 1 argument but got %d.",
+               objc - 1);
+    }
+    stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
+    LCompileScript(interp, stringPtr, stringLen, NULL);
+
+/*     for (i = 1; i < objc; i++) { */
+/*     printf("woo! L code: \n"); */
+/*         stringPtr = Tcl_GetStringFromObj (objv [i], &stringLen); */
+/*         printf("%s", stringPtr); /\* if (i < objc - 1) printf( );  *\/ */
+/*     } */
+/*     printf("\n"); */
+    return TCL_OK;
+}
+
 /* LCompileScript() is the main entry point into the land of L. */
 void
 LCompileScript(
@@ -20,10 +48,12 @@ LCompileScript(
     void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
 
     L_frame_push(interp, envPtr);
-    lframe->originalCodeNext = envPtr->codeNext;
+    if (envPtr)
+        lframe->originalCodeNext = envPtr->codeNext;
     L_parse();        
     L__delete_buffer(lex_buffer);
-    maybeFixupEmptyCode(lframe);
+    if (envPtr)
+        maybeFixupEmptyCode(lframe);
     L_frame_pop();
 }
 
@@ -97,9 +127,14 @@ L_end_function_call(ltoken *name, int param_count)
     TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
 }
 
+
+#define JUMP_IF_FALSE_INDEX 0
+#define JUMP_IF_END_INDEX 1
+
 void 
-L_if_condition() {
-    int jumpIndex;
+L_if_condition() 
+{
+/*     int jumpIndex; */
     JumpFixupArray *jumpFalsePtr;
 
     jumpFalsePtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
@@ -109,27 +144,65 @@ L_if_condition() {
     lframe->jumpFalseFixupArrayPtr = jumpFalsePtr;
 
     TclInitJumpFixupArray(jumpFalsePtr);
-    if (jumpFalsePtr->next >= jumpFalsePtr->end) {
+    /* allocate space for two jump fixups, one for the skipping the consequent
+       and one for skipping the alternate. */
+/*     if ((jumpFalsePtr->next + 2) >= jumpFalsePtr->end) { */
+    if (2 >= jumpFalsePtr->end) {
         TclExpandJumpFixupArray(jumpFalsePtr);
     }
-    jumpIndex = jumpFalsePtr->next;
-    jumpFalsePtr->next++;
+/*     jumpIndex = jumpFalsePtr->next; */
+/*     jumpFalsePtr->next++; */
+    jumpFalsePtr->next += 2;
     TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, 
-                       jumpFalsePtr->fixup + jumpIndex);
+                       jumpFalsePtr->fixup + JUMP_IF_FALSE_INDEX);
 }
 
 void 
-L_if_end() 
+L_if_statements_end(int finalBlock) 
 {
-    if (TclFixupForwardJumpToHere(lframe->envPtr,
+    if (finalBlock) {
+        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
+                           lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_END_INDEX);
+        
+        
+
+    fprintf(stderr, "fixing up false jump\n");
+        if (TclFixupForwardJumpToHere(lframe->envPtr,
+                                      lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                                      127))
+            {
+            }
+    }
+    /* if we're ending the final block of the if, there's no else clause to
+       jump over. */ 
+        
+/*         TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr); */
+/*         ckfree(lframe->jumpFalseFixupArrayPtr); */
+/*         L_frame_pop(); */
+/*     } */
+}
+
+void 
+L_if_end(int elseClause) 
+{
+    fprintf(stderr, "also fixing up false jump\n");
+    if (elseClause) {
+        TclFixupForwardJumpToHere(lframe->envPtr,
                                   /* this should actually be more like:
                                      lframe->jumpFalseFixupArrayPtr->fixup+jumpIndex,  */
-                                  lframe->jumpFalseFixupArrayPtr->fixup, 
-                                  127)) {
+                                  lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_END_INDEX,
+                                  127);
+    } else {
+        TclFixupForwardJumpToHere(lframe->envPtr,
+                                  /* this should actually be more like:
+                                     lframe->jumpFalseFixupArrayPtr->fixup+jumpIndex,  */
+                                  lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                                  127);
     }
 
+
     TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr);
-    ckfree(lframe->jumpFalseFixupArrayPtr);
+    ckfree((char *)lframe->jumpFalseFixupArrayPtr);
     L_frame_pop();
 }
 
@@ -216,12 +289,15 @@ L_frame_pop()
     lframe = prev;
 }
 
-
 /* Give up the ghost. */
 void 
-L_bomb(const char *msg) 
+L_bomb(const char *format, ...) 
 {
-    fprintf(stderr, msg);
+    va_list va;
+
+    va_start(va, format);
+    vfprintf(stderr, format, va);
+    va_end(va);
     fprintf(stderr, "\n");
     exit(1);
 }

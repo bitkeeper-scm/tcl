@@ -203,7 +203,7 @@ ParsePragma(
 				 * command. */
 {
     register CONST char *p = src;
-    char *s, *end, type;
+    char *end_of_first_line, *end, type;
     Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
     int wordIndex;		/* Index of word token for current word. */
     int scanned;
@@ -218,30 +218,69 @@ ParsePragma(
 	return TCL_RETURN;
     }
 
-    s = strchr(p, '\n');
-    parsePtr->commentStart = p;
-    parsePtr->commentSize = s - p;
-    p += parsePtr->commentSize + 1;
+    end_of_first_line = strchr(p, '\n');
+/*     parsePtr->commentStart = p; */
+/*     parsePtr->commentSize = s - p; */
+/*     p += parsePtr->commentSize + 1; */
     parsePtr->commandStart = p;
-    numBytes -= parsePtr->commentSize + 1;
+/*     numBytes -= parsePtr->commentSize + 1; */
     end = strstr(p, "#pragma language tcl");
     if (end == NULL) {
 	parsePtr->commandSize = numBytes;
     } else {
 	parsePtr->commandSize = end - p;
     }
+    parsePtr->term = parsePtr->commandStart + parsePtr->commandSize; 
+    /* A pragma turns into two words, each with a single text component.  The
+       first one contains "#pragma language L" and the next one contains the L
+       code.  (That makes a total of 4 tokens.)  */
+    /* 1. add a word for the L compile command */
     if (parsePtr->numTokens == parsePtr->tokensAvailable) {
 	TclExpandTokenArray(parsePtr);
     }
     wordIndex = parsePtr->numTokens;
     tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    tokenPtr->type = TCL_TOKEN_PRAGMA;
+    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+    /*     tokenPtr->type = TCL_TOKEN_PRAGMA; */
     tokenPtr->start = parsePtr->commandStart;
-    tokenPtr->size  = parsePtr->commandSize;
+    tokenPtr->size  = 18;/* parsePtr->commandSize; */
     tokenPtr->numComponents = 1;
     parsePtr->numTokens++;
     parsePtr->numWords++;
-    parsePtr->term = parsePtr->commandStart + parsePtr->commandSize;
+    /* 2. add the text component token for the L compile command  */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_TEXT;
+    tokenPtr->start = parsePtr->commandStart;
+    tokenPtr->size  = 18; /* parsePtr->commandSize; */
+    tokenPtr->numComponents = 0;
+    parsePtr->numTokens++;
+    /* 3. add a new word for the L code itself */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+    tokenPtr->start = end_of_first_line; /* parsePtr->commandStart; */
+    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
+    tokenPtr->numComponents = 1;
+    parsePtr->numTokens++;
+    parsePtr->numWords++;
+    /* 4. add the text component token for the L code itself */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_TEXT;
+    tokenPtr->start = end_of_first_line; /* parsePtr->commandStart; */
+    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
+    tokenPtr->numComponents = 0;
+    parsePtr->numTokens++;
 
     return TCL_OK;
 }

@@ -76,8 +76,8 @@ stmt_list: stmt_list stmt       { }
  	|		        { }
 	;
 
-stmt:	  "if" if_condition "{" stmt_list "}" { L_if_end(); }
-	| "if" if_condition "{" stmt_list "}" "else" "{" stmt_list "}"
+stmt:	  "if" if_condition "{" stmt_list "}" { L_if_statements_end(0); L_if_end(0); }
+	| "if" if_condition "{" stmt_list "}" { L_if_statements_end(1); } "else" "{" stmt_list "}" { /* L_if_statements_end(0); */ L_if_end(1); }
 	| "unless" "(" expr ")" "{" stmt_list "}"
 	| "unless" "(" expr ")" "{" stmt_list "}" "else" "{" stmt_list "}"
 	| expr ";"

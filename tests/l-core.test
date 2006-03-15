@@ -1,0 +1,20 @@
+# Test the L language.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+
+# procedure definition
+
+test proc-1.0 {Test L function definition.} -body {
+#pragma language L
+main(void) {
+        puts("foo");
+}
+#pragma language tcl
+main  
+} -output "foo\n"
+# cleanup
+::tcltest::cleanupTests
+return

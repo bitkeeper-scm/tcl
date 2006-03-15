@@ -18,6 +18,7 @@ typedef struct L_compile_frame {
     unsigned char *originalCodeNext;
     /* If statement relocs. */
     JumpFixupArray *jumpFalseFixupArrayPtr;
+    JumpFixupArray *jumpEndFixupArrayPtr;
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
@@ -29,7 +30,8 @@ void L_end_function_decl(ltoken *name);
 void L_begin_function_call(ltoken *name);
 void L_end_function_call(ltoken *name, int param_count);
 void L_if_condition();
-void L_if_end();
+void L_if_end(int elseClause);
+void L_if_statements_end(int finalBlock);
 void L_pass_parameter(ltoken *parameter);
 void L_lhs_assignment(ltoken *rvalue);
 void L_rhs_assignment(ltoken *rvalue);
@@ -40,7 +42,7 @@ void L_push_id(ltoken *id);
 void maybeFixupEmptyCode(L_compile_frame *frame);
 void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv);
 void L_frame_pop();
-void L_bomb(const char *msg);
+void L_bomb(const char *format, ...);
 
 #endif /* L_COMPILE_H */
 
