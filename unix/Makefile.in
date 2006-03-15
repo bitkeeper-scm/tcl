@@ -906,7 +906,7 @@ Makefile: $(UNIX_DIR)/Makefile.in $(DLTEST_DIR)/Makefile.in
 
 clean:
 	rm -f *.a *.o libtcl* core errs *~ \#* TAGS *.E a.out \
-		errors tclsh tcltest lib.exp Tcl
+		errors tclsh tcltest lib.exp Tcl Lscanner.c
 	cd dltest ; $(MAKE) clean
 
 distclean: clean
@@ -1251,7 +1251,7 @@ tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 
 
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
-	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
+	flex --header-file=Lscanner.h -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
 Lscanner.o: Lscanner.c $(L_SRCS)
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
