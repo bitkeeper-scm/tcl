@@ -5,8 +5,6 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     namespace import -force ::tcltest::*
 }
 
-# procedure definition
-
 test proc-1.0 {Test L function definition.} -body {
 #pragma language L
 main(void) {
@@ -15,6 +13,31 @@ main(void) {
 #pragma language tcl
 main  
 } -output "foo\n"
+
+test var-1.0 {Test L variable assignment and reference} -body {
+#pragma language L
+main(void)
+{
+	s = "Hello";
+	puts(s);
+}
+#pragma language tcl
+main
+} -output "Hello\n"
+
+test switching-1.0 {Test pragma constructs when there are comments} -body {
+# These are some Tcl Comments
+
+#pragma language L
+main(void)
+{
+	puts("worked");
+}
+
+#pragma language tcl
+main
+} -output "worked\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return
