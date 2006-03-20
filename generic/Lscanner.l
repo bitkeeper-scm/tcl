@@ -8,7 +8,7 @@ REV	[0-9]+(\.[0-9]+)*
 TAG	[a-zA-Z_][0-9a-zA-Z_.]*
 %{
 #include <string.h>
-#include "Ltokens.h"
+#include "Lcompile.h"
 #include "Lgrammar.h"
 static char *str;
 /* XXX string collection buffer; change to arb len string soon */
@@ -42,6 +42,8 @@ tally_newlines(
 ")"		return T_RPAREN;
 "{"		return T_LBRACE;
 "}"		return T_RBRACE;
+"["		return T_LBRACKET;
+"]"		return T_RBRACKET;
 ","		return T_COMMA;
 "!"		return T_BANG;
 "+"		return T_PLUS;
@@ -60,18 +62,24 @@ tally_newlines(
 <glob_re>{
 	\\(.|\n)	*str++ = yytext[1];
 	[^\\\n/]+	{ char * y = yytext; while (*y) *str++ = *y++; }
-	"/"		{
-				BEGIN(INITIAL);
-				*str++ = 0;
-                                L_lval.type = LTOKEN_STRING;
-				L_lval.v.s = malloc(strlen(strbuf)+1);
-				strcpy(L_lval.v.s, strbuf);
+	"/"		{       
+                                BEGIN(INITIAL);
+				*str++ = 0;    
+                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
 				return T_RE;
 			}
 }
+"void"          return T_VOID;
+"string"        return T_STRING;
+"int"           return T_INT;
+"float"         return T_FLOAT;
+"hash"          return T_HASH;
+"poly"          return T_POLY;
+"var"           return T_VAR;
 "if"		return T_IF;
 "else"		return T_ELSE;
 "unless"	return T_UNLESS;
+"=>"		return T_ARROW;
 "eq"		return T_EQ;
 "ne"		return T_NE;
 "lt"		return T_LT;
@@ -84,14 +92,15 @@ tally_newlines(
 ">="		return T_GREATEREQ;
 "<"		return T_LESSTHAN;
 "<="		return T_LESSTHANEQ;
-{ID}		{
-                        L_lval.type = LTOKEN_ID;
-			L_lval.v.s = malloc(yyleng+1);
-			strcpy(L_lval.v.s, yytext);
+{ID}		{       L_lval = L_make_node(L_NODE_STRING, LNIL, yytext);
 			return T_ID;
-}
-[0-9]*		L_lval.type = LTOKEN_INT; L_lval.v.i = atoi(yytext); return T_INT;
-[0-9]+\.[0-9]+	L_lval.type = LTOKEN_FLOAT; L_lval.v.f = atof(yytext); return T_FLOAT;
+                }
+[0-9]*		{       L_lval = L_make_node(L_NODE_INT, LNIL, atoi(yytext)); 
+                        return T_INT_LITERAL;   
+                }
+[0-9]+\.[0-9]+	{       L_lval = L_make_node(L_NODE_FLOAT, LNIL, atof(yytext));
+                        return T_FLOAT_LITERAL;   
+                }
 \"		BEGIN(str_double); str = strbuf;
 <str_double>{
 	\\n		*str++ = '\n';
@@ -101,10 +110,8 @@ tally_newlines(
 	\"		{
 				BEGIN(INITIAL);
 				*str++ = 0;
-                                L_lval.type = LTOKEN_STRING;
-				L_lval.v.s = malloc(strlen(strbuf)+1);
-				strcpy(L_lval.v.s, strbuf);
-				return T_STR;
+                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
+				return T_STR_LITERAL;
 			}
 }
 \'		BEGIN(str_single); str = strbuf;
@@ -116,10 +123,8 @@ tally_newlines(
 	\'		{
 				BEGIN(INITIAL);
 				*str++ = 0;
-                                L_lval.type = LTOKEN_STRING;
-				L_lval.v.s = malloc(strlen(strbuf)+1);
-				strcpy(L_lval.v.s, strbuf);
-				return T_STR;
+                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
+				return T_STR_LITERAL;
 			}
 }
 "/*"		BEGIN(comment);

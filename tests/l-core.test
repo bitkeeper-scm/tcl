@@ -18,7 +18,8 @@ test var-1.0 {Test L variable assignment and reference} -body {
 #pragma language L
 main(void)
 {
-	s = "Hello";
+	string s;
+        s = "Hello";
 	puts(s);
 }
 #pragma language tcl
@@ -37,6 +38,67 @@ main(void)
 #pragma language tcl
 main
 } -output "worked\n"
+
+test decl-1.0 {Variable and parameter declaration syntax} -body {
+#pragma language L
+fun1() { }
+fun2(void) { }
+void fun3() { }
+int fun4() { }
+fun5(int foo) { }
+hash fun6(hash foo, hash bar[], hash baz[23]) { }
+void fun7(int foo, float bar, hash baz, string quux, poly quuux, var quuuux) { }
+void fun8() {
+        int foo, bar[], baz[84];
+        string foo1[19], mani[], padmi = "hum";
+        hash whee;
+        if (0) {
+                int bleh = 5;
+        } else {
+                if (1) {
+                        poly padmi = "om";
+                        puts(padmi);
+                }
+        }
+}
+#pragma language tcl
+fun8
+} -output "om\n";
+
+test decl-1.1 {Hairy literal hash syntax in initializers} -body {
+#pragma language L
+initmewoo() {
+        hash h = ( "key" => "val", "key2" => "val" );
+}
+#pragma language tcl
+}
+
+test decl-1.2 {Undeclared variable error} -body {
+#pragma language L
+undecl() {
+        foo = "bar";
+        puts(cheese);
+}
+#pragma language tcl
+undecl
+} -returnCodes error -result {L Error: Undeclared variable: foo on line 2
+L Error: Undeclared variable: cheese on line 3
+}
+
+
+test decl-1.3 {Variable shadowing} -body {
+#pragma language L
+shadow() {
+        int foo = 1;
+        if (1) {
+                int foo = 2;
+                puts(foo);
+        } 
+        puts(foo);
+}
+#pragma language tcl
+shadow
+} -output "2\n1\n";
 
 # cleanup
 ::tcltest::cleanupTests
