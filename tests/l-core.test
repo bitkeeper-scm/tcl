@@ -10,7 +10,7 @@ test proc-1.0 {Test L function definition.} -body {
 main(void) {
         puts("foo");
 }
-#pragma language tcl
+#pragma end
 main  
 } -output "foo\n"
 
@@ -22,22 +22,41 @@ main(void)
         s = "Hello";
 	puts(s);
 }
-#pragma language tcl
+#pragma end
 main
 } -output "Hello\n"
 
-test switching-1.0 {Test pragma constructs when there are comments} -body {
+test pragma-1.0 {Test pragma parsing} -body {
 # These are some Tcl Comments
-
 #pragma language L
 main(void)
 {
 	puts("worked");
 }
 
-#pragma language tcl
+#pragma end
+# More comments
 main
 } -output "worked\n"
+
+test pragma-2.0 {Test failure path in pragma parsing} -body {
+#pragma language foo
+main(void)
+{
+	puts("worked");
+}
+
+#pragma end
+main
+} -returnCodes {error} -result {unknown language}
+
+test pragma-3.0 {Test lack of end pragma} -body {
+#pragma language L
+main(void)
+{
+	puts("worked");
+}
+} -returnCodes {error} -result {unfinished pragma}
 
 test decl-1.0 {Variable and parameter declaration syntax} -body {
 #pragma language L
@@ -61,7 +80,7 @@ void fun8() {
                 }
         }
 }
-#pragma language tcl
+#pragma end
 fun8
 } -output "om\n";
 
@@ -70,7 +89,7 @@ test decl-1.1 {Hairy literal hash syntax in initializers} -body {
 initmewoo() {
         hash h = ( "key" => "val", "key2" => "val" );
 }
-#pragma language tcl
+#pragma end
 }
 
 test decl-1.2 {Undeclared variable error} -body {
@@ -79,7 +98,7 @@ undecl() {
         foo = "bar";
         puts(cheese);
 }
-#pragma language tcl
+#pragma end
 undecl
 } -returnCodes error -result {L Error: Undeclared variable: foo on line 2
 L Error: Undeclared variable: cheese on line 3
@@ -96,7 +115,7 @@ shadow() {
         } 
         puts(foo);
 }
-#pragma language tcl
+#pragma end
 shadow
 } -output "2\n1\n";
 

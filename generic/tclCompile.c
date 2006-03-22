@@ -1113,17 +1113,6 @@ TclCompileScript(
 	    EnterCmdStartData(envPtr, currCmdIndex,
 		    (parse.commandStart - envPtr->source), startCodeOffset);
 
-/* 	    tokenPtr = parse.tokenPtr; */
-/* 	    if ((parse.numWords == 1) && */
-/* 	    	    (tokenPtr->type == TCL_TOKEN_PRAGMA)) { */
-/* 		/\* */
-/* 		 * L SCRIPT: We know that we have one word that is the */
-/* 		 * script to compile. */
-/* 		 *\/ */
-
-/* 		LCompileScript(interp, tokenPtr[0].start, tokenPtr[0].size, envPtr); */
-/* 		goto finishCommand; */
-/* 	    } */
 	    /*
 	     * Each iteration of the following loop compiles one word from the
 	     * command.
