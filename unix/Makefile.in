@@ -454,7 +454,6 @@ BK_SRCS	?= \
 	$(GENERIC_DIR)/keydecode.c 
 
 L_HDRS = \
-	$(GENERIC_DIR)/Ltokens.h \
 	$(GENERIC_DIR)/Lcompile.h
 
 L_SRCS = \
