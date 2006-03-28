@@ -17,9 +17,9 @@ typedef struct L_compile_frame {
      * pointer so we can check if any code was emitted in this frame.
      * Yikk.  --timjr 2006.2.23 */
     unsigned char *originalCodeNext;
-    /* If statement relocs. */
-    JumpFixupArray *jumpFalseFixupArrayPtr;
-    JumpFixupArray *jumpEndFixupArrayPtr;
+    /* Jump fixups allow you to conveniently set the target of a jump that has
+       been previously emitted. */
+    JumpFixupArray *jumpFixupArrayPtr;
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
@@ -30,9 +30,10 @@ void L_begin_function_decl(L_node *name);
 void L_end_function_decl(L_node *name);
 void L_begin_function_call(L_node *name);
 void L_end_function_call(L_node *name, int param_count);
-void L_if_condition();
+void L_if_condition(int unless_p);
 void L_if_end(int elseClause);
-void L_if_statements_end(int finalBlock);
+void L_if_alternative_end();
+void L_if_consequent_end();
 /* void L_lhs_assignment(L_node *rvalue); */
 /* void L_rhs_assignment(L_node *rvalue); */
 void L_assignment(L_node *rvalue);

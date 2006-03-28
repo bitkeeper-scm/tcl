@@ -123,7 +123,7 @@ L_end_function_decl(L_node *name)
 
 
     TclFreeCompileEnv(lframe->envPtr);
-    ckfree(lframe->envPtr);
+    ckfree((char *)lframe->envPtr);
     L_frame_pop();
 }
 
@@ -147,77 +147,75 @@ L_end_function_call(L_node *name, int param_count)
 #define JUMP_IF_END_INDEX 1
 
 void 
-L_if_condition() 
+L_if_condition(int unless_p) 
 {
-/*     int jumpIndex; */
     JumpFixupArray *jumpFalsePtr;
 
     jumpFalsePtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
     /* save the fixup array in a compile frame so that we can do the fixups at
        the end of this if statement. */
     L_frame_push(lframe->interp, lframe->envPtr);
-    lframe->jumpFalseFixupArrayPtr = jumpFalsePtr;
+    lframe->jumpFixupArrayPtr = jumpFalsePtr;
 
     TclInitJumpFixupArray(jumpFalsePtr);
     /* allocate space for two jump fixups, one for the skipping the consequent
        and one for skipping the alternate. */
-/*     if ((jumpFalsePtr->next + 2) >= jumpFalsePtr->end) { */
     if (2 >= jumpFalsePtr->end) {
         TclExpandJumpFixupArray(jumpFalsePtr);
     }
-/*     jumpIndex = jumpFalsePtr->next; */
-/*     jumpFalsePtr->next++; */
     jumpFalsePtr->next += 2;
-    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, 
+    /* emit a jump which will skip the consequent if the top value on the
+       stack is false. */
+    TclEmitForwardJump(lframe->envPtr, 
+                       unless_p ? TCL_TRUE_JUMP : TCL_FALSE_JUMP, 
                        jumpFalsePtr->fixup + JUMP_IF_FALSE_INDEX);
 }
 
 void 
-L_if_statements_end(int finalBlock) 
+L_if_consequent_end() 
 {
-    if (finalBlock) {
-        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
-                           lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_END_INDEX);
-        
-        
+    TclFixupForwardJumpToHere(lframe->envPtr,
+                              lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                              127);
+}
 
-/*     fprintf(stderr, "fixing up false jump\n"); */
-        if (TclFixupForwardJumpToHere(lframe->envPtr,
-                                      lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
-                                      127))
-            {
-            }
+void 
+L_if_alternative_end() 
+{
+    /* End the scope that was started for the consequent and start a new one,
+       copying the jump fixup pointers. */
+    JumpFixupArray *jumpFixupPtr = lframe->jumpFixupArrayPtr;
+    L_frame_pop();
+    L_frame_push(lframe->interp, lframe->envPtr);
+    lframe->jumpFixupArrayPtr = jumpFixupPtr;
+
+    TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
+                       lframe->jumpFixupArrayPtr->fixup + JUMP_IF_END_INDEX);
+    
+    if (TclFixupForwardJumpToHere(lframe->envPtr,
+                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                                  127)) {
+        L_bomb("The jump to skip the consequent of an if statement has been\n"
+               "expanded, but we don't handle that case yet.");
     }
-    /* if we're ending the final block of the if, there's no else clause to
-       jump over. */ 
-        
-/*         TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr); */
-/*         ckfree(lframe->jumpFalseFixupArrayPtr); */
-/*         L_frame_pop(); */
-/*     } */
 }
 
 void 
 L_if_end(int elseClause) 
 {
-/*     fprintf(stderr, "also fixing up false jump\n"); */
+    /* Fixup (set the target of) the appropriate jump.  */
     if (elseClause) {
         TclFixupForwardJumpToHere(lframe->envPtr,
-                                  /* this should actually be more like:
-                                     lframe->jumpFalseFixupArrayPtr->fixup+jumpIndex,  */
-                                  lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_END_INDEX,
+                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_END_INDEX,
                                   127);
     } else {
         TclFixupForwardJumpToHere(lframe->envPtr,
-                                  /* this should actually be more like:
-                                     lframe->jumpFalseFixupArrayPtr->fixup+jumpIndex,  */
-                                  lframe->jumpFalseFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
                                   127);
     }
-
-
-    TclFreeJumpFixupArray(lframe->jumpFalseFixupArrayPtr);
-    ckfree((char *)lframe->jumpFalseFixupArrayPtr);
+    /* Free the jump fixup array and end the scope. */
+    TclFreeJumpFixupArray(lframe->jumpFixupArrayPtr);
+    ckfree((char *)lframe->jumpFixupArrayPtr);
     L_frame_pop();
 }
 
@@ -542,7 +540,7 @@ L_free_ast() {
         if (node->type == L_NODE_STRING) {
             ckfree(node->v.s);
         }
-        ckfree(node);
+        ckfree((char *)node);
     }
 }
 

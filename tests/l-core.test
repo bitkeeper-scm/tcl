@@ -119,6 +119,145 @@ shadow() {
 shadow
 } -output "2\n1\n";
 
+
+test if-1.0 {If statements} -body {
+#pragma language L
+if_1_0() {
+        if (1) puts("0 working");
+        if (0) {
+                puts("1 broken");
+        } 
+        puts("between");
+        if (1) {
+                puts("1 working");
+        } 
+}
+#pragma end
+if_1_0
+} -output "0 working\nbetween\n1 working\n"
+
+
+test if-1.1 {If statements with else clauses and multistatement bodies} -body {
+#pragma language L
+if_1_1() {
+        if (1) {
+                puts("1 working");
+                puts(".");
+        } else {
+                puts("1 broken");
+                puts(".");
+        }
+        
+        if (0) {
+                puts("2 broken");
+                puts(".");
+                puts(".");
+        } else {
+                puts("2 working");
+                puts(".");
+                puts(".");
+        }
+}
+#pragma end
+if_1_1
+} -output "1 working\n.\n2 working\n.\n.\n"
+
+
+test if-1.2 {"else if" clauses} -body {
+#pragma language L
+if_1_2() {
+        if (0) {
+                puts("1 broken");
+        } else if (1) {
+                puts("1 working");
+        }
+
+        puts("between");
+
+        if (0) {
+                puts("2 broken");
+        } else if (0) {
+                puts("2.2 broken");
+        } else {
+                puts("2 working");
+        }
+}
+#pragma end
+if_1_2
+} -output "1 working\nbetween\n2 working\n"
+
+test if-1.3 {nested if statements} -body {
+#pragma language L
+if_1_3() {
+        if (1) {
+                puts("1 before");
+                if (0) {
+                        puts("1 broken");
+                } else {
+                        puts("1 working");
+                }
+                puts("1 after");
+        } else {
+                puts("1.1 broken");
+        }
+        puts("1 done");
+}
+#pragma end
+if_1_3
+} -output "1 before\n1 working\n1 after\n1 done\n"
+
+
+test if-1.4 {else is only allowed with curly braces} -body {
+#pragma language L
+main(void)
+{
+	if (0) puts("1 broken"); else puts("1 even more broken");
+}
+#pragma end
+} -returnCodes {error} -result "L Error: syntax error, unexpected T_ELSE on line 3\n"
+
+
+test unless-1.0 {unless statements} -body {
+#pragma language L
+unless_1_0() {
+        unless(0) puts("0 working");
+        unless(0) {
+                puts("1 working");
+        }
+        unless(1) {
+                puts("2 broken");
+        } else {
+                puts("2 working");
+        }
+        unless(1) {
+                puts("3 broken");
+        } else unless (1) {
+                puts("3.1 broken");
+        } else {
+                puts("3 working");
+        }
+} 
+#pragma end
+unless_1_0
+} -output "0 working\n1 working\n2 working\n3 working\n"
+
+test unless-1.1 {unless and if statements mixed} -body {
+#pragma language L
+unless_1_1() {
+        unless(1) {
+                puts("1 broken");
+        } else if (0) {
+                puts("1.1 broken");
+        } else unless(0) {
+                puts("1 working");
+        }
+        puts("done");
+} 
+#pragma end
+unless_1_1
+} -output "1 working\ndone\n"
+
+
 # cleanup
 ::tcltest::cleanupTests
 return

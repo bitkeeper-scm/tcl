@@ -88,7 +88,7 @@ int tclTraceExec = 0;
  * expression opcodes (e.g., INST_LOR) in tclCompile.h.
  *
  * Does not include the string for INST_EXPON (and beyond), as that is
- * disjoint for backward-compatability reasons
+ * disjoint for backward-compatibility reasons
  */
 
 static CONST char *operatorStrings[] = {

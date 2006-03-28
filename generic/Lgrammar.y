@@ -31,8 +31,10 @@ int L_lex (void);
 %token T_BANGTWID "!~"
 %token T_EQTWID "=~"
 %token T_IF "if"
-%token T_ELSE "else"
 %token T_UNLESS "unless"
+%nonassoc T_ELSE "else"
+
+
 %token T_EQ "eq"
 %token T_NE "ne"
 %token T_LT "lt"
@@ -74,15 +76,43 @@ function_declaration:
                 compound_statement { L_end_function_decl($2); }
 	;
 
-stmt:	  "if" if_condition compound_statement { L_if_statements_end(0); L_if_end(0); }
-	| "if" if_condition compound_statement { L_if_statements_end(1); } 
-                "else" compound_statement { /* L_if_statements_end(0); */ L_if_end(1); }
-	| "unless" "(" expr ")" compound_statement
-	| "unless" "(" expr ")" compound_statement "else" compound_statement
+stmt:   
+          single_statement
+        | compound_statement
+        ;
+
+single_statement:     
+          selection_statement
 	| expr ";"
 	;
 
-if_condition: "(" expr ")" { L_if_condition(); }
+selection_statement:
+          T_IF "(" expr ")"             { L_if_condition(0); } 
+                compound_statement      { L_if_consequent_end(); }
+                optional_else           { L_if_end($8->v.i); }
+        /* if you have no curly braces, you get no else. */
+        | T_IF "(" expr ")"             { L_if_condition(0); } 
+                single_statement        { L_if_consequent_end(); L_if_end(0); }
+        /* analogous to the if statements, the unless statements
+           differ only by the true value passed to L_if_condition */
+        | T_UNLESS "(" expr ")"         { L_if_condition(1); } 
+                compound_statement      { L_if_consequent_end(); }
+                optional_else           { L_if_end($8->v.i); }
+        | T_UNLESS "(" expr ")"         { L_if_condition(1); } 
+                single_statement        { L_if_consequent_end(); L_if_end(0); }
+        ;
+
+optional_else:
+        /* else clauses must either have curly braces or be another
+           if/unless */
+          T_ELSE                { L_if_alternative_end(); 
+                                  $$ = L_make_node(L_NODE_INT, LNIL, 1); }
+                compound_statement
+        | T_ELSE                { L_if_alternative_end(); 
+                                  $$ = L_make_node(L_NODE_INT, LNIL, 0); }
+                selection_statement
+        | /* epsilon */         { $$ = L_make_node(L_NODE_INT, LNIL, 0); }
+        ;
         
 stmt_list: 
           stmt
