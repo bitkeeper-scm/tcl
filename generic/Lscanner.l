@@ -138,3 +138,6 @@ tally_newlines(
 			fprintf(stderr, "illegal character %c\n", *yytext);
 			exit(1);
 		}
+
+"//".*("\r"|"\n"|"\r\n")        { tally_newlines(yytext, yyleng); }
+

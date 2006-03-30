@@ -257,6 +257,16 @@ unless_1_1() {
 unless_1_1
 } -output "1 working\ndone\n"
 
+test syntax_1_0 {single-line comments a la C++} -body {
+#pragma language L
+syntax_1_0() {
+        // single-line comments are 
+        puts("working"); //see?
+        //////cruftilioucious 
+}
+#pragma end
+syntax_1_0
+} -output "working\n" 
 
 # cleanup
 ::tcltest::cleanupTests
