@@ -2902,7 +2902,7 @@ TclCompileReturnCmd(
 	CompileWord(envPtr, wordTokenPtr, interp);
     } else {
 	/*
-	 * No explict result argument, so default result is empty string.
+	 * No explicit result argument, so default result is empty string.
 	 */
 	PushLiteral(envPtr, "", 0);
     }

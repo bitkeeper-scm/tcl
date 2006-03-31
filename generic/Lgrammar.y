@@ -33,7 +33,7 @@ int L_lex (void);
 %token T_IF "if"
 %token T_UNLESS "unless"
 %nonassoc T_ELSE "else"
-
+%token T_RETURN "return"
 
 %token T_EQ "eq"
 %token T_NE "ne"
@@ -84,6 +84,8 @@ stmt:
 single_statement:     
           selection_statement
 	| expr ";"
+        | T_RETURN ";"                  { L_return(FALSE); }
+        | T_RETURN expr ";"             { L_return(TRUE); }
 	;
 
 selection_statement:

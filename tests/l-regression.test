@@ -1,0 +1,37 @@
+# Test to make sure that bugs don't creep back into L
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+
+
+test empty-1.0 {empty code blocks} -body {
+#pragma language L
+empty_1_0() {
+} 
+#pragma end
+empty_1_0
+} 
+
+test empty-1.1 {empty code blocks with some control flow} -body {
+#pragma language L
+empty_1_1() {
+        /* note that none of these conditions is true, 
+           so no code is executed */
+        unless(1) {
+                puts("1 broken");
+        } else if (0) {
+                puts("1.1 broken");
+        } else unless(1) {
+                puts("1 working");
+        }
+} 
+#pragma end
+empty_1_1
+} 
+
+
+# cleanup
+::tcltest::cleanupTests
+return

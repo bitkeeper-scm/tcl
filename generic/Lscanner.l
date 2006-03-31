@@ -69,6 +69,7 @@ tally_newlines(
 				return T_RE;
 			}
 }
+"return"          return T_RETURN;
 "void"          return T_VOID;
 "string"        return T_STRING;
 "int"           return T_INT;

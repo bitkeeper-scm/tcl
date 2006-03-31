@@ -95,9 +95,6 @@ L_begin_function_decl(L_node *name)
     TclInitCompileEnv(lframe->interp, envPtr, "L Compiler", 
                       strlen("L Compiler"));
     lframe->originalCodeNext = envPtr->codeNext;
-/*     TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL), */
-/*                  lframe->envPtr); */
-
     envPtr->procPtr = procPtr;
 }
 
@@ -107,8 +104,9 @@ L_end_function_decl(L_node *name)
     Tcl_Obj *bodyObjPtr;
     Proc *procPtr = lframe->envPtr->procPtr;
     Tcl_Command cmd;
-
-    TclEmitOpcode(INST_DONE, lframe->envPtr);
+    
+    /* This is the "fall off the end" implicit return. We return "". */
+    L_return(FALSE);
 
     TclInitByteCodeObj(procPtr->bodyPtr, lframe->envPtr);
     bodyObjPtr = TclNewProcBodyObj(procPtr);
@@ -246,6 +244,21 @@ L_push_id(L_node *id)
     } else {
         TclEmitInstInt4(INST_LOAD_SCALAR4, var->localIndex, lframe->envPtr);
     }
+}
+
+void 
+L_return(int value_on_stack_p)
+{
+    if (!value_on_stack_p) {
+        /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
+        TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
+                     lframe->envPtr);
+    }
+    /* INST_RETURN_STK involves a little more magic that I haven't wangled out
+       yet... but I think it lets us pass back error codes and such that could
+       be useful. --timjr 2006.3.31  */
+/*     TclEmitOpcode(INST_RETURN_STK, lframe->envPtr); */
+    TclEmitOpcode(INST_DONE, lframe->envPtr);
 }
 
 void

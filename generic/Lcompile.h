@@ -49,6 +49,7 @@ void L_assignment(L_node *rvalue);
 void L_push_str(L_node *str);
 void L_push_int(L_node *i);
 void L_push_id(L_node *id);
+void L_return(int value_on_stack_p);
 void maybeFixupEmptyCode(L_compile_frame *frame);
 void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv);
 void L_frame_pop();

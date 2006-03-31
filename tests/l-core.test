@@ -14,6 +14,29 @@ main(void) {
 main  
 } -output "foo\n"
 
+
+test proc-1.1 {Test L function returns.} -body {
+#pragma language L
+f1() {
+        puts("whiz");
+}
+f2() {
+        puts("bang");
+        return "foo";
+        return "bar";
+}
+f3() {
+        return;
+}
+main(void) {
+        puts(f1());
+        puts(f2());
+        puts(f3());
+}
+#pragma end
+main  
+} -output "whiz\n\nbang\nfoo\n\n"
+
 test var-1.0 {Test L variable assignment and reference} -body {
 #pragma language L
 main(void)
