@@ -238,40 +238,49 @@ L_push_int(L_node *i)
 void
 L_push_id(L_node *id)
 {
-    int localIndex;
-    if (!L_get_symbol(id->v.s)) {
-        L_errorf("Undeclared variable: %s", id->v.s);
-    }
+    L_symbol *var;
 
-    localIndex = TclFindCompiledLocal(id->v.s, strlen(id->v.s),
-                                      0, 0, lframe->envPtr->procPtr);
-    if (localIndex <= 255) {
-        TclEmitInstInt1(INST_LOAD_SCALAR1, localIndex, lframe->envPtr);
+    if (!(var = L_get_symbol(id->v.s, TRUE))) return;
+    if (var->localIndex <= 255) {
+        TclEmitInstInt1(INST_LOAD_SCALAR1, var->localIndex, lframe->envPtr);
     } else {
-        TclEmitInstInt4(INST_LOAD_SCALAR4, localIndex, lframe->envPtr);
+        TclEmitInstInt4(INST_LOAD_SCALAR4, var->localIndex, lframe->envPtr);
     }
 }
 
 void
 L_assignment(L_node *lvalue)
 {
-    int localIndex;
+    L_symbol *var;
 
-    if (!L_get_symbol(lvalue->v.s)) {
-        L_errorf("Undeclared variable: %s", lvalue->v.s);
-    }
-    /* TclRegisterNewNSLiteral is what we'll need for global vars, I think */
-/*     localIndex = TclRegisterNewNSLiteral(lframe->envPtr, lvalue->v.s,  */
-/*                                          strlen(lvalue->v.s)); */
-    localIndex = TclFindCompiledLocal(lvalue->v.s, strlen(lvalue->v.s), 
-                                      0, 0, lframe->envPtr->procPtr);
-/*     localIndex = TclFindCompiledLocal(lvalue->v.s, strlen(lvalue->v.s),  */
-/*                                       1, 0, lframe->envPtr->procPtr); */
-    if (localIndex <= 255) {
-        TclEmitInstInt1(INST_STORE_SCALAR1, localIndex, lframe->envPtr);
+    if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return;
+    if (var->localIndex <= 255) {
+        TclEmitInstInt1(INST_STORE_SCALAR1, var->localIndex, lframe->envPtr);
     } else {
-        TclEmitInstInt4(INST_STORE_SCALAR4, localIndex, lframe->envPtr);
+        TclEmitInstInt4(INST_STORE_SCALAR4, var->localIndex, lframe->envPtr);
     }
+}
+
+void 
+L_op_pre_incdec(L_node *lvalue, char op) {
+    L_symbol *var;
+    
+    if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return;
+    TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+    TclEmitInt1((op == '+') ? 1 : -1, lframe->envPtr);
+}
+
+void 
+L_op_post_incdec(L_node *lvalue, char op) {
+    L_symbol *var;
+    
+    if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return;
+    /* we push the value of the variable, do the increment, and then pop the
+       result of the increment, leaving the old value on top. */
+    L_push_id(lvalue);
+    TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+    TclEmitInt1((op == '+') ? 1 : -1, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
 }
 
 void 
@@ -294,11 +303,11 @@ L_declare_variable(L_node *name, int base_type, int initialize_p)
         name = tmp->next;
         tmp->next = LNIL;
     }
-    symbol = L_make_symbol(name->v.s, base_type, array_type);
-/*     localIndex = TclRegisterNewNSLiteral(lframe->envPtr, name->v.s,  */
-/*                                          strlen(name->v.s)); */
     localIndex = TclFindCompiledLocal(name->v.s, strlen(name->v.s), 
                                       1, 0, lframe->envPtr->procPtr);
+    symbol = L_make_symbol(name->v.s, base_type, array_type, localIndex);
+/*     localIndex = TclRegisterNewNSLiteral(lframe->envPtr, name->v.s,  */
+/*                                          strlen(name->v.s)); */
     if (initialize_p) {
         /* initialize the variable */
         if (localIndex <= 255) {
@@ -311,7 +320,7 @@ L_declare_variable(L_node *name, int base_type, int initialize_p)
 
 /* Create a new symbol and add it to the current symbol table */
 L_symbol *
-L_make_symbol(char *name, int base_type, L_node *array_type) 
+L_make_symbol(char *name, int base_type, L_node *array_type, int localIndex) 
 {
     int new;
     L_symbol *symbol = (L_symbol *)ckalloc(sizeof(L_symbol));
@@ -322,13 +331,15 @@ L_make_symbol(char *name, int base_type, L_node *array_type)
     symbol->name = name;
     symbol->base_type = base_type;
     symbol->array_type = array_type;
+    symbol->localIndex = localIndex;
     Tcl_SetHashValue(hPtr, symbol);
     return symbol;
 }
 
-/* Look up a symbol in the current symbol table, return NULL if not found */
+/* Look up a symbol in the current symbol table, return NULL and optionally
+   emit an error if not found */
 L_symbol *
-L_get_symbol(char *name) 
+L_get_symbol(char *name, int error_p) 
 {
     Tcl_HashEntry *hPtr = NULL; 
     L_compile_frame *frame;
@@ -339,6 +350,9 @@ L_get_symbol(char *name)
     if (hPtr) {
         return (L_symbol *)Tcl_GetHashValue(hPtr);
     } else {
+        if (error_p) {
+            L_errorf("Undeclared variable: %s", name);
+        }
         return NULL;
     }
 }

@@ -5,6 +5,13 @@
 #include "tclCompile.h"
 #include "Last.h"
 
+#ifndef TRUE
+#define TRUE 1
+#endif /* TRUE */
+#ifndef FALSE
+#define FALSE 0
+#endif /* FALSE */
+
 /**
  * An L_compile_frame is just a stack that lets the semantic actions
  * track state as the parser does its thing.
@@ -34,6 +41,8 @@ void L_if_condition(int unless_p);
 void L_if_end(int elseClause);
 void L_if_alternative_end();
 void L_if_consequent_end();
+void L_op_post_incdec(L_node *lvalue, char op);
+void L_op_pre_incdec(L_node *lvalue, char op);
 /* void L_lhs_assignment(L_node *rvalue); */
 /* void L_rhs_assignment(L_node *rvalue); */
 void L_assignment(L_node *rvalue);
@@ -47,8 +56,9 @@ void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
 void L_errorf(const char *format, ...);
 void L_declare_variable(L_node *name, int base_type, int initialize_p);
-L_symbol *L_get_symbol(char *name);
-L_symbol *L_make_symbol(char *name, int base_type, L_node *array_type);
+L_symbol *L_get_symbol(char *name, int error_p);
+L_symbol *L_make_symbol(char *name, int base_type, L_node *array_type, int localIndex);
+
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);

@@ -2344,7 +2344,7 @@ TclExecuteByteCode(
      *	   Start of INST_INCR instructions.
      *
      * WARNING: more 'goto' here than your doctor recommended!  The different
-     * instructions set the value of some variables and then jump to somme
+     * instructions set the value of some variables and then jump to some
      * common execution code.
      */
 

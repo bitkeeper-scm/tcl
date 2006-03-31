@@ -257,7 +257,7 @@ unless_1_1() {
 unless_1_1
 } -output "1 working\ndone\n"
 
-test syntax_1_0 {single-line comments a la C++} -body {
+test syntax-1.0 {single-line comments a la C++} -body {
 #pragma language L
 syntax_1_0() {
         // single-line comments are 
@@ -267,6 +267,35 @@ syntax_1_0() {
 #pragma end
 syntax_1_0
 } -output "working\n" 
+
+test op-1.0 {increment and decrement operators} -body {
+#pragma language L
+op_1_0() {
+        int i = 1;
+
+        puts("pre:");
+        puts(i);
+        ++i;
+        puts(i);
+        puts(++i);
+        --i;
+        puts(i);
+        puts(--i);
+
+        puts("post:");
+        puts(i);
+        i++;
+        puts(i);
+        puts(i++);
+        puts(i);
+        i--;
+        puts(i);
+        puts(i--);
+        puts(i);
+}
+#pragma end
+op_1_0
+} -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
 
 # cleanup
 ::tcltest::cleanupTests

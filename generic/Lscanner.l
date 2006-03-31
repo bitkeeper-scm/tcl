@@ -133,11 +133,11 @@ tally_newlines(
         "*"
 	"*/"		BEGIN(INITIAL);
 }
+"//".*("\r"|"\n"|"\r\n")        { tally_newlines(yytext, yyleng); }
 [ \t\n\r]+              tally_newlines(yytext, yyleng);
 .		{
 			fprintf(stderr, "illegal character %c\n", *yytext);
 			exit(1);
 		}
 
-"//".*("\r"|"\n"|"\r\n")        { tally_newlines(yytext, yyleng); }
 

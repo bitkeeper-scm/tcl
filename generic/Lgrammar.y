@@ -144,10 +144,10 @@ argument_expression_list:
 expr:	/* "(" expr ")"		{ $$ = 1; } */
 /* 	| "!" expr		{ $$ = 1; } */
 /* 	| "-" expr %prec UMINUS	{ $$ = 1; } */
-/* 	| "++" expr		{ $$ = 1; } */
-/* 	| "--" expr		{ $$ = 1; } */
-/* 	| expr "++"		{ $$ = 1; } */
-/* 	| expr "--"		{ $$ = 1; } */
+	  "++" T_ID		{ L_op_pre_incdec($2, '+'); }
+	| "--" T_ID		{ L_op_pre_incdec($2, '-'); }
+	| T_ID "++"		{ L_op_post_incdec($1, '+'); }
+	| T_ID "--"		{ L_op_post_incdec($1, '-'); } 
 /* 	| expr "*" expr		{ $$ = 1; } */
 /* 	| expr "/" expr		{ $$ = 1; } */
 /* 	| expr "%" expr		{ $$ = 1; } */
@@ -170,12 +170,13 @@ expr:	/* "(" expr ")"		{ $$ = 1; } */
 /* 	| expr "&&" expr	{ $$ = 1; } */
 /* 	| expr "||" expr	{ $$ = 1; } */
 /*         |  */
-          T_STR_LITERAL         {L_push_str($1);}
+        | T_STR_LITERAL         {L_push_str($1);}
         | T_INT_LITERAL         {L_push_int($1);}
         | T_FLOAT_LITERAL       { $$ = $1; }
 	| T_ID			{L_push_id($1);}
-        | T_ID { L_begin_function_call($1); } "(" argument_expression_list ")" 
-                        { L_end_function_call($1, $4->v.i); }
+        | T_ID                  { L_begin_function_call($1); } 
+                "(" argument_expression_list ")" 
+                                { L_end_function_call($1, $4->v.i); }
 	| T_ID "=" expr         { L_assignment($1); }
 	;
 

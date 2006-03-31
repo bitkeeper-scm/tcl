@@ -26,8 +26,9 @@ typedef enum L_type {
 /* L_symbols are used to represent variables. */
 typedef struct L_symbol {
     char *name;
-    int base_type;
+    L_type base_type;
     struct L_node *array_type;
+    int localIndex;             /* index into the array of local vars */
 } L_symbol;
 
 typedef struct L_node {
