@@ -218,18 +218,34 @@ L_if_end(int elseClause)
 }
 
 void
-L_push_str(L_node *str)
+L_push_literal(L_node *literal)
 {
-    TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr, 
-                                        str->v.s, strlen(str->v.s)), 
-                lframe->envPtr);
-}
+    Tcl_Obj *obj;
 
-void
-L_push_int(L_node *i)
-{
-    TclEmitPush(TclAddLiteralObj(lframe->envPtr, 
-                                 Tcl_NewIntObj(i->v.i), NULL), 
+    switch (literal->type) {
+    case L_NODE_INT:
+        obj = Tcl_NewIntObj(literal->v.i);
+        break;
+    case L_NODE_FLOAT:
+        obj = Tcl_NewDoubleObj(literal->v.f);
+        break;
+    case L_NODE_STRING:
+        obj = Tcl_NewStringObj(literal->v.s, strlen(literal->v.s));
+        break;
+    default:
+        L_bomb("bad literal type %d", literal->type);
+    }
+
+/*     TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr,  */
+/*                                         str->v.s, strlen(str->v.s)),  */
+/*                 lframe->envPtr); */
+/*     TclEmitPush(TclAddLiteralObj(lframe->envPtr,  */
+/*                                  Tcl_NewIntObj(i->v.i), NULL),  */
+/*                 lframe->envPtr); */
+/*     TclEmitPush(TclAddLiteralObj(lframe->envPtr,  */
+/*                                  Tcl_NewIntObj(i->v.i), NULL),  */
+/*                 lframe->envPtr); */
+    TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
                 lframe->envPtr);
 }
 
@@ -284,7 +300,8 @@ L_op_pre_incdec(L_node *lvalue, char op) {
 }
 
 void 
-L_op_post_incdec(L_node *lvalue, char op) {
+L_op_post_incdec(L_node *lvalue, char op) 
+{
     L_symbol *var;
     
     if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return;
@@ -294,6 +311,33 @@ L_op_post_incdec(L_node *lvalue, char op) {
     TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
     TclEmitInt1((op == '+') ? 1 : -1, lframe->envPtr);
     TclEmitOpcode(INST_POP, lframe->envPtr);
+}
+
+void 
+L_op_binop(L_operator_name op) 
+{
+    int instruction;
+
+    switch (op) {
+    case L_OP_PLUS:
+        instruction = INST_ADD;
+        break;
+    case L_OP_MINUS:
+        instruction = INST_SUB;
+        break;
+    case L_OP_MULTIPLY:
+        instruction = INST_MULT;
+        break;
+    case L_OP_DIVIDE:
+        instruction = INST_DIV;
+        break;
+    case L_OP_MODULUS:
+        instruction = INST_MOD;
+        break;
+    default:
+        L_bomb("Undefined operator %d", op);
+    }
+    TclEmitOpcode(instruction, lframe->envPtr);
 }
 
 void 

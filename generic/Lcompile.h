@@ -12,6 +12,14 @@
 #define FALSE 0
 #endif /* FALSE */
 
+typedef enum L_operator_name {
+    L_OP_PLUS,
+    L_OP_MINUS,
+    L_OP_MULTIPLY,
+    L_OP_DIVIDE,
+    L_OP_MODULUS
+} L_operator_name;
+
 /**
  * An L_compile_frame is just a stack that lets the semantic actions
  * track state as the parser does its thing.
@@ -46,8 +54,10 @@ void L_op_pre_incdec(L_node *lvalue, char op);
 /* void L_lhs_assignment(L_node *rvalue); */
 /* void L_rhs_assignment(L_node *rvalue); */
 void L_assignment(L_node *rvalue);
-void L_push_str(L_node *str);
-void L_push_int(L_node *i);
+void L_op_binop(L_operator_name op);
+/* void L_push_str(L_node *str); */
+/* void L_push_int(L_node *i); */
+void L_push_literal(L_node *literal);
 void L_push_id(L_node *id);
 void L_return(int value_on_stack_p);
 void maybeFixupEmptyCode(L_compile_frame *frame);

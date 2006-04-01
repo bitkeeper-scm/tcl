@@ -320,6 +320,23 @@ op_1_0() {
 op_1_0
 } -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
 
+test op-1.1 {plus, minus, multiply, divide, and modulus operators} -body {
+#pragma language L
+op_1_1() {
+        int i = 2;
+        puts(i + 5);
+        puts(i - 50);
+        puts(i * 500);
+        puts(i / 2);
+        puts(i / 4.0);
+        puts((i + 5) % 3);
+        // precedence
+        puts(i + i / i - i * i % i);
+}
+#pragma end
+op_1_1
+} -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return
