@@ -13,9 +13,11 @@ void L__delete_buffer(void *buf);
 
 /* functions local to this file */
 static void L_dump_ast_nodes(L_node *node);
+static void L_free_ast();
+static void separate_array_type(L_node **name, L_node **array_type);
+
 /* we keep track of each AST node we allocate and free them all at once */
 static L_node *ast_trace_root = NULL;
-static void L_free_ast();
 
 int 
 L_PragmaObjCmd(
@@ -341,25 +343,49 @@ L_op_binop(L_operator_name op)
 }
 
 void 
+L_declare_parameter(L_node *name, int base_type)
+{
+    Proc *procPtr = lframe->envPtr->procPtr;
+    CompiledLocal *localPtr;
+    int i;
+    L_node *array_type;
+
+    separate_array_type(&name, &array_type);
+
+    /* formal parameters are stored in local variable slots */
+    ++procPtr->numArgs;
+    procPtr->numCompiledLocals = procPtr->numArgs;
+
+    localPtr = (CompiledLocal *) ckalloc(sizeof(CompiledLocal) - 
+                                         sizeof(localPtr->name) + 
+                                         strlen(name->v.s) + 1);
+    if (procPtr->firstLocalPtr == NULL) {
+        procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr;
+    } else {
+        procPtr->lastLocalPtr->nextPtr = localPtr;
+        procPtr->lastLocalPtr = localPtr;
+    }
+    localPtr->nextPtr = NULL;
+    localPtr->nameLength = strlen(name->v.s);
+    localPtr->frameIndex = i;
+    localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
+    localPtr->resolveInfo = NULL;
+    localPtr->defValuePtr = NULL;
+    strcpy(localPtr->name, name->v.s);
+
+    /* TODO: handle array types like L_declare_variable does */
+    L_make_symbol(name->v.s, base_type, array_type, 
+                  procPtr->numCompiledLocals - 1);
+}
+
+void 
 L_declare_variable(L_node *name, int base_type, int initialize_p)
 {
     L_symbol *symbol;
     L_node *array_type = NULL;
     int localIndex;
 
-    /* If the name consists of more than one element, the variable is an
-       array.  Separate the name from the array type info prior to creating
-       the symbol.  */
-    if (name->next) {
-        L_node *tmp = name;
-        array_type = name;
-        
-        while (tmp->next && tmp->next->next) {
-            tmp = tmp->next;
-        }
-        name = tmp->next;
-        tmp->next = LNIL;
-    }
+    separate_array_type(&name, &array_type);
     localIndex = TclFindCompiledLocal(name->v.s, strlen(name->v.s), 
                                       1, 0, lframe->envPtr->procPtr);
     symbol = L_make_symbol(name->v.s, base_type, array_type, localIndex);
@@ -372,6 +398,25 @@ L_declare_variable(L_node *name, int base_type, int initialize_p)
         } else {
             TclEmitInstInt4(INST_STORE_SCALAR4, localIndex, lframe->envPtr);
         }
+    }
+}
+
+static void
+separate_array_type(L_node **name, L_node **array_type)
+{
+    /* If the name consists of more than one element, the variable is an
+       array.  Separate the name from the array type info prior to creating
+       the symbol.  */
+    if ((*name)->next) {
+        L_node *tmp;
+        /* the array type comes first */
+        *array_type = *name;
+        /* walk down to the end where the name is  */
+        for (tmp = *name; tmp->next && tmp->next->next; tmp = tmp->next);
+        /* the name is the last node */
+        *name = tmp->next;
+        /* separate them */
+        tmp->next = LNIL;
     }
 }
 
@@ -434,7 +479,8 @@ maybeFixupEmptyCode(L_compile_frame *frame)
 void 
 L_frame_push(Tcl_Interp *interp, CompileEnv *envPtr) 
 {
-    L_compile_frame *new_frame = (L_compile_frame *)ckalloc(sizeof(L_compile_frame));
+    L_compile_frame *new_frame = 
+        (L_compile_frame *)ckalloc(sizeof(L_compile_frame));
     new_frame->interp = interp;
     new_frame->envPtr = envPtr;
     new_frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));

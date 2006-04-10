@@ -67,6 +67,7 @@ void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
 void L_errorf(const char *format, ...);
 void L_declare_variable(L_node *name, int base_type, int initialize_p);
+void L_declare_parameter(L_node *name, int base_type);
 L_symbol *L_get_symbol(char *name, int error_p);
 L_symbol *L_make_symbol(char *name, int base_type, L_node *array_type, int localIndex);
 

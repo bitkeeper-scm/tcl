@@ -88,7 +88,7 @@ selection_statement:
         /* if you have no curly braces, you get no else. */
         | T_IF "(" expr ")"             { L_if_condition(0); } 
                 single_statement        { L_if_consequent_end(); L_if_end(0); }
-        /* analogous to the if statements, the unless statements
+        /* analogous to the if statements. the unless statements
            differ only by the true value passed to L_if_condition */
         | T_UNLESS "(" expr ")"         { L_if_condition(1); } 
                 compound_statement      { L_if_consequent_end(); }
@@ -127,7 +127,8 @@ parameter_declaration_list:
         ;
 
 parameter_declaration:
-          type_specifier declarator
+          type_specifier declarator     
+                { L_declare_parameter($2, $1->v.i); }
         ;
 
 argument_expression_list: 
@@ -203,9 +204,9 @@ init_declarator_list:
 
 init_declarator:
 	  declarator                    
-                { $$ = L_make_node(L_NODE_INT, $1, 0); }
+                { $$ = L_make_node(L_NODE_INT, $1, FALSE); }
 	| declarator T_EQUALS initializer    
-                { $$ = L_make_node(L_NODE_INT, $1, 1); }
+                { $$ = L_make_node(L_NODE_INT, $1, TRUE); }
 	;
 
 declarator:

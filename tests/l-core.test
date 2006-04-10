@@ -37,6 +37,16 @@ main(void) {
 main  
 } -output "whiz\n\nbang\nfoo\n\n"
 
+test proc-1.2 {Test L function parameters.} -body {
+#pragma language L
+proc_1_2(string arg1, string arg2) {
+        puts(arg1);
+        puts(arg2);
+} 
+#pragma end
+proc_1_2 "val1" "val2" 
+} -output "val1\nval2\n"
+
 test var-1.0 {Test L variable assignment and reference} -body {
 #pragma language L
 main(void)
