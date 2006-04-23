@@ -38,8 +38,9 @@ typedef struct L_compile_frame {
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
-int LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
-                    CompileEnv *envPtr);
+void LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
+                    CompileEnv *envPtr, L_node *ast);
+int LParseScript(Tcl_Interp *interp, CONST char *str, int numBytes, L_node **ast);
 /* void L_assignment(L_node *lvalue, L_node *rvalue); */
 void L_begin_function_decl(L_node *name);
 void L_end_function_decl(L_node *name);

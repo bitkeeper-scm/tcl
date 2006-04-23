@@ -32,6 +32,8 @@
 
 extern CRTIMPORT int	isatty(int fd);
 
+extern int L_interactive;
+
 static Tcl_Obj *tclStartupScriptPath = NULL;
 static Tcl_Obj *tclStartupScriptEncoding = NULL;
 static Tcl_MainLoopProc *mainLoopProc = NULL;
@@ -373,6 +375,10 @@ Tcl_Main(
 	    Tcl_SetStartupScript(Tcl_NewStringObj(argv[1], -1), NULL);
 	    argc--;
 	    argv++;
+	} else if ((argc > 1) && (0 == strncmp("-l", argv[1], 2))) {
+	    L_interactive = 1;
+	    argc--;
+	    argv++;
 	}
     }
 
@@ -410,6 +416,10 @@ Tcl_Main(
     Tcl_SetVar(interp, "tcl_interactive", ((path == NULL) && tty) ? "1" : "0",
 	    TCL_GLOBAL_ONLY);
 
+    if (L_interactive) {
+        Tcl_SetVar(interp, "L_interactive", 
+            ((path == NULL) && tty) ? "1" : "0", TCL_GLOBAL_ONLY);
+    }
     /*
      * Invoke application-specific initialization.
      */
