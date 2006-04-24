@@ -209,7 +209,7 @@ ParsePragma(
     char *end_of_first_line, *end;
     Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
     int wordIndex;		/* Index of word token for current word. */
-    L_node *L_ast;
+    L_ast_node *L_ast;
 
     if (strncmp(p, "#pragma end", 11) == 0) {
         /* don't do anything, but eat the pragma */

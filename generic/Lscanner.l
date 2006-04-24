@@ -64,8 +64,8 @@ tally_newlines(
 	[^\\\n/]+	{ char * y = yytext; while (*y) *str++ = *y++; }
 	"/"		{       
                                 BEGIN(INITIAL);
-				*str++ = 0;    
-                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
+				*str++ = 0;
+                                MK_STRING_NODE(L_lval, strbuf);
 				return T_RE;
 			}
 }
@@ -93,13 +93,16 @@ tally_newlines(
 ">="		return T_GREATEREQ;
 "<"		return T_LESSTHAN;
 "<="		return T_LESSTHANEQ;
-{ID}		{       L_lval = L_make_node(L_NODE_STRING, LNIL, yytext);
+{ID}		{       
+                        MK_STRING_NODE(L_lval, yytext);
 			return T_ID;
                 }
-[0-9]*		{       L_lval = L_make_node(L_NODE_INT, LNIL, atoi(yytext)); 
+[0-9]*		{       
+                        MK_INT_NODE(L_lval, atoi(yytext)); 
                         return T_INT_LITERAL;   
                 }
-[0-9]+\.[0-9]+	{       L_lval = L_make_node(L_NODE_FLOAT, LNIL, atof(yytext));
+[0-9]+\.[0-9]+	{       
+                        MK_FLOAT_NODE(L_lval, atof(yytext));
                         return T_FLOAT_LITERAL;   
                 }
 \"		BEGIN(str_double); str = strbuf;
@@ -111,7 +114,7 @@ tally_newlines(
 	\"		{
 				BEGIN(INITIAL);
 				*str++ = 0;
-                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
+                                MK_STRING_NODE(L_lval, strbuf);
 				return T_STR_LITERAL;
 			}
 }
@@ -124,7 +127,7 @@ tally_newlines(
 	\'		{
 				BEGIN(INITIAL);
 				*str++ = 0;
-                                L_lval = L_make_node(L_NODE_STRING, LNIL, strbuf);
+                                MK_STRING_NODE(L_lval, strbuf);
 				return T_STR_LITERAL;
 			}
 }

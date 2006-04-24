@@ -1,3 +1,4 @@
+/* THIS IS A GENERATED FILE -- DO NOT EDIT! */
 #ifndef L_LAST_H
 #define L_LAST_H
 
@@ -10,7 +11,8 @@ typedef struct L_if_unless L_if_unless;
 typedef struct L_loop L_loop;
 typedef struct L_expression L_expression;
 typedef struct L_type L_type;
-typedef enum L_node_types {
+
+typedef enum L_node_type {
 	L_NODE_PROGRAM, 
 	L_NODE_VARIABLE_DECLARATION, 
 	L_NODE_FUNCTION_DECLARATION, 
@@ -19,21 +21,27 @@ typedef enum L_node_types {
 	L_NODE_LOOP, 
 	L_NODE_EXPRESSION, 
 	L_NODE_TYPE
-} L_node_types;
+} L_node_type;
 
-
+L_program *mk_program(L_variable_declaration *vars, L_function_declaration *funcs);
+L_variable_declaration *mk_variable_declaration(L_type *type, char* name, L_expression *expr, L_variable_declaration *next);
+L_function_declaration *mk_function_declaration(L_variable_declaration *statement, L_function_declaration *next);
+char *L_statement_tostr[3];
 typedef enum L_statement_kind {
 	L_STATEMENT_EXP, 
 	L_STATEMENT_IF_UNLESS, 
 	L_STATEMENT_LOOP
 } L_statement_kind;
-
+L_statement *mk_statement(L_statement *next);
+L_if_unless *mk_if_unless(L_expression *condition, L_statement *if_body, L_statement *else_body);
+char *L_loop_tostr[3];
 typedef enum L_loop_kind {
 	L_LOOP_FOR, 
 	L_LOOP_FOREACH, 
 	L_LOOP_WHILE
 } L_loop_kind;
-
+L_loop *mk_loop(L_expression *pre, L_expression *condition, L_expression *post, L_statement *body);
+char *L_expression_tostr[8];
 typedef enum L_expression_kind {
 	L_EXPRESSION_UNARY, 
 	L_EXPRESSION_BINARY, 
@@ -44,7 +52,8 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_STRING, 
 	L_EXPRESSION_FLOAT
 } L_expression_kind;
-
+L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c);
+char *L_type_tostr[7];
 typedef enum L_type_kind {
 	L_TYPE_INT, 
 	L_TYPE_STRING, 
@@ -54,11 +63,12 @@ typedef enum L_type_kind {
 	L_TYPE_VAR, 
 	L_TYPE_VOID
 } L_type_kind;
+L_type *mk_type(int array_dim, L_type *next);
 
 typedef struct L_ast_node {
 
         int line_no;
-	L_node_types	type;
+	L_node_type	type;
 	void  *next;
 } L_ast_node;
 
