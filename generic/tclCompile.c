@@ -1116,7 +1116,7 @@ TclCompileScript(
             tokenPtr = parse.tokenPtr;
             if ((parse.numWords == 1) &&
                     (tokenPtr->type == TCL_TOKEN_PRAGMA)) {
-                LCompileScript(interp, tokenPtr[0].start, tokenPtr[0].size, envPtr, (L_ast_node *)tokenPtr->data);
+                LCompileScript(interp, tokenPtr[0].start, tokenPtr[0].size, envPtr, (void *)tokenPtr->data);
                 goto finishCommand;               
             }
 

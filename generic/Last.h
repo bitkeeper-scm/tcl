@@ -25,12 +25,14 @@ typedef enum L_node_type {
 
 L_program *mk_program(L_variable_declaration *vars, L_function_declaration *funcs);
 L_variable_declaration *mk_variable_declaration(L_type *type, char* name, L_expression *expr, L_variable_declaration *next);
-L_function_declaration *mk_function_declaration(L_variable_declaration *statement, L_function_declaration *next);
-char *L_statement_tostr[3];
+L_function_declaration *mk_function_declaration(L_expression *name, L_type *return_type, L_variable_declaration *params, L_statement *body, L_function_declaration *next);
+char *L_statement_tostr[5];
 typedef enum L_statement_kind {
-	L_STATEMENT_EXP, 
+	L_STATEMENT_EXPR, 
 	L_STATEMENT_IF_UNLESS, 
-	L_STATEMENT_LOOP
+	L_STATEMENT_LOOP, 
+	L_STATEMENT_RETURN_STMT, 
+	L_STATEMENT_VARIABLE_DECLARATION
 } L_statement_kind;
 L_statement *mk_statement(L_statement *next);
 L_if_unless *mk_if_unless(L_expression *condition, L_statement *if_body, L_statement *else_body);
@@ -41,7 +43,7 @@ typedef enum L_loop_kind {
 	L_LOOP_WHILE
 } L_loop_kind;
 L_loop *mk_loop(L_expression *pre, L_expression *condition, L_expression *post, L_statement *body);
-char *L_expression_tostr[8];
+char *L_expression_tostr[9];
 typedef enum L_expression_kind {
 	L_EXPRESSION_UNARY, 
 	L_EXPRESSION_BINARY, 
@@ -50,9 +52,10 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_POST, 
 	L_EXPRESSION_INT, 
 	L_EXPRESSION_STRING, 
-	L_EXPRESSION_FLOAT
+	L_EXPRESSION_FLOAT, 
+	L_EXPRESSION_FUNCALL
 } L_expression_kind;
-L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c);
+L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c, L_expression *next);
 char *L_type_tostr[7];
 typedef enum L_type_kind {
 	L_TYPE_INT, 
@@ -92,7 +95,10 @@ struct L_variable_declaration {
 /* function_declaration */
 struct L_function_declaration {
 	L_ast_node	node;
-	L_variable_declaration	*statement;
+	L_expression	*name;
+	L_type	*return_type;
+	L_variable_declaration	*params;
+	L_statement	*body;
 	L_function_declaration	*next;
 };
 
@@ -104,6 +110,7 @@ struct L_statement {
 		L_expression	*expr;
 		L_if_unless	*cond;
 		L_loop	*loop;
+		L_variable_declaration	*decl;
 	} u;
 	L_statement	*next;
 };
@@ -139,6 +146,7 @@ struct L_expression {
 		char*	s;
 		double	d;
 	} u;
+	L_expression	*next;
 };
 
 /* type */

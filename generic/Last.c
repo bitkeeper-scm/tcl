@@ -6,17 +6,19 @@ extern void *ast_trace_root;
 
 extern int L_line_number;
 
-char *L_statement_tostr[3] = {
-	"L_STATEMENT_EXP",
+char *L_statement_tostr[5] = {
+	"L_STATEMENT_EXPR",
 	"L_STATEMENT_IF_UNLESS",
-	"L_STATEMENT_LOOP"};
+	"L_STATEMENT_LOOP",
+	"L_STATEMENT_RETURN_STMT",
+	"L_STATEMENT_VARIABLE_DECLARATION"};
 
 char *L_loop_tostr[3] = {
 	"L_LOOP_FOR",
 	"L_LOOP_FOREACH",
 	"L_LOOP_WHILE"};
 
-char *L_expression_tostr[8] = {
+char *L_expression_tostr[9] = {
 	"L_EXPRESSION_UNARY",
 	"L_EXPRESSION_BINARY",
 	"L_EXPRESSION_TERTIARY",
@@ -24,7 +26,8 @@ char *L_expression_tostr[8] = {
 	"L_EXPRESSION_POST",
 	"L_EXPRESSION_INT",
 	"L_EXPRESSION_STRING",
-	"L_EXPRESSION_FLOAT"};
+	"L_EXPRESSION_FLOAT",
+	"L_EXPRESSION_FUNCALL"};
 
 char *L_type_tostr[7] = {
 	"L_TYPE_INT",
@@ -67,12 +70,15 @@ L_variable_declaration *mk_variable_declaration(L_type *type, char* name, L_expr
 	return variable_declaration;
 }
 /* constructor for function_declaration */
-L_function_declaration *mk_function_declaration(L_variable_declaration *statement, L_function_declaration *next)
+L_function_declaration *mk_function_declaration(L_expression *name, L_type *return_type, L_variable_declaration *params, L_statement *body, L_function_declaration *next)
 {
 	L_function_declaration *function_declaration;
 
 	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
-	function_declaration->statement = statement;
+	function_declaration->name = name;
+	function_declaration->return_type = return_type;
+	function_declaration->params = params;
+	function_declaration->body = body;
 	function_declaration->next = next;
 	function_declaration->node.next = ast_trace_root;
 	ast_trace_root = (void *)function_declaration;
@@ -125,7 +131,7 @@ L_loop *mk_loop(L_expression *pre, L_expression *condition, L_expression *post, 
 	return loop;
 }
 /* constructor for expression */
-L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c)
+L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c, L_expression *next)
 {
 	L_expression *expression;
 
@@ -134,6 +140,7 @@ L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expressi
 	expression->a = a;
 	expression->b = b;
 	expression->c = c;
+	expression->next = next;
 	expression->node.next = ast_trace_root;
 	ast_trace_root = (void *)expression;
 	((L_ast_node *)expression)->line_no = L_line_number;

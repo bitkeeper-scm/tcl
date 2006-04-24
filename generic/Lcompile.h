@@ -47,7 +47,7 @@ typedef struct L_symbol {
 
 
 void LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
-                    CompileEnv *envPtr, L_ast_node *ast);
+                    CompileEnv *envPtr, void *ast);
 int LParseScript(Tcl_Interp *interp, CONST char *str, int numBytes, L_ast_node **ast);
 /* void L_assignment(L_ast_node *lvalue, L_ast_node *rvalue); */
 void L_begin_function_decl(L_ast_node *name);
@@ -93,18 +93,18 @@ int L_parse(void);
 
 /* AST convenience macros */
 #define MK_STRING_NODE(var,str) do {\
-        var = mk_expression(L_EXPRESSION_STRING, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_STRING, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.s = ckalloc(strlen(str) + 1);\
         strcpy(((L_expression *)var)->u.s, str);\
 } while(0);
 
 #define MK_INT_NODE(var,int) do {\
-        var = mk_expression(L_EXPRESSION_INT, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_INT, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.i = int;\
 } while(0);
 
 #define MK_FLOAT_NODE(var,float) do {\
-        var = mk_expression(L_EXPRESSION_FLOAT, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_FLOAT, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.d = float;\
 } while(0);
 

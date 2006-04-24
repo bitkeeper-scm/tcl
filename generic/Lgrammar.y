@@ -62,96 +62,172 @@ extern int L_interactive;
 start:	  funclist	{ }
 	;
 
-funclist: funclist function_declaration	{ }
-	|		{ }
+funclist: 
+          funclist function_declaration	
+        { 
+                ((L_function_declaration*)$2)->next = $1; 
+                $$ = $2;
+        }
+	| /* epsilon */         { $$ = NULL; }
 	;
 
 function_declaration:
-          return_type_specifier T_ID {  } "(" parameter_list ")"
-                compound_statement {  }
+          return_type_specifier T_ID "(" parameter_list ")" compound_statement 
+        {  
+                $$ = mk_function_declaration($2, $1, $4, $6, NULL);
+        }
 	;
 
 stmt:
-          single_statement		{if (L_interactive) YYACCEPT;}
-        | compound_statement		{if (L_interactive) YYACCEPT;}
+          single_statement      { $$ = $1; if (L_interactive) YYACCEPT; }
+        | compound_statement    { $$ = $1; if (L_interactive) YYACCEPT; }
         ;
 
 single_statement:
-          selection_statement
-	| expr ";"
-        | T_RETURN ";"                  {  }
-        | T_RETURN expr ";"             {  }
+          selection_statement   
+        {
+                $$ = mk_statement(NULL); 
+                ((L_statement *)$$)->kind = L_STATEMENT_IF_UNLESS;
+                ((L_statement *)$$)->u.cond = $1;
+        }
+	| expr ";"              
+        { 
+                $$ = mk_statement(NULL);
+                ((L_statement *)$$)->kind = L_STATEMENT_EXPR;
+                ((L_statement *)$$)->u.expr = $1;
+        }
+        | T_RETURN ";"                  
+        {  
+                $$ = mk_statement(NULL);        
+                ((L_statement *)$$)->kind = L_STATEMENT_RETURN_STMT;
+                ((L_statement *)$$)->u.expr = NULL;
+        }
+        | T_RETURN expr ";"
+        {  
+                $$ = mk_statement(NULL);        
+                ((L_statement *)$$)->kind = L_STATEMENT_RETURN_STMT;
+                ((L_statement *)$$)->u.expr = $2;
+        }
 	;
 
 selection_statement:
-          T_IF "(" expr ")"             {  }
-                compound_statement      {  }
-                optional_else           {  }
+          T_IF "(" expr ")" compound_statement optional_else
+        {  
+                $$ = mk_if_unless($3, $5, $6);
+        }
         /* if you have no curly braces, you get no else. */
-        | T_IF "(" expr ")"             {  }
-                single_statement        {  }
+        | T_IF "(" expr ")" single_statement
+        {
+                $$ = mk_if_unless($3, $5, NULL);
+        }
         /* analogous to the if statements. the unless statements
            differ only by the true value passed to L_if_condition */
-        | T_UNLESS "(" expr ")"         { }
-                compound_statement      { }
-                optional_else           { }
-        | T_UNLESS "(" expr ")"         { }
-                single_statement        { }
+        | T_UNLESS "(" expr ")" compound_statement optional_else 
+        {  
+                $$ = mk_if_unless($3, $6, $5);
+        }
+        | T_UNLESS "(" expr ")" single_statement        
+        {  
+                $$ = mk_if_unless($3, NULL, $5);
+        }
         ;
 
 optional_else:
         /* else clauses must either have curly braces or be another
            if/unless */
-          T_ELSE                {
-                                  }
-                compound_statement
-        | T_ELSE                {
-                                  }
-                selection_statement
-        | /* epsilon */         { }
+          T_ELSE compound_statement     { $$ = $2; }
+        | T_ELSE selection_statement    { $$ = $2; }
+        | /* epsilon */                 
         ;
 
 stmt_list:
           stmt
- 	| stmt_list stmt
+ 	| stmt_list stmt        { ((L_statement *)$1)->next = $2; }
 	;
 
 
 parameter_list:
           parameter_declaration_list
-        | T_VOID
-        | /* epsilon */
+        | T_VOID                        { $$ = NULL; }
+        | /* epsilon */                 { $$ = NULL; }
         ;
 
 parameter_declaration_list:
           parameter_declaration
         | parameter_declaration_list "," parameter_declaration
+        {
+                ((L_variable_declaration *)$1)->next = $3;
+                $$ = $1;
+        }
         ;
 
 parameter_declaration:
           type_specifier declarator
-                { }
+        { 
+                ((L_variable_declaration *)$2)->type = $1;
+                $$ = $2;
+        }
         ;
 
 argument_expression_list:
-          argument_expression_list "," expr     { }
-	| expr			{ }
-	| /* epsilon */         { }
+          argument_expression_list "," expr
+        { 
+                ((L_expression *)$1)->next = $3;
+                $$ = $1;
+        }
+	| expr
+	| /* epsilon */
         ;
 
 expr:
-          "(" expr ")"          { }
+          "(" expr ")"          { $$ = $2; }
 /* 	| "!" expr		{ } */
 /* 	| "-" expr %prec UMINUS	{ } */
-        | T_PLUSPLUS T_ID       { }
-	| T_MINUSMINUS T_ID     { }
-	| T_ID T_PLUSPLUS       { }
-	| T_ID T_MINUSMINUS     { }
-	| expr T_STAR expr      { }
-	| expr T_SLASH expr     { }
-	| expr T_PERC expr      { }
-	| expr T_PLUS expr      { }
-	| expr T_MINUS expr     { }
+        | T_PLUSPLUS T_ID
+        {   
+                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_PRE;
+        }
+	| T_MINUSMINUS T_ID
+        {   
+                $$ = mk_expression(T_MINUSMINUS, $2, NULL, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_PRE;
+        }
+	| T_ID T_PLUSPLUS
+        {
+                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_POST;
+        }
+	| T_ID T_MINUSMINUS
+        {
+                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_POST;
+        }
+	| expr T_STAR expr
+        {
+                $$ = mk_expression(T_STAR, $1, $3, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+        }
+	| expr T_SLASH expr
+        {
+                $$ = mk_expression(T_STAR, $1, $3, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+        }
+	| expr T_PERC expr
+        {
+                $$ = mk_expression(T_PERC, $1, $3, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+        }
+	| expr T_PLUS expr
+        {
+                $$ = mk_expression(T_PLUS, $1, $3, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+        }
+	| expr T_MINUS expr
+        {
+                $$ = mk_expression(T_MINUS, $1, $3, NULL, NULL);
+                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+        }
 
 /* 	| expr "lt" expr	{ } */
 /* 	| expr "le" expr	{ } */
@@ -170,27 +246,42 @@ expr:
 /* 	| expr "&&" expr	{ } */
 /* 	| expr "||" expr	{ } */
 /*         |  */
-        | T_STR_LITERAL         { }
-        | T_INT_LITERAL         { }
-        | T_FLOAT_LITERAL       { }
-	| T_ID                  { }
-        | T_ID                  { }
-                "(" argument_expression_list ")"
-                                { }
-	| T_ID T_EQUALS expr    { }
+        | T_STR_LITERAL
+        | T_INT_LITERAL
+        | T_FLOAT_LITERAL
+	| T_ID
+        | T_ID "(" argument_expression_list ")"         
+        { 
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, $1, $3, NULL, NULL);
+                ((L_expression*)$$)->kind = L_EXPRESSION_FUNCALL;
+        }
+	| T_ID T_EQUALS expr
+        { 
+                $$ = mk_expression(T_EQUALS, $1, $3, NULL, NULL); 
+                ((L_expression*)$$)->kind = L_EXPRESSION_BINARY;
+        }
 	;
 
 
 compound_statement:
-	  "{" "}"
-	| "{" stmt_list "}"
-	| "{" declaration_list "}"
+	  "{" "}"                               { $$ = NULL; }
+	| "{" stmt_list "}"                     { $$ = $2; }
+	| "{" declaration_list "}"              
+        { $$ = $2; 
+        }
 	| "{" declaration_list stmt_list "}"
+        {
+                ((L_statement *)$2)->next = $3;
+                $$ = $2;
+        }
 	;
 
 declaration_list:
 	  declaration
 	| declaration_list declaration
+        {
+                ((L_variable_declaration *)$1)->next = $2;
+        }
 	;
 
 declaration:
@@ -199,28 +290,40 @@ declaration:
 
 init_declarator_list:
 	  type_specifier init_declarator
-                { }
+        {
+                $$ = mk_variable_declaration($1, NULL, NULL, $2);
+        }
 	| init_declarator_list "," init_declarator
-                { }
+        {
+                L_type *type = ((L_variable_declaration *)$1)->type;
+                L_variable_declaration *decl = 
+                        mk_variable_declaration(type, NULL, NULL, $3);
+                ((L_variable_declaration *)$1)->next = decl;
+                $$ = $1;
+        }
 	;
 
 init_declarator:
 	  declarator
-                { }
 	| declarator T_EQUALS initializer
-                { }
+        {
+                ((L_variable_declaration *)$1)->expr = $3;
+        }
 	;
 
 declarator:
           T_ID
+        {
+
+        }
 	| declarator "[" constant_expression "]"
-                {
-
-                }
+        {
+                ((L_variable_declaration *)$1)->expr = $3;
+        }
 	| declarator "[" "]"
-                {
+        {
 
-                }
+        }
         ;
 
 return_type_specifier:

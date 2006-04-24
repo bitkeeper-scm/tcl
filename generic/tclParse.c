@@ -262,7 +262,7 @@ ParsePragma(
     tokenPtr->start = end_of_first_line;
     tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
     tokenPtr->numComponents = 1;
-    if (LParseScript(interp, tokenPtr->start, tokenPtr->size, &L_ast) != TCL_OK) {
+    if (LParseScript(interp, tokenPtr->start, tokenPtr->size, &L_ast) == TCL_OK) {
             tokenPtr->data = (void *)L_ast;
     } else {
             Tcl_FreeParse(parsePtr);

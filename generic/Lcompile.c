@@ -52,17 +52,11 @@ LCompileScript(
     CONST char *str,
     int numBytes,
     CompileEnv *envPtr,
-    L_ast_node *ast)
+    void *ast)
 {
     L_trace("Compiling: \n %.*s\n", numBytes, str);
+    L_dump_ast(ast);
 }
-
-/**
- * These next functions are the bulk of the parser's semantic actions.
- * Right now they attempt to compile straight to bytecode.  We may
- * want to first generate an AST so we can chew on it a little harder,
- * and don't have to mess with global variables.
- */
 
 void 
 L_begin_function_decl(L_ast_node *name) 
@@ -562,7 +556,7 @@ L_errorf(const char *format, ...)
 /* Print an AST on stdout.  The AST nodes are listed in parentheses. Each
    interior node (node of type L_NODE_NODE) adds a new nesting level. */
 void
-L_dump_ast(L_ast_node *ast)
+L_dump_ast(void *ast)
 {
     L_trace("AST: (");
     L_dump_ast_nodes(ast);
