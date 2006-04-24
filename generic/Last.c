@@ -1,20 +1,9 @@
-/* THIS IS A GENERATED FILE -- DO NOT EDIT! */
+/* This is an automatically generated file, please do not edit */
 #include "tclInt.h"
 #include "Last.h"
 
 extern void *ast_trace_root;
-
 extern int L_line_number;
-
-char *L_statement_tostr[3] = {
-	"L_STATEMENT_EXP",
-	"L_STATEMENT_IF_UNLESS",
-	"L_STATEMENT_LOOP"};
-
-char *L_loop_tostr[3] = {
-	"L_LOOP_FOR",
-	"L_LOOP_FOREACH",
-	"L_LOOP_WHILE"};
 
 char *L_expression_tostr[8] = {
 	"L_EXPRESSION_UNARY",
@@ -24,7 +13,14 @@ char *L_expression_tostr[8] = {
 	"L_EXPRESSION_POST",
 	"L_EXPRESSION_INT",
 	"L_EXPRESSION_STRING",
-	"L_EXPRESSION_FLOAT"};
+	"L_EXPRESSION_FLOAT"
+};
+
+char *L_statement_tostr[3] = {
+	"L_STATEMENT_EXP",
+	"L_STATEMENT_IF_UNLESS",
+	"L_STATEMENT_LOOP"
+};
 
 char *L_type_tostr[7] = {
 	"L_TYPE_INT",
@@ -33,25 +29,74 @@ char *L_type_tostr[7] = {
 	"L_TYPE_HASH",
 	"L_TYPE_POLY",
 	"L_TYPE_VAR",
-	"L_TYPE_VOID"};
+	"L_TYPE_VOID"
+};
+
+char *L_loop_tostr[3] = {
+	"L_LOOP_FOR",
+	"L_LOOP_FOREACH",
+	"L_LOOP_WHILE"
+};
 
 
-/* constructor for program */
-L_program *mk_program(L_variable_declaration *vars, L_function_declaration *funcs)
+/* constructors for the L language */
+L_statement *mk_statement(L_statement_kind kind,L_statement *next) 
 {
-	L_program *program;
+	L_statement *statement;
 
-	program = (L_program *)ckalloc(sizeof(L_program));
-	program->vars = vars;
-	program->funcs = funcs;
-	program->node.next = ast_trace_root;
-	ast_trace_root = (void *)program;
-	((L_ast_node *)program)->line_no = L_line_number;
-	((L_ast_node *)program)->type = L_NODE_PROGRAM;
-	return program;
+	statement = (L_statement *)ckalloc(sizeof(L_statement));
+	statement->kind = kind;
+	statement->next = next;
+	ast_trace_root = (void *)statement;
+	((L_ast_node *)statement)->line_no = L_line_number;
+	((L_ast_node *)statement)->type = L_NODE_STATEMENT;
+	return statement;
 }
-/* constructor for variable_declaration */
-L_variable_declaration *mk_variable_declaration(L_type *type, char* name, L_expression *expr, L_variable_declaration *next)
+
+L_type *mk_type(L_type_kind kind,int array_dim,L_type *next) 
+{
+	L_type *type;
+
+	type = (L_type *)ckalloc(sizeof(L_type));
+	type->kind = kind;
+	type->array_dim = array_dim;
+	type->next = next;
+	ast_trace_root = (void *)type;
+	((L_ast_node *)type)->line_no = L_line_number;
+	((L_ast_node *)type)->type = L_NODE_TYPE;
+	return type;
+}
+
+L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body) 
+{
+	L_loop *loop;
+
+	loop = (L_loop *)ckalloc(sizeof(L_loop));
+	loop->kind = kind;
+	loop->pre = pre;
+	loop->condition = condition;
+	loop->post = post;
+	loop->body = body;
+	ast_trace_root = (void *)loop;
+	((L_ast_node *)loop)->line_no = L_line_number;
+	((L_ast_node *)loop)->type = L_NODE_LOOP;
+	return loop;
+}
+
+L_function_declaration *mk_function_declaration(L_variable_declaration *statement,L_function_declaration *next) 
+{
+	L_function_declaration *function_declaration;
+
+	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
+	function_declaration->statement = statement;
+	function_declaration->next = next;
+	ast_trace_root = (void *)function_declaration;
+	((L_ast_node *)function_declaration)->line_no = L_line_number;
+	((L_ast_node *)function_declaration)->type = L_NODE_FUNCTION_DECLARATION;
+	return function_declaration;
+}
+
+L_variable_declaration *mk_variable_declaration(L_type *type,char *name,L_expression *expr,L_variable_declaration *next) 
 {
 	L_variable_declaration *variable_declaration;
 
@@ -60,41 +105,29 @@ L_variable_declaration *mk_variable_declaration(L_type *type, char* name, L_expr
 	variable_declaration->name = name;
 	variable_declaration->expr = expr;
 	variable_declaration->next = next;
-	variable_declaration->node.next = ast_trace_root;
 	ast_trace_root = (void *)variable_declaration;
 	((L_ast_node *)variable_declaration)->line_no = L_line_number;
 	((L_ast_node *)variable_declaration)->type = L_NODE_VARIABLE_DECLARATION;
 	return variable_declaration;
 }
-/* constructor for function_declaration */
-L_function_declaration *mk_function_declaration(L_variable_declaration *statement, L_function_declaration *next)
-{
-	L_function_declaration *function_declaration;
 
-	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
-	function_declaration->statement = statement;
-	function_declaration->next = next;
-	function_declaration->node.next = ast_trace_root;
-	ast_trace_root = (void *)function_declaration;
-	((L_ast_node *)function_declaration)->line_no = L_line_number;
-	((L_ast_node *)function_declaration)->type = L_NODE_FUNCTION_DECLARATION;
-	return function_declaration;
-}
-/* constructor for statement */
-L_statement *mk_statement(L_statement *next)
+L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c) 
 {
-	L_statement *statement;
+	L_expression *expression;
 
-	statement = (L_statement *)ckalloc(sizeof(L_statement));
-	statement->next = next;
-	statement->node.next = ast_trace_root;
-	ast_trace_root = (void *)statement;
-	((L_ast_node *)statement)->line_no = L_line_number;
-	((L_ast_node *)statement)->type = L_NODE_STATEMENT;
-	return statement;
+	expression = (L_expression *)ckalloc(sizeof(L_expression));
+	expression->kind = kind;
+	expression->op = op;
+	expression->a = a;
+	expression->b = b;
+	expression->c = c;
+	ast_trace_root = (void *)expression;
+	((L_ast_node *)expression)->line_no = L_line_number;
+	((L_ast_node *)expression)->type = L_NODE_EXPRESSION;
+	return expression;
 }
-/* constructor for if_unless */
-L_if_unless *mk_if_unless(L_expression *condition, L_statement *if_body, L_statement *else_body)
+
+L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body) 
 {
 	L_if_unless *if_unless;
 
@@ -102,56 +135,22 @@ L_if_unless *mk_if_unless(L_expression *condition, L_statement *if_body, L_state
 	if_unless->condition = condition;
 	if_unless->if_body = if_body;
 	if_unless->else_body = else_body;
-	if_unless->node.next = ast_trace_root;
 	ast_trace_root = (void *)if_unless;
 	((L_ast_node *)if_unless)->line_no = L_line_number;
 	((L_ast_node *)if_unless)->type = L_NODE_IF_UNLESS;
 	return if_unless;
 }
-/* constructor for loop */
-L_loop *mk_loop(L_expression *pre, L_expression *condition, L_expression *post, L_statement *body)
-{
-	L_loop *loop;
 
-	loop = (L_loop *)ckalloc(sizeof(L_loop));
-	loop->pre = pre;
-	loop->condition = condition;
-	loop->post = post;
-	loop->body = body;
-	loop->node.next = ast_trace_root;
-	ast_trace_root = (void *)loop;
-	((L_ast_node *)loop)->line_no = L_line_number;
-	((L_ast_node *)loop)->type = L_NODE_LOOP;
-	return loop;
-}
-/* constructor for expression */
-L_expression *mk_expression(int op, L_expression *a, L_expression *b, L_expression *c)
+L_program *mk_program(L_variable_declaration *vars,L_function_declaration *funcs) 
 {
-	L_expression *expression;
+	L_program *program;
 
-	expression = (L_expression *)ckalloc(sizeof(L_expression));
-	expression->op = op;
-	expression->a = a;
-	expression->b = b;
-	expression->c = c;
-	expression->node.next = ast_trace_root;
-	ast_trace_root = (void *)expression;
-	((L_ast_node *)expression)->line_no = L_line_number;
-	((L_ast_node *)expression)->type = L_NODE_EXPRESSION;
-	return expression;
-}
-/* constructor for type */
-L_type *mk_type(int array_dim, L_type *next)
-{
-	L_type *type;
-
-	type = (L_type *)ckalloc(sizeof(L_type));
-	type->array_dim = array_dim;
-	type->next = next;
-	type->node.next = ast_trace_root;
-	ast_trace_root = (void *)type;
-	((L_ast_node *)type)->line_no = L_line_number;
-	((L_ast_node *)type)->type = L_NODE_TYPE;
-	return type;
+	program = (L_program *)ckalloc(sizeof(L_program));
+	program->vars = vars;
+	program->funcs = funcs;
+	ast_trace_root = (void *)program;
+	((L_ast_node *)program)->line_no = L_line_number;
+	((L_ast_node *)program)->type = L_NODE_PROGRAM;
+	return program;
 }
 
