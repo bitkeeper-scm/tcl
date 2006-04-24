@@ -454,7 +454,8 @@ BK_SRCS	?= \
 	$(GENERIC_DIR)/keydecode.c 
 
 L_HDRS = \
-	$(GENERIC_DIR)/Lcompile.h
+	$(GENERIC_DIR)/Lcompile.h \
+	$(GENERIC_DIR)/Last.h
 
 L_SRCS = \
 	$(GENERIC_DIR)/Lscanner.l \
@@ -1253,19 +1254,19 @@ tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
-Lscanner.o: Lscanner.c $(L_SRCS)
+Lscanner.o: Lscanner.c $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
 
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS)
+Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) Lgrammar.c
 
 Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
 
-Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS)
+Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Last.c
 
 

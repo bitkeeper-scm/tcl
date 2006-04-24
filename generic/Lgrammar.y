@@ -8,6 +8,7 @@
 int L_lex (void);
 
 extern int L_interactive;
+extern void *L_current_ast;
 
 #define YYERROR_VERBOSE
 %}
@@ -59,7 +60,7 @@ extern int L_interactive;
 
 %%
 
-start:	  funclist	{ }
+start:	  funclist	{ L_current_ast = $1; }
 	;
 
 funclist: 
@@ -86,26 +87,22 @@ stmt:
 single_statement:
           selection_statement   
         {
-                $$ = mk_statement(NULL); 
-                ((L_statement *)$$)->kind = L_STATEMENT_IF_UNLESS;
+                $$ = mk_statement(L_STATEMENT_IF_UNLESS, NULL);
                 ((L_statement *)$$)->u.cond = $1;
         }
 	| expr ";"              
         { 
-                $$ = mk_statement(NULL);
-                ((L_statement *)$$)->kind = L_STATEMENT_EXPR;
+                $$ = mk_statement(L_STATEMENT_EXPR, NULL);
                 ((L_statement *)$$)->u.expr = $1;
         }
         | T_RETURN ";"                  
         {  
-                $$ = mk_statement(NULL);        
-                ((L_statement *)$$)->kind = L_STATEMENT_RETURN_STMT;
+                $$ = mk_statement(L_STATEMENT_RETURN_STMT, NULL);
                 ((L_statement *)$$)->u.expr = NULL;
         }
         | T_RETURN expr ";"
         {  
-                $$ = mk_statement(NULL);        
-                ((L_statement *)$$)->kind = L_STATEMENT_RETURN_STMT;
+                $$ = mk_statement(L_STATEMENT_RETURN_STMT, NULL);
                 ((L_statement *)$$)->u.expr = $2;
         }
 	;
@@ -185,48 +182,39 @@ expr:
 /* 	| "-" expr %prec UMINUS	{ } */
         | T_PLUSPLUS T_ID
         {   
-                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_PRE;
+                $$ = mk_expression(L_EXPRESSION_PRE, T_PLUSPLUS, $2, NULL, NULL, NULL);
         }
 	| T_MINUSMINUS T_ID
         {   
-                $$ = mk_expression(T_MINUSMINUS, $2, NULL, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_PRE;
+                $$ = mk_expression(L_EXPRESSION_PRE, T_MINUSMINUS, $2, NULL, NULL, NULL);
         }
 	| T_ID T_PLUSPLUS
         {
-                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_POST;
+                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $2, NULL, NULL, NULL);
         }
 	| T_ID T_MINUSMINUS
         {
-                $$ = mk_expression(T_PLUSPLUS, $2, NULL, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_POST;
+                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $2, NULL, NULL, NULL);
         }
 	| expr T_STAR expr
         {
-                $$ = mk_expression(T_STAR, $1, $3, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_STAR, $1, $3, NULL, NULL);
         }
 	| expr T_SLASH expr
         {
-                $$ = mk_expression(T_STAR, $1, $3, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_STAR, $1, $3, NULL, NULL);
         }
 	| expr T_PERC expr
         {
-                $$ = mk_expression(T_PERC, $1, $3, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_PERC, $1, $3, NULL, NULL);
         }
 	| expr T_PLUS expr
         {
-                $$ = mk_expression(T_PLUS, $1, $3, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_PLUS, $1, $3, NULL, NULL);
         }
 	| expr T_MINUS expr
         {
-                $$ = mk_expression(T_MINUS, $1, $3, NULL, NULL);
-                ((L_expression *)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_MINUS, $1, $3, NULL, NULL);
         }
 
 /* 	| expr "lt" expr	{ } */
@@ -252,13 +240,11 @@ expr:
 	| T_ID
         | T_ID "(" argument_expression_list ")"         
         { 
-                $$ = mk_expression(L_EXPRESSION_FUNCALL, $1, $3, NULL, NULL);
-                ((L_expression*)$$)->kind = L_EXPRESSION_FUNCALL;
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL);
         }
 	| T_ID T_EQUALS expr
         { 
-                $$ = mk_expression(T_EQUALS, $1, $3, NULL, NULL); 
-                ((L_expression*)$$)->kind = L_EXPRESSION_BINARY;
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL); 
         }
 	;
 
@@ -291,14 +277,12 @@ declaration:
 init_declarator_list:
 	  type_specifier init_declarator
         {
-                $$ = mk_variable_declaration($1, NULL, NULL, $2);
+                ((L_variable_declaration *)$1)->type = $1;
         }
 	| init_declarator_list "," init_declarator
         {
-                L_type *type = ((L_variable_declaration *)$1)->type;
-                L_variable_declaration *decl = 
-                        mk_variable_declaration(type, NULL, NULL, $3);
-                ((L_variable_declaration *)$1)->next = decl;
+                ((L_variable_declaration *)$3)->type = ((L_variable_declaration *)$1)->type;
+                ((L_variable_declaration *)$1)->next = $3;
                 $$ = $1;
         }
 	;
@@ -308,47 +292,59 @@ init_declarator:
 	| declarator T_EQUALS initializer
         {
                 ((L_variable_declaration *)$1)->expr = $3;
+                $$ = $1;
         }
 	;
 
 declarator:
           T_ID
         {
-
+                $$ = mk_variable_declaration(NULL, ((L_expression *)$1)->u.s, NULL, NULL);
         }
 	| declarator "[" constant_expression "]"
         {
-                ((L_variable_declaration *)$1)->expr = $3;
+                L_type *type = mk_type(-1, $2, ((L_variable_declaration *)$1)->type);
+                ((L_variable_declaration *)$1)->type = type;
+                $$ = $1;
         }
 	| declarator "[" "]"
         {
-
+                L_type *type = mk_type(-1, NULL, ((L_variable_declaration *)$1)->type);
+                ((L_variable_declaration *)$1)->type = type;
+                $$ = $1;
         }
         ;
 
 return_type_specifier:
           type_specifier
-        | T_VOID        { }
-        | /* epsilon */ { }
+        | T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL); }
+        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL); }
         ;
 
 type_specifier:
-	  T_STRING      { }
-	| T_INT         { }
-	| T_FLOAT       { }
-	| T_HASH        { }
-	| T_POLY        { }
-	| T_VAR         { }
+	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL); }
+	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL); }
+	| T_FLOAT       { $$ = mk_type(L_TYPE_FLOAT, NULL, NULL); }
+	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL); }
+	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL); }
+	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL); }
 	;
 
 initializer:
           expr
-        | "(" hash_initializer_list ")"
+        | "(" hash_initializer_list ")"         { $$ = $2; }
         ;
 
 hash_initializer_list:
+        /* XXX these need work */
           hash_initializer
+        {
+                MK_STRING_NODE($$, ""); 
+        }
         | hash_initializer_list "," hash_initializer
+        {
+                MK_STRING_NODE($$, ""); 
+        }
         ;
 
 hash_initializer:
