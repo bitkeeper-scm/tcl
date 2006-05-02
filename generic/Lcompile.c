@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "tclInt.h"
 #include "Lcompile.h"
+#include "Lgrammar.h"
 #include "Last.h"
 
 static L_compile_frame *lframe = NULL;
@@ -15,12 +16,32 @@ void *L__scan_bytes (const char *bytes, int len);
 void L__delete_buffer(void *buf);
 
 /* functions local to this file */
-static void L_dump_ast_nodes(void *node);
-static void L_free_ast();
-static void separate_array_type(L_ast_node **name, L_ast_node **array_type);
+static void L_free_ast(L_ast_node *ast);
 
 /* we keep track of each AST node we allocate and free them all at once */
-void *ast_trace_root = NULL;
+L_ast_node *ast_trace_root = NULL;
+
+int 
+L_PragmaObjCmd(
+    ClientData clientData,
+    Tcl_Interp *interp, 
+    int objc,
+    Tcl_Obj *CONST objv[])
+{ 
+    int stringLen; 
+    char *stringPtr;
+    L_ast_node *ast;
+
+    if (objc != 2) {
+        L_bomb("Assertion failed in L_PragmaObjCmd: we expected only 1 argument but got %d.",
+               objc - 1);
+    }
+    stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
+    if (LParseScript(interp, stringPtr, stringLen, &ast) != TCL_OK) {
+        return TCL_ERROR;
+    }
+    return LCompileScript(interp, stringPtr, stringLen, NULL, ast);
+}
 
 /* Parse an L script into an AST */
 int
@@ -35,21 +56,25 @@ LParseScript(
     L_trace("Parsing: %.*s\n", numBytes, str);
     L_line_number = 0;
     L_errors = NULL;
-    L_parse();  /* XXX: get the AST */
+    L_parse();
+    if (L_ast == NULL) {
+        L_free_ast(L_current_ast);
+    } else {
+        *L_ast = L_current_ast;
+    }
     L__delete_buffer(lex_buffer);
     if (L_errors) {
             Tcl_SetObjResult(interp, L_errors);
             L_trace("Failed to parse.\n");
             return TCL_ERROR;
     }
-    *L_ast = L_current_ast;
-    L_current_ast = NULL;
     L_trace("Done parsing.\n");
     return TCL_OK;
 }
 
+
 /* Compile an AST into Tcl ByteCodes */
-void
+int
 LCompileScript(
     Tcl_Interp *interp,
     CONST char *str,
@@ -58,205 +83,341 @@ LCompileScript(
     void *ast)
 {
     L_trace("Compiling: \n %.*s\n", numBytes, str);
+
+    L_frame_push(interp, envPtr);
+    if (envPtr)
+        lframe->originalCodeNext = envPtr->codeNext;
+
     switch(((L_ast_node*)ast)->type) {
-/*     case L_NODE_FUNCTION_DECLARATION: */
-/*         L_walk_l_node_function_declaration((L_node_function_declaration *)node); */
-/*         break; */
+    case L_NODE_FUNCTION_DECLARATION:
+        L_compile_function_decls(ast);
+        break;
     default:
-/*         L_bomb("LCompileScript: expecting a function declaration, got: %d",  */
-/*                ((L_ast_node*)ast)->type); */
         L_bomb("LCompileScript error, expecting a function declaration, got: %s",
                L_node_type_tostr[((L_ast_node*)ast)->type]);
     }
+    if (envPtr)
+        maybeFixupEmptyCode(lframe);
+    L_frame_pop();
+
+    L_free_ast(ast);
+    if (L_errors) {
+            Tcl_SetObjResult(interp, L_errors);
+            L_trace("Failed to compile.\n");
+            return TCL_ERROR;
+    }
+    L_trace("Done compiling\n");
+    return TCL_OK;
 }
 
-void 
-L_begin_function_decl(L_ast_node *name) 
+void
+L_compile_function_decls(L_function_declaration *fun)
 {
-/*     Interp *iPtr = (Interp *)lframe->interp; */
-/*     Proc *procPtr; */
-/*     CompileEnv *envPtr; */
+    Proc *procPtr;
+    CompileEnv *envPtr;
+    Tcl_Obj *bodyObjPtr;
+    Tcl_Command cmd;
 
-/*     envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv)); */
-/*     L_frame_push(lframe->interp, envPtr); */
+    if (!fun) return;
+    envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
+    L_frame_push(lframe->interp, envPtr);
 
-/*     procPtr = (Proc *) ckalloc(sizeof(Proc)); */
-/*     procPtr->iPtr = iPtr; */
-/*     procPtr->refCount = 1; */
-/*     procPtr->bodyPtr = Tcl_NewObj(); */
-/*     procPtr->numArgs  = 0; */
-/*     procPtr->numCompiledLocals = 0; */
-/*     procPtr->firstLocalPtr = NULL; */
-/*     procPtr->lastLocalPtr = NULL; */
+    procPtr = (Proc *)ckalloc(sizeof(Proc));
+    procPtr->iPtr = (struct Interp *)lframe->interp;
+    procPtr->refCount = 1;
+    procPtr->bodyPtr = Tcl_NewObj();
+    procPtr->numArgs  = 0;
+    procPtr->numCompiledLocals = 0;
+    procPtr->firstLocalPtr = NULL;
+    procPtr->lastLocalPtr = NULL;
 
-/*     TclInitCompileEnv(lframe->interp, envPtr, "L Compiler",  */
-/*                       strlen("L Compiler")); */
-/*     lframe->originalCodeNext = envPtr->codeNext; */
-/*     envPtr->procPtr = procPtr; */
-}
+    TclInitCompileEnv(lframe->interp, envPtr, "L Compiler",
+                      strlen("L Compiler"));
+    lframe->originalCodeNext = envPtr->codeNext;
+    envPtr->procPtr = procPtr;
 
-void 
-L_end_function_decl(L_ast_node *name) 
-{
-/*     Tcl_Obj *bodyObjPtr; */
-/*     Proc *procPtr = lframe->envPtr->procPtr; */
-/*     Tcl_Command cmd; */
+    L_compile_parameters(fun->params);
+    L_compile_block(fun->body);
     
-/*     /\* This is the "fall off the end" implicit return. We return "". *\/ */
-/*     L_return(FALSE); */
+    /* This is the "fall off the end" implicit return. We return "". */
+    L_return(FALSE);
 
-/*     TclInitByteCodeObj(procPtr->bodyPtr, lframe->envPtr); */
-/*     bodyObjPtr = TclNewProcBodyObj(procPtr); */
-/*     if (bodyObjPtr == NULL) { */
-/*         L_bomb("failed to create a ProcBodyObj for some reason"); */
-/*     } */
-/*     Tcl_IncrRefCount(bodyObjPtr); */
+    TclInitByteCodeObj(procPtr->bodyPtr, lframe->envPtr);
+    bodyObjPtr = TclNewProcBodyObj(procPtr);
+    if (bodyObjPtr == NULL) {
+        L_bomb("failed to create a ProcBodyObj for some reason");
+    }
+    Tcl_IncrRefCount(bodyObjPtr);
 
-/*     cmd = Tcl_CreateObjCommand(lframe->interp, name->v.s, */
-/*         TclObjInterpProc, (ClientData) procPtr, TclProcDeleteProc); */
-/*     procPtr->cmdPtr = (Command *) cmd; */
+    cmd = Tcl_CreateObjCommand(lframe->interp, fun->name->u.s,
+        TclObjInterpProc, (ClientData) procPtr, TclProcDeleteProc);
+    procPtr->cmdPtr = (Command *) cmd;
 
 
-/*     TclFreeCompileEnv(lframe->envPtr); */
-/*     ckfree((char *)lframe->envPtr); */
-/*     L_frame_pop(); */
+    TclFreeCompileEnv(lframe->envPtr);
+    ckfree((char *)lframe->envPtr);
+    L_frame_pop();
+    L_compile_function_decls(fun->next);
+}
+
+void 
+L_compile_variable_decls(L_variable_declaration *var)
+{
+    L_symbol *symbol;
+    int localIndex;
+
+    if (!var) return;
+    L_trace("declaring variable %s\n", var->name->u.s);
+    localIndex = TclFindCompiledLocal(var->name->u.s, strlen(var->name->u.s), 
+                                      1, 0, lframe->envPtr->procPtr);
+    symbol = L_make_symbol(var->name, var->type->kind, NULL, localIndex);
+    if (var->initial_value) {
+/*         L_push_value(var->initial_value); */
+        L_compile_expressions(var->initial_value);
+        if (localIndex <= 255) {
+            TclEmitInstInt1(INST_STORE_SCALAR1, localIndex, lframe->envPtr);
+        } else {
+            TclEmitInstInt4(INST_STORE_SCALAR4, localIndex, lframe->envPtr);
+        }
+    }
+    L_compile_variable_decls(var->next);
+}
+
+void 
+L_compile_statements(L_statement *stmt)
+{
+    if (!stmt) return;
+    switch (stmt->kind) {
+    case L_STATEMENT_BLOCK:
+        L_compile_block(stmt->u.block);
+        break;
+    case L_STATEMENT_EXPR:
+        L_compile_expressions(stmt->u.expr);
+        break;
+    case L_STATEMENT_IF_UNLESS:
+        L_compile_if_unless(stmt->u.cond);
+        break;
+    case L_STATEMENT_RETURN:
+        L_trace("compiling return statement\n");
+        if (stmt->u.expr) {
+            L_trace("    with return value\n");
+            /* compile the return value */
+            L_compile_expressions(stmt->u.expr);
+        } else {
+            L_trace("    without return value\n");
+            /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
+            TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
+                         lframe->envPtr );
+        }
+        /* INST_RETURN_STK involves a little more magic that I haven't wangled out
+           yet... but I think it lets us pass back error codes and such that could
+           be useful. --timjr 2006.3.31  */
+        /* TclEmitOpcode(INST_RETURN_STK, lframe->envPtr); */
+        TclEmitOpcode(INST_DONE, lframe->envPtr);
+        break;
+    }
+    L_compile_statements(stmt->next);
+}
+
+void
+L_compile_block(L_block *block) {
+    L_compile_variable_decls(block->decls);
+    L_compile_statements(block->body);
+}
+
+void 
+L_compile_parameters(L_variable_declaration *param)
+{
+    Proc *procPtr = lframe->envPtr->procPtr;
+    CompiledLocal *localPtr;
+    int i;
+    
+    for (i = 0; param; param = param->next, i++) {
+        L_trace("Compiling parameter %d (%s)\n", i, param->name->u.s);
+        /* Formal parameters are stored in local variable slots. */
+        procPtr->numArgs = i + 1;
+        procPtr->numCompiledLocals = i + 1;
+        localPtr = (CompiledLocal *) ckalloc(sizeof(CompiledLocal) -
+                                             sizeof(localPtr->name) +
+                                             strlen(param->name->u.s) + 1);
+        if (procPtr->firstLocalPtr == NULL) {
+            procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr;
+        } else {
+            procPtr->lastLocalPtr->nextPtr = localPtr;
+            procPtr->lastLocalPtr = localPtr;
+        }
+        localPtr->nextPtr = NULL;
+        localPtr->nameLength = strlen(param->name->u.s);
+        localPtr->frameIndex = i;
+        localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
+        localPtr->resolveInfo = NULL;
+        localPtr->defValuePtr = NULL;
+        strcpy(localPtr->name, param->name->u.s);
+        
+        L_make_symbol(param->name, param->type->kind, NULL, i);
+    }
+}
+
+void 
+L_compile_expressions(L_expression *expr)
+{
+    Tcl_Obj *obj;
+    int i = 0;
+    L_expression *tmp;
+
+    if (!expr) return;
+    switch (expr->kind) {
+    case L_EXPRESSION_FUNCALL:
+        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, expr->a->u.s,
+                                          strlen(expr->a->u.s)),
+                    lframe->envPtr);
+        L_compile_expressions(expr->b);
+        /* count the parameters */
+        for (tmp = expr->b; tmp; tmp = tmp->next, i++);
+        TclEmitInstInt4(INST_INVOKE_STK4, i+1, lframe->envPtr);
+        break;
+    case L_EXPRESSION_PRE:
+    case L_EXPRESSION_POST:
+        L_compile_incdec(expr);
+        break;
+    case L_EXPRESSION_BINARY:
+        L_compile_binop(expr);
+        break;
+    case L_EXPRESSION_INT:
+        obj = Tcl_NewIntObj(expr->u.i);
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
+                    lframe->envPtr);
+        break;
+    case L_EXPRESSION_STRING:
+        obj = Tcl_NewStringObj(expr->u.s, strlen(expr->u.s));
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
+                    lframe->envPtr);
+        break;
+    case L_EXPRESSION_FLOAT:
+        obj = Tcl_NewDoubleObj(expr->u.d);
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
+                    lframe->envPtr);
+        break;
+    case L_EXPRESSION_VARIABLE:
+        L_push_variable(expr->a);
+        break;
+    }
+    L_compile_expressions(expr->next);
+}
+
+void L_compile_binop(L_expression *expr)
+{
+    int instruction;
+
+    if (expr->op == T_EQUALS) {
+        L_compile_expressions(expr->b);
+        L_compile_assignment(expr->a);
+    } else {
+        L_compile_expressions(expr->a);
+        L_compile_expressions(expr->b);
+        switch (expr->op) {
+        case T_PLUS:
+            instruction = INST_ADD;
+            break;
+        case T_MINUS:
+            instruction = INST_SUB;
+            break;
+        case T_STAR:
+            instruction = INST_MULT;
+            break;
+        case T_SLASH:
+            instruction = INST_DIV;
+            break;
+        case T_PERC:
+            instruction = INST_MOD;
+            break;
+        default:
+            L_bomb("Undefined operator %d", expr->op);
+        }
+        TclEmitOpcode(instruction, lframe->envPtr);
+    }
 }
 
 
 void 
-L_begin_function_call(L_ast_node *name) 
+L_compile_if_unless(L_if_unless *cond)
 {
-/*     TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, name->v.s,  */
-/*                                       strlen(name->v.s)),  */
-/*                 lframe->envPtr); */
-}
+    JumpFixupArray *jumpPtr;
 
-void 
-L_end_function_call(L_ast_node *name, int param_count) 
-{
-    TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
-}
+#define JUMP_IF_FALSE 0
+#define JUMP_IF_END   1
 
-
-#define JUMP_IF_FALSE_INDEX 0
-#define JUMP_IF_END_INDEX 1
-
-void 
-L_if_condition(int unless_p) 
-{
-    JumpFixupArray *jumpFalsePtr;
-
-    jumpFalsePtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
+    L_trace("compiling an if/unless\n");
+    L_compile_expressions(cond->condition);
+    jumpPtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
     /* save the fixup array in a compile frame so that we can do the fixups at
        the end of this if statement. */
     L_frame_push(lframe->interp, lframe->envPtr);
-    lframe->jumpFixupArrayPtr = jumpFalsePtr;
 
-    TclInitJumpFixupArray(jumpFalsePtr);
+    TclInitJumpFixupArray(jumpPtr);
     /* allocate space for two jump fixups, one for the skipping the consequent
        and one for skipping the alternate. */
-    if (2 >= jumpFalsePtr->end) {
-        TclExpandJumpFixupArray(jumpFalsePtr);
+    if (2 >= jumpPtr->end) {
+        TclExpandJumpFixupArray(jumpPtr);
     }
-    jumpFalsePtr->next += 2;
+    jumpPtr->next += 2;
     /* emit a jump which will skip the consequent if the top value on the
        stack is false. */
-    TclEmitForwardJump(lframe->envPtr, 
-                       unless_p ? TCL_TRUE_JUMP : TCL_FALSE_JUMP, 
-                       jumpFalsePtr->fixup + JUMP_IF_FALSE_INDEX);
-}
-
-void 
-L_if_consequent_end() 
-{
-    TclFixupForwardJumpToHere(lframe->envPtr,
-                              lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
-                              127);
-}
-
-void 
-L_if_alternative_end() 
-{
-    /* End the scope that was started for the consequent and start a new one,
-       copying the jump fixup pointers. */
-    JumpFixupArray *jumpFixupPtr = lframe->jumpFixupArrayPtr;
-    L_frame_pop();
-    L_frame_push(lframe->interp, lframe->envPtr);
-    lframe->jumpFixupArrayPtr = jumpFixupPtr;
-
-    TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
-                       lframe->jumpFixupArrayPtr->fixup + JUMP_IF_END_INDEX);
+    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, 
+                       jumpPtr->fixup + JUMP_IF_FALSE);
     
-    if (TclFixupForwardJumpToHere(lframe->envPtr,
-                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
-                                  127)) {
-        L_bomb("The jump to skip the consequent of an if statement has been\n"
-               "expanded, but we don't handle that case yet.");
-    }
-}
-
-void 
-L_if_end(int elseClause) 
-{
-    /* Fixup (set the target of) the appropriate jump.  */
-    if (elseClause) {
+    /* consequent */
+    if (cond->if_body != NULL) {
+        L_trace("compiling an if/unless consequent\n");
+        L_compile_statements(cond->if_body);
         TclFixupForwardJumpToHere(lframe->envPtr,
-                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_END_INDEX,
+                                  jumpPtr->fixup + JUMP_IF_FALSE,
                                   127);
+    }
+    /* alternate */
+    if (cond->else_body != NULL) {
+        L_trace("compiling an if/unless alternate\n");
+        /* End the scope that was started for the consequent and start a new one,
+           copying the jump fixup pointers. */
+        L_frame_pop();
+        L_frame_push(lframe->interp, lframe->envPtr);
+        
+        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
+                           jumpPtr->fixup + JUMP_IF_END);
+        if (TclFixupForwardJumpToHere(lframe->envPtr,
+                                      jumpPtr->fixup + JUMP_IF_FALSE,
+                                      127)) {
+            L_bomb("The jump to skip the consequent of an if statement has been\n"
+                   "expanded, but we don't handle that case yet.");
+        }
+        L_compile_statements(cond->else_body);
+
+        TclFixupForwardJumpToHere(lframe->envPtr,
+                                  jumpPtr->fixup + JUMP_IF_END,
+                                  127);
+
     } else {
         TclFixupForwardJumpToHere(lframe->envPtr,
-                                  lframe->jumpFixupArrayPtr->fixup + JUMP_IF_FALSE_INDEX,
+                                  jumpPtr->fixup + JUMP_IF_FALSE,
                                   127);
     }
     /* Free the jump fixup array and end the scope. */
-    TclFreeJumpFixupArray(lframe->jumpFixupArrayPtr);
-    ckfree((char *)lframe->jumpFixupArrayPtr);
+    TclFreeJumpFixupArray(jumpPtr);
+    ckfree((char *)jumpPtr);
     L_frame_pop();
 }
 
 void
-L_push_literal(L_ast_node *literal)
+L_push_variable(L_expression *name)
 {
-    Tcl_Obj *obj;
+    L_symbol *var;
 
-/*     switch (literal->type) { */
-/*     case L_NODE_INT: */
-/*         obj = Tcl_NewIntObj(literal->v.i); */
-/*         break; */
-/*     case L_NODE_FLOAT: */
-/*         obj = Tcl_NewDoubleObj(literal->v.f); */
-/*         break; */
-/*     case L_NODE_STRING: */
-/*         obj = Tcl_NewStringObj(literal->v.s, strlen(literal->v.s)); */
-/*         break; */
-/*     default: */
-/*         L_bomb("bad literal type %d", literal->type); */
-/*     } */
-
-/* /\*     TclEmitPush(TclRegisterNewNSLiteral(lframe->envPtr,  *\/ */
-/* /\*                                         str->v.s, strlen(str->v.s)),  *\/ */
-/* /\*                 lframe->envPtr); *\/ */
-/* /\*     TclEmitPush(TclAddLiteralObj(lframe->envPtr,  *\/ */
-/* /\*                                  Tcl_NewIntObj(i->v.i), NULL),  *\/ */
-/* /\*                 lframe->envPtr); *\/ */
-/* /\*     TclEmitPush(TclAddLiteralObj(lframe->envPtr,  *\/ */
-/* /\*                                  Tcl_NewIntObj(i->v.i), NULL),  *\/ */
-/* /\*                 lframe->envPtr); *\/ */
-    TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
-                lframe->envPtr);
-}
-
-void
-L_push_id(L_ast_node *id)
-{
-/*     L_symbol *var; */
-
-/*     if (!(var = L_get_symbol(id->v.s, TRUE))) return; */
-/*     if (var->localIndex <= 255) { */
-/*         TclEmitInstInt1(INST_LOAD_SCALAR1, var->localIndex, lframe->envPtr); */
-/*     } else { */
-/*         TclEmitInstInt4(INST_LOAD_SCALAR4, var->localIndex, lframe->envPtr); */
-/*     } */
+    if (!(var = L_get_symbol(name, TRUE))) return;
+    if (var->localIndex <= 255) {
+        TclEmitInstInt1(INST_LOAD_SCALAR1, var->localIndex, lframe->envPtr);
+    } else {
+        TclEmitInstInt4(INST_LOAD_SCALAR4, var->localIndex, lframe->envPtr);
+    }
 }
 
 void 
@@ -275,181 +436,72 @@ L_return(int value_on_stack_p)
 }
 
 void
-L_assignment(L_ast_node *lvalue)
+L_compile_assignment(L_expression *lvalue)
 {
-/*     L_symbol *var; */
+    L_symbol *var;
 
-/*     if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return; */
-/*     if (var->localIndex <= 255) { */
-/*         TclEmitInstInt1(INST_STORE_SCALAR1, var->localIndex, lframe->envPtr); */
-/*     } else { */
-/*         TclEmitInstInt4(INST_STORE_SCALAR4, var->localIndex, lframe->envPtr); */
-/*     } */
-}
-
-void 
-L_op_pre_incdec(L_ast_node *lvalue, char op) {
-/*     L_symbol *var; */
-    
-/*     if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return; */
-/*     TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr); */
-/*     TclEmitInt1((op == '+') ? 1 : -1, lframe->envPtr); */
-}
-
-void 
-L_op_post_incdec(L_ast_node *lvalue, char op) 
-{
-/*     L_symbol *var; */
-    
-/*     if (!(var = L_get_symbol(lvalue->v.s, TRUE))) return; */
-/*     /\* we push the value of the variable, do the increment, and then pop the */
-/*        result of the increment, leaving the old value on top. *\/ */
-/*     L_push_id(lvalue); */
-/*     TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr); */
-/*     TclEmitInt1((op == '+') ? 1 : -1, lframe->envPtr); */
-/*     TclEmitOpcode(INST_POP, lframe->envPtr); */
-}
-
-void 
-L_op_binop(L_operator_name op) 
-{
-    int instruction;
-
-    switch (op) {
-    case L_OP_PLUS:
-        instruction = INST_ADD;
-        break;
-    case L_OP_MINUS:
-        instruction = INST_SUB;
-        break;
-    case L_OP_MULTIPLY:
-        instruction = INST_MULT;
-        break;
-    case L_OP_DIVIDE:
-        instruction = INST_DIV;
-        break;
-    case L_OP_MODULUS:
-        instruction = INST_MOD;
-        break;
-    default:
-        L_bomb("Undefined operator %d", op);
+    if (!(var = L_get_symbol(lvalue, TRUE))) return;
+    if (var->localIndex <= 255) {
+        TclEmitInstInt1(INST_STORE_SCALAR1, var->localIndex, lframe->envPtr);
+    } else {
+        TclEmitInstInt4(INST_STORE_SCALAR4, var->localIndex, lframe->envPtr);
     }
-    TclEmitOpcode(instruction, lframe->envPtr);
 }
 
 void 
-L_declare_parameter(L_ast_node *name, int base_type)
+L_compile_incdec(L_expression *expr)
 {
-/*     Proc *procPtr = lframe->envPtr->procPtr; */
-/*     CompiledLocal *localPtr; */
-/*     int i; */
-/*     L_ast_node *array_type; */
+    L_symbol *var;
 
-/*     separate_array_type(&name, &array_type); */
-
-/*     /\* formal parameters are stored in local variable slots *\/ */
-/*     ++procPtr->numArgs; */
-/*     procPtr->numCompiledLocals = procPtr->numArgs; */
-
-/*     localPtr = (CompiledLocal *) ckalloc(sizeof(CompiledLocal) -  */
-/*                                          sizeof(localPtr->name) +  */
-/*                                          strlen(name->v.s) + 1); */
-/*     if (procPtr->firstLocalPtr == NULL) { */
-/*         procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr; */
-/*     } else { */
-/*         procPtr->lastLocalPtr->nextPtr = localPtr; */
-/*         procPtr->lastLocalPtr = localPtr; */
-/*     } */
-/*     localPtr->nextPtr = NULL; */
-/*     localPtr->nameLength = strlen(name->v.s); */
-/*     localPtr->frameIndex = i; */
-/*     localPtr->flags = VAR_SCALAR | VAR_ARGUMENT; */
-/*     localPtr->resolveInfo = NULL; */
-/*     localPtr->defValuePtr = NULL; */
-/*     strcpy(localPtr->name, name->v.s); */
-
-/*     /\* TODO: handle array types like L_declare_variable does *\/ */
-/*     L_make_symbol(name->v.s, base_type, array_type,  */
-/*                   procPtr->numCompiledLocals - 1); */
-}
-
-void 
-L_declare_variable(L_ast_node *name, int base_type, int initialize_p)
-{
-/*     L_symbol *symbol; */
-/*     L_ast_node *array_type = NULL; */
-/*     int localIndex; */
-
-/*     separate_array_type(&name, &array_type); */
-/*     localIndex = TclFindCompiledLocal(name->v.s, strlen(name->v.s),  */
-/*                                       1, 0, lframe->envPtr->procPtr); */
-/*     symbol = L_make_symbol(name->v.s, base_type, array_type, localIndex); */
-/* /\*     localIndex = TclRegisterNewNSLiteral(lframe->envPtr, name->v.s,  *\/ */
-/* /\*                                          strlen(name->v.s)); *\/ */
-/*     if (initialize_p) { */
-/*         /\* initialize the variable *\/ */
-/*         if (localIndex <= 255) { */
-/*             TclEmitInstInt1(INST_STORE_SCALAR1, localIndex, lframe->envPtr); */
-/*         } else { */
-/*             TclEmitInstInt4(INST_STORE_SCALAR4, localIndex, lframe->envPtr); */
-/*         } */
-/*     } */
-}
-
-static void
-separate_array_type(L_ast_node **name, L_ast_node **array_type)
-{
-/*     /\* If the name consists of more than one element, the variable is an */
-/*        array.  Separate the name from the array type info prior to creating */
-/*        the symbol.  *\/ */
-/*     if ((*name)->next) { */
-/*         L_ast_node *tmp; */
-/*         /\* the array type comes first *\/ */
-/*         *array_type = *name; */
-/*         /\* walk down to the end where the name is  *\/ */
-/*         for (tmp = *name; tmp->next && tmp->next->next; tmp = tmp->next); */
-/*         /\* the name is the last node *\/ */
-/*         *name = tmp->next; */
-/*         /\* separate them *\/ */
-/*         tmp->next = LNIL; */
-/*     } */
+    if (!(var = L_get_symbol(expr->a, TRUE))) return;
+    if (expr->kind == L_EXPRESSION_PRE) {
+        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+        TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
+    } else {
+        /* we push the value of the variable, do the increment, and then pop the
+           result of the increment, leaving the old value on top. */
+        L_push_variable(expr->a);
+        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+        TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
+    }
 }
 
 /* Create a new symbol and add it to the current symbol table */
 L_symbol *
-L_make_symbol(char *name, int base_type, L_ast_node *array_type, int localIndex) 
+L_make_symbol(L_expression *name, int base_type, L_ast_node *array_type, int localIndex) 
 {
-/*     int new; */
-/*     L_symbol *symbol = (L_symbol *)ckalloc(sizeof(L_symbol)); */
-/*     Tcl_HashEntry *hPtr = Tcl_CreateHashEntry(lframe->symtab, name, &new); */
-/*     if (!new) { */
-/*         L_errorf("Duplicate definition of symbol %s", name); */
-/*     } */
-/*     symbol->name = name; */
+    int new;
+    L_symbol *symbol = (L_symbol *)ckalloc(sizeof(L_symbol));
+    Tcl_HashEntry *hPtr = Tcl_CreateHashEntry(lframe->symtab, name->u.s, &new);
+    if (!new) {
+        L_errorf(name, "Duplicate definition of symbol %s", name->u.s);
+    }
+    symbol->name = name->u.s;
 /*     symbol->base_type = base_type; */
 /*     symbol->array_type = array_type; */
-/*     symbol->localIndex = localIndex; */
-/*     Tcl_SetHashValue(hPtr, symbol); */
-/*     return symbol; */
+    symbol->localIndex = localIndex;
+    Tcl_SetHashValue(hPtr, symbol);
+    return symbol;
     return (L_symbol*)0;
 }
 
 /* Look up a symbol in the current symbol table, return NULL and optionally
    emit an error if not found */
 L_symbol *
-L_get_symbol(char *name, int error_p) 
+L_get_symbol(L_expression *name, int error_p) 
 {
     Tcl_HashEntry *hPtr = NULL; 
     L_compile_frame *frame;
 
     for (frame = lframe; !hPtr && frame; frame = frame->prevFrame) {
-        hPtr = Tcl_FindHashEntry(frame->symtab, name);
+        hPtr = Tcl_FindHashEntry(frame->symtab, name->u.s);
     }
     if (hPtr) {
         return (L_symbol *)Tcl_GetHashValue(hPtr);
     } else {
         if (error_p) {
-            L_errorf("Undeclared variable: %s", name);
+            L_errorf(name, "Undeclared variable: %s", name->u.s);
         }
         return NULL;
     }
@@ -529,6 +581,7 @@ L_trace(const char *format, ...)
         vfprintf(stderr, format, ap);
     }
     va_end(ap);
+    fflush(stderr);
 }
 
 /* L_error is yyerror */
@@ -543,7 +596,7 @@ L_error(char *s)
 
 /* Sometimes you feel like a char*, sometimes you don't. */
 void
-L_errorf(const char *format, ...)
+L_errorf(L_ast_node *node, const char *format, ...)
 {
     va_list ap;
     char *buf;
@@ -561,65 +614,25 @@ L_errorf(const char *format, ...)
     buf = ckalloc(TYPICAL_ARBITRARY_CONSTANT);
     vsnprintf(buf, TYPICAL_ARBITRARY_CONSTANT, format, ap);
     va_end(ap);
-    L_error(buf);
+    if (!L_errors) {
+        L_errors = Tcl_NewObj();
+    }
+    TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf, node->line_no);
     ckfree(buf);
 }
 
-/* Print an AST on stdout.  The AST nodes are listed in parentheses. Each
-   interior node (node of type L_NODE_NODE) adds a new nesting level. */
-void
-L_dump_ast(void *ast)
-{
-    L_trace("AST: (");
-    L_dump_ast_nodes(ast);
-    L_trace(")\n");
-}
-
-/* Auxiliary of L_dump_ast */
-static void
-L_dump_ast_nodes(void *node)
-{
-    switch(((L_ast_node*)node)->type) {
-        /* these are all in the L_NODE_TYPE enum */
-/*     case L_NODE_PROGRAM: */
-/*         L_walk_l_node_progam((L_node_program *)node); */
-/*         break; */
-/*     case L_NODE_VARIABLE_DECLARATION: */
-/*         L_walk_l_node_variable_declaration((L_node_variable_declaration *)node); */
-/*         break; */
-/*     case L_NODE_FUNCTION_DECLARATION: */
-/*         L_walk_l_node_function_declaration((L_node_function_declaration *)node); */
-/*         break; */
-/*     case L_NODE_STATEMENT: */
-/*         L_walk_l_node_statement((L_node_statement *)node); */
-/*         break; */
-/*     case L_NODE_IF_UNLESS: */
-/*         L_walk_l_node_if_unless((L_node_program *)node); */
-/*         break; */
-/*     case L_NODE_LOOP: */
-/*         L_walk_l_node_loop((L_node_program *)node); */
-/*         break; */
-/*     case L_NODE_EXPRESSION: */
-/*         L_walk_l_node_expression((L_node_program *)node); */
-/*         break; */
-/*     case L_NODE_TYPE: */
-/*         L_walk_l_node_type((L_node_program *)node); */
-/*         break; */
-    default:
-        L_bomb("AST node type error: %d", ((L_ast_node*)node)->type);
-    }
-}
-
 static void 
-L_free_ast() {
-/*     while(ast_trace_root) { */
-/*         L_ast_node *node = ast_trace_root; */
-/*         ast_trace_root = ast_trace_root->_trace; */
-/*         if (node->type == L_NODE_STRING) { */
-/*             ckfree(node->v.s); */
-/*         } */
-/*         ckfree((char *)node); */
-/*     } */
+L_free_ast(L_ast_node *ast) {
+    while(ast_trace_root) {
+        L_ast_node *node = ast_trace_root;
+        ast_trace_root = ast_trace_root->_trace;
+        if (node->type == L_NODE_EXPRESSION &&
+            ((L_expression *)node)->kind == L_EXPRESSION_STRING) {
+            ckfree(((L_expression *)node)->u.s);
+        }
+        ckfree((char *)node);
+    }
+    ast_trace_root = NULL;
 }
 
 /*

@@ -12,14 +12,6 @@
 #define FALSE 0
 #endif /* FALSE */
 
-typedef enum L_operator_name {
-    L_OP_PLUS,
-    L_OP_MINUS,
-    L_OP_MULTIPLY,
-    L_OP_DIVIDE,
-    L_OP_MODULUS
-} L_operator_name;
-
 /**
  * An L_compile_frame is just a stack that lets the semantic actions
  * track state as the parser does its thing.
@@ -32,9 +24,6 @@ typedef struct L_compile_frame {
      * pointer so we can check if any code was emitted in this frame.
      * Yikk.  --timjr 2006.2.23 */
     unsigned char *originalCodeNext;
-    /* Jump fixups allow you to conveniently set the target of a jump that has
-       been previously emitted. */
-    JumpFixupArray *jumpFixupArrayPtr;
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
@@ -46,40 +35,29 @@ typedef struct L_symbol {
 } L_symbol;
 
 
-void LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
+int LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
                     CompileEnv *envPtr, void *ast);
 int LParseScript(Tcl_Interp *interp, CONST char *str, int numBytes, L_ast_node **ast);
-/* void L_assignment(L_ast_node *lvalue, L_ast_node *rvalue); */
-void L_begin_function_decl(L_ast_node *name);
-void L_end_function_decl(L_ast_node *name);
-void L_begin_function_call(L_ast_node *name);
-void L_end_function_call(L_ast_node *name, int param_count);
-void L_if_condition(int unless_p);
-void L_if_end(int elseClause);
-void L_if_alternative_end();
-void L_if_consequent_end();
-void L_op_post_incdec(L_ast_node *lvalue, char op);
-void L_op_pre_incdec(L_ast_node *lvalue, char op);
-/* void L_lhs_assignment(L_ast_node *rvalue); */
-/* void L_rhs_assignment(L_ast_node *rvalue); */
-void L_assignment(L_ast_node *rvalue);
-void L_op_binop(L_operator_name op);
-/* void L_push_str(L_ast_node *str); */
-/* void L_push_int(L_ast_node *i); */
-void L_push_literal(L_ast_node *literal);
-void L_push_id(L_ast_node *id);
+void L_push_variable(L_expression *name);
 void L_return(int value_on_stack_p);
 void maybeFixupEmptyCode(L_compile_frame *frame);
 void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv);
 void L_frame_pop();
 void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
-void L_errorf(const char *format, ...);
-void L_declare_variable(L_ast_node *name, int base_type, int initialize_p);
-void L_declare_parameter(L_ast_node *name, int base_type);
-L_symbol *L_get_symbol(char *name, int error_p);
-L_symbol *L_make_symbol(char *name, int base_type, L_ast_node *array_type, int localIndex);
-
+void L_errorf(L_ast_node *node, const char *format, ...);
+L_symbol *L_get_symbol(L_expression *name, int error_p);
+L_symbol *L_make_symbol(L_expression *name, int base_type, L_ast_node *array_type, int localIndex);
+void L_compile_function_decls(L_function_declaration *fun);
+void L_compile_variable_decls(L_variable_declaration *var);
+void L_compile_statements(L_statement *stmt);
+void L_compile_parameters(L_variable_declaration *param);
+void L_compile_expressions(L_expression *expr);
+void L_compile_if_unless(L_if_unless *cond);
+void L_compile_block(L_block *body);
+void L_compile_assignment(L_expression *lvalue);
+void L_compile_binop(L_expression *expr);
+void L_compile_incdec(L_expression *expr);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
@@ -109,6 +87,19 @@ int L_parse(void);
 } while(0);
 
 #define L_NODE_TYPE(node) ((L_ast_node*)node)->node_type
+
+
+/* REVERSE() assumes that node is a singly linked list of type type with
+   forward pointers named next.  The last element in the list becomes the
+   first and is stored back into node. */
+#define REVERSE(type,node) { \
+    type *a, *b, *c; \
+    for (a = NULL, b = node, c = (node ? ((type *)node)->next : NULL); \
+         b != NULL; \
+         b->next = a, a = b, b = c, c = (c ? c->next : NULL)); \
+    node = a; \
+}
+
 
 #endif /* L_COMPILE_H */
 

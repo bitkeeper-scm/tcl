@@ -16,7 +16,6 @@
 
 #include "tclInt.h"
 #include "tclCompile.h"
-#include "Lcompile.h"
 
 /*
  * Table of all AuxData types.
@@ -1112,13 +1111,6 @@ TclCompileScript(
 	    startCodeOffset = (envPtr->codeNext - envPtr->codeStart);
 	    EnterCmdStartData(envPtr, currCmdIndex,
 		    (parse.commandStart - envPtr->source), startCodeOffset);
-
-            tokenPtr = parse.tokenPtr;
-            if ((parse.numWords == 1) &&
-                    (tokenPtr->type == TCL_TOKEN_PRAGMA)) {
-                LCompileScript(interp, tokenPtr[0].start, tokenPtr[0].size, envPtr, (void *)tokenPtr->data);
-                goto finishCommand;               
-            }
 
 	    /*
 	     * Each iteration of the following loop compiles one word from the
