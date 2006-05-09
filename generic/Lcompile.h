@@ -45,7 +45,7 @@ void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv);
 void L_frame_pop();
 void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
-void L_errorf(L_ast_node *node, const char *format, ...);
+void L_errorf(void *node, const char *format, ...);
 L_symbol *L_get_symbol(L_expression *name, int error_p);
 L_symbol *L_make_symbol(L_expression *name, int base_type, L_ast_node *array_type, int localIndex);
 void L_compile_function_decls(L_function_declaration *fun);
@@ -58,6 +58,7 @@ void L_compile_block(L_block *body);
 void L_compile_assignment(L_expression *lvalue);
 void L_compile_binop(L_expression *expr);
 void L_compile_incdec(L_expression *expr);
+int global_symbol_p(L_symbol *symbol);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
@@ -71,18 +72,18 @@ int L_parse(void);
 
 /* AST convenience macros */
 #define MK_STRING_NODE(var,str) do {\
-        var = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.s = ckalloc(strlen(str) + 1);\
         strcpy(((L_expression *)var)->u.s, str);\
 } while(0);
 
 #define MK_INT_NODE(var,int) do {\
-        var = mk_expression(L_EXPRESSION_INT, -1, NULL, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_INT, -1, NULL, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.i = int;\
 } while(0);
 
 #define MK_FLOAT_NODE(var,float) do {\
-        var = mk_expression(L_EXPRESSION_FLOAT, -1, NULL, NULL, NULL, NULL);\
+        var = mk_expression(L_EXPRESSION_FLOAT, -1, NULL, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.d = float;\
 } while(0);
 
@@ -90,14 +91,33 @@ int L_parse(void);
 
 
 /* REVERSE() assumes that node is a singly linked list of type type with
-   forward pointers named next.  The last element in the list becomes the
+   forward pointers named ptr.  The last element in the list becomes the
    first and is stored back into node. */
-#define REVERSE(type,node) { \
+#define REVERSE(type,ptr,node) { \
     type *a, *b, *c; \
-    for (a = NULL, b = node, c = (node ? ((type *)node)->next : NULL); \
+    for (a = NULL, b = node, c = (node ? ((type *)node)->ptr : NULL); \
          b != NULL; \
-         b->next = a, a = b, b = c, c = (c ? c->next : NULL)); \
+         b->ptr = a, a = b, b = c, c = (c ? c->ptr : NULL)); \
     node = a; \
+}
+
+/* Emit the load or store instruction with appropriate operand size. */
+#define L_STORE_SCALAR(index) {\
+    int idx = index;\
+    if (idx <= 255) {\
+        TclEmitInstInt1(INST_STORE_SCALAR1, idx, lframe->envPtr);\
+    } else {\
+        TclEmitInstInt4(INST_STORE_SCALAR4, idx, lframe->envPtr);\
+    }\
+}
+
+#define L_LOAD_SCALAR(index) {\
+    int idx = index;\
+    if (idx <= 255) {\
+        TclEmitInstInt1(INST_LOAD_SCALAR1, idx, lframe->envPtr);\
+    } else {\
+        TclEmitInstInt4(INST_LOAD_SCALAR4, idx, lframe->envPtr);\
+    }\
 }
 
 

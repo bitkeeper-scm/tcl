@@ -87,6 +87,7 @@ struct L_expression {
 	L_expression *a;
 	L_expression *b;
 	L_expression *c;
+	L_expression *indices;
 	L_expression *next;
 	union {
 		int i;
@@ -156,7 +157,7 @@ L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_exp
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,L_function_declaration *next);
 L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,L_variable_declaration *next);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);
-L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *next);
+L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);
 L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);
 
 #endif /* L_AST_H */

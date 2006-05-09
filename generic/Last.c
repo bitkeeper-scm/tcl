@@ -148,7 +148,7 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	return block;
 }
 
-L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *next) 
+L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next) 
 {
 	L_expression *expression;
 
@@ -158,6 +158,7 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	expression->a = a;
 	expression->b = b;
 	expression->c = c;
+	expression->indices = indices;
 	expression->next = next;
 	((L_ast_node *)expression)->_trace = ast_trace_root;
 	ast_trace_root = (void *)expression;

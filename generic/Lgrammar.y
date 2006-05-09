@@ -153,7 +153,7 @@ stmt_list:
 parameter_list:
           parameter_declaration_list    
         { 
-                REVERSE(L_variable_declaration, $1); 
+                REVERSE(L_variable_declaration, next, $1);
                 $$ = $1;
         }
         | T_VOID                        { $$ = NULL; }
@@ -193,39 +193,39 @@ expr:
 /* 	| "-" expr %prec UMINUS	{ } */
         | T_PLUSPLUS T_ID
         {   
-                $$ = mk_expression(L_EXPRESSION_PRE, T_PLUSPLUS, $2, NULL, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_PRE, T_PLUSPLUS, $2, NULL, NULL, NULL, NULL);
         }
 	| T_MINUSMINUS T_ID
         {   
-                $$ = mk_expression(L_EXPRESSION_PRE, T_MINUSMINUS, $2, NULL, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_PRE, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
 	| T_ID T_PLUSPLUS
         {
-                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $2, NULL, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $2, NULL, NULL, NULL, NULL);
         }
 	| T_ID T_MINUSMINUS
         {
-                $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
 	| expr T_STAR expr
         {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_STAR, $1, $3, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_STAR, $1, $3, NULL, NULL, NULL);
         }
 	| expr T_SLASH expr
         {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_SLASH, $1, $3, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_SLASH, $1, $3, NULL, NULL, NULL);
         }
 	| expr T_PERC expr
         {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_PERC, $1, $3, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_PERC, $1, $3, NULL, NULL, NULL);
         }
 	| expr T_PLUS expr
         {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_PLUS, $1, $3, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_PLUS, $1, $3, NULL, NULL, NULL);
         }
 	| expr T_MINUS expr
         {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_MINUS, $1, $3, NULL, NULL);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_MINUS, $1, $3, NULL, NULL, NULL);
         }
 
 /* 	| expr "lt" expr	{ } */
@@ -248,20 +248,34 @@ expr:
         | T_STR_LITERAL
         | T_INT_LITERAL
         | T_FLOAT_LITERAL
-	| T_ID  
+	| lvalue
         {
-                $$ = mk_expression(L_EXPRESSION_VARIABLE, -1, $1, NULL, NULL, NULL);
+                REVERSE(L_expression, indices, $1);
+                $$ = $1;
         }
         | T_ID "(" argument_expression_list ")"         
         { 
-                REVERSE(L_expression, $3);
-                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL);
+                REVERSE(L_expression, next, $3);
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
         }
-	| T_ID T_EQUALS expr
+	| lvalue T_EQUALS expr
         { 
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL); 
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL, NULL);
         }
 	;
+
+lvalue:
+          T_ID
+        {
+                $$ = mk_expression(L_EXPRESSION_VARIABLE, -1, $1, NULL, NULL, NULL, NULL);
+        }
+        | lvalue "[" expr "]"
+        {
+                ((L_expression *)$3)->indices = $1;
+                $$ = $3;
+        }
+        ;
 
 compound_statement:
 	  "{" "}"               
@@ -271,20 +285,20 @@ compound_statement:
         }
 	| "{" stmt_list "}"                     
         { 
-                REVERSE(L_statement, $2); 
+                REVERSE(L_statement, next, $2);
                 $$ = mk_statement(L_STATEMENT_BLOCK, NULL);
                 ((L_statement *)$$)->u.block = mk_block(NULL, $2); 
         }
 	| "{" declaration_list "}"              
         { 
-                REVERSE(L_variable_declaration, $2); 
+                REVERSE(L_variable_declaration, next, $2);
                 $$ = mk_statement(L_STATEMENT_BLOCK, NULL);
                 ((L_statement *)$$)->u.block = mk_block($2, NULL); 
         }
 	| "{" declaration_list stmt_list "}"    
         { 
-                REVERSE(L_variable_declaration, $2); 
-                REVERSE(L_statement, $3); 
+                REVERSE(L_variable_declaration, next, $2);
+                REVERSE(L_statement, next, $3);
                 $$ = mk_statement(L_STATEMENT_BLOCK, NULL);
                 ((L_statement *)$$)->u.block = mk_block($2, $3); 
         }
@@ -294,18 +308,24 @@ declaration_list:
 	  declaration
 	| declaration_list declaration
         {
-                ((L_variable_declaration *)$1)->next = $2;
-                $$ = $1;
+                L_variable_declaration *i;
+                for (i = $2; i->next; i = i->next);
+                i->next = $1;
+                $$ = $2;
         }
 	;
 
 declaration:
 	  init_declarator_list ";"
+        {
+                $$ = $1;
+        }
 	;
 
 init_declarator_list:
 	  type_specifier init_declarator
         {
+                ((L_type *)$1)->next = ((L_variable_declaration *)$2)->type;
                 ((L_variable_declaration *)$2)->type = $1;
                 $$ = $2;
         }
@@ -313,8 +333,8 @@ init_declarator_list:
         {
                 ((L_variable_declaration *)$3)->type = 
                         ((L_variable_declaration *)$1)->type;
-                ((L_variable_declaration *)$1)->next = $3;
-                $$ = $1;
+                ((L_variable_declaration *)$3)->next = $1;
+                $$ = $3;
         }
 	;
 
@@ -334,7 +354,7 @@ declarator:
         }
 	| declarator "[" constant_expression "]"
         {
-                L_type *type = mk_type(-1, $2, 
+                L_type *type = mk_type(-1, $3,
                                        ((L_variable_declaration *)$1)->type);
                 ((L_variable_declaration *)$1)->type = type;
                 $$ = $1;

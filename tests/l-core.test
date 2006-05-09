@@ -101,15 +101,15 @@ fun5(int foo) { }
 hash fun6(hash foo, hash bar[], hash baz[23]) { }
 void fun7(int foo, float bar, hash baz, string quux, poly quuux, var quuuux) { }
 void fun8() {
-        int foo, bar[], baz[84];
+        int foo, bar[], baz[84][42][1];
         string foo1[19], mani[], padmi = "hum";
         hash whee;
         if (0) {
                 int bleh = 5;
         } else {
                 if (1) {
-                        poly padmi = "om";
-                        puts(padmi);
+                        poly padmi1 = "om";
+                        puts(padmi1);
                 }
         }
 }
@@ -150,8 +150,8 @@ shadow() {
 }
 #pragma end
 shadow
-} -output "2\n1\n";
-
+} -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
+}
 
 test if-1.0 {If statements} -body {
 #pragma language L
@@ -346,6 +346,23 @@ op_1_1() {
 #pragma end
 op_1_1
 } -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
+
+
+test array-1.0 { Single-dimensional array creation and indexing } -body {
+#pragma language L
+array_1_0() {
+    int array[3];
+
+    array[0] = 1;
+    array[1] = 2;
+    array[2] = 3;
+    puts(array);
+    puts(array[2]);
+}
+#pragma end
+array_1_0
+} -output "1 2 3\n3\n"
+
 
 # cleanup
 ::tcltest::cleanupTests

@@ -53,7 +53,7 @@ LParseScript(
 ) {
     void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
 
-    L_trace("Parsing: %.*s\n", numBytes, str);
+    L_trace("Parsing: %.*s", numBytes, str);
     L_line_number = 0;
     L_errors = NULL;
     L_parse();
@@ -65,10 +65,10 @@ LParseScript(
     L__delete_buffer(lex_buffer);
     if (L_errors) {
             Tcl_SetObjResult(interp, L_errors);
-            L_trace("Failed to parse.\n");
+            L_trace("Failed to parse.");
             return TCL_ERROR;
     }
-    L_trace("Done parsing.\n");
+    L_trace("Done parsing.");
     return TCL_OK;
 }
 
@@ -82,7 +82,7 @@ LCompileScript(
     CompileEnv *envPtr,
     void *ast)
 {
-    L_trace("Compiling: \n %.*s\n", numBytes, str);
+    L_trace("Compiling: \n %.*s", numBytes, str);
 
     L_frame_push(interp, envPtr);
     if (envPtr)
@@ -103,10 +103,10 @@ LCompileScript(
     L_free_ast(ast);
     if (L_errors) {
             Tcl_SetObjResult(interp, L_errors);
-            L_trace("Failed to compile.\n");
+            L_trace("Failed to compile.");
             return TCL_ERROR;
     }
-    L_trace("Done compiling\n");
+    L_trace("Done compiling");
     return TCL_OK;
 }
 
@@ -167,23 +167,63 @@ L_compile_variable_decls(L_variable_declaration *var)
     int localIndex;
 
     if (!var) return;
-    L_trace("declaring variable %s\n", var->name->u.s);
+    L_trace("declaring variable %s", var->name->u.s);
     localIndex = TclFindCompiledLocal(var->name->u.s, strlen(var->name->u.s), 
                                       1, 0, lframe->envPtr->procPtr);
-    symbol = L_make_symbol(var->name, var->type->kind, NULL, localIndex);
-    if (var->initial_value) {
-/*         L_push_value(var->initial_value); */
-        L_compile_expressions(var->initial_value);
-        if (localIndex <= 255) {
-            TclEmitInstInt1(INST_STORE_SCALAR1, localIndex, lframe->envPtr);
-        } else {
-            TclEmitInstInt4(INST_STORE_SCALAR4, localIndex, lframe->envPtr);
-        }
+    if ((symbol = L_get_symbol(var->name, FALSE)) &&
+        !global_symbol_p(symbol))
+    {
+        L_errorf(var, "Illegal redeclaration of local variable %s",
+                 var->name->u.s);
     }
+    symbol = L_make_symbol(var->name, var->type->kind, NULL, localIndex);
+
+    if (var->initial_value || var->type->next) {
+        if (var->type->next) {
+            /* array */
+            int firstDimension = 0;
+            char *arrayRep;
+            int i;
+
+            if (!var->type->next->array_dim->kind == L_EXPRESSION_INT) {
+                L_errorf("Invalid array dimension for a declaration, %s",
+                         L_expression_tostr[var->type->next->array_dim->kind]);
+                goto next_decl;
+            }
+            firstDimension = var->type->next->array_dim->u.i;
+            /* this is kind of awful -- we make a string representation for an
+               array of the appropriate size and use it to initialize the
+               variable. */
+            /* this is probably better: lrepeat 10 {} */
+            if (firstDimension <= 0) {
+                L_bomb("Invalid array dimension %d", firstDimension);
+            }
+            arrayRep = ckalloc(firstDimension * 3);
+            for (i = 0; i < firstDimension * 3; i += 3) {
+                arrayRep[i] = '{';
+                arrayRep[i + 1] = '}';
+                arrayRep[i + 2] = ' ';
+            }
+            arrayRep[i - 1] = '\0';
+            var->initial_value = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
+            var->initial_value->u.s = arrayRep;
+        }
+
+        L_compile_expressions(var->initial_value);
+        L_STORE_SCALAR(localIndex);
+    }
+ next_decl:
     L_compile_variable_decls(var->next);
 }
 
-void 
+int
+global_symbol_p(L_symbol *symbol)
+{
+    /* XXX implement me once we have globals.  --timjr 2006.5.7 */
+    return FALSE;
+}
+
+void
 L_compile_statements(L_statement *stmt)
 {
     if (!stmt) return;
@@ -198,13 +238,13 @@ L_compile_statements(L_statement *stmt)
         L_compile_if_unless(stmt->u.cond);
         break;
     case L_STATEMENT_RETURN:
-        L_trace("compiling return statement\n");
+        L_trace("compiling return statement");
         if (stmt->u.expr) {
-            L_trace("    with return value\n");
+            L_trace("    with return value");
             /* compile the return value */
             L_compile_expressions(stmt->u.expr);
         } else {
-            L_trace("    without return value\n");
+            L_trace("    without return value");
             /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
             TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
                          lframe->envPtr );
@@ -233,7 +273,7 @@ L_compile_parameters(L_variable_declaration *param)
     int i;
     
     for (i = 0; param; param = param->next, i++) {
-        L_trace("Compiling parameter %d (%s)\n", i, param->name->u.s);
+        L_trace("Compiling parameter %d (%s)", i, param->name->u.s);
         /* Formal parameters are stored in local variable slots. */
         procPtr->numArgs = i + 1;
         procPtr->numCompiledLocals = i + 1;
@@ -299,7 +339,7 @@ L_compile_expressions(L_expression *expr)
                     lframe->envPtr);
         break;
     case L_EXPRESSION_VARIABLE:
-        L_push_variable(expr->a);
+        L_push_variable(expr);
         break;
     }
     L_compile_expressions(expr->next);
@@ -307,11 +347,10 @@ L_compile_expressions(L_expression *expr)
 
 void L_compile_binop(L_expression *expr)
 {
-    int instruction;
+    int instruction = 0;
 
     if (expr->op == T_EQUALS) {
-        L_compile_expressions(expr->b);
-        L_compile_assignment(expr->a);
+        L_compile_assignment(expr);
     } else {
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
@@ -347,7 +386,6 @@ L_compile_if_unless(L_if_unless *cond)
 #define JUMP_IF_FALSE 0
 #define JUMP_IF_END   1
 
-    L_trace("compiling an if/unless\n");
     L_compile_expressions(cond->condition);
     jumpPtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
     /* save the fixup array in a compile frame so that we can do the fixups at
@@ -368,7 +406,6 @@ L_compile_if_unless(L_if_unless *cond)
     
     /* consequent */
     if (cond->if_body != NULL) {
-        L_trace("compiling an if/unless consequent\n");
         L_compile_statements(cond->if_body);
         TclFixupForwardJumpToHere(lframe->envPtr,
                                   jumpPtr->fixup + JUMP_IF_FALSE,
@@ -376,7 +413,6 @@ L_compile_if_unless(L_if_unless *cond)
     }
     /* alternate */
     if (cond->else_body != NULL) {
-        L_trace("compiling an if/unless alternate\n");
         /* End the scope that was started for the consequent and start a new one,
            copying the jump fixup pointers. */
         L_frame_pop();
@@ -408,15 +444,24 @@ L_compile_if_unless(L_if_unless *cond)
 }
 
 void
-L_push_variable(L_expression *name)
+L_push_variable(L_expression *expr)
 {
     L_symbol *var;
+    L_expression *name = expr->a;
 
     if (!(var = L_get_symbol(name, TRUE))) return;
-    if (var->localIndex <= 255) {
-        TclEmitInstInt1(INST_LOAD_SCALAR1, var->localIndex, lframe->envPtr);
-    } else {
-        TclEmitInstInt4(INST_LOAD_SCALAR4, var->localIndex, lframe->envPtr);
+    L_LOAD_SCALAR(var->localIndex);
+    if (expr->indices) {
+        int index_count = 0;
+        L_expression *i;
+
+        L_compile_expressions(expr->indices);
+        for (i = expr->indices; i; i = i->indices, index_count++);
+        if (index_count == 1) {
+            TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+        } else {
+            TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count, lframe->envPtr);
+        }
     }
 }
 
@@ -436,15 +481,38 @@ L_return(int value_on_stack_p)
 }
 
 void
-L_compile_assignment(L_expression *lvalue)
+L_compile_assignment(L_expression *expr)
 {
     L_symbol *var;
+    L_expression *lval = expr->a;
+    L_expression *rval = expr->b;
 
-    if (!(var = L_get_symbol(lvalue, TRUE))) return;
-    if (var->localIndex <= 255) {
-        TclEmitInstInt1(INST_STORE_SCALAR1, var->localIndex, lframe->envPtr);
+    L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind], lval->a->u.s);
+    if (!(var = L_get_symbol(lval->a, TRUE))) return;
+    L_trace("NEXT STEP");
+    if (lval->indices) {
+        /* we have array indices */
+        int index_count = 0;
+        L_expression *i;
+        L_trace("INDEXED VARIABLE");
+        L_compile_expressions(lval->indices);
+        L_compile_expressions(rval);
+        //        L_push_variable(lval);
+        L_LOAD_SCALAR(var->localIndex);
+        for (i = lval->indices; i; i = i->indices, index_count++);
+        L_trace("index count is %d", index_count);
+        if (index_count == 1) {
+            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+        } else {
+            TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
+        }
+        /* store the modified array back in the variable */
+        L_STORE_SCALAR(var->localIndex);
     } else {
-        TclEmitInstInt4(INST_STORE_SCALAR4, var->localIndex, lframe->envPtr);
+        /* no array indices */
+        L_trace("NON-INDEXED VARIABLE");
+        L_compile_expressions(rval);
+        L_STORE_SCALAR(var->localIndex);
     }
 }
 
@@ -460,7 +528,7 @@ L_compile_incdec(L_expression *expr)
     } else {
         /* we push the value of the variable, do the increment, and then pop the
            result of the increment, leaving the old value on top. */
-        L_push_variable(expr->a);
+        L_push_variable(expr);
         TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
         TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
         TclEmitOpcode(INST_POP, lframe->envPtr);
@@ -578,7 +646,9 @@ L_trace(const char *format, ...)
 
     va_start(ap, format);
     if (getenv("LTRACE")) {
+        fprintf(stderr, "***: ");
         vfprintf(stderr, format, ap);
+        fprintf(stderr, "\n");
     }
     va_end(ap);
     fflush(stderr);
@@ -596,7 +666,7 @@ L_error(char *s)
 
 /* Sometimes you feel like a char*, sometimes you don't. */
 void
-L_errorf(L_ast_node *node, const char *format, ...)
+L_errorf(void *node, const char *format, ...)
 {
     va_list ap;
     char *buf;
@@ -617,7 +687,8 @@ L_errorf(L_ast_node *node, const char *format, ...)
     if (!L_errors) {
         L_errors = Tcl_NewObj();
     }
-    TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf, node->line_no);
+    TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf,
+                 ((L_ast_node *)node)->line_no);
     ckfree(buf);
 }
 

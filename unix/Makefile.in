@@ -1263,7 +1263,7 @@ Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) Lgrammar.c
 
-Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(L_HDRS)
+Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
 
 Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS) 
