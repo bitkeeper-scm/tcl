@@ -17,6 +17,9 @@ void L__delete_buffer(void *buf);
 
 /* functions local to this file */
 static void L_free_ast(L_ast_node *ast);
+static int global_symbol_p(L_symbol *symbol);
+static int create_array_string_rep(char *rep, int pos, L_type *dim);
+static int check_and_figure_array_size(L_type *dim);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -93,8 +96,8 @@ LCompileScript(
         L_compile_function_decls(ast);
         break;
     default:
-        L_bomb("LCompileScript error, expecting a function declaration, got: %s",
-               L_node_type_tostr[((L_ast_node*)ast)->type]);
+        L_bomb("LCompileScript error, expecting a function declaration, "
+               "got: %s", L_node_type_tostr[((L_ast_node*)ast)->type]);
     }
     if (envPtr)
         maybeFixupEmptyCode(lframe);
@@ -181,32 +184,25 @@ L_compile_variable_decls(L_variable_declaration *var)
     if (var->initial_value || var->type->next) {
         if (var->type->next) {
             /* array */
-            int firstDimension = 0;
+            L_type *array_dimensions = var->type->next;
+            int total_size;
             char *arrayRep;
-            int i;
 
-            if (!var->type->next->array_dim->kind == L_EXPRESSION_INT) {
-                L_errorf("Invalid array dimension for a declaration, %s",
-                         L_expression_tostr[var->type->next->array_dim->kind]);
+            total_size = check_and_figure_array_size(array_dimensions);
+            if (total_size < 0) {
+                /* some sort of bad declaration, skip to the next one */
                 goto next_decl;
+            } else if (total_size == 0) {
+                /* XXX variable sized arrays don't work yet. */
+                MK_STRING_NODE(var->initial_value, "");
+            } else {
+                arrayRep = ckalloc(total_size);
+                create_array_string_rep(arrayRep, 0, array_dimensions);
+                var->initial_value =
+                    mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL,
+                                  NULL, NULL, NULL);
+                var->initial_value->u.s = arrayRep;
             }
-            firstDimension = var->type->next->array_dim->u.i;
-            /* this is kind of awful -- we make a string representation for an
-               array of the appropriate size and use it to initialize the
-               variable. */
-            /* this is probably better: lrepeat 10 {} */
-            if (firstDimension <= 0) {
-                L_bomb("Invalid array dimension %d", firstDimension);
-            }
-            arrayRep = ckalloc(firstDimension * 3);
-            for (i = 0; i < firstDimension * 3; i += 3) {
-                arrayRep[i] = '{';
-                arrayRep[i + 1] = '}';
-                arrayRep[i + 2] = ' ';
-            }
-            arrayRep[i - 1] = '\0';
-            var->initial_value = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
-            var->initial_value->u.s = arrayRep;
         }
 
         L_compile_expressions(var->initial_value);
@@ -214,6 +210,67 @@ L_compile_variable_decls(L_variable_declaration *var)
     }
  next_decl:
     L_compile_variable_decls(var->next);
+}
+
+/* Verify that the array dimensions in a declaration are valid array
+   dimensions, and add up the space requirement of the string representation
+   of the array.  The space required for one element is 3: "{} ".  The space
+   required S_n for each dimension of size D_n is D_n ((S_n-1 - 1) + 3). */
+int
+check_and_figure_array_size(L_type *dim)
+{
+    int retval;
+
+    if (!dim) return 0;
+    if (!(dim->array_dim->kind == L_EXPRESSION_INT)) {
+        L_errorf(dim, "Invalid array dimension for a declaration, %d",
+                 L_expression_tostr[dim->array_dim->kind]);
+        return -1;
+    }
+    if (dim->array_dim->u.i < 0) {
+        L_errorf(dim->array_dim, "Negative array dimension: %d",
+                 dim->array_dim->u.i);
+        return -1;
+    }
+    retval = check_and_figure_array_size(dim->next);
+    if (retval < 0) {
+        return retval;
+    }
+
+    if (dim->next) {
+        return dim->array_dim->u.i * (retval + 2);
+    } else {
+        return dim->array_dim->u.i * 3;
+    }
+}
+
+/* Build a "string representation" for a TCL list.  A 3 x 2 array, for
+   example, looks like this: {{} {}} {{} {}} {{} {}}\0.  Returns the length of
+   the string, or -1 if there was an error. */
+int
+create_array_string_rep(
+    char *rep,                  /* The string we're building */
+    int pos,                    /* Our current position in the string */
+    L_type *dim)                /* The array dimensions */
+{
+    int i, retval;
+
+    if (!dim) { return 0; }
+
+    for (i = 0; i < dim->array_dim->u.i * 3; i += 3) {
+        rep[pos + i] = '{';
+        retval = create_array_string_rep(rep, pos + i + 1, dim->next);
+        if (retval < 0) {
+            return -1;
+        } else if (retval > 0) {
+            /* the -1 is so we overwrite the null on the end */
+            pos = retval - i - 1;
+        }
+        rep[pos + i + 1] = '}';
+        rep[pos + i + 2] = ' ';
+    }
+    rep[pos + i - 1] = '\0';
+    return pos + i - 1;
 }
 
 int
@@ -306,6 +363,8 @@ L_compile_expressions(L_expression *expr)
     L_expression *tmp;
 
     if (!expr) return;
+/*     L_trace("Compiling an expression of type %s", */
+/*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
         TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, expr->a->u.s,
@@ -413,8 +472,8 @@ L_compile_if_unless(L_if_unless *cond)
     }
     /* alternate */
     if (cond->else_body != NULL) {
-        /* End the scope that was started for the consequent and start a new one,
-           copying the jump fixup pointers. */
+        /* End the scope that was started for the consequent and start a new
+           one, copying the jump fixup pointers. */
         L_frame_pop();
         L_frame_push(lframe->interp, lframe->envPtr);
         
@@ -423,8 +482,8 @@ L_compile_if_unless(L_if_unless *cond)
         if (TclFixupForwardJumpToHere(lframe->envPtr,
                                       jumpPtr->fixup + JUMP_IF_FALSE,
                                       127)) {
-            L_bomb("The jump to skip the consequent of an if statement has been\n"
-                   "expanded, but we don't handle that case yet.");
+            L_bomb("The jump to skip the consequent of an if statement has"
+                   "been\n expanded, but we don't handle that case yet.");
         }
         L_compile_statements(cond->else_body);
 
@@ -455,12 +514,14 @@ L_push_variable(L_expression *expr)
         int index_count = 0;
         L_expression *i;
 
-        L_compile_expressions(expr->indices);
-        for (i = expr->indices; i; i = i->indices, index_count++);
+        for (i = expr->indices; i; i = i->indices, index_count++) {
+            L_compile_expressions(i);
+        }
         if (index_count == 1) {
             TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
         } else {
-            TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count, lframe->envPtr);
+            TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
+                            lframe->envPtr);
         }
     }
 }
@@ -487,20 +548,18 @@ L_compile_assignment(L_expression *expr)
     L_expression *lval = expr->a;
     L_expression *rval = expr->b;
 
-    L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind], lval->a->u.s);
+    L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
+            lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
-    L_trace("NEXT STEP");
     if (lval->indices) {
         /* we have array indices */
         int index_count = 0;
         L_expression *i;
-        L_trace("INDEXED VARIABLE");
-        L_compile_expressions(lval->indices);
+        for (i = lval->indices; i; i = i->indices, index_count++) {
+            L_compile_expressions(i);
+        }
         L_compile_expressions(rval);
-        //        L_push_variable(lval);
         L_LOAD_SCALAR(var->localIndex);
-        for (i = lval->indices; i; i = i->indices, index_count++);
-        L_trace("index count is %d", index_count);
         if (index_count == 1) {
             TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
         } else {
@@ -510,7 +569,6 @@ L_compile_assignment(L_expression *expr)
         L_STORE_SCALAR(var->localIndex);
     } else {
         /* no array indices */
-        L_trace("NON-INDEXED VARIABLE");
         L_compile_expressions(rval);
         L_STORE_SCALAR(var->localIndex);
     }
@@ -523,13 +581,15 @@ L_compile_incdec(L_expression *expr)
 
     if (!(var = L_get_symbol(expr->a, TRUE))) return;
     if (expr->kind == L_EXPRESSION_PRE) {
-        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
+                        lframe->envPtr);
         TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
     } else {
-        /* we push the value of the variable, do the increment, and then pop the
-           result of the increment, leaving the old value on top. */
+        /* we push the value of the variable, do the increment, and then pop
+           the result of the increment, leaving the old value on top. */
         L_push_variable(expr);
-        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex, lframe->envPtr);
+        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
+                        lframe->envPtr);
         TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
@@ -537,7 +597,11 @@ L_compile_incdec(L_expression *expr)
 
 /* Create a new symbol and add it to the current symbol table */
 L_symbol *
-L_make_symbol(L_expression *name, int base_type, L_ast_node *array_type, int localIndex) 
+L_make_symbol(
+    L_expression *name,
+    int base_type,
+    L_ast_node *array_type,
+    int localIndex)
 {
     int new;
     L_symbol *symbol = (L_symbol *)ckalloc(sizeof(L_symbol));
@@ -576,12 +640,15 @@ L_get_symbol(L_expression *name, int error_p)
 }
 
 
+/* maybeFixupEmptyCode() doesn't fix anything up right now, because we always
+   emit code for the implicit return value.  But I guess that when we start
+   creating global code again, we'll want it back.  --timjr 2006.5.11 */
 /**
  * In case no bytecode was emitted, emit something, because
  * otherwise we'll get an error from TclExecuteByteCode.
  */
-void 
-maybeFixupEmptyCode(L_compile_frame *frame) 
+void
+maybeFixupEmptyCode(L_compile_frame *frame)
 {
     if (frame->envPtr->codeNext == frame->originalCodeNext) {
         TclEmitPush( TclAddLiteralObj(frame->envPtr, Tcl_NewObj(), NULL),

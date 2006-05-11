@@ -325,14 +325,24 @@ declaration:
 init_declarator_list:
 	  type_specifier init_declarator
         {
-                ((L_type *)$1)->next = ((L_variable_declaration *)$2)->type;
+                L_type *array_type = ((L_variable_declaration *)$2)->type;
+
+                REVERSE(L_type, next, array_type);
+                ((L_type *)$1)->next = array_type;
                 ((L_variable_declaration *)$2)->type = $1;
                 $$ = $2;
         }
 	| init_declarator_list "," init_declarator
         {
+                L_type_kind base_type =
+                        ((L_variable_declaration *)$1)->type->kind;
+                L_type *array_type = ((L_variable_declaration *)$3)->type;
+
+                REVERSE(L_type, next, array_type);
+                /* we have to copy the base type, because each
+                   declarator can have its own array type */
                 ((L_variable_declaration *)$3)->type = 
-                        ((L_variable_declaration *)$1)->type;
+                        mk_type(base_type, NULL, array_type);
                 ((L_variable_declaration *)$3)->next = $1;
                 $$ = $3;
         }
@@ -361,9 +371,12 @@ declarator:
         }
 	| declarator "[" "]"
         {
-                L_type *type = mk_type(-1, NULL, 
-                                       ((L_variable_declaration *)$1)->type);
-                ((L_variable_declaration *)$1)->type = type;
+                L_expression *zero;
+
+                MK_INT_NODE(zero, 0);
+                ((L_variable_declaration *)$1)->type =
+                        mk_type(-1, zero,
+                                ((L_variable_declaration *)$1)->type);
                 $$ = $1;
         }
         ;

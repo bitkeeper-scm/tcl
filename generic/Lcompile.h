@@ -58,7 +58,6 @@ void L_compile_block(L_block *body);
 void L_compile_assignment(L_expression *lvalue);
 void L_compile_binop(L_expression *expr);
 void L_compile_incdec(L_expression *expr);
-int global_symbol_p(L_symbol *symbol);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
