@@ -272,8 +272,7 @@ lvalue:
         }
         | lvalue "[" expr "]"
         {
-                ((L_expression *)$3)->indices = $1;
-                $$ = $3;
+                $$ = mk_expression(L_EXPRESSION_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
         ;
 

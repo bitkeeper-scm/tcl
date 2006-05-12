@@ -5,7 +5,7 @@
 extern void *ast_trace_root;
 extern int L_line_number;
 
-char *L_expression_tostr[10] = {
+char *L_expression_tostr[11] = {
 	"L_EXPRESSION_UNARY",
 	"L_EXPRESSION_BINARY",
 	"L_EXPRESSION_TERTIARY",
@@ -15,7 +15,8 @@ char *L_expression_tostr[10] = {
 	"L_EXPRESSION_STRING",
 	"L_EXPRESSION_FLOAT",
 	"L_EXPRESSION_VARIABLE",
-	"L_EXPRESSION_FUNCALL"
+	"L_EXPRESSION_FUNCALL",
+	"L_EXPRESSION_INDEX"
 };
 
 char *L_statement_tostr[5] = {

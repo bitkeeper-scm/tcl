@@ -515,8 +515,10 @@ L_push_variable(L_expression *expr)
         L_expression *i;
 
         for (i = expr->indices; i; i = i->indices, index_count++) {
-            L_compile_expressions(i);
+            L_compile_expressions(i->a);
         }
+        L_trace("INDICES: %d\n", index_count);
+
         if (index_count == 1) {
             TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
         } else {
@@ -556,7 +558,7 @@ L_compile_assignment(L_expression *expr)
         int index_count = 0;
         L_expression *i;
         for (i = lval->indices; i; i = i->indices, index_count++) {
-            L_compile_expressions(i);
+            L_compile_expressions(i->a);
         }
         L_compile_expressions(rval);
         L_LOAD_SCALAR(var->localIndex);
