@@ -379,6 +379,9 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_POST:
         L_compile_incdec(expr);
         break;
+    case L_EXPRESSION_UNARY:
+        L_compile_unop(expr);
+        break;
     case L_EXPRESSION_BINARY:
         L_compile_binop(expr);
         break;
@@ -400,8 +403,31 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_VARIABLE:
         L_push_variable(expr);
         break;
+    default:
+        L_bomb("Unknown expression type %d", expr->kind);
     }
     L_compile_expressions(expr->next);
+}
+
+void L_compile_unop(L_expression *expr)
+{
+    L_compile_expressions(expr->a);
+    switch (expr->op) {
+    case T_BANG:
+        TclEmitOpcode(INST_LNOT, lframe->envPtr);
+        break;
+    case T_BITNOT:
+        TclEmitOpcode(INST_BITNOT, lframe->envPtr);
+        break;
+    case T_PLUS:
+        TclEmitOpcode(INST_UPLUS, lframe->envPtr);
+        break;
+    case T_MINUS:
+        TclEmitOpcode(INST_UMINUS, lframe->envPtr);
+        break;
+    default:
+        L_bomb("Unknown unary operator %d", expr->op);
+    }
 }
 
 void L_compile_binop(L_expression *expr)
@@ -410,6 +436,9 @@ void L_compile_binop(L_expression *expr)
 
     if (expr->op == T_EQUALS) {
         L_compile_assignment(expr);
+    } else if ((expr->op == T_ANDAND) ||
+               (expr->op == T_OROR)) {
+        L_compile_short_circuit_op(expr);
     } else {
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
@@ -429,6 +458,45 @@ void L_compile_binop(L_expression *expr)
         case T_PERC:
             instruction = INST_MOD;
             break;
+        case T_EQ:
+        case T_EQUALEQUAL:
+            instruction = INST_EQ;
+            break;
+        case T_NE:
+        case T_NOTEQUAL:
+            instruction = INST_NEQ;
+            break;
+        case T_GT:
+        case T_GREATER:
+            instruction = INST_GT;
+            break;
+        case T_GE:
+        case T_GREATEREQ:
+            instruction = INST_GE;
+            break;
+        case T_LT:
+        case T_LESSTHAN:
+            instruction = INST_LT;
+            break;
+        case T_LE:
+        case T_LESSTHANEQ:
+            instruction = INST_LE;
+            break;
+        case T_LSHIFT:
+            instruction = INST_LSHIFT;
+            break;
+        case T_RSHIFT:
+            instruction = INST_RSHIFT;
+            break;
+        case T_BITOR:
+            instruction = INST_BITOR;
+            break;
+        case T_BITXOR:
+            instruction = INST_BITXOR;
+            break;
+        case T_BITAND:
+            instruction = INST_BITAND;
+            break;
         default:
             L_bomb("Undefined operator %d", expr->op);
         }
@@ -436,8 +504,33 @@ void L_compile_binop(L_expression *expr)
     }
 }
 
+void
+L_compile_short_circuit_op(L_expression *expr)
+{
+    JumpFixup fixup;
 
-void 
+    L_compile_expressions(expr->a);
+    /* In case the operator short-circuits, we need one value on the
+       evaluation stack for the jump and one for the value of the
+       expression. */
+    TclEmitOpcode(INST_DUP, lframe->envPtr);
+    if (expr->op == T_ANDAND) {
+        TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &fixup);
+    } else {
+        TclEmitForwardJump(lframe->envPtr, TCL_TRUE_JUMP, &fixup);
+    }
+    /* If the operator doesn't short-circuit, we want to leave the value of
+       the second expression on the stack, so remove the value that we DUPed
+       above. */
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_compile_expressions(expr->b);
+
+    if (TclFixupForwardJumpToHere(lframe->envPtr, &fixup, 127)) {
+        L_bomb("Short-circuit jump needs to be expanded.");
+    }
+}
+
+void
 L_compile_if_unless(L_if_unless *cond)
 {
     JumpFixupArray *jumpPtr;

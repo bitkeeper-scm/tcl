@@ -19,8 +19,6 @@ extern void *L_current_ast;
 %token T_RBRACE "}"
 %token T_LBRACKET "["
 %token T_RBRACKET "]"
-%token T_ANDAND "&&"
-%token T_OROR "||"
 %token T_SEMI ";"
 %token T_BANGTWID "!~"
 %token T_EQTWID "=~"
@@ -33,30 +31,22 @@ extern void *L_current_ast;
 
 %right T_EQUALS "="
 
-%token T_EQ "eq"
-%token T_NE "ne"
-%token T_LT "lt"
-%token T_LE "le"
-%token T_GT "gt"
-%token T_GE "ge"
 %token T_ARROW "=>"
-%token T_EQUALEQUAL "=="
-%token T_NOTEQUAL "!="
-%token T_GREATER ">"
-%token T_GREATEREQ ">="
-%token T_LESSTHAN "<"
-%token T_LESSTHANEQ "<="
 
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 
 %left T_OROR
 %left T_ANDAND
-%nonassoc T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID T_BANGTWID
-%nonassoc T_GT T_GE T_LT T_LE T_GREATER T_GREATEREQ T_LESSTHAN T_LESSTHANEQ
+%left T_BITOR
+%left T_BITXOR
+%left T_BITAND
+%left T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID T_BANGTWID
+%left T_GT T_GE T_LT T_LE T_GREATER T_GREATEREQ T_LESSTHAN T_LESSTHANEQ
+%left T_LSHIFT T_RSHIFT
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
-%right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS
+%right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT
 
 %%
 
@@ -189,8 +179,22 @@ argument_expression_list:
 
 expr:
           "(" expr ")"          { $$ = $2; }
-/* 	| "!" expr		{ } */
-/* 	| "-" expr %prec UMINUS	{ } */
+ 	| T_BANG expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_BANG, $2, NULL, NULL, NULL, NULL);
+        }
+ 	| T_BITNOT expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_BITNOT, $2, NULL, NULL, NULL, NULL);
+        }
+ 	| T_MINUS expr %prec UMINUS
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_MINUS, $2, NULL, NULL, NULL, NULL);
+        }
+ 	| T_PLUS expr %prec UPLUS
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_PLUS, $2, NULL, NULL, NULL, NULL);
+        }
         | T_PLUSPLUS T_ID
         {   
                 $$ = mk_expression(L_EXPRESSION_PRE, T_PLUSPLUS, $2, NULL, NULL, NULL, NULL);
@@ -207,44 +211,32 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
-	| expr T_STAR expr
-        {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_STAR, $1, $3, NULL, NULL, NULL);
-        }
-	| expr T_SLASH expr
-        {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_SLASH, $1, $3, NULL, NULL, NULL);
-        }
-	| expr T_PERC expr
-        {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_PERC, $1, $3, NULL, NULL, NULL);
-        }
-	| expr T_PLUS expr
-        {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_PLUS, $1, $3, NULL, NULL, NULL);
-        }
-	| expr T_MINUS expr
-        {
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_MINUS, $1, $3, NULL, NULL, NULL);
-        }
-
-/* 	| expr "lt" expr	{ } */
-/* 	| expr "le" expr	{ } */
-/* 	| expr "gt" expr	{ } */
-/* 	| expr "ge" expr	{ } */
-/* 	| expr "eq" expr	{ } */
-/* 	| expr "ne" expr	{ } */
-/* 	| expr "==" expr	{ } */
-/* 	| expr "!=" expr	{ } */
-/* 	| expr ">" expr		{ } */
-/* 	| expr ">=" expr	{ } */
-/* 	| expr "<" expr		{ } */
-/* 	| expr "<=" expr	{ } */
+	| expr T_STAR expr      { MK_BINOP_NODE($$, T_STAR, $1, $3); }
+	| expr T_SLASH expr     { MK_BINOP_NODE($$, T_SLASH, $1, $3); }
+	| expr T_PERC expr      { MK_BINOP_NODE($$, T_PERC, $1, $3); }
+	| expr T_PLUS expr      { MK_BINOP_NODE($$, T_PLUS, $1, $3); }
+	| expr T_MINUS expr     { MK_BINOP_NODE($$, T_MINUS, $1, $3); }
+	| expr T_EQ expr        { MK_BINOP_NODE($$, T_EQ, $1, $3); }
+	| expr T_NE expr        { MK_BINOP_NODE($$, T_NE, $1, $3); }
+	| expr T_LT expr        { MK_BINOP_NODE($$, T_LT, $1, $3); }
+	| expr T_LE expr        { MK_BINOP_NODE($$, T_LE, $1, $3); }
+	| expr T_GT expr        { MK_BINOP_NODE($$, T_GT, $1, $3); }
+	| expr T_GE expr        { MK_BINOP_NODE($$, T_GE, $1, $3); }
+	| expr T_EQUALEQUAL expr        { MK_BINOP_NODE($$, T_EQUALEQUAL, $1, $3); }
+	| expr T_NOTEQUAL expr  { MK_BINOP_NODE($$, T_NOTEQUAL, $1, $3); }
+	| expr T_GREATER expr   { MK_BINOP_NODE($$, T_GREATER, $1, $3); }
+	| expr T_GREATEREQ expr { MK_BINOP_NODE($$, T_GREATEREQ, $1, $3); }
+	| expr T_LESSTHAN expr  { MK_BINOP_NODE($$, T_LESSTHAN, $1, $3); }
+	| expr T_LESSTHANEQ expr        { MK_BINOP_NODE($$, T_LESSTHANEQ, $1, $3); }
+	| expr T_ANDAND expr    { MK_BINOP_NODE($$, T_ANDAND, $1, $3); }
+	| expr T_OROR expr      { MK_BINOP_NODE($$, T_OROR, $1, $3); }
+	| expr T_LSHIFT expr    { MK_BINOP_NODE($$, T_LSHIFT, $1, $3); }
+	| expr T_RSHIFT expr    { MK_BINOP_NODE($$, T_RSHIFT, $1, $3); }
+	| expr T_BITOR expr     { MK_BINOP_NODE($$, T_BITOR, $1, $3); }
+	| expr T_BITAND expr    { MK_BINOP_NODE($$, T_BITAND, $1, $3); }
+	| expr T_BITXOR expr    { MK_BINOP_NODE($$, T_BITXOR, $1, $3); }
 /* 	| expr "=~" T_RE	{ } */
 /* 	| expr "!~" T_RE	{ } */
-/* 	| expr "&&" expr	{ } */
-/* 	| expr "||" expr	{ } */
-/*         |  */
         | T_STR_LITERAL
         | T_INT_LITERAL
         | T_FLOAT_LITERAL
@@ -264,6 +256,7 @@ expr:
                 $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL, NULL);
         }
 	;
+
 
 lvalue:
           T_ID

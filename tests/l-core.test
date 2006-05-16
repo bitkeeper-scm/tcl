@@ -347,6 +347,141 @@ op_1_1() {
 op_1_1
 } -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
 
+test op-1.2 {unary plus and minus} -body {
+#pragma language L
+op_1_2() {
+        int i = -2;
+        int j = +2;
+
+        puts(i);
+        i = i + -100;
+        puts(i);
+        puts(i * -3);
+        puts(-8 - -2);
+
+        puts(j);
+        j = j + +100;
+        puts(j);
+        puts(j * +3);
+        puts(+8 - +2);
+}
+#pragma end
+op_1_2
+} -output "-2\n-102\n306\n-6\n2\n102\n306\n6\n"
+
+test op-1.3 {numeric comparison operators} -body {
+#pragma language L
+op_1_3() {
+        if (-1 < 1) { puts("1okay"); } else { puts("1broken"); }
+        if (1 > -1) { puts("2okay"); } else { puts("2broken"); }
+        if (1 == 1) { puts("3okay"); } else { puts("3broken"); }
+        if (1 <= 1) { puts("4okay"); } else { puts("4broken"); }
+        if (-1 <= 1) { puts("5okay"); } else { puts("5broken"); }
+        if (1 >= -1) { puts("6okay"); } else { puts("6broken"); }
+        if (1 >= 0) { puts("7okay"); } else { puts("7broken"); }
+        if (0 != 1) { puts("8okay"); } else { puts("8broken"); }
+        // now from the other side
+        puts("--");
+        if (1 < 1) { puts("1broken"); } else { puts("1okay"); }
+        if (1 > 1) { puts("2broken"); } else { puts("2okay"); }
+        if (1 == 0) { puts("3broken"); } else { puts("3okay"); }
+        if (1 != 1) { puts("4broken"); } else { puts("4okay"); }
+        if (1 <= -1) { puts("5broken"); } else { puts("5okay"); }
+        if (-1 >= 1) { puts("6broken"); } else { puts("6okay"); }
+
+}
+#pragma end
+op_1_3
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
+--\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
+
+test op-1.4 {lexicographic comparison operators} -body {
+#pragma language L
+op_1_4() {
+        if ("aa" lt "ab") { puts("1okay"); } else { puts("1broken"); }
+        if ("ab" gt "aa") { puts("2okay"); } else { puts("2broken"); }
+        if ("aa" eq "aa") { puts("3okay"); } else { puts("3broken"); }
+        if ("aa" le "aa") { puts("4okay"); } else { puts("4broken"); }
+        if ("aa" le "ab") { puts("5okay"); } else { puts("5broken"); }
+        if ("aa" ge "aa") { puts("6okay"); } else { puts("6broken"); }
+        if ("ab" ge "aa") { puts("7okay"); } else { puts("7broken"); }
+        if ("aa" ne "ab") { puts("8okay"); } else { puts("8broken"); }
+        // now from the other side
+        puts("--");
+        if ("aa" lt "aa") { puts("1broken"); } else { puts("1okay"); }
+        if ("aa" gt "aa") { puts("2broken"); } else { puts("2okay"); }
+        if ("ab" eq "aa") { puts("3broken"); } else { puts("3okay"); }
+        if ("aa" ne "aa") { puts("4broken"); } else { puts("4okay"); }
+        if ("ab" le "aa") { puts("5broken"); } else { puts("5okay"); }
+        if ("aa" ge "ab") { puts("6broken"); } else { puts("6okay"); }
+
+}
+#pragma end
+op_1_4
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
+--\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
+
+
+test op-1.5 {boolean operators} -body {
+#pragma language L
+op_1_5() {
+        int true = 1, false = 0;
+        if (true && true)       { puts("1okay"); } else { puts("1broken"); }
+        if (!false)             { puts("2okay"); } else { puts("2broken"); }
+        if (false || true)      { puts("3okay"); } else { puts("3broken"); }
+        if (true && !false)     { puts("4okay"); } else { puts("4broken"); }
+        // && has higher precedence than ||
+        if (false && false || true) { puts("5okay"); } else { puts("5broken"); }
+        // now from the other side
+        puts("--");
+        if (true && !true)      { puts("1broken"); } else { puts("1okay"); }
+        if (false || false)     { puts("2broken"); } else { puts("2okay"); }
+        if (!true)              { puts("3broken"); } else { puts("3okay"); }
+
+}
+#pragma end
+op_1_5
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n--\n1okay\n2okay\n3okay\n"
+
+
+test op-1.6 {bitwise operators} -body {
+#pragma language L
+op_1_6(){
+        int bits = 715827882;
+
+        puts(bits << 1);
+        puts(bits >> 1);
+        puts(bits >> 29);
+        puts(-1 << 10);
+        puts(-1024 >> 9);
+        puts(~bits);
+        puts(bits & ~bits);
+        puts(bits | ~bits);
+        puts(bits ^ (bits + 1));
+
+}
+#pragma end
+op_1_6
+} -output "1431655764\n357913941\n1\n-1024\n-2\n-715827883\n0\n-1\n1\n"
+
+
+test op-1.7 {logical operator short-circuiting} -body {
+#pragma language L
+puts_int(string str) {
+        puts(str);
+        return 9;
+}
+op_1_7(){
+        puts(0 && puts_int("1"));
+        puts(1 && puts_int("2"));
+        puts(0 || puts_int("3"));
+        puts(1 || puts_int("4"));
+}
+#pragma end
+op_1_7
+} -output "0\n2\n9\n3\n9\n1\n"
+
+
 
 test array-1.0 { Single-dimensional array creation and indexing } -body {
 #pragma language L

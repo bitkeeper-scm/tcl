@@ -55,6 +55,12 @@ tally_newlines(
 "--"		return T_MINUSMINUS;
 "&&"		return T_ANDAND;
 "||"		return T_OROR;
+"&"		return T_BITAND;
+"|"		return T_BITOR;
+"^"		return T_BITXOR;
+"~"		return T_BITNOT;
+"<<"            return T_LSHIFT;
+">>"            return T_RSHIFT;
 "="		return T_EQUALS;
 ";"		return T_SEMI;
 "!~"[ \t]*"/"	BEGIN(glob_re); str = strbuf; return T_BANGTWID;

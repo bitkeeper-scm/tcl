@@ -58,6 +58,8 @@ void L_compile_block(L_block *body);
 void L_compile_assignment(L_expression *lvalue);
 void L_compile_binop(L_expression *expr);
 void L_compile_incdec(L_expression *expr);
+void L_compile_unop(L_expression *expr);
+void L_compile_short_circuit_op(L_expression *expr);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
@@ -84,6 +86,10 @@ int L_parse(void);
 #define MK_FLOAT_NODE(var,float) do {\
         var = mk_expression(L_EXPRESSION_FLOAT, -1, NULL, NULL, NULL, NULL, NULL);\
         ((L_expression *)var)->u.d = float;\
+} while(0);
+
+#define MK_BINOP_NODE(var,op,e1,e2) do {\
+        var = mk_expression(L_EXPRESSION_BINARY, op, e1, e2, NULL, NULL, NULL);\
 } while(0);
 
 #define L_NODE_TYPE(node) ((L_ast_node*)node)->node_type
