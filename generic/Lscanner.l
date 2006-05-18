@@ -3,7 +3,7 @@
 %x comment
 %x str_double
 %x str_single
-ID	[a-zA-Z_][0-9a-zA-Z_.]*
+ID	\.?[a-zA-Z_][0-9a-zA-Z_.]*
 REV	[0-9]+(\.[0-9]+)*
 TAG	[a-zA-Z_][0-9a-zA-Z_.]*
 %{
@@ -86,6 +86,9 @@ tally_newlines(
 "if"		return T_IF;
 "else"		return T_ELSE;
 "unless"	return T_UNLESS;
+"while"         return T_WHILE;
+"do"            return T_DO;
+"for"           return T_FOR;
 "=>"		return T_ARROW;
 "eq"		return T_EQ;
 "ne"		return T_NE;
@@ -107,7 +110,7 @@ tally_newlines(
                         MK_INT_NODE(L_lval, atoi(yytext)); 
                         return T_INT_LITERAL;   
                 }
-[0-9]+\.[0-9]+	{       
+[0-9]*\.[0-9]+	{
                         MK_FLOAT_NODE(L_lval, atof(yytext));
                         return T_FLOAT_LITERAL;   
                 }

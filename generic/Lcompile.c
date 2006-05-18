@@ -207,6 +207,7 @@ L_compile_variable_decls(L_variable_declaration *var)
 
         L_compile_expressions(var->initial_value);
         L_STORE_SCALAR(localIndex);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
     }
  next_decl:
     L_compile_variable_decls(var->next);
@@ -290,9 +291,15 @@ L_compile_statements(L_statement *stmt)
         break;
     case L_STATEMENT_EXPR:
         L_compile_expressions(stmt->u.expr);
+        /* Expressions leave a value on the evaluation stack, but statements
+           don't. So pop the value. */
+        TclEmitOpcode(INST_POP, lframe->envPtr);
         break;
     case L_STATEMENT_IF_UNLESS:
         L_compile_if_unless(stmt->u.cond);
+        break;
+    case L_STATEMENT_LOOP:
+        L_compile_loop(stmt->u.loop);
         break;
     case L_STATEMENT_RETURN:
         L_trace("compiling return statement");
@@ -524,44 +531,24 @@ L_compile_short_circuit_op(L_expression *expr)
        above. */
     TclEmitOpcode(INST_POP, lframe->envPtr);
     L_compile_expressions(expr->b);
-
-    if (TclFixupForwardJumpToHere(lframe->envPtr, &fixup, 127)) {
-        L_bomb("Short-circuit jump needs to be expanded.");
-    }
+    TclFixupForwardJumpToHere(lframe->envPtr, &fixup, 127);
 }
 
 void
 L_compile_if_unless(L_if_unless *cond)
 {
-    JumpFixupArray *jumpPtr;
-
-#define JUMP_IF_FALSE 0
-#define JUMP_IF_END   1
+    JumpFixup jumpFalse, jumpEnd;
 
     L_compile_expressions(cond->condition);
-    jumpPtr = (JumpFixupArray *)ckalloc(sizeof(JumpFixupArray));
-    /* save the fixup array in a compile frame so that we can do the fixups at
-       the end of this if statement. */
-    L_frame_push(lframe->interp, lframe->envPtr);
-
-    TclInitJumpFixupArray(jumpPtr);
-    /* allocate space for two jump fixups, one for the skipping the consequent
-       and one for skipping the alternate. */
-    if (2 >= jumpPtr->end) {
-        TclExpandJumpFixupArray(jumpPtr);
-    }
-    jumpPtr->next += 2;
     /* emit a jump which will skip the consequent if the top value on the
        stack is false. */
-    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, 
-                       jumpPtr->fixup + JUMP_IF_FALSE);
-    
+    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalse);
+
+    L_frame_push(lframe->interp, lframe->envPtr);
     /* consequent */
     if (cond->if_body != NULL) {
         L_compile_statements(cond->if_body);
-        TclFixupForwardJumpToHere(lframe->envPtr,
-                                  jumpPtr->fixup + JUMP_IF_FALSE,
-                                  127);
+        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
     }
     /* alternate */
     if (cond->else_body != NULL) {
@@ -569,30 +556,39 @@ L_compile_if_unless(L_if_unless *cond)
            one, copying the jump fixup pointers. */
         L_frame_pop();
         L_frame_push(lframe->interp, lframe->envPtr);
-        
-        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP,
-                           jumpPtr->fixup + JUMP_IF_END);
-        if (TclFixupForwardJumpToHere(lframe->envPtr,
-                                      jumpPtr->fixup + JUMP_IF_FALSE,
-                                      127)) {
-            L_bomb("The jump to skip the consequent of an if statement has"
-                   "been\n expanded, but we don't handle that case yet.");
-        }
+        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpEnd);
+        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
         L_compile_statements(cond->else_body);
-
-        TclFixupForwardJumpToHere(lframe->envPtr,
-                                  jumpPtr->fixup + JUMP_IF_END,
-                                  127);
+        TclFixupForwardJumpToHere(lframe->envPtr, &jumpEnd, 127);
 
     } else {
-        TclFixupForwardJumpToHere(lframe->envPtr,
-                                  jumpPtr->fixup + JUMP_IF_FALSE,
-                                  127);
+        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
     }
-    /* Free the jump fixup array and end the scope. */
-    TclFreeJumpFixupArray(jumpPtr);
-    ckfree((char *)jumpPtr);
     L_frame_pop();
+}
+
+void
+L_compile_loop(L_loop *loop)
+{
+    JumpFixup jumpToCond;
+    int bodyCodeOffset, jumpDist;
+
+    TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
+    L_frame_push(lframe->interp, lframe->envPtr);
+    bodyCodeOffset = lframe->envPtr->codeNext - lframe->envPtr->codeStart;
+    L_compile_statements(loop->body);
+    L_frame_pop(lframe->interp, lframe->envPtr);
+    if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpToCond, 127)) {
+        bodyCodeOffset += 3;
+    }
+    L_compile_expressions(loop->condition);
+    jumpDist = lframe->envPtr->codeNext - lframe->envPtr->codeStart -
+        bodyCodeOffset;
+    if (jumpDist > 127) {
+        TclEmitInstInt4(INST_JUMP_TRUE4, -jumpDist, lframe->envPtr);
+    } else {
+        TclEmitInstInt1(INST_JUMP_TRUE1, -jumpDist, lframe->envPtr);
+    }
 }
 
 void

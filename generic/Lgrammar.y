@@ -32,7 +32,7 @@ extern void *L_current_ast;
 %right T_EQUALS "="
 
 %token T_ARROW "=>"
-
+%token T_WHILE T_FOR T_DO
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 
@@ -83,6 +83,11 @@ single_statement:
                 $$ = mk_statement(L_STATEMENT_IF_UNLESS, NULL);
                 ((L_statement *)$$)->u.cond = $1;
         }
+        | iteration_statement
+        {
+                $$ = mk_statement(L_STATEMENT_LOOP, NULL);
+                ((L_statement *)$$)->u.loop = $1;
+        }
 	| expr ";"              
         { 
                 $$ = mk_statement(L_STATEMENT_EXPR, NULL);
@@ -122,6 +127,7 @@ selection_statement:
         }
         ;
 
+
 optional_else:
         /* else clauses must either have curly braces or be another
            if/unless */
@@ -134,9 +140,34 @@ optional_else:
         | /* epsilon */                 { $$ = NULL; }
         ;
 
+iteration_statement:
+          T_WHILE "(" expr ")" stmt
+        {
+                $$ = mk_loop(L_LOOP_WHILE, NULL, $3, NULL, $5);
+        }
+	| T_DO stmt T_WHILE "(" expr ")" ";"
+        {
+                $$ = mk_loop(L_LOOP_DO, NULL, $5, NULL, $2);
+        }
+	| T_FOR "(" expression_statement expression_statement ")" stmt
+        {
+                $$ = mk_loop(L_LOOP_FOR, $3, $4, NULL, $6);
+        }
+	| T_FOR "(" expression_statement expression_statement expr ")" stmt
+        {
+                $$ = mk_loop(L_LOOP_FOR, $3, $4, $5, $7);
+        }
+	;
+
+
+expression_statement
+	: ';'                   { $$ = NULL; }
+	| expr ';'
+	;
+
 stmt_list:
           stmt
- 	| stmt_list stmt          { ((L_statement *)$2)->next = $1; $$ = $2; }
+ 	| stmt_list stmt        { ((L_statement *)$2)->next = $1; $$ = $2; }
 	;
 
 

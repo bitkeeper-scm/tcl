@@ -523,6 +523,20 @@ array_1_0
 "
 
 
+test loop-1.0 {while loops} -body {
+#pragma language L
+loop_1_0() {
+        int i = 0;
+        while (i++ < 5) puts (i);
+        while (i) {
+                int j = i--;
+                puts(j);
+        }
+}
+#pragma end
+loop_1_0
+} -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
+
 
 # cleanup
 ::tcltest::cleanupTests

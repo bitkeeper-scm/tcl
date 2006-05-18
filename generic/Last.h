@@ -52,10 +52,11 @@ extern char *L_type_tostr[7];
 typedef enum L_loop_kind {
 	L_LOOP_FOR,
 	L_LOOP_FOREACH,
-	L_LOOP_WHILE
+	L_LOOP_WHILE,
+	L_LOOP_DO
 } L_loop_kind;
 
-extern char *L_loop_tostr[3];
+extern char *L_loop_tostr[4];
 typedef enum L_node_type {
 	L_NODE_STATEMENT,
 	L_NODE_TYPE,
@@ -119,7 +120,7 @@ struct L_loop {
 	L_expression *pre;
 	L_expression *condition;
 	L_expression *post;
-	L_block *body;
+	L_statement *body;
 };
 
 struct L_statement {
@@ -154,7 +155,7 @@ struct L_variable_declaration {
 /* Prototypes */
 L_statement *mk_statement(L_statement_kind kind,L_statement *next);
 L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_type *next);
-L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_block *body);
+L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,L_function_declaration *next);
 L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,L_variable_declaration *next);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);

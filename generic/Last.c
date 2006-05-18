@@ -37,10 +37,11 @@ char *L_type_tostr[7] = {
 	"L_TYPE_VOID"
 };
 
-char *L_loop_tostr[3] = {
+char *L_loop_tostr[4] = {
 	"L_LOOP_FOR",
 	"L_LOOP_FOREACH",
-	"L_LOOP_WHILE"
+	"L_LOOP_WHILE",
+	"L_LOOP_DO"
 };
 
 char *L_node_type_tostr[8] = {
@@ -85,7 +86,7 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_type *next)
 	return type;
 }
 
-L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_block *body) 
+L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body) 
 {
 	L_loop *loop;
 
