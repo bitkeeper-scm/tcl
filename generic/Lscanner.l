@@ -3,7 +3,7 @@
 %x comment
 %x str_double
 %x str_single
-ID	\.?[a-zA-Z_][0-9a-zA-Z_.]*
+ID	\.?[a-zA-Z_][0-9a-zA-Z_.:]*
 REV	[0-9]+(\.[0-9]+)*
 TAG	[a-zA-Z_][0-9a-zA-Z_.]*
 %{
@@ -79,7 +79,7 @@ tally_newlines(
 "void"          return T_VOID;
 "string"        return T_STRING;
 "int"           return T_INT;
-"float"         return T_FLOAT;
+"double"         return T_DOUBLE;
 "hash"          return T_HASH;
 "poly"          return T_POLY;
 "var"           return T_VAR;
@@ -111,8 +111,8 @@ tally_newlines(
                         return T_INT_LITERAL;   
                 }
 [0-9]*\.[0-9]+	{
-                        MK_FLOAT_NODE(L_lval, atof(yytext));
-                        return T_FLOAT_LITERAL;   
+                        MK_DOUBLE_NODE(L_lval, atof(yytext));
+                        return T_DOUBLE_LITERAL;   
                 }
 \"		BEGIN(str_double); str = strbuf;
 <str_double>{

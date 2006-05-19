@@ -99,7 +99,7 @@ void fun3() { }
 int fun4() { }
 fun5(int foo) { }
 hash fun6(hash foo, hash bar[], hash baz[23]) { }
-void fun7(int foo, float bar, hash baz, string quux, poly quuux, var quuuux) { }
+void fun7(int foo, double bar, hash baz, string quux, poly quuux, var quuuux) { }
 void fun8() {
         int foo, bar[], baz[84][42][1];
         string foo1[19], mani[], padmi = "hum";

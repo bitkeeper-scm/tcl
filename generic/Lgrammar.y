@@ -33,8 +33,8 @@ extern void *L_current_ast;
 
 %token T_ARROW "=>"
 %token T_WHILE T_FOR T_DO
-%token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
-%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
+%token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
+%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
 
 %left T_OROR
 %left T_ANDAND
@@ -270,7 +270,7 @@ expr:
 /* 	| expr "!~" T_RE	{ } */
         | T_STR_LITERAL
         | T_INT_LITERAL
-        | T_FLOAT_LITERAL
+        | T_DOUBLE_LITERAL
 	| lvalue
         {
                 REVERSE(L_expression, indices, $1);
@@ -413,7 +413,7 @@ return_type_specifier:
 type_specifier:
 	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL); }
 	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL); }
-	| T_FLOAT       { $$ = mk_type(L_TYPE_FLOAT, NULL, NULL); }
+	| T_DOUBLE       { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL); }
 	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL); }
 	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL); }
 	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL); }

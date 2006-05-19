@@ -1,4 +1,5 @@
 /* This is an automatically generated file, please do not edit */
+/* use: tclsh gen-l-ast2.tcl to regenerate */
 #ifndef L_AST_H
 #define L_AST_H
 
@@ -22,7 +23,7 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_POST,
 	L_EXPRESSION_INT,
 	L_EXPRESSION_STRING,
-	L_EXPRESSION_FLOAT,
+	L_EXPRESSION_DOUBLE,
 	L_EXPRESSION_VARIABLE,
 	L_EXPRESSION_FUNCALL,
 	L_EXPRESSION_INDEX
@@ -41,7 +42,7 @@ extern char *L_statement_tostr[5];
 typedef enum L_type_kind {
 	L_TYPE_INT,
 	L_TYPE_STRING,
-	L_TYPE_FLOAT,
+	L_TYPE_DOUBLE,
 	L_TYPE_HASH,
 	L_TYPE_POLY,
 	L_TYPE_VAR,

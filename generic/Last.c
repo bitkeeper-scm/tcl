@@ -1,4 +1,5 @@
 /* This is an automatically generated file, please do not edit */
+/* use: tclsh gen-l-ast2.tcl to regenerate */
 #include "tclInt.h"
 #include "Last.h"
 
@@ -13,7 +14,7 @@ char *L_expression_tostr[11] = {
 	"L_EXPRESSION_POST",
 	"L_EXPRESSION_INT",
 	"L_EXPRESSION_STRING",
-	"L_EXPRESSION_FLOAT",
+	"L_EXPRESSION_DOUBLE",
 	"L_EXPRESSION_VARIABLE",
 	"L_EXPRESSION_FUNCALL",
 	"L_EXPRESSION_INDEX"
@@ -30,7 +31,7 @@ char *L_statement_tostr[5] = {
 char *L_type_tostr[7] = {
 	"L_TYPE_INT",
 	"L_TYPE_STRING",
-	"L_TYPE_FLOAT",
+	"L_TYPE_DOUBLE",
 	"L_TYPE_HASH",
 	"L_TYPE_POLY",
 	"L_TYPE_VAR",

@@ -84,9 +84,9 @@ int L_parse(void);
         ((L_expression *)var)->u.i = int;\
 } while(0);
 
-#define MK_FLOAT_NODE(var,float) do {\
-        var = mk_expression(L_EXPRESSION_FLOAT, -1, NULL, NULL, NULL, NULL, NULL);\
-        ((L_expression *)var)->u.d = float;\
+#define MK_DOUBLE_NODE(var,double) do {\
+        var = mk_expression(L_EXPRESSION_DOUBLE, -1, NULL, NULL, NULL, NULL, NULL);\
+        ((L_expression *)var)->u.d = double;\
 } while(0);
 
 #define MK_BINOP_NODE(var,op,e1,e2) do {\

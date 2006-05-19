@@ -402,7 +402,7 @@ L_compile_expressions(L_expression *expr)
         TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
                     lframe->envPtr);
         break;
-    case L_EXPRESSION_FLOAT:
+    case L_EXPRESSION_DOUBLE:
         obj = Tcl_NewDoubleObj(expr->u.d);
         TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
                     lframe->envPtr);
