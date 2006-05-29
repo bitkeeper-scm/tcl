@@ -597,7 +597,7 @@ p2 is:
 test struct-1.1 {struct allocation and arrays of structs} -body {
 #pragma language L
 struct struct_1_1_point {
-        int x, y;
+        int x[4], y;
         string label;
 };
 
@@ -614,13 +614,14 @@ struct_1_1() {
    while(i < 10) {
       s[0][i] = new_struct();
       s[0][i].y = i;
+      s[0][i].x[1] = 42 + i;
       i++;
    }
    puts(s);
 }
 #pragma end
 struct_1_1
-} -output "{{{} 0 labelled} {{} 1 labelled} {{} 2 labelled} {{} 3 labelled} {{} 4 labelled} {{} 5 labelled} {{} 6 labelled} {{} 7 labelled} {{} 8 labelled} {{} 9 labelled}}\n"
+} -output "{{{{} 42 {} {}} 0 labelled} {{{} 43 {} {}} 1 labelled} {{{} 44 {} {}} 2 labelled} {{{} 45 {} {}} 3 labelled} {{{} 46 {} {}} 4 labelled} {{{} 47 {} {}} 5 labelled} {{{} 48 {} {}} 6 labelled} {{{} 49 {} {}} 7 labelled} {{{} 50 {} {}} 8 labelled} {{{} 51 {} {}} 9 labelled}}\n"
 
 # cleanup
 ::tcltest::cleanupTests

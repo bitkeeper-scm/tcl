@@ -326,14 +326,10 @@ create_struct(L_type *type)
     val = Tcl_NewListObj(0, NULL);
     /* initialize the struct fields */
     for (member = type->members; member; member = member->next, i++) {
-        if (array_or_struct_p(member)) {
-            Tcl_Obj *el =
-                create_array_or_struct(member->type->array_dim, member->type);
-            if (!el) return NULL;
-            Tcl_ListObjAppendElement(NULL, val, el);
-        } else {
-            Tcl_ListObjAppendElement(NULL, val, nullobj);
-        }
+        Tcl_Obj *el =
+            create_array_or_struct(member->type->next_dim, member->type);
+        if (!el) return NULL;
+        Tcl_ListObjAppendElement(NULL, val, el);
     }
     return val;
 }
