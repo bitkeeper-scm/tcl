@@ -603,23 +603,24 @@ struct struct_1_1_point {
 
 struct struct_1_1_point new_struct() {
     struct struct_1_1_point a;
+    a.label = "labelled";
     return a;
 }
 
 struct_1_1() {
    int i = 0;
-   struct struct_1_1_point s[10];
+   struct struct_1_1_point s[1][10];
 
    while(i < 10) {
-      s[i] = new_struct();
-      s[i].y = i;
+      s[0][i] = new_struct();
+      s[0][i].y = i;
       i++;
    }
    puts(s);
 }
 #pragma end
 struct_1_1
-} -output "{{} 0 {}} {{} 1 {}} {{} 2 {}} {{} 3 {}} {{} 4 {}} {{} 5 {}} {{} 6 {}} {{} 7 {}} {{} 8 {}} {{} 9 {}}\n"
+} -output "{{{} 0 labelled} {{} 1 labelled} {{} 2 labelled} {{} 3 labelled} {{} 4 labelled} {{} 5 labelled} {{} 6 labelled} {{} 7 labelled} {{} 8 labelled} {{} 9 labelled}}\n"
 
 # cleanup
 ::tcltest::cleanupTests

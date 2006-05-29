@@ -19,7 +19,7 @@ void L__delete_buffer(void *buf);
 /* functions local to this file */
 static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
-static Tcl_Obj *create_array_or_struct(L_type *type);
+static Tcl_Obj *create_array_or_struct(L_type *array_type, L_type *base_type);
 static Tcl_Obj *create_struct(L_type *type);
 static int array_or_struct_p(L_variable_declaration *var);
 static L_type *lookup_struct_type(char *tag);
@@ -241,7 +241,8 @@ L_compile_variable_decls(L_variable_declaration *var)
     }
     symbol = L_make_symbol(var->name, var->type, localIndex);
     if (array_or_struct_p(var)) {
-        Tcl_Obj *initial_value = create_array_or_struct(var->type);
+        Tcl_Obj *initial_value =
+            create_array_or_struct(var->type->next_dim, var->type);
         /* We don't support literal initializers for structs and arrays yet.
            Just always initialize to a blank TCL list. */
         if (initial_value) {
@@ -262,46 +263,35 @@ L_compile_variable_decls(L_variable_declaration *var)
    appropriate size.  Here we interpret a declaration's type and instantiate
    it.  We check the declaration's semantics while interpreting it. */
 Tcl_Obj *
-create_array_or_struct(L_type *type)
+create_array_or_struct(L_type *array_type, L_type *base_type)
 {
     Tcl_Obj *val = NULL;
-    Tcl_Obj *nullobj = Tcl_NewObj();
     int i;
 
-    if (type->next_dim) { /* array type */
-        L_type *array_type = type->next_dim;
-
+    if (array_type) {
         if (!(array_type->array_dim->kind == L_EXPRESSION_INT)) {
-            L_errorf(type, "Invalid array dimension for a declaration, %s",
-                     L_expression_tostr[type->next_dim->kind]);
+            L_errorf(array_type, "Invalid array dimension for a declaration, %s",
+                     L_expression_tostr[array_type->array_dim->kind]);
             return NULL;
         }
         if (array_type->array_dim->u.i < 0) {
-            L_errorf(type, "Negative array dimension: %d",
+            L_errorf(array_type, "Negative array dimension: %d",
                      array_type->array_dim->u.i);
             return NULL;
         }
         /* initialize the array */
         val = Tcl_NewListObj(0, NULL);
         for (i = 0; i < array_type->array_dim->u.i; i++) {
-            if (array_type->next_dim) {
-                /* the array is multi-dimensional, so initialize it with
-                   sub-arrays  */
-                Tcl_Obj *el = create_array_or_struct(array_type);
-                if (!el) return NULL;
-                Tcl_ListObjAppendElement(NULL, val, el);
-            } else if (type->kind == L_TYPE_STRUCT) {
-                /* an array of structs */
-                Tcl_Obj *el = create_struct(type);
-                if (!el) return NULL;
-                Tcl_ListObjAppendElement(NULL, val, el);
-            } else
-                /* the array is single-dimensional, so initialize it with
-                   nulls */
-                Tcl_ListObjAppendElement(NULL, val, nullobj);
+            /* the array is multi-dimensional, so initialize it with
+               sub-arrays  */
+            Tcl_Obj *el = create_array_or_struct(array_type->next_dim, base_type);
+            if (!el) return NULL;
+            Tcl_ListObjAppendElement(NULL, val, el);
         }
-    } else if (type->kind == L_TYPE_STRUCT) { /* structure type */
-        val = create_struct(type);
+    } else if (base_type->kind == L_TYPE_STRUCT) {
+        val = create_struct(base_type);
+    } else {
+        return Tcl_NewObj();
     }
     return val;
 }
@@ -337,7 +327,8 @@ create_struct(L_type *type)
     /* initialize the struct fields */
     for (member = type->members; member; member = member->next, i++) {
         if (array_or_struct_p(member)) {
-            Tcl_Obj *el = create_array_or_struct(member->type);
+            Tcl_Obj *el =
+                create_array_or_struct(member->type->array_dim, member->type);
             if (!el) return NULL;
             Tcl_ListObjAppendElement(NULL, val, el);
         } else {
@@ -749,6 +740,7 @@ L_compile_indices(L_type *type, L_expression *indices)
 {
     /* we have array indices */
     int index_count = 0;
+    L_type *base_type = type;
     L_type *t = type;
     L_expression *i;
     for (i = indices; i; i = i->indices, index_count++) {
@@ -782,6 +774,8 @@ L_compile_indices(L_type *type, L_expression *indices)
             L_compile_expressions(i->a);
             if (t->next_dim->next_dim) {
                 t = t->next_dim;
+            } else {
+                t = base_type;
             }
         }
     }
