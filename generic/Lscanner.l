@@ -3,9 +3,7 @@
 %x comment
 %x str_double
 %x str_single
-ID	\.?[a-zA-Z_][0-9a-zA-Z_.:]*
-REV	[0-9]+(\.[0-9]+)*
-TAG	[a-zA-Z_][0-9a-zA-Z_.]*
+ID	[a-zA-Z_][0-9a-zA-Z_:]*
 %{
 #include <string.h>
 #include "Lcompile.h"
@@ -63,6 +61,7 @@ tally_newlines(
 ">>"            return T_RSHIFT;
 "="		return T_EQUALS;
 ";"		return T_SEMI;
+"."             return T_DOT;
 "!~"[ \t]*"/"	BEGIN(glob_re); str = strbuf; return T_BANGTWID;
 "=~"[ \t]*"/"	BEGIN(glob_re); str = strbuf; return T_EQTWID;
 <glob_re>{
@@ -75,11 +74,11 @@ tally_newlines(
 				return T_RE;
 			}
 }
-"return"          return T_RETURN;
+"return"        return T_RETURN;
 "void"          return T_VOID;
 "string"        return T_STRING;
 "int"           return T_INT;
-"double"         return T_DOUBLE;
+"double"        return T_DOUBLE;
 "hash"          return T_HASH;
 "poly"          return T_POLY;
 "var"           return T_VAR;
@@ -89,6 +88,7 @@ tally_newlines(
 "while"         return T_WHILE;
 "do"            return T_DO;
 "for"           return T_FOR;
+"struct"        return T_STRUCT;
 "=>"		return T_ARROW;
 "eq"		return T_EQ;
 "ne"		return T_NE;

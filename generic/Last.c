@@ -28,14 +28,15 @@ char *L_statement_tostr[5] = {
 	"L_STATEMENT_BLOCK"
 };
 
-char *L_type_tostr[7] = {
+char *L_type_tostr[8] = {
 	"L_TYPE_INT",
 	"L_TYPE_STRING",
 	"L_TYPE_DOUBLE",
 	"L_TYPE_HASH",
 	"L_TYPE_POLY",
 	"L_TYPE_VAR",
-	"L_TYPE_VOID"
+	"L_TYPE_VOID",
+	"L_TYPE_STRUCT"
 };
 
 char *L_loop_tostr[4] = {
@@ -45,10 +46,16 @@ char *L_loop_tostr[4] = {
 	"L_LOOP_DO"
 };
 
-char *L_node_type_tostr[8] = {
+char *L_toplevel_statement_tostr[2] = {
+	"L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION",
+	"L_TOPLEVEL_STATEMENT_TYPE"
+};
+
+char *L_node_type_tostr[9] = {
 	"L_NODE_STATEMENT",
 	"L_NODE_TYPE",
 	"L_NODE_LOOP",
+	"L_NODE_TOPLEVEL_STATEMENT",
 	"L_NODE_FUNCTION_DECLARATION",
 	"L_NODE_VARIABLE_DECLARATION",
 	"L_NODE_BLOCK",
@@ -72,14 +79,16 @@ L_statement *mk_statement(L_statement_kind kind,L_statement *next)
 	return statement;
 }
 
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_type *next) 
+L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members) 
 {
 	L_type *type;
 
 	type = (L_type *)ckalloc(sizeof(L_type));
 	type->kind = kind;
 	type->array_dim = array_dim;
-	type->next = next;
+	type->struct_tag = struct_tag;
+	type->next_dim = next_dim;
+	type->members = members;
 	((L_ast_node *)type)->_trace = ast_trace_root;
 	ast_trace_root = (void *)type;
 	((L_ast_node *)type)->line_no = L_line_number;
@@ -104,7 +113,21 @@ L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_exp
 	return loop;
 }
 
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,L_function_declaration *next) 
+L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next) 
+{
+	L_toplevel_statement *toplevel_statement;
+
+	toplevel_statement = (L_toplevel_statement *)ckalloc(sizeof(L_toplevel_statement));
+	toplevel_statement->kind = kind;
+	toplevel_statement->next = next;
+	((L_ast_node *)toplevel_statement)->_trace = ast_trace_root;
+	ast_trace_root = (void *)toplevel_statement;
+	((L_ast_node *)toplevel_statement)->line_no = L_line_number;
+	((L_ast_node *)toplevel_statement)->type = L_NODE_TOPLEVEL_STATEMENT;
+	return toplevel_statement;
+}
+
+L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body) 
 {
 	L_function_declaration *function_declaration;
 
@@ -113,7 +136,6 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	function_declaration->params = params;
 	function_declaration->return_type = return_type;
 	function_declaration->body = body;
-	function_declaration->next = next;
 	((L_ast_node *)function_declaration)->_trace = ast_trace_root;
 	ast_trace_root = (void *)function_declaration;
 	((L_ast_node *)function_declaration)->line_no = L_line_number;

@@ -11,6 +11,22 @@ extern int L_interactive;
 extern void *L_current_ast;
 
 #define YYERROR_VERBOSE
+
+void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
+        /* Reverse the array type and copy the base type for a variable
+           declaration.  The base type gets copied because it can't be shared
+           in cases like ``int foo, bar[5];´´.  Returns the finished
+           declaration. */
+        L_type *array_type = decl->type;
+
+        REVERSE(L_type, next_dim, array_type);
+        decl->type = mk_type(type_specifier->kind, NULL,
+                             type_specifier->struct_tag, array_type,
+                             type_specifier->members);
+        return decl;
+}
+
+
 %}
 
 %token T_LPAREN "("
@@ -32,7 +48,7 @@ extern void *L_current_ast;
 %right T_EQUALS "="
 
 %token T_ARROW "=>"
-%token T_WHILE T_FOR T_DO
+%token T_WHILE T_FOR T_DO T_STRUCT
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
 
@@ -47,17 +63,27 @@ extern void *L_current_ast;
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT
+%left T_DOT
 
 %%
 
-start:	  funclist	{ L_current_ast = $1; }
+start:	  toplevel_code
+        {
+                REVERSE(L_toplevel_statement, next, $1);
+                L_current_ast = $1;
+        }
 	;
 
-funclist: 
-          funclist function_declaration	
+toplevel_code:
+          toplevel_code function_declaration
         { 
-                ((L_function_declaration*)$2)->next = $1;
-                $$ = $2;
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION, $1);
+                ((L_toplevel_statement *)$$)->u.fun = $2;
+        }
+        | toplevel_code struct_specifier ";"
+        {
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPE, $1);
+                ((L_toplevel_statement *)$$)->u.type = $2;
         }
 	| /* epsilon */         { $$ = NULL; }
 	;
@@ -65,9 +91,7 @@ funclist:
 function_declaration:
           return_type_specifier T_ID "(" parameter_list ")" compound_statement 
         {  
-                $$ = mk_function_declaration($2, $4, $1, 
-                                             ((L_statement *)$6)->u.block,
-                                             NULL);
+                $$ = mk_function_declaration($2, $4, $1, ((L_statement *)$6)->u.block);
         }
 	;
 
@@ -193,8 +217,7 @@ parameter_declaration_list:
 parameter_declaration:
           type_specifier declarator
         { 
-                ((L_variable_declaration *)$2)->type = $1;
-                $$ = $2;
+                $$ = finish_declaration($1, $2);
         }
         ;
 
@@ -281,6 +304,16 @@ expr:
                 REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
         }
+        /* this is a special case, to allow calling Tk widget functions */
+        | T_DOT T_ID "(" argument_expression_list ")"
+        {
+                L_expression *name = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
+                name->u.s = ckalloc(strlen(((L_expression *)$2)->u.s + 2));
+                *name->u.s = '.';
+                strcpy(name->u.s + 1, ((L_expression *)$2)->u.s);
+                REVERSE(L_expression, next, $4);
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, name, $4, NULL, NULL, NULL);
+        }
 	| lvalue T_EQUALS expr
         { 
                 REVERSE(L_expression, indices, $1);
@@ -295,6 +328,10 @@ lvalue:
                 $$ = mk_expression(L_EXPRESSION_VARIABLE, -1, $1, NULL, NULL, NULL, NULL);
         }
         | lvalue "[" expr "]"
+        {
+                $$ = mk_expression(L_EXPRESSION_INDEX, -1, $3, NULL, NULL, $1, NULL);
+        }
+        | lvalue T_DOT T_ID
         {
                 $$ = mk_expression(L_EXPRESSION_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
@@ -331,43 +368,26 @@ declaration_list:
 	  declaration
 	| declaration_list declaration
         {
-                L_variable_declaration *i;
-                for (i = $2; i->next; i = i->next);
-                i->next = $1;
-                $$ = $2;
+            /* Each declaration is a list of declarators.  Here we append
+               the lists. */
+            APPEND(L_variable_declaration, next, $2, $1);
+            $$ = $2;
         }
 	;
 
 declaration:
 	  init_declarator_list ";"
-        {
-                $$ = $1;
-        }
 	;
 
 init_declarator_list:
 	  type_specifier init_declarator
         {
-                L_type *array_type = ((L_variable_declaration *)$2)->type;
-
-                REVERSE(L_type, next, array_type);
-                ((L_type *)$1)->next = array_type;
-                ((L_variable_declaration *)$2)->type = $1;
-                $$ = $2;
+                $$ = finish_declaration($1, $2);
         }
 	| init_declarator_list "," init_declarator
         {
-                L_type_kind base_type =
-                        ((L_variable_declaration *)$1)->type->kind;
-                L_type *array_type = ((L_variable_declaration *)$3)->type;
-
-                REVERSE(L_type, next, array_type);
-                /* we have to copy the base type, because each
-                   declarator can have its own array type */
-                ((L_variable_declaration *)$3)->type = 
-                        mk_type(base_type, NULL, array_type);
-                ((L_variable_declaration *)$3)->next = $1;
-                $$ = $3;
+                $$ = finish_declaration(((L_variable_declaration *)$1)->type, $3);
+                ((L_variable_declaration *)$$)->next = $1;
         }
 	;
 
@@ -387,8 +407,8 @@ declarator:
         }
 	| declarator "[" constant_expression "]"
         {
-                L_type *type = mk_type(-1, $3,
-                                       ((L_variable_declaration *)$1)->type);
+                L_type *type =
+                        mk_type(-1, $3, NULL, ((L_variable_declaration *)$1)->type, NULL);
                 ((L_variable_declaration *)$1)->type = type;
                 $$ = $1;
         }
@@ -398,30 +418,76 @@ declarator:
 
                 MK_INT_NODE(zero, 0);
                 ((L_variable_declaration *)$1)->type =
-                        mk_type(-1, zero,
-                                ((L_variable_declaration *)$1)->type);
+                    mk_type(-1, zero, NULL,
+                            ((L_variable_declaration *)$1)->type, NULL);
                 $$ = $1;
         }
         ;
 
 return_type_specifier:
           type_specifier
-        | T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL); }
-        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL); }
+        | T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
+        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
         ;
 
 type_specifier:
-	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL); }
-	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL); }
-	| T_DOUBLE       { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL); }
-	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL); }
-	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL); }
-	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL); }
+	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL); }
+	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL); }
+	| T_DOUBLE      { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL, NULL, NULL); }
+	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL); }
+	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL); }
+	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL); }
+        | struct_specifier
+	;
+
+struct_specifier:
+          T_STRUCT T_ID "{" struct_declaration_list "}"
+        {
+                REVERSE(L_variable_declaration, next, $4);
+                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, $4);
+        }
+	| T_STRUCT "{" struct_declaration_list "}"
+        {
+                REVERSE(L_variable_declaration, next, $3);
+                $$ = mk_type(L_TYPE_STRUCT, NULL, NULL, NULL, $3);
+        }
+	| T_STRUCT T_ID
+        {
+                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, NULL);
+        }
+        ;
+
+struct_declaration_list:
+          struct_declaration
+        | struct_declaration_list struct_declaration
+        {
+            APPEND(L_variable_declaration, next, $2, $1);
+            $$ = $2;
+/*                 ((L_variable_declaration *)$2)->next = $1; */
+/*                 $$ = $2; */
+        }
+        ;
+
+struct_declaration:
+          struct_declarator_list ";"
+	;
+
+struct_declarator_list:
+	  type_specifier declarator
+        {
+                $$ = finish_declaration($1, $2);
+        }
+	| struct_declarator_list "," declarator
+        {
+                $$ = finish_declaration(((L_variable_declaration *)$1)->type, $3);
+                ((L_variable_declaration *)$$)->next = $1;
+        }
 	;
 
 initializer:
           expr
         | "(" hash_initializer_list ")"         { $$ = $2; }
+        | "{" array_initializer_list "}"        { $$ = $2; }
         ;
 
 hash_initializer_list:
@@ -434,6 +500,11 @@ hash_initializer_list:
         {
                 MK_STRING_NODE($$, ""); 
         }
+        ;
+
+array_initializer_list:
+          constant_expression
+        | array_initializer_list T_COMMA constant_expression
         ;
 
 hash_initializer:

@@ -9,6 +9,7 @@ typedef struct L_block L_block;
 typedef struct L_variable_declaration L_variable_declaration;
 typedef struct L_function_declaration L_function_declaration;
 typedef struct L_statement L_statement;
+typedef struct L_toplevel_statement L_toplevel_statement;
 typedef struct L_if_unless L_if_unless;
 typedef struct L_loop L_loop;
 typedef struct L_expression L_expression;
@@ -46,10 +47,11 @@ typedef enum L_type_kind {
 	L_TYPE_HASH,
 	L_TYPE_POLY,
 	L_TYPE_VAR,
-	L_TYPE_VOID
+	L_TYPE_VOID,
+	L_TYPE_STRUCT
 } L_type_kind;
 
-extern char *L_type_tostr[7];
+extern char *L_type_tostr[8];
 typedef enum L_loop_kind {
 	L_LOOP_FOR,
 	L_LOOP_FOREACH,
@@ -58,17 +60,24 @@ typedef enum L_loop_kind {
 } L_loop_kind;
 
 extern char *L_loop_tostr[4];
+typedef enum L_toplevel_statement_kind {
+	L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION,
+	L_TOPLEVEL_STATEMENT_TYPE
+} L_toplevel_statement_kind;
+
+extern char *L_toplevel_statement_tostr[2];
 typedef enum L_node_type {
 	L_NODE_STATEMENT,
 	L_NODE_TYPE,
 	L_NODE_LOOP,
+	L_NODE_TOPLEVEL_STATEMENT,
 	L_NODE_FUNCTION_DECLARATION,
 	L_NODE_VARIABLE_DECLARATION,
 	L_NODE_BLOCK,
 	L_NODE_EXPRESSION,
 	L_NODE_IF_UNLESS
 } L_node_type;
-extern char *L_node_type_tostr[8];
+extern char *L_node_type_tostr[9];
 
 /* Struct declarations */
 struct L_ast_node {
@@ -105,7 +114,6 @@ struct L_function_declaration {
 	L_variable_declaration *params;
 	L_type *return_type;
 	L_block *body;
-	L_function_declaration *next;
 };
 
 struct L_if_unless {
@@ -137,11 +145,23 @@ struct L_statement {
 	} u;
 };
 
+struct L_toplevel_statement {
+	L_ast_node node;
+	L_toplevel_statement_kind kind;
+	L_toplevel_statement *next;
+	union {
+		L_function_declaration *fun;
+		L_type *type;
+	} u;
+};
+
 struct L_type {
 	L_ast_node node;
 	L_type_kind kind;
 	L_expression *array_dim;
-	L_type *next;
+	L_expression *struct_tag;
+	L_type *next_dim;
+	L_variable_declaration *members;
 };
 
 struct L_variable_declaration {
@@ -155,9 +175,10 @@ struct L_variable_declaration {
 
 /* Prototypes */
 L_statement *mk_statement(L_statement_kind kind,L_statement *next);
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_type *next);
+L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members);
 L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,L_function_declaration *next);
+L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next);
+L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body);
 L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,L_variable_declaration *next);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);
 L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);

@@ -6,6 +6,7 @@
 #include "Last.h"
 
 static L_compile_frame *lframe = NULL;
+static Tcl_HashTable *L_struct_types = NULL;
 Tcl_Obj *L_errors = NULL;
 int L_line_number = 0;
 void *L_current_ast = NULL;
@@ -18,8 +19,10 @@ void L__delete_buffer(void *buf);
 /* functions local to this file */
 static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
-static int create_array_string_rep(char *rep, int pos, L_type *dim);
-static int check_and_figure_array_size(L_type *dim);
+static Tcl_Obj *create_array_or_struct(L_type *type);
+static int array_or_struct_p(L_variable_declaration *var);
+static L_type *lookup_struct_type(char *tag);
+
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -92,11 +95,11 @@ LCompileScript(
         lframe->originalCodeNext = envPtr->codeNext;
 
     switch(((L_ast_node*)ast)->type) {
-    case L_NODE_FUNCTION_DECLARATION:
-        L_compile_function_decls(ast);
+    case L_NODE_TOPLEVEL_STATEMENT:
+        L_compile_toplevel_statements(ast);
         break;
     default:
-        L_bomb("LCompileScript error, expecting a function declaration, "
+        L_bomb("LCompileScript error, expecting a toplevel statement, "
                "got: %s", L_node_type_tostr[((L_ast_node*)ast)->type]);
     }
     if (envPtr)
@@ -114,7 +117,24 @@ LCompileScript(
 }
 
 void
-L_compile_function_decls(L_function_declaration *fun)
+L_compile_toplevel_statements(L_toplevel_statement *stmt)
+{
+    if (!stmt) return;
+    switch (stmt->kind) {
+    case L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION:
+        L_compile_function_decl(stmt->u.fun);
+        break;
+    case L_TOPLEVEL_STATEMENT_TYPE:
+        L_compile_struct_decl(stmt->u.type);
+        break;
+    default:
+        L_bomb("Unexpected toplevel statement type %d", stmt->kind);
+    }
+    L_compile_toplevel_statements(stmt->next);
+}
+
+void
+L_compile_function_decl(L_function_declaration *fun)
 {
     Proc *procPtr;
     CompileEnv *envPtr;
@@ -160,7 +180,46 @@ L_compile_function_decls(L_function_declaration *fun)
     TclFreeCompileEnv(lframe->envPtr);
     ckfree((char *)lframe->envPtr);
     L_frame_pop();
-    L_compile_function_decls(fun->next);
+}
+
+void
+L_compile_struct_decl(L_type *decl)
+{
+    Tcl_HashEntry *hPtr;
+    int freshp;
+
+    if (L_struct_types == NULL) {
+        L_struct_types = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+        Tcl_InitHashTable(L_struct_types, TCL_STRING_KEYS);
+    }
+    if (!decl->struct_tag ||
+        !(decl->struct_tag->kind == L_EXPRESSION_STRING)) {
+        L_errorf(decl, "Untagged struct types are not supported yet");
+        return;
+    }
+    hPtr = Tcl_CreateHashEntry(L_struct_types, decl->struct_tag->u.s, &freshp);
+    Tcl_SetHashValue(hPtr, decl);
+    L_trace("Declared struct type %s", decl->struct_tag->u.s);
+}
+
+/* Initialize the struct types table and lookup a type in it.  Returns the
+   type, or NULL if none was found.  */
+L_type *
+lookup_struct_type(char *tag)
+{
+    Tcl_HashEntry *hPtr = NULL;
+
+    if (L_struct_types == NULL) {
+        L_struct_types = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+        Tcl_InitHashTable(L_struct_types, TCL_STRING_KEYS);
+    }
+    hPtr = Tcl_FindHashEntry(L_struct_types, tag);
+
+    if (hPtr) {
+        return (L_type *)Tcl_GetHashValue(hPtr);
+    } else {
+        return NULL;
+    }
 }
 
 void 
@@ -171,7 +230,7 @@ L_compile_variable_decls(L_variable_declaration *var)
 
     if (!var) return;
     L_trace("declaring variable %s", var->name->u.s);
-    localIndex = TclFindCompiledLocal(var->name->u.s, strlen(var->name->u.s), 
+    localIndex = TclFindCompiledLocal(var->name->u.s, strlen(var->name->u.s),
                                       1, 0, lframe->envPtr->procPtr);
     if ((symbol = L_get_symbol(var->name, FALSE)) &&
         !global_symbol_p(symbol))
@@ -179,100 +238,111 @@ L_compile_variable_decls(L_variable_declaration *var)
         L_errorf(var, "Illegal redeclaration of local variable %s",
                  var->name->u.s);
     }
-    symbol = L_make_symbol(var->name, var->type->kind, NULL, localIndex);
-
-    if (var->initial_value || var->type->next) {
-        if (var->type->next) {
-            /* array */
-            L_type *array_dimensions = var->type->next;
-            int total_size;
-            char *arrayRep;
-
-            total_size = check_and_figure_array_size(array_dimensions);
-            if (total_size < 0) {
-                /* some sort of bad declaration, skip to the next one */
-                goto next_decl;
-            } else if (total_size == 0) {
-                /* XXX variable sized arrays don't work yet. */
-                MK_STRING_NODE(var->initial_value, "");
-            } else {
-                arrayRep = ckalloc(total_size);
-                create_array_string_rep(arrayRep, 0, array_dimensions);
-                var->initial_value =
-                    mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL,
-                                  NULL, NULL, NULL);
-                var->initial_value->u.s = arrayRep;
-            }
+    symbol = L_make_symbol(var->name, var->type, localIndex);
+    if (array_or_struct_p(var)) {
+        Tcl_Obj *initial_value = create_array_or_struct(var->type);
+        /* We don't support literal initializers for structs and arrays yet.
+           Just always initialize to a blank TCL list. */
+        if (initial_value) {
+            TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL),
+                        lframe->envPtr);
+            L_STORE_SCALAR(localIndex);
+            TclEmitOpcode(INST_POP, lframe->envPtr);
         }
-
+    } else if (var->initial_value) {
         L_compile_expressions(var->initial_value);
         L_STORE_SCALAR(localIndex);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
- next_decl:
     L_compile_variable_decls(var->next);
 }
 
-/* Verify that the array dimensions in a declaration are valid array
-   dimensions, and add up the space requirement of the string representation
-   of the array.  The space required for one element is 3: "{} ".  The space
-   required S_n for each dimension of size D_n is D_n ((S_n-1 - 1) + 3). */
-int
-check_and_figure_array_size(L_type *dim)
+/* Variables of array or struct types will be initialized to TCL lists of the
+   appropriate size.  Here we interpret a declaration's type and instantiate
+   it.  We check the declaration's semantics while interpreting it. */
+Tcl_Obj *
+create_array_or_struct(L_type *type)
 {
-    int retval;
+    Tcl_Obj *val = NULL;
+    Tcl_Obj *nullobj = Tcl_NewObj();
+    int i;
 
-    if (!dim) return 0;
-    if (!(dim->array_dim->kind == L_EXPRESSION_INT)) {
-        L_errorf(dim, "Invalid array dimension for a declaration, %d",
-                 L_expression_tostr[dim->array_dim->kind]);
-        return -1;
-    }
-    if (dim->array_dim->u.i < 0) {
-        L_errorf(dim->array_dim, "Negative array dimension: %d",
-                 dim->array_dim->u.i);
-        return -1;
-    }
-    retval = check_and_figure_array_size(dim->next);
-    if (retval < 0) {
-        return retval;
-    }
+    if (type->kind == L_TYPE_STRUCT) { /* structure type */
+        L_type *struct_type = type;
+        L_variable_declaration *member;
 
-    if (dim->next) {
-        return dim->array_dim->u.i * (retval + 2);
-    } else {
-        return dim->array_dim->u.i * 3;
-    }
-}
-
-/* Build a "string representation" for a TCL list.  A 3 x 2 array, for
-   example, looks like this: {{} {}} {{} {}} {{} {}}\0.  Returns the length of
-   the string, or -1 if there was an error. */
-int
-create_array_string_rep(
-    char *rep,                  /* The string we're building */
-    int pos,                    /* Our current position in the string */
-    L_type *dim)                /* The array dimensions */
-{
-    int i, retval;
-
-    if (!dim) { return 0; }
-
-    for (i = 0; i < dim->array_dim->u.i * 3; i += 3) {
-        rep[pos + i] = '{';
-        retval = create_array_string_rep(rep, pos + i + 1, dim->next);
-        if (retval < 0) {
-            return -1;
-        } else if (retval > 0) {
-            /* the -1 is so we overwrite the null on the end */
-            pos = retval - i - 1;
+        /* if we have a struct tag without the struct definition, lookup the
+           definition. */
+        if (!struct_type->members) {
+            if (!struct_type->struct_tag) {
+                L_bomb("Assertion failed: a struct must either have a tag or "
+                       "members");
+            }
+            struct_type = lookup_struct_type(struct_type->struct_tag->u.s);
+            if (!struct_type) {
+                L_errorf(type, "Undefined structure type: %s",
+                         struct_type->struct_tag->u.s);
+                return NULL;
+            }
+            /* Fixup the original type so that it also has the member
+               information.  This allows all the other code to skip the
+               lookup. */
+            type->members = struct_type->members;
         }
-        rep[pos + i + 1] = '}';
-        rep[pos + i + 2] = ' ';
+        val = Tcl_NewListObj(0, NULL);
+        /* initialize the struct fields */
+        for (member = type->members; member; member = member->next, i++) {
+            if (array_or_struct_p(member)) {
+                Tcl_Obj *el = create_array_or_struct(member->type);
+                if (!el) return NULL;
+                Tcl_ListObjAppendElement(NULL, val, el);
+            } else {
+                Tcl_ListObjAppendElement(NULL, val, nullobj);
+            }
+        }
+    } else if (type->next_dim) { /* array type */
+        L_type *array_type = type->next_dim;
+
+        if (!(array_type->array_dim->kind == L_EXPRESSION_INT)) {
+            L_errorf(type, "Invalid array dimension for a declaration, %s",
+                     L_expression_tostr[type->next_dim->kind]);
+            return NULL;
+        }
+        if (array_type->array_dim->u.i < 0) {
+            L_errorf(type, "Negative array dimension: %d",
+                     array_type->array_dim->u.i);
+            return NULL;
+        }
+        /* initialize the array */
+        val = Tcl_NewListObj(0, NULL);
+        if (array_type->next_dim) {
+            /* the array is multi-dimensional, so initialize it with
+               sub-arrays  */
+            for (i = 0; i < array_type->array_dim->u.i; i++) {
+                Tcl_Obj *el = create_array_or_struct(array_type);
+                if (!el) return NULL;
+                Tcl_ListObjAppendElement(NULL, val, el);
+            }
+        } else {
+            /* the array is single-dimensional, so initialize it with nulls */
+            for (i = 0; i < array_type->array_dim->u.i; i++) {
+                Tcl_ListObjAppendElement(NULL, val, nullobj);
+            }
+        }
     }
-    rep[pos + i - 1] = '\0';
-    return pos + i - 1;
+    return val;
 }
+
+int
+array_or_struct_p(L_variable_declaration *var)
+{
+    if (var->type->next_dim || (var->type->kind == L_TYPE_STRUCT)) {
+        return TRUE;
+    } else {
+        return FALSE;
+    }
+}
+
 
 int
 global_symbol_p(L_symbol *symbol)
@@ -358,7 +428,7 @@ L_compile_parameters(L_variable_declaration *param)
         localPtr->defValuePtr = NULL;
         strcpy(localPtr->name, param->name->u.s);
         
-        L_make_symbol(param->name, param->type->kind, NULL, i);
+        L_make_symbol(param->name, param->type, i);
     }
 }
 
@@ -600,13 +670,11 @@ L_push_variable(L_expression *expr)
     if (!(var = L_get_symbol(name, TRUE))) return;
     L_LOAD_SCALAR(var->localIndex);
     if (expr->indices) {
-        int index_count = 0;
-        L_expression *i;
-
-        for (i = expr->indices; i; i = i->indices, index_count++) {
-            L_compile_expressions(i->a);
-        }
-        L_trace("INDICES: %d\n", index_count);
+        int index_count = L_compile_indices(var->type, expr->indices);
+/*         for (i = expr->indices; i; i = i->indices, index_count++) { */
+/*             L_compile_expressions(i->a); */
+/*         } */
+/*         L_trace("INDICES: %d\n", index_count); */
 
         if (index_count == 1) {
             TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
@@ -643,12 +711,7 @@ L_compile_assignment(L_expression *expr)
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
     if (lval->indices) {
-        /* we have array indices */
-        int index_count = 0;
-        L_expression *i;
-        for (i = lval->indices; i; i = i->indices, index_count++) {
-            L_compile_expressions(i->a);
-        }
+        int index_count = L_compile_indices(var->type, lval->indices);
         L_compile_expressions(rval);
         L_LOAD_SCALAR(var->localIndex);
         if (index_count == 1) {
@@ -665,11 +728,56 @@ L_compile_assignment(L_expression *expr)
     }
 }
 
+/* Push the indices of an array or struct on the stack.  Returns the count of
+   indices that were pushed.  */
+int
+L_compile_indices(L_type *type, L_expression *indices)
+{
+    /* we have array indices */
+    int index_count = 0;
+    L_type *t = type;
+    L_expression *i;
+    for (i = indices; i; i = i->indices, index_count++) {
+        if (i->a->kind == L_EXPRESSION_STRING) {
+            /* structure member */
+            L_variable_declaration *member;
+            int memberOffset;
+
+            if (!t->kind == L_TYPE_STRUCT) {
+                L_errorf(i, "Not a structure");
+                return index_count;
+            }
+            for (memberOffset = 0, member = t->members;
+                 member && strcmp(member->name->u.s, i->a->u.s);
+                 memberOffset++, member = member->next);
+            if (!member) {
+                L_errorf(i, "Structure field not found, %s", i->a->u.s);
+                return index_count;
+            }
+            TclEmitPush(TclAddLiteralObj(lframe->envPtr,
+                                         Tcl_NewIntObj(memberOffset),
+                                         NULL),
+                        lframe->envPtr);
+            t = member->type;
+        } else {
+            /* array index */
+            if (!t->next_dim) {
+                L_errorf(i, "Index into something that's not an array");
+            }
+            L_compile_expressions(i->a);
+            t = t->next_dim;
+        }
+    }
+    return index_count;
+}
+
 void 
 L_compile_incdec(L_expression *expr)
 {
     L_symbol *var;
 
+    /* XXX note that this implementation doesn't allow us to increment array
+       or structure lvalues. --timjr 2006.5.29 */
     if (!(var = L_get_symbol(expr->a, TRUE))) return;
     if (expr->kind == L_EXPRESSION_PRE) {
         TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
@@ -690,8 +798,7 @@ L_compile_incdec(L_expression *expr)
 L_symbol *
 L_make_symbol(
     L_expression *name,
-    int base_type,
-    L_ast_node *array_type,
+    L_type *type,
     int localIndex)
 {
     int new;
@@ -701,8 +808,7 @@ L_make_symbol(
         L_errorf(name, "Duplicate definition of symbol %s", name->u.s);
     }
     symbol->name = name->u.s;
-/*     symbol->base_type = base_type; */
-/*     symbol->array_type = array_type; */
+    symbol->type = type;
     symbol->localIndex = localIndex;
     Tcl_SetHashValue(hPtr, symbol);
     return symbol;
@@ -846,7 +952,7 @@ L_errorf(void *node, const char *format, ...)
         L_errors = Tcl_NewObj();
     }
     TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf,
-                 ((L_ast_node *)node)->line_no);
+                 node ? ((L_ast_node *)node)->line_no : -1);
     ckfree(buf);
 }
 

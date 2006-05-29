@@ -301,6 +301,28 @@ syntax_1_0() {
 syntax_1_0
 } -output "working\n" 
 
+
+test syntax-1.1 {structure syntax} -body {
+#pragma language L
+
+struct syntax_1_1_point {
+        int x, y;
+        string label;
+        double froboz[128];
+        struct { int m, n; } sub_struct;
+};
+
+syntax_1_1() {
+        struct { string firstname; string lastname; } him;
+        struct { string firstname; string lastname; } me = {"john", "doe"};
+        struct syntax_1_1_point p1, p2 = {1, 2} , p3;
+        puts("didn't crash");
+}
+
+#pragma end
+syntax_1_1
+} -output "didn't crash\n"
+
 test op-1.0 {increment and decrement operators} -body {
 #pragma language L
 op_1_0() {
@@ -537,6 +559,40 @@ loop_1_0() {
 loop_1_0
 } -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
 
+
+test struct-1.0 {structs} -body {
+#pragma language L
+struct struct_1_0_point {
+        int x, y;
+        string label;
+};
+
+struct_1_0() {
+        struct struct_1_0_point p1, p2;
+
+        p1.x = 1;
+        p1.y = 2;
+        p1.label = "this is a label";
+        puts("p1 is:");
+        puts(p1);
+        puts(format("p1.x is %d, p1.y is %d, and p1.label is %s", p1.x, p1.y, p1.label));
+        p2 = p1;
+        p2.label = "this is another label";
+        puts("p1 is:");
+        puts(p1);
+        puts("p2 is:");
+        puts(p2);
+}
+#pragma end
+struct_1_0
+} -output "p1 is:
+1 2 {this is a label}
+p1.x is 1, p1.y is 2, and p1.label is this is a label
+p1 is:
+1 2 {this is a label}
+p2 is:
+1 2 {this is another label}
+"
 
 # cleanup
 ::tcltest::cleanupTests

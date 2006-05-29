@@ -47,8 +47,10 @@ void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
 void L_errorf(void *node, const char *format, ...);
 L_symbol *L_get_symbol(L_expression *name, int error_p);
-L_symbol *L_make_symbol(L_expression *name, int base_type, L_ast_node *array_type, int localIndex);
-void L_compile_function_decls(L_function_declaration *fun);
+L_symbol *L_make_symbol(L_expression *name, L_type *type, int localIndex);
+void L_compile_toplevel_statements(L_toplevel_statement *stmt);
+void L_compile_function_decl(L_function_declaration *fun);
+void L_compile_struct_decl(L_type *decl);
 void L_compile_variable_decls(L_variable_declaration *var);
 void L_compile_statements(L_statement *stmt);
 void L_compile_parameters(L_variable_declaration *param);
@@ -61,6 +63,8 @@ void L_compile_incdec(L_expression *expr);
 void L_compile_unop(L_expression *expr);
 void L_compile_short_circuit_op(L_expression *expr);
 void L_compile_loop(L_loop *loop);
+int L_compile_indices(L_type *type, L_expression *indices);
+
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
@@ -106,6 +110,15 @@ int L_parse(void);
          b->ptr = a, a = b, b = c, c = (c ? c->ptr : NULL)); \
     node = a; \
 }
+
+/* APPEND() starts at a, walks ptr until the end, and then attaches b to a.
+   (Note that it's actually NCONC). */
+#define APPEND(type,ptr,a,b) { \
+    type *runner; \
+    for (runner = a; runner->next; runner = runner->next); \
+    runner->next = b; \
+}
+
 
 /* Emit the load or store instruction with appropriate operand size. */
 #define L_STORE_SCALAR(index) {\
