@@ -20,6 +20,7 @@ void L__delete_buffer(void *buf);
 static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
 static Tcl_Obj *create_array_or_struct(L_type *type);
+static Tcl_Obj *create_struct(L_type *type);
 static int array_or_struct_p(L_variable_declaration *var);
 static L_type *lookup_struct_type(char *tag);
 
@@ -267,40 +268,7 @@ create_array_or_struct(L_type *type)
     Tcl_Obj *nullobj = Tcl_NewObj();
     int i;
 
-    if (type->kind == L_TYPE_STRUCT) { /* structure type */
-        L_type *struct_type = type;
-        L_variable_declaration *member;
-
-        /* if we have a struct tag without the struct definition, lookup the
-           definition. */
-        if (!struct_type->members) {
-            if (!struct_type->struct_tag) {
-                L_bomb("Assertion failed: a struct must either have a tag or "
-                       "members");
-            }
-            struct_type = lookup_struct_type(struct_type->struct_tag->u.s);
-            if (!struct_type) {
-                L_errorf(type, "Undefined structure type: %s",
-                         struct_type->struct_tag->u.s);
-                return NULL;
-            }
-            /* Fixup the original type so that it also has the member
-               information.  This allows all the other code to skip the
-               lookup. */
-            type->members = struct_type->members;
-        }
-        val = Tcl_NewListObj(0, NULL);
-        /* initialize the struct fields */
-        for (member = type->members; member; member = member->next, i++) {
-            if (array_or_struct_p(member)) {
-                Tcl_Obj *el = create_array_or_struct(member->type);
-                if (!el) return NULL;
-                Tcl_ListObjAppendElement(NULL, val, el);
-            } else {
-                Tcl_ListObjAppendElement(NULL, val, nullobj);
-            }
-        }
-    } else if (type->next_dim) { /* array type */
+    if (type->next_dim) { /* array type */
         L_type *array_type = type->next_dim;
 
         if (!(array_type->array_dim->kind == L_EXPRESSION_INT)) {
@@ -315,19 +283,65 @@ create_array_or_struct(L_type *type)
         }
         /* initialize the array */
         val = Tcl_NewListObj(0, NULL);
-        if (array_type->next_dim) {
-            /* the array is multi-dimensional, so initialize it with
-               sub-arrays  */
-            for (i = 0; i < array_type->array_dim->u.i; i++) {
+        for (i = 0; i < array_type->array_dim->u.i; i++) {
+            if (array_type->next_dim) {
+                /* the array is multi-dimensional, so initialize it with
+                   sub-arrays  */
                 Tcl_Obj *el = create_array_or_struct(array_type);
                 if (!el) return NULL;
                 Tcl_ListObjAppendElement(NULL, val, el);
-            }
-        } else {
-            /* the array is single-dimensional, so initialize it with nulls */
-            for (i = 0; i < array_type->array_dim->u.i; i++) {
+            } else if (type->kind == L_TYPE_STRUCT) {
+                /* an array of structs */
+                Tcl_Obj *el = create_struct(type);
+                if (!el) return NULL;
+                Tcl_ListObjAppendElement(NULL, val, el);
+            } else
+                /* the array is single-dimensional, so initialize it with
+                   nulls */
                 Tcl_ListObjAppendElement(NULL, val, nullobj);
-            }
+        }
+    } else if (type->kind == L_TYPE_STRUCT) { /* structure type */
+        val = create_struct(type);
+    }
+    return val;
+}
+
+Tcl_Obj *
+create_struct(L_type *type)
+{
+    Tcl_Obj *val = NULL;
+    Tcl_Obj *nullobj = Tcl_NewObj();
+    int i;
+    L_type *struct_type = type;
+    L_variable_declaration *member;
+
+    /* if we have a struct tag without the struct definition, lookup the
+       definition. */
+    if (!struct_type->members) {
+        if (!struct_type->struct_tag) {
+            L_bomb("Assertion failed: a struct must either have a tag or "
+                   "members");
+        }
+        struct_type = lookup_struct_type(struct_type->struct_tag->u.s);
+        if (!struct_type) {
+            L_errorf(type, "Undefined structure type: %s",
+                     struct_type->struct_tag->u.s);
+            return NULL;
+        }
+        /* Fixup the original type so that it also has the member
+           information.  This allows all the other code to skip the
+           lookup. */
+        type->members = struct_type->members;
+    }
+    val = Tcl_NewListObj(0, NULL);
+    /* initialize the struct fields */
+    for (member = type->members; member; member = member->next, i++) {
+        if (array_or_struct_p(member)) {
+            Tcl_Obj *el = create_array_or_struct(member->type);
+            if (!el) return NULL;
+            Tcl_ListObjAppendElement(NULL, val, el);
+        } else {
+            Tcl_ListObjAppendElement(NULL, val, nullobj);
         }
     }
     return val;
@@ -763,15 +777,18 @@ L_compile_indices(L_type *type, L_expression *indices)
             /* array index */
             if (!t->next_dim) {
                 L_errorf(i, "Index into something that's not an array");
+                return index_count;
             }
             L_compile_expressions(i->a);
-            t = t->next_dim;
+            if (t->next_dim->next_dim) {
+                t = t->next_dim;
+            }
         }
     }
     return index_count;
 }
 
-void 
+void
 L_compile_incdec(L_expression *expr)
 {
     L_symbol *var;

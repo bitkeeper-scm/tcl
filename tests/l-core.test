@@ -594,6 +594,33 @@ p2 is:
 1 2 {this is another label}
 "
 
+test struct-1.1 {struct allocation and arrays of structs} -body {
+#pragma language L
+struct struct_1_1_point {
+        int x, y;
+        string label;
+};
+
+struct struct_1_1_point new_struct() {
+    struct struct_1_1_point a;
+    return a;
+}
+
+struct_1_1() {
+   int i = 0;
+   struct struct_1_1_point s[10];
+
+   while(i < 10) {
+      s[i] = new_struct();
+      s[i].y = i;
+      i++;
+   }
+   puts(s);
+}
+#pragma end
+struct_1_1
+} -output "{{} 0 {}} {{} 1 {}} {{} 2 {}} {{} 3 {}} {{} 4 {}} {{} 5 {}} {{} 6 {}} {{} 7 {}} {{} 8 {}} {{} 9 {}}\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return
