@@ -2548,6 +2548,8 @@ MODULE_SCOPE int	TclCompileSwitchCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
 MODULE_SCOPE int	TclCompileWhileCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
+MODULE_SCOPE int	LCompilePragmaCmd(Tcl_Interp *interp,
+			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
 
 /*
  * Functions defined in generic/tclVar.c and currenttly exported only for use
