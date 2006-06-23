@@ -120,7 +120,7 @@ fun8
 test decl-1.1 {Hairy literal hash syntax in initializers} -body {
 #pragma language L
 initmewoo() {
-        hash h = ( "key" => "val", "key2" => "val" );
+        hash h = { "key" => "val", "key2" => "val" };
 }
 #pragma end
 }
@@ -622,6 +622,18 @@ struct_1_1() {
 #pragma end
 struct_1_1
 } -output "{{{{} 42 {} {}} 0 labelled} {{{} 43 {} {}} 1 labelled} {{{} 44 {} {}} 2 labelled} {{{} 45 {} {}} 3 labelled} {{{} 46 {} {}} 4 labelled} {{{} 47 {} {}} 5 labelled} {{{} 48 {} {}} 6 labelled} {{{} 49 {} {}} 7 labelled} {{{} 50 {} {}} 8 labelled} {{{} 51 {} {}} 9 labelled}}\n"
+
+
+test hash-1.0 {basic hashtable support} -body {
+#pragma language L
+void hash_1_0() {
+  hash foo;
+  foo{"key"} = "value";
+  puts(foo{"key"});
+}
+#pragma end
+hash_1_0
+} -output "value\n"
 
 # cleanup
 ::tcltest::cleanupTests

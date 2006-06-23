@@ -327,13 +327,17 @@ lvalue:
         {
                 $$ = mk_expression(L_EXPRESSION_VARIABLE, -1, $1, NULL, NULL, NULL, NULL);
         }
-        | lvalue "[" expr "]"
+        | lvalue T_LBRACKET expr T_RBRACKET
         {
-                $$ = mk_expression(L_EXPRESSION_INDEX, -1, $3, NULL, NULL, $1, NULL);
+                $$ = mk_expression(L_EXPRESSION_ARRAY_INDEX, -1, $3, NULL, NULL, $1, NULL);
+        }
+        | lvalue T_LBRACE expr T_RBRACE
+        {
+                $$ = mk_expression(L_EXPRESSION_HASH_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
         | lvalue T_DOT T_ID
         {
-                $$ = mk_expression(L_EXPRESSION_INDEX, -1, $3, NULL, NULL, $1, NULL);
+                $$ = mk_expression(L_EXPRESSION_STRUCT_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
         ;
 
@@ -486,29 +490,24 @@ struct_declarator_list:
 
 initializer:
           expr
-        | "(" hash_initializer_list ")"         { $$ = $2; }
-        | "{" array_initializer_list "}"        { $$ = $2; }
+        | "{" initializer_list "}"         { $$ = $2; }
         ;
 
-hash_initializer_list:
+initializer_list:
         /* XXX these need work */
-          hash_initializer
+          initializer_list_element
         {
                 MK_STRING_NODE($$, ""); 
         }
-        | hash_initializer_list "," hash_initializer
+        | initializer_list T_COMMA initializer_list_element
         {
                 MK_STRING_NODE($$, ""); 
         }
         ;
 
-array_initializer_list:
-          constant_expression
-        | array_initializer_list T_COMMA constant_expression
-        ;
-
-hash_initializer:
-          constant_expression "=>" constant_expression
+initializer_list_element:
+          initializer
+        | initializer "=>" initializer
         ;
 
 constant_expression:

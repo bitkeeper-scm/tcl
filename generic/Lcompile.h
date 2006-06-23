@@ -63,8 +63,7 @@ void L_compile_incdec(L_expression *expr);
 void L_compile_unop(L_expression *expr);
 void L_compile_short_circuit_op(L_expression *expr);
 void L_compile_loop(L_loop *loop);
-int L_compile_indices(L_type *type, L_expression *indices);
-
+L_type *L_compile_index(L_type *base_type, L_type *index_type, L_expression *index);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
@@ -138,7 +137,6 @@ int L_parse(void);
         TclEmitInstInt4(INST_LOAD_SCALAR4, idx, lframe->envPtr);\
     }\
 }
-
 
 #endif /* L_COMPILE_H */
 

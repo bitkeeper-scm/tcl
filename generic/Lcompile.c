@@ -27,7 +27,7 @@ static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
 static Tcl_Obj *create_array_or_struct(L_type *array_type, L_type *base_type);
 static Tcl_Obj *create_struct(L_type *type);
-static int array_or_struct_p(L_variable_declaration *var);
+static int array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
 static void emit_call_to_main(CompileEnv *envPtr, int with_args_p);
 
@@ -314,7 +314,7 @@ L_compile_variable_decls(L_variable_declaration *var)
                  var->name->u.s);
     }
     symbol = L_make_symbol(var->name, var->type, localIndex);
-    if (array_or_struct_p(var)) {
+    if (array_p(var->type) || (var->type->kind == L_TYPE_STRUCT)) {
         Tcl_Obj *initial_value =
             create_array_or_struct(var->type->next_dim, var->type);
         /* We don't support literal initializers for structs and arrays yet.
@@ -325,6 +325,11 @@ L_compile_variable_decls(L_variable_declaration *var)
             L_STORE_SCALAR(localIndex);
             TclEmitOpcode(INST_POP, lframe->envPtr);
         }
+    } else if (var->type->kind == L_TYPE_HASH) {
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
+                    lframe->envPtr);
+        L_STORE_SCALAR(localIndex);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
     } else if (var->initial_value) {
         L_compile_expressions(var->initial_value);
         L_STORE_SCALAR(localIndex);
@@ -408,9 +413,9 @@ create_struct(L_type *type)
 }
 
 int
-array_or_struct_p(L_variable_declaration *var)
+array_p(L_type *t)
 {
-    if (var->type->next_dim || (var->type->kind == L_TYPE_STRUCT)) {
+    if (t->next_dim) {
         return TRUE;
     } else {
         return FALSE;
@@ -744,18 +749,43 @@ L_push_variable(L_expression *expr)
     if (!(var = L_get_symbol(name, TRUE))) return;
     L_LOAD_SCALAR(var->localIndex);
     if (expr->indices) {
-        int index_count = L_compile_indices(var->type, expr->indices);
-/*         for (i = expr->indices; i; i = i->indices, index_count++) { */
-/*             L_compile_expressions(i->a); */
-/*         } */
-/*         L_trace("INDICES: %d\n", index_count); */
+        int index_count = 0;
+        L_type *index_type = var->type;
+        L_expression *i = expr->indices;
 
-        if (index_count == 1) {
-            TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-        } else {
-            TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
-                            lframe->envPtr);
+        while (i) {
+            while (i && (i->kind != L_EXPRESSION_HASH_INDEX)) {
+                index_type = L_compile_index(var->type, index_type, i);
+                i = i->indices;
+                index_count++;
+            }
+            if (index_count > 0) {
+                if (index_count == 1) {
+                    TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+                } else {
+                    TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
+                                    lframe->envPtr);
+                }
+                index_count = 0;
+            }
+            if (i && (i->kind == L_EXPRESSION_HASH_INDEX)) {
+                index_type = L_compile_index(var->type, index_type, i);
+                TclEmitOpcode(INST_LOAD_ARRAY_STK, lframe->envPtr);
+                i = i->indices;
+            }
         }
+
+
+/*         for (i = expr->indices; i; i = i->indices, index_count++) { */
+/*             index_type = L_compile_index(var->type, index_type, i); */
+/*         } */
+
+/*         if (index_count == 1) { */
+/*             TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr); */
+/*         } else { */
+/*             TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1, */
+/*                             lframe->envPtr); */
+/*         } */
     }
 }
 
@@ -785,16 +815,69 @@ L_compile_assignment(L_expression *expr)
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
     if (lval->indices) {
-        int index_count = L_compile_indices(var->type, lval->indices);
-        L_compile_expressions(rval);
-        L_LOAD_SCALAR(var->localIndex);
-        if (index_count == 1) {
-            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
-        } else {
-            TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
+        int index_count = 0;
+        L_type *index_type = var->type;
+        L_expression *i;
+        int hash_index_present_p = FALSE;
+
+        /* Check if there's any hashtable lookups present */
+        for (i = lval->indices; i; i = i->indices) {
+            hash_index_present_p |= (i->kind == L_EXPRESSION_HASH_INDEX);
         }
-        /* store the modified array back in the variable */
-        L_STORE_SCALAR(var->localIndex);
+        if (hash_index_present_p) {
+            /* When some of the indices are hashes, we first load the array or
+               hashtable to be modified into a temporary variable, and then
+               assign into it.  */
+            L_LOAD_SCALAR(var->localIndex);
+            i = lval->indices;
+            while (i->indices) {
+                while (i->indices && (i->kind != L_EXPRESSION_HASH_INDEX)) {
+                    index_type = L_compile_index(var->type, index_type, i);
+                    i = i->indices;
+                    index_count++;
+                }
+                if (index_count > 0) {
+                    if (index_count == 1) {
+                        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+                    } else {
+                        TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
+                                        lframe->envPtr);
+                    }
+                    index_count = 0;
+                }
+                if (i->indices && (i->kind == L_EXPRESSION_HASH_INDEX)) {
+                    index_type = L_compile_index(var->type, index_type, i);
+                    TclEmitOpcode(INST_LOAD_ARRAY_STK, lframe->envPtr);
+                    i = i->indices;
+                }
+            }
+            if (i->kind == L_EXPRESSION_HASH_INDEX) {
+                L_compile_index(var->type, index_type, i);
+                L_compile_expressions(rval);
+                TclEmitOpcode(INST_STORE_ARRAY_STK, lframe->envPtr);
+            } else {
+                int tmpVarIndex =
+                    TclFindCompiledLocal(NULL, 0, 1, 0,
+                                         lframe->envPtr->procPtr);
+                L_bomb("broken");
+                L_STORE_SCALAR(tmpVarIndex);
+                TclEmitOpcode(INST_POP, lframe->envPtr);
+            }
+        } else {
+            /* Only arrays and structs, so we can do it the simple way. */
+            for (i = lval->indices; i; i = i->indices, index_count++) {
+                index_type = L_compile_index(var->type, index_type, i);
+            }
+            L_compile_expressions(rval);
+            L_LOAD_SCALAR(var->localIndex);
+            if (index_count == 1) {
+                TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+            } else {
+                TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
+            }
+            /* store the modified array back in the variable */
+            L_STORE_SCALAR(var->localIndex);
+        }
     } else {
         /* no array indices */
         L_compile_expressions(rval);
@@ -802,32 +885,34 @@ L_compile_assignment(L_expression *expr)
     }
 }
 
-/* Push the indices of an array or struct on the stack.  Returns the count of
-   indices that were pushed.  */
-int
-L_compile_indices(L_type *type, L_expression *indices)
+/* Emit code to push an index onto the stack and return the type to use for
+   compiling the next index.  We do some minimal type checking on the way. */
+L_type *
+L_compile_index(
+    L_type *base_type,          /* The complete type of the object we're
+                                   indexing into. */
+    L_type *index_type,         /* The type of the index. */
+    L_expression *index)        /* The index expression to compile. */
 {
-    /* we have array indices */
-    int index_count = 0;
-    L_type *base_type = type;
-    L_type *t = type;
-    L_expression *i;
-    for (i = indices; i; i = i->indices, index_count++) {
-        if (i->a->kind == L_EXPRESSION_STRING) {
+    L_type *t = index_type;
+
+    switch (index->kind) {
+    case L_EXPRESSION_STRUCT_INDEX:
+        if (index->a->kind == L_EXPRESSION_STRING) {
             /* structure member */
             L_variable_declaration *member;
             int memberOffset;
 
             if (!t->kind == L_TYPE_STRUCT) {
-                L_errorf(i, "Not a structure");
-                return index_count;
+                L_errorf(index, "Not a structure");
+                return t;
             }
             for (memberOffset = 0, member = t->members;
-                 member && strcmp(member->name->u.s, i->a->u.s);
+                 member && strcmp(member->name->u.s, index->a->u.s);
                  memberOffset++, member = member->next);
             if (!member) {
-                L_errorf(i, "Structure field not found, %s", i->a->u.s);
-                return index_count;
+                L_errorf(index, "Structure field not found, %s", index->a->u.s);
+                return t;
             }
             TclEmitPush(TclAddLiteralObj(lframe->envPtr,
                                          Tcl_NewIntObj(memberOffset),
@@ -835,20 +920,30 @@ L_compile_indices(L_type *type, L_expression *indices)
                         lframe->envPtr);
             t = member->type;
         } else {
-            /* array index */
-            if (!t->next_dim) {
-                L_errorf(i, "Index into something that's not an array");
-                return index_count;
-            }
-            L_compile_expressions(i->a);
-            if (t->next_dim->next_dim) {
-                t = t->next_dim;
-            } else {
-                t = base_type;
-            }
+            L_bomb("Bad struct index");
         }
+        break;
+    case L_EXPRESSION_ARRAY_INDEX:
+        /* array index */
+        if (!array_p(t)) {
+            L_errorf(index, "Index into something that's not an array");
+            return t;
+        }
+        L_compile_expressions(index->a);
+        if (array_p(t->next_dim)) {
+            t = t->next_dim;
+        } else {
+            t = base_type;
+        }
+        break;
+    case L_EXPRESSION_HASH_INDEX:
+        L_trace("Spitting out a hash index\n");
+        L_compile_expressions(index->a);
+        break;
+    default:
+        L_bomb("Invalid kind of index, %d", index->kind);
     }
-    return index_count;
+    return t;
 }
 
 void
