@@ -635,6 +635,18 @@ void hash_1_0() {
 hash_1_0
 } -output "value\n"
 
+test hash-1.1 {array of hashtables} -body {
+#pragma language L
+void hash_1_1() {
+  hash foo[10];
+  foo[5]{"key"} = "value";
+  puts(foo[5]{"key"});
+  puts(foo[4]{"key"});
+}
+#pragma end
+hash_1_1
+} -output "value\n\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return

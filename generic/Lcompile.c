@@ -31,6 +31,18 @@ static int array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
 static void emit_call_to_main(CompileEnv *envPtr, int with_args_p);
 
+static L_expression *L_write_hash_index_chunk(int varIndex, L_expression *i,
+                                              L_expression *rval);
+static L_expression *L_write_array_index_chunk(int varIndex, L_expression *i,
+                                               L_type *base_type,
+                                               L_expression *rval);
+static L_expression *L_read_array_index_chunk(L_expression *i,
+                                              L_type *base_type);
+static L_expression *L_read_hash_index_chunk(L_expression *i);
+
+
+
+
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
 
@@ -749,43 +761,11 @@ L_push_variable(L_expression *expr)
     if (!(var = L_get_symbol(name, TRUE))) return;
     L_LOAD_SCALAR(var->localIndex);
     if (expr->indices) {
-        int index_count = 0;
-        L_type *index_type = var->type;
-        L_expression *i = expr->indices;
-
-        while (i) {
-            while (i && (i->kind != L_EXPRESSION_HASH_INDEX)) {
-                index_type = L_compile_index(var->type, index_type, i);
-                i = i->indices;
-                index_count++;
-            }
-            if (index_count > 0) {
-                if (index_count == 1) {
-                    TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-                } else {
-                    TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
-                                    lframe->envPtr);
-                }
-                index_count = 0;
-            }
-            if (i && (i->kind == L_EXPRESSION_HASH_INDEX)) {
-                index_type = L_compile_index(var->type, index_type, i);
-                TclEmitOpcode(INST_LOAD_ARRAY_STK, lframe->envPtr);
-                i = i->indices;
-            }
+        if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) {
+            L_read_hash_index_chunk(expr->indices);
+        } else {
+            L_read_array_index_chunk(expr->indices, var->type);
         }
-
-
-/*         for (i = expr->indices; i; i = i->indices, index_count++) { */
-/*             index_type = L_compile_index(var->type, index_type, i); */
-/*         } */
-
-/*         if (index_count == 1) { */
-/*             TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr); */
-/*         } else { */
-/*             TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1, */
-/*                             lframe->envPtr); */
-/*         } */
     }
 }
 
@@ -815,74 +795,115 @@ L_compile_assignment(L_expression *expr)
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
     if (lval->indices) {
-        int index_count = 0;
-        L_type *index_type = var->type;
-        L_expression *i;
-        int hash_index_present_p = FALSE;
-
-        /* Check if there's any hashtable lookups present */
-        for (i = lval->indices; i; i = i->indices) {
-            hash_index_present_p |= (i->kind == L_EXPRESSION_HASH_INDEX);
-        }
-        if (hash_index_present_p) {
-            /* When some of the indices are hashes, we first load the array or
-               hashtable to be modified into a temporary variable, and then
-               assign into it.  */
-            L_LOAD_SCALAR(var->localIndex);
-            i = lval->indices;
-            while (i->indices) {
-                while (i->indices && (i->kind != L_EXPRESSION_HASH_INDEX)) {
-                    index_type = L_compile_index(var->type, index_type, i);
-                    i = i->indices;
-                    index_count++;
-                }
-                if (index_count > 0) {
-                    if (index_count == 1) {
-                        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-                    } else {
-                        TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
-                                        lframe->envPtr);
-                    }
-                    index_count = 0;
-                }
-                if (i->indices && (i->kind == L_EXPRESSION_HASH_INDEX)) {
-                    index_type = L_compile_index(var->type, index_type, i);
-                    TclEmitOpcode(INST_LOAD_ARRAY_STK, lframe->envPtr);
-                    i = i->indices;
-                }
-            }
-            if (i->kind == L_EXPRESSION_HASH_INDEX) {
-                L_compile_index(var->type, index_type, i);
-                L_compile_expressions(rval);
-                TclEmitOpcode(INST_STORE_ARRAY_STK, lframe->envPtr);
-            } else {
-                int tmpVarIndex =
-                    TclFindCompiledLocal(NULL, 0, 1, 0,
-                                         lframe->envPtr->procPtr);
-                L_bomb("broken");
-                L_STORE_SCALAR(tmpVarIndex);
-                TclEmitOpcode(INST_POP, lframe->envPtr);
-            }
+        if (lval->indices->kind == L_EXPRESSION_HASH_INDEX) {
+            L_write_hash_index_chunk(var->localIndex, lval->indices, rval);
         } else {
-            /* Only arrays and structs, so we can do it the simple way. */
-            for (i = lval->indices; i; i = i->indices, index_count++) {
-                index_type = L_compile_index(var->type, index_type, i);
-            }
-            L_compile_expressions(rval);
-            L_LOAD_SCALAR(var->localIndex);
-            if (index_count == 1) {
-                TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
-            } else {
-                TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
-            }
-            /* store the modified array back in the variable */
-            L_STORE_SCALAR(var->localIndex);
+            L_write_array_index_chunk(var->localIndex, lval->indices,
+                                      var->type, rval);
         }
     } else {
         /* no array indices */
         L_compile_expressions(rval);
         L_STORE_SCALAR(var->localIndex);
     }
+}
+
+/* Read a value from an array or struct.  We expect the array/struct
+   to be on top of the stack.  Returns the next non-array/struct
+   index. */
+static L_expression *
+L_read_array_index_chunk(
+    L_expression *i,
+    L_type *base_type)
+{
+    int index_count = 0;
+    L_type *index_type = base_type;
+
+    while (i && (i->kind != L_EXPRESSION_HASH_INDEX)) {
+        index_type = L_compile_index(base_type, index_type, i);
+        i = i->indices;
+        index_count++;
+    }
+    if (index_count == 1) {
+        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+    } else {
+        TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
+                        lframe->envPtr);
+    }
+    return i;
+}
+
+/* Make a copy of the array/struct in varIndex with rval in the
+   position specified by the indices.  Store the copy back into
+   varIndex.  Return the next non array/struct index. */
+static L_expression *
+L_write_array_index_chunk(
+    int varIndex,
+    L_expression *i,
+    L_type *base_type,
+    L_expression *rval)
+{
+    int index_count = 0;
+    L_type *index_type = base_type;
+
+    for ( ; i && i->kind != L_EXPRESSION_HASH_INDEX;
+         i = i->indices, index_count++)
+    {
+        index_type = L_compile_index(base_type, index_type, i);
+    }
+    L_compile_expressions(rval);
+    L_LOAD_SCALAR(varIndex);
+    if (index_count == 1) {
+        TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+    } else {
+        TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
+    }
+    /* store the modified array back in the variable */
+    L_STORE_SCALAR(varIndex);
+    return i;
+}
+
+
+/* Read a value out of a hashtable and leave it on the stack.  We
+   expect the hashtable to be on top of the stack.  Return the next
+   non-hashtable index.*/
+static L_expression *
+L_read_hash_index_chunk(
+    L_expression *i)            /* the keys */
+{
+    int index_count = 0;
+    /* push the indices onto the stack */
+    while (i && (i->kind == L_EXPRESSION_HASH_INDEX)) {
+        L_compile_index(NULL, NULL, i);
+        i = i->indices;
+        index_count++;
+    }
+    TclEmitInstInt4(INST_DICT_GET, index_count, lframe->envPtr);
+    return i;
+}
+
+/* Make a copy of the dictionary in varIndex, add a key->value pair to
+   it, and write it back into varIndex.  Return the next non-hashtable
+   index. */
+static L_expression *
+L_write_hash_index_chunk(
+    int varIndex,               /* the variable holding the dictionary */
+    L_expression *i,            /* the keys */
+    L_expression *rval)         /* the value to store */
+{
+    int index_count = 0;
+    /* push the indices onto the stack */
+    while (i && (i->kind == L_EXPRESSION_HASH_INDEX)) {
+        L_compile_index(NULL, NULL, i);
+        i = i->indices;
+        index_count++;
+    }
+    /* push the value to store */
+    L_compile_expressions(rval);
+    TclEmitInstInt4(INST_DICT_SET, index_count, lframe->envPtr);
+    /* the second operand to the dict_set instruction is the dict. */
+    TclEmitInt4(varIndex, lframe->envPtr);
+    return i;
 }
 
 /* Emit code to push an index onto the stack and return the type to use for
@@ -1183,7 +1204,7 @@ L_free_ast(L_ast_node *ast) {
  * Local Variables:
  * mode: c
  * c-basic-offset: 4
- * fill-column: 78
+ * fill-coumn: 78
  * End:
  */
 
