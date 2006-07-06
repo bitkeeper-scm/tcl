@@ -46,6 +46,9 @@ static void		FsAddMountsToGlobResult(Tcl_Obj *resultPtr,
 			    Tcl_Obj *pathPtr, CONST char *pattern,
 			    Tcl_GlobTypeData *types);
 static void		FsUpdateCwd(Tcl_Obj *cwdObj, ClientData clientData);
+static Tcl_Obj *        FsMaybeWrapInLPragmas(Tcl_Interp *interp,
+                            Tcl_Obj *fileContents, const char *path);
+
 
 #ifdef TCL_THREADS
 static void		FsRecacheFilesystemList(void);
@@ -1804,6 +1807,8 @@ Tcl_FSEvalFileEx(
 	goto end;
     }
 
+    objPtr = FsMaybeWrapInLPragmas(interp, objPtr, Tcl_GetString(pathPtr));
+
     iPtr = (Interp *) interp;
     oldScriptFile = iPtr->scriptFile;
     iPtr->scriptFile = pathPtr;
@@ -1911,6 +1916,32 @@ Tcl_FSEvalFileEx(
   end:
     Tcl_DecrRefCount(objPtr);
     return result;
+}
+
+/* If the path ends in .l assume it's meant to contain L code, in which case
+   ensure that the file contents are wrapped in L pragmas.  Return a Tcl_Obj
+   containing the potentially wrapped string. */
+static Tcl_Obj *
+FsMaybeWrapInLPragmas(
+    Tcl_Interp *interp,
+    Tcl_Obj *fileContents,
+    const char *path)
+{
+    int len = strlen(path);
+
+    if ((len >= 2) && (path[len-2] == '.') && (path[len-1] == 'l') &&
+        !Tcl_RegExpMatch(interp, Tcl_GetString(fileContents),
+                         "\\s*#pragma language L"))
+    {
+        Tcl_Obj *newContents = Tcl_NewObj();
+        Tcl_IncrRefCount(newContents);
+        TclObjPrintf(interp, newContents,
+                     "#pragma language L\n%s\n#pragma end\n",
+                     Tcl_GetString(fileContents));
+        Tcl_DecrRefCount(fileContents);
+        fileContents = newContents;
+    }
+    return fileContents;
 }
 
 /*
