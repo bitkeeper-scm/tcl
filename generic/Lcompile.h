@@ -64,6 +64,7 @@ void L_compile_unop(L_expression *expr);
 void L_compile_short_circuit_op(L_expression *expr);
 void L_compile_loop(L_loop *loop);
 L_type *L_compile_index(L_type *base_type, L_type *index_type, L_expression *index);
+void L_compile_twiddle(L_expression *expr);
 
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);

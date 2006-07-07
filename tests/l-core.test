@@ -647,6 +647,19 @@ void hash_1_1() {
 hash_1_1
 } -output "value\n\n"
 
+test regexp-1.0 {regular expression support} -body {
+#pragma language L
+void regexp_1_0() {
+        string s = "string";
+        puts(s =~ /ring/);
+        puts(s =~ /bob/);
+        puts(s !~ /ring/);
+        puts(s !~ /bob/);
+}
+#pragma end
+regexp_1_0
+} -output "1\n0\n0\n1\n";
+
 # cleanup
 ::tcltest::cleanupTests
 return

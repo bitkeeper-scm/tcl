@@ -265,6 +265,8 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
+        | expr T_EQTWID T_RE    { MK_BINOP_NODE($$, T_EQTWID, $1, $3); }
+        | expr T_BANGTWID T_RE  { MK_BINOP_NODE($$, T_BANGTWID, $1, $3); }
 	| expr T_STAR expr      { MK_BINOP_NODE($$, T_STAR, $1, $3); }
 	| expr T_SLASH expr     { MK_BINOP_NODE($$, T_SLASH, $1, $3); }
 	| expr T_PERC expr      { MK_BINOP_NODE($$, T_PERC, $1, $3); }

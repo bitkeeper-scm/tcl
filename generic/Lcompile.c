@@ -607,6 +607,9 @@ void L_compile_binop(L_expression *expr)
     } else if ((expr->op == T_ANDAND) ||
                (expr->op == T_OROR)) {
         L_compile_short_circuit_op(expr);
+    } else if ((expr->op == T_EQTWID) ||
+               (expr->op == T_BANGTWID)) {
+        L_compile_twiddle(expr);
     } else {
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
@@ -669,6 +672,22 @@ void L_compile_binop(L_expression *expr)
             L_bomb("Undefined operator %d", expr->op);
         }
         TclEmitOpcode(instruction, lframe->envPtr);
+    }
+}
+
+void
+L_compile_twiddle(L_expression *expr)
+{
+    Tcl_Obj *regexp = Tcl_NewStringObj(expr->b->u.s, strlen(expr->b->u.s));
+
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "regexp", strlen("regexp")),
+                lframe->envPtr);
+    TclEmitPush(TclAddLiteralObj(lframe->envPtr, regexp, NULL), 
+                lframe->envPtr);
+    L_compile_expressions(expr->a);
+    TclEmitInstInt1(INST_INVOKE_STK1, 3, lframe->envPtr);
+    if (expr->op == T_BANGTWID) {
+        TclEmitOpcode(INST_LNOT, lframe->envPtr);
     }
 }
 
