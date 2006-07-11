@@ -106,7 +106,12 @@ tally_newlines(
                         MK_STRING_NODE(L_lval, yytext);
 			return T_ID;
                 }
-[0-9]*		{       
+$[0-9]+         {
+                        /* Regular expression submatches */
+                        MK_STRING_NODE(L_lval, yytext);
+			return T_ID;
+                }
+[0-9]*		{
                         MK_INT_NODE(L_lval, atoi(yytext)); 
                         return T_INT_LITERAL;   
                 }

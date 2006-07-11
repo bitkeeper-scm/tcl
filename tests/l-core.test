@@ -658,7 +658,22 @@ void regexp_1_0() {
 }
 #pragma end
 regexp_1_0
-} -output "1\n0\n0\n1\n";
+} -output "1\n0\n0\n1\n"
+
+test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
+#pragma language L
+void regexp_1_1() {
+        string s = "Go not to the elves for counsel, for they will say both yes and no.";
+
+        if (s =~ /((Go).*(elves))/) {
+                puts($1);
+                puts($2);
+                puts($3);
+        }
+}
+#pragma end
+regexp_1_1
+} -output "Go not to the elves\nGo\nelves\n"
 
 # cleanup
 ::tcltest::cleanupTests

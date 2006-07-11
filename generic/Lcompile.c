@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include "tclInt.h"
 #include "tclCompile.h"
+#include "tclRegexp.h"
 #include "Lcompile.h"
 #include "Lgrammar.h"
 #include "Last.h"
@@ -679,13 +680,56 @@ void
 L_compile_twiddle(L_expression *expr)
 {
     Tcl_Obj *regexp = Tcl_NewStringObj(expr->b->u.s, strlen(expr->b->u.s));
+    Tcl_RegExp compiled;
+    int submatchCount = 0, i;
 
-    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "regexp", strlen("regexp")),
+    /* compile the regular expression so we can figure out how many
+       submatches there are */
+    compiled = Tcl_GetRegExpFromObj(lframe->interp, regexp, TCL_REG_ADVANCED);
+    if (compiled == NULL) {
+        L_errorf(expr, "Bad regular expression");
+    } else {
+        submatchCount = ((TclRegexp *)compiled)->re.re_nsub;
+    }
+    L_trace("The submatch count in %s is %d\n", expr->b->u.s, submatchCount);
+    /* create the submatch variables */
+    for (i = 0; i < submatchCount; i++) {
+        char buf[128];
+        L_expression *name;
+
+        snprintf(buf, 128, "$%d", i + 1);
+        MK_STRING_NODE(name, buf);
+        if (!L_get_symbol(name, FALSE)) {
+            int localIndex =
+                TclFindCompiledLocal(name->u.s, strlen(name->u.s),
+                                     1, 0, lframe->envPtr->procPtr);
+            L_make_symbol(name,
+                          mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL),
+                          localIndex);
+        }
+    }
+    /* emit code to call the regexp object command */
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "regexp",
+                                      strlen("regexp")),
                 lframe->envPtr);
     TclEmitPush(TclAddLiteralObj(lframe->envPtr, regexp, NULL), 
                 lframe->envPtr);
     L_compile_expressions(expr->a);
-    TclEmitInstInt1(INST_INVOKE_STK1, 3, lframe->envPtr);
+    if (submatchCount > 0) {
+        /* empty matchvar */
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
+                    lframe->envPtr);
+        /* submatch vars */
+        for (i = 0; i < submatchCount; i++) {
+            char buf[128];
+            snprintf(buf, 128, "$%d", i + 1);
+            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, buf, strlen(buf)),
+                        lframe->envPtr);
+        }
+    }
+    TclEmitInstInt1(INST_INVOKE_STK1,
+                    3 + (submatchCount ? (submatchCount + 1) : 0),
+                    lframe->envPtr);
     if (expr->op == T_BANGTWID) {
         TclEmitOpcode(INST_LNOT, lframe->envPtr);
     }
