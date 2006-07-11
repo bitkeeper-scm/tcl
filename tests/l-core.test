@@ -665,7 +665,8 @@ test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
 void regexp_1_1() {
         string s = "Go not to the elves for counsel, for they will say both yes and no.";
 
-        if (s =~ /((Go).*(elves))/) {
+        if (s =~ /((Go).*(elves)).*/) {
+                puts($0);
                 puts($1);
                 puts($2);
                 puts($3);
@@ -673,7 +674,8 @@ void regexp_1_1() {
 }
 #pragma end
 regexp_1_1
-} -output "Go not to the elves\nGo\nelves\n"
+} -output "Go not to the elves for counsel, for they will say both yes and no.
+Go not to the elves\nGo\nelves\n"
 
 # cleanup
 ::tcltest::cleanupTests

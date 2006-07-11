@@ -693,11 +693,11 @@ L_compile_twiddle(L_expression *expr)
     }
     L_trace("The submatch count in %s is %d\n", expr->b->u.s, submatchCount);
     /* create the submatch variables */
-    for (i = 0; i < submatchCount; i++) {
+    for (i = 0; i <= submatchCount; i++) {
         char buf[128];
         L_expression *name;
 
-        snprintf(buf, 128, "$%d", i + 1);
+        snprintf(buf, 128, "$%d", i);
         MK_STRING_NODE(name, buf);
         if (!L_get_symbol(name, FALSE)) {
             int localIndex =
@@ -715,21 +715,14 @@ L_compile_twiddle(L_expression *expr)
     TclEmitPush(TclAddLiteralObj(lframe->envPtr, regexp, NULL), 
                 lframe->envPtr);
     L_compile_expressions(expr->a);
-    if (submatchCount > 0) {
-        /* empty matchvar */
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
+    /* match/submatch vars */
+    for (i = 0; i <= submatchCount; i++) {
+        char buf[128];
+        snprintf(buf, 128, "$%d", i);
+        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, buf, strlen(buf)),
                     lframe->envPtr);
-        /* submatch vars */
-        for (i = 0; i < submatchCount; i++) {
-            char buf[128];
-            snprintf(buf, 128, "$%d", i + 1);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, buf, strlen(buf)),
-                        lframe->envPtr);
-        }
     }
-    TclEmitInstInt1(INST_INVOKE_STK1,
-                    3 + (submatchCount ? (submatchCount + 1) : 0),
-                    lframe->envPtr);
+    TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount, lframe->envPtr);
     if (expr->op == T_BANGTWID) {
         TclEmitOpcode(INST_LNOT, lframe->envPtr);
     }
