@@ -105,6 +105,12 @@ GENERIC_DIR		= @srcdir@/../generic
 TOMMATH_DIR		= @srcdir@/../libtommath
 WIN_DIR			= @srcdir@
 COMPAT_DIR		= @srcdir@/../compat
+BK_DIR			= @BK_DIR@
+BK_INCLUDES		= @BK_INCLUDES@
+@BK_LIBS@
+@BK_OBJS@
+@BK_HDRS@
+BK_LIBS			?= $(BK_DIR)/tomcrypt/libtomcrypt.a
 
 # Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
@@ -179,7 +185,7 @@ SHLIB_LD	= @SHLIB_LD@
 SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@ $(LIBS)
 SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_SUFFIX	= @SHLIB_SUFFIX@
-LIBS		= @LIBS@
+LIBS		= @LIBS@ $(BK_LIBS)
 
 RMDIR		= rm -rf
 MKDIR		= mkdir -p
@@ -282,6 +288,11 @@ GENERIC_OBJS = \
 	tclUtil.$(OBJEXT) \
 	tclVar.$(OBJEXT)
 
+L_OBJS	= Lscanner.$(OBJEXT) \
+	Lgrammar.$(OBJEXT) \
+	Lcompile.$(OBJEXT) \
+	Last.$(OBJEXT)
+
 TOMMATH_OBJS = \
 	bncore.${OBJEXT} \
 	bn_reverse.${OBJEXT} \
@@ -346,6 +357,25 @@ TOMMATH_OBJS = \
 	bn_s_mp_sub.${OBJEXT}
 
 
+BK_HDRS ?= \
+	$(BK_DIR)/tclkey.h \
+	$(BK_DIR)/tomcrypt/mycrypt.h \
+	$(BK_DIR)/tomcrypt/randseed.h
+
+BK_OBJS ?= \
+	blowfish.$(OBJEXT) \
+	keydecode.$(OBJEXT)
+
+L_HDRS	= \
+	$(GENERIC_DIR)/Lcompile.h \
+	$(GENERIC_DIR)/Last.h
+
+L_SRCS	= \
+	$(GENERIC_DIR)/Lscanner.l \
+	$(GENERIC_DIR)/Lgrammar.y \
+	$(GENERIC_DIR)/Lcompile.c \
+	$(GENERIC_DIR)/Last.c
+
 WIN_OBJS = \
 	tclWin32Dll.$(OBJEXT) \
 	tclWinChan.$(OBJEXT) \
@@ -375,7 +405,7 @@ STUB_OBJS = tclStubLib.$(OBJEXT)
 
 TCLSH_OBJS = tclAppInit.$(OBJEXT)
 
-TCL_OBJS = ${GENERIC_OBJS} $(TOMMATH_OBJS) ${WIN_OBJS} ${COMPAT_OBJS}
+TCL_OBJS = ${GENERIC_OBJS} $(L_OBJS) $(TOMMATH_OBJS) ${WIN_OBJS} ${COMPAT_OBJS}
 
 TCL_DOCS = "$(ROOT_DIR_NATIVE)"/doc/*.[13n]
 
@@ -523,6 +553,27 @@ tclStubLib.${OBJEXT}: tclStubLib.c
 
 
 # Implicit rule for all object files that will end up in the Tcl library
+tclIOUtil.$(OBJEXT): $(BK_HDRS)
+tclPipe.$(OBJEXT): $(BK_HDRS)
+
+Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
+	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
+
+Lscanner.$(OBJEXT): Lscanner.c $(L_SRCS) $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lscanner.c
+
+Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
+	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
+
+Lgrammar.$(OBJEXT): Lgrammar.c Lcompile.$(OBJEXT) $(L_SRCS) $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lgrammar.c
+
+Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lcompile.c
+
+Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Last.c
+
 
 .c.${OBJEXT}:
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
@@ -753,3 +804,6 @@ genstubs:
 	    "$(GENERIC_DIR_NATIVE)\tcl.decls" \
             "$(GENERIC_DIR_NATIVE)\tclInt.decls" \
 	    "$(GENERIC_DIR_NATIVE)\tclTomMath.decls"
+
+FORCE:
+

@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="../generic/tcl.h"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -808,6 +808,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-bk              directory containing BK source
   --with-encoding              encoding for configuration values
   --with-celib=DIR        use Windows/CE support library from DIR
 
@@ -1294,6 +1295,77 @@ if test "${exec_prefix}" = "NONE"; then
 fi
 # libdir must be a fully qualified path (not ${exec_prefix}/lib)
 eval libdir="$libdir"
+
+#------------------------------------------------------------------------
+# Try to find BitKeeper source during configure
+#------------------------------------------------------------------------
+
+	if test x"${no_bk}" = x ; then
+		# reset no_bk in case something fails
+		no_bk=true
+
+# Check whether --with-bk or --without-bk was given.
+if test "${with_bk+set}" = set; then
+  withval="$with_bk"
+  with_bksource=${withval}
+fi;
+		echo "$as_me:$LINENO: checking for BK source tree" >&5
+echo $ECHO_N "checking for BK source tree... $ECHO_C" >&6
+		if test x"${with_bksource}" != x ; then
+			if test -f "${with_bksource}/tclkey.h" ; then
+				ac_cv_c_bksource=`(cd ${with_bksource}/src ; pwd)`
+			else
+				{ { echo "$as_me:$LINENO: error: ${with_bksource}/src directory does not contain tclkey.h" >&5
+echo "$as_me: error: ${with_bksource}/src directory does not contain tclkey.h" >&2;}
+   { (exit 1); exit 1; }; }
+			fi
+		fi
+
+		# Now check for it in the parent directory
+		if test x"${ac_cv_c_bksource}" = x ; then
+			if test -f "../../../../tclkey.h" ; then
+				ac_cv_c_bksource=`(cd ../../../.. ; pwd)`
+			fi
+		fi
+
+		if test x"${ac_cv_c_bksource}" = x ; then
+			BK_DIR=""
+			BK_HDRS="BK_HDRS = "
+			BK_SRCS="BK_SRCS = "
+			BK_OBJS="BK_OBJS = "
+			BK_LIBS="BK_LIBS = "
+			BK_INCLUDES=""
+
+
+
+
+
+
+			{ echo "$as_me:$LINENO: WARNING: Can't find BK source tree encryption disabled" >&5
+echo "$as_me: WARNING: Can't find BK source tree encryption disabled" >&2;}
+		else
+			no_bk=
+			BK_DIR=${ac_cv_c_bksource}
+			BK_HDRS=""
+			BK_SRCS=""
+			BK_OBJS=""
+			BK_LIBS=""
+			BK_INCLUDES="-I$BK_DIR"
+			cat >>confdefs.h <<\_ACEOF
+#define BK 1
+_ACEOF
+
+
+
+
+
+
+
+			echo "$as_me:$LINENO: result: found $BK_DIR" >&5
+echo "${ECHO_T}found $BK_DIR" >&6
+		fi
+	fi
+
 
 #------------------------------------------------------------------------
 # Standard compiler checks
@@ -4017,9 +4089,10 @@ for ac_i in : $LIBOBJS; do test "x$ac_i" = x: && continue
   # 1. Remove the extension, and $U if already installed.
   ac_i=`echo "$ac_i" |
 	 sed 's/\$U\././;s/\.o$//;s/\.obj$//'`
-  # 2. Add them.
-  ac_libobjs="$ac_libobjs $ac_i\$U.$ac_objext"
-  ac_ltlibobjs="$ac_ltlibobjs $ac_i"'$U.lo'
+  # 2. Prepend LIBOBJDIR.  When used with automake>=1.10 LIBOBJDIR
+  #    will be set to the directory where LIBOBJS objects are built.
+  ac_libobjs="$ac_libobjs \${LIBOBJDIR}$ac_i\$U.$ac_objext"
+  ac_ltlibobjs="$ac_ltlibobjs \${LIBOBJDIR}$ac_i"'$U.lo'
 done
 LIBOBJS=$ac_libobjs
 
@@ -4540,6 +4613,12 @@ s,@ECHO_C@,$ECHO_C,;t t
 s,@ECHO_N@,$ECHO_N,;t t
 s,@ECHO_T@,$ECHO_T,;t t
 s,@LIBS@,$LIBS,;t t
+s,@BK_DIR@,$BK_DIR,;t t
+s,@BK_HDRS@,$BK_HDRS,;t t
+s,@BK_SRCS@,$BK_SRCS,;t t
+s,@BK_OBJS@,$BK_OBJS,;t t
+s,@BK_INCLUDES@,$BK_INCLUDES,;t t
+s,@BK_LIBS@,$BK_LIBS,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t

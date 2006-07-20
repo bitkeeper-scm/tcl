@@ -1,0 +1,97 @@
+# Test to make sure that bugs don't creep back into L
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+
+
+test empty-1.0 {empty code blocks} -body {
+#pragma language L
+empty_1_0() {
+} 
+#pragma end
+empty_1_0
+} 
+
+test empty-1.1 {empty code blocks with some control flow} -body {
+#pragma language L
+empty_1_1() {
+        /* note that none of these conditions is true, 
+           so no code is executed */
+        unless(1) {
+                puts("1 broken");
+        } else if (0) {
+                puts("1.1 broken");
+        } else unless(1) {
+                puts("1 working");
+        }
+} 
+#pragma end
+empty_1_1
+} 
+
+test multi-dimensional-1.0 {move[state][read_symbol] was being evaluated as
+move[state][state[read_symbol]][read_symbol], or thereabouts, because the AST
+was built in an ambiguous way.} -body {
+#pragma language L
+turing(int step, int state, int tape[], int pos) {
+    int write_symbol[5][2], move[5][2], new_state[5][2], read_symbol;
+
+    write_symbol[0][1] = 0;  move[0][1] = 1;  new_state[0][1] = 1;
+    write_symbol[1][1] = 1;  move[1][1] = 1;  new_state[1][1] = 1;
+    write_symbol[1][0] = 0;  move[1][0] = 1;  new_state[1][0] = 2;
+    write_symbol[2][0] = 1;  move[2][0] = 0;  new_state[2][0] = 3;
+    write_symbol[2][1] = 1;  move[2][1] = 1;  new_state[2][1] = 2;
+    write_symbol[3][1] = 1;  move[3][1] = 0;  new_state[3][1] = 3;
+    write_symbol[3][0] = 0;  move[3][0] = 0;  new_state[3][0] = 4;
+    write_symbol[4][1] = 1;  move[4][1] = 0;  new_state[4][1] = 4;
+    write_symbol[4][0] = 1;  move[4][0] = 1;  new_state[4][0] = 0;
+
+    read_symbol = tape[pos];
+    puts(append("", "  ", step, "\ts", state + 1, "\t", tape));
+
+    // state 0 and symbol 0 means to halt
+    if (read_symbol + state) {
+        tape[pos] = write_symbol[state][read_symbol];
+        if (move[state][read_symbol]) {
+            pos++;
+        } else {
+            pos--;
+        }
+        turing(step + 1, new_state[state][read_symbol], tape, pos);
+    } else {
+        puts("-- halt --");
+    }
+}
+
+multi_dimensional_1_0() {
+    puts("Step\tState\tTape");
+    puts("- - - - - - - - - -");
+    turing(1, 0, list(1, 1, 0, 0, 0), 0);
+}
+#pragma end
+multi_dimensional_1_0
+} -output {Step	State	Tape
+- - - - - - - - - -
+  1	s1	1 1 0 0 0
+  2	s2	0 1 0 0 0
+  3	s2	0 1 0 0 0
+  4	s3	0 1 0 0 0
+  5	s4	0 1 0 1 0
+  6	s5	0 1 0 1 0
+  7	s5	0 1 0 1 0
+  8	s1	1 1 0 1 0
+  9	s2	1 0 0 1 0
+  10	s3	1 0 0 1 0
+  11	s3	1 0 0 1 0
+  12	s4	1 0 0 1 1
+  13	s4	1 0 0 1 1
+  14	s5	1 0 0 1 1
+  15	s1	1 1 0 1 1
+-- halt --
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

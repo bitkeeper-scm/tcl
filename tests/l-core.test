@@ -1,0 +1,682 @@
+# Test the L language.
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest 2
+    namespace import -force ::tcltest::*
+}
+
+test proc-1.0 {Test L function definition.} -body {
+#pragma language L
+main(void) {
+        puts("foo");
+}
+#pragma end
+main  
+} -output "foo\n"
+
+
+test proc-1.1 {Test L function returns.} -body {
+#pragma language L
+f1() {
+        puts("whiz");
+}
+f2() {
+        puts("bang");
+        return "foo";
+        return "bar";
+}
+f3() {
+        return;
+}
+main(void) {
+        puts(f1());
+        puts(f2());
+        puts(f3());
+}
+#pragma end
+main  
+} -output "whiz\n\nbang\nfoo\n\n"
+
+test proc-1.2 {Test L function parameters.} -body {
+#pragma language L
+proc_1_2(string arg1, string arg2) {
+        puts(arg1);
+        puts(arg2);
+} 
+#pragma end
+proc_1_2 "val1" "val2" 
+} -output "val1\nval2\n"
+
+test var-1.0 {Test L variable assignment and reference} -body {
+#pragma language L
+main(void)
+{
+	string s;
+        s = "Hello";
+	puts(s);
+}
+#pragma end
+main
+} -output "Hello\n"
+
+test pragma-1.0 {Test pragma parsing} -body {
+# These are some Tcl Comments
+#pragma language L
+main(void)
+{
+	puts("worked");
+}
+
+#pragma end
+# More comments
+main
+} -output "worked\n"
+
+test pragma-2.0 {Test failure path in pragma parsing} -body {
+#pragma language foo
+main(void)
+{
+	puts("worked");
+}
+
+#pragma end
+main
+} -returnCodes {error} -result {unknown language}
+
+test pragma-3.0 {Test lack of end pragma} -body {
+#pragma language L
+main(void)
+{
+	puts("worked");
+}
+} -returnCodes {error} -result {unfinished pragma}
+
+test decl-1.0 {Variable and parameter declaration syntax} -body {
+#pragma language L
+fun1() { }
+fun2(void) { }
+void fun3() { }
+int fun4() { }
+fun5(int foo) { }
+hash fun6(hash foo, hash bar[], hash baz[23]) { }
+void fun7(int foo, double bar, hash baz, string quux, poly quuux, var quuuux) { }
+void fun8() {
+        int foo, bar[], baz[84][42][1];
+        string foo1[19], mani[], padmi = "hum";
+        hash whee;
+        if (0) {
+                int bleh = 5;
+        } else {
+                if (1) {
+                        poly padmi1 = "om";
+                        puts(padmi1);
+                }
+        }
+}
+#pragma end
+fun8
+} -output "om\n";
+
+test decl-1.1 {Hairy literal hash syntax in initializers} -body {
+#pragma language L
+initmewoo() {
+        hash h = { "key" => "val", "key2" => "val" };
+}
+#pragma end
+}
+
+test decl-1.2 {Undeclared variable error} -body {
+#pragma language L
+undecl() {
+        foo = "bar";
+        puts(cheese);
+}
+#pragma end
+undecl
+} -returnCodes error -result {L Error: Undeclared variable: foo on line 2
+L Error: Undeclared variable: cheese on line 3
+}
+
+
+test decl-1.3 {Variable shadowing} -body {
+#pragma language L
+shadow() {
+        int foo = 1;
+        if (1) {
+                int foo = 2;
+                puts(foo);
+        } 
+        puts(foo);
+}
+#pragma end
+shadow
+} -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
+}
+
+test if-1.0 {If statements} -body {
+#pragma language L
+if_1_0() {
+        if (1) puts("0 working");
+        if (0) {
+                puts("1 broken");
+        } 
+        puts("between");
+        if (1) {
+                puts("1 working");
+        } 
+}
+#pragma end
+if_1_0
+} -output "0 working\nbetween\n1 working\n"
+
+
+test if-1.1 {If statements with else clauses and multistatement bodies} -body {
+#pragma language L
+if_1_1() {
+        if (1) {
+                puts("1 working");
+                puts(".");
+        } else {
+                puts("1 broken");
+                puts(".");
+        }
+        
+        if (0) {
+                puts("2 broken");
+                puts(".");
+                puts(".");
+        } else {
+                puts("2 working");
+                puts(".");
+                puts(".");
+        }
+}
+#pragma end
+if_1_1
+} -output "1 working\n.\n2 working\n.\n.\n"
+
+
+test if-1.2 {"else if" clauses} -body {
+#pragma language L
+if_1_2() {
+        if (0) {
+                puts("1 broken");
+        } else if (1) {
+                puts("1 working");
+        }
+
+        puts("between");
+
+        if (0) {
+                puts("2 broken");
+        } else if (0) {
+                puts("2.2 broken");
+        } else {
+                puts("2 working");
+        }
+}
+#pragma end
+if_1_2
+} -output "1 working\nbetween\n2 working\n"
+
+test if-1.3 {nested if statements} -body {
+#pragma language L
+if_1_3() {
+        if (1) {
+                puts("1 before");
+                if (0) {
+                        puts("1 broken");
+                } else {
+                        puts("1 working");
+                }
+                puts("1 after");
+        } else {
+                puts("1.1 broken");
+        }
+        puts("1 done");
+}
+#pragma end
+if_1_3
+} -output "1 before\n1 working\n1 after\n1 done\n"
+
+
+test if-1.4 {else is only allowed with curly braces} -body {
+#pragma language L
+main(void)
+{
+	if (0) puts("1 broken"); else puts("1 even more broken");
+}
+#pragma end
+} -returnCodes {error} -result "L Error: syntax error, unexpected T_ELSE on line 3\n"
+
+
+test unless-1.0 {unless statements} -body {
+#pragma language L
+unless_1_0() {
+        unless(0) puts("0 working");
+        unless(0) {
+                puts("1 working");
+        }
+        unless(1) {
+                puts("2 broken");
+        } else {
+                puts("2 working");
+        }
+        unless(1) {
+                puts("3 broken");
+        } else unless (1) {
+                puts("3.1 broken");
+        } else {
+                puts("3 working");
+        }
+} 
+#pragma end
+unless_1_0
+} -output "0 working\n1 working\n2 working\n3 working\n"
+
+test unless-1.1 {unless and if statements mixed} -body {
+#pragma language L
+unless_1_1() {
+        unless(1) {
+                puts("1 broken");
+        } else if (0) {
+                puts("1.1 broken");
+        } else unless(0) {
+                puts("1 working");
+        }
+        puts("done");
+} 
+#pragma end
+unless_1_1
+} -output "1 working\ndone\n"
+
+test syntax-1.0 {single-line comments a la C++} -body {
+#pragma language L
+syntax_1_0() {
+        // single-line comments are 
+        puts("working"); //see?
+        //////cruftilioucious 
+}
+#pragma end
+syntax_1_0
+} -output "working\n" 
+
+
+test syntax-1.1 {structure syntax} -body {
+#pragma language L
+
+struct syntax_1_1_point {
+        int x, y;
+        string label;
+        double froboz[128];
+        struct { int m, n; } sub_struct;
+};
+
+syntax_1_1() {
+        struct { string firstname; string lastname; } him;
+        struct { string firstname; string lastname; } me = {"john", "doe"};
+        struct syntax_1_1_point p1, p2 = {1, 2} , p3;
+        puts("didn't crash");
+}
+
+#pragma end
+syntax_1_1
+} -output "didn't crash\n"
+
+test op-1.0 {increment and decrement operators} -body {
+#pragma language L
+op_1_0() {
+        int i = 1;
+
+        puts("pre:");
+        puts(i);
+        ++i;
+        puts(i);
+        puts(++i);
+        --i;
+        puts(i);
+        puts(--i);
+
+        puts("post:");
+        puts(i);
+        i++;
+        puts(i);
+        puts(i++);
+        puts(i);
+        i--;
+        puts(i);
+        puts(i--);
+        puts(i);
+}
+#pragma end
+op_1_0
+} -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
+
+test op-1.1 {plus, minus, multiply, divide, and modulus operators} -body {
+#pragma language L
+op_1_1() {
+        int i = 2;
+        puts(i + 5);
+        puts(i - 50);
+        puts(i * 500);
+        puts(i / 2);
+        puts(i / 4.0);
+        puts((i + 5) % 3);
+        // precedence
+        puts(i + i / i - i * i % i);
+}
+#pragma end
+op_1_1
+} -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
+
+test op-1.2 {unary plus and minus} -body {
+#pragma language L
+op_1_2() {
+        int i = -2;
+        int j = +2;
+
+        puts(i);
+        i = i + -100;
+        puts(i);
+        puts(i * -3);
+        puts(-8 - -2);
+
+        puts(j);
+        j = j + +100;
+        puts(j);
+        puts(j * +3);
+        puts(+8 - +2);
+}
+#pragma end
+op_1_2
+} -output "-2\n-102\n306\n-6\n2\n102\n306\n6\n"
+
+test op-1.3 {numeric comparison operators} -body {
+#pragma language L
+op_1_3() {
+        if (-1 < 1) { puts("1okay"); } else { puts("1broken"); }
+        if (1 > -1) { puts("2okay"); } else { puts("2broken"); }
+        if (1 == 1) { puts("3okay"); } else { puts("3broken"); }
+        if (1 <= 1) { puts("4okay"); } else { puts("4broken"); }
+        if (-1 <= 1) { puts("5okay"); } else { puts("5broken"); }
+        if (1 >= -1) { puts("6okay"); } else { puts("6broken"); }
+        if (1 >= 0) { puts("7okay"); } else { puts("7broken"); }
+        if (0 != 1) { puts("8okay"); } else { puts("8broken"); }
+        // now from the other side
+        puts("--");
+        if (1 < 1) { puts("1broken"); } else { puts("1okay"); }
+        if (1 > 1) { puts("2broken"); } else { puts("2okay"); }
+        if (1 == 0) { puts("3broken"); } else { puts("3okay"); }
+        if (1 != 1) { puts("4broken"); } else { puts("4okay"); }
+        if (1 <= -1) { puts("5broken"); } else { puts("5okay"); }
+        if (-1 >= 1) { puts("6broken"); } else { puts("6okay"); }
+
+}
+#pragma end
+op_1_3
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
+--\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
+
+test op-1.4 {lexicographic comparison operators} -body {
+#pragma language L
+op_1_4() {
+        if ("aa" lt "ab") { puts("1okay"); } else { puts("1broken"); }
+        if ("ab" gt "aa") { puts("2okay"); } else { puts("2broken"); }
+        if ("aa" eq "aa") { puts("3okay"); } else { puts("3broken"); }
+        if ("aa" le "aa") { puts("4okay"); } else { puts("4broken"); }
+        if ("aa" le "ab") { puts("5okay"); } else { puts("5broken"); }
+        if ("aa" ge "aa") { puts("6okay"); } else { puts("6broken"); }
+        if ("ab" ge "aa") { puts("7okay"); } else { puts("7broken"); }
+        if ("aa" ne "ab") { puts("8okay"); } else { puts("8broken"); }
+        // now from the other side
+        puts("--");
+        if ("aa" lt "aa") { puts("1broken"); } else { puts("1okay"); }
+        if ("aa" gt "aa") { puts("2broken"); } else { puts("2okay"); }
+        if ("ab" eq "aa") { puts("3broken"); } else { puts("3okay"); }
+        if ("aa" ne "aa") { puts("4broken"); } else { puts("4okay"); }
+        if ("ab" le "aa") { puts("5broken"); } else { puts("5okay"); }
+        if ("aa" ge "ab") { puts("6broken"); } else { puts("6okay"); }
+
+}
+#pragma end
+op_1_4
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
+--\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
+
+
+test op-1.5 {boolean operators} -body {
+#pragma language L
+op_1_5() {
+        int true = 1, false = 0;
+        if (true && true)       { puts("1okay"); } else { puts("1broken"); }
+        if (!false)             { puts("2okay"); } else { puts("2broken"); }
+        if (false || true)      { puts("3okay"); } else { puts("3broken"); }
+        if (true && !false)     { puts("4okay"); } else { puts("4broken"); }
+        // && has higher precedence than ||
+        if (false && false || true) { puts("5okay"); } else { puts("5broken"); }
+        // now from the other side
+        puts("--");
+        if (true && !true)      { puts("1broken"); } else { puts("1okay"); }
+        if (false || false)     { puts("2broken"); } else { puts("2okay"); }
+        if (!true)              { puts("3broken"); } else { puts("3okay"); }
+
+}
+#pragma end
+op_1_5
+} -output "1okay\n2okay\n3okay\n4okay\n5okay\n--\n1okay\n2okay\n3okay\n"
+
+
+test op-1.6 {bitwise operators} -body {
+#pragma language L
+op_1_6(){
+        int bits = 715827882;
+
+        puts(bits << 1);
+        puts(bits >> 1);
+        puts(bits >> 29);
+        puts(-1 << 10);
+        puts(-1024 >> 9);
+        puts(~bits);
+        puts(bits & ~bits);
+        puts(bits | ~bits);
+        puts(bits ^ (bits + 1));
+
+}
+#pragma end
+op_1_6
+} -output "1431655764\n357913941\n1\n-1024\n-2\n-715827883\n0\n-1\n1\n"
+
+
+test op-1.7 {logical operator short-circuiting} -body {
+#pragma language L
+puts_int(string str) {
+        puts(str);
+        return 9;
+}
+op_1_7(){
+        puts(0 && puts_int("1"));
+        puts(1 && puts_int("2"));
+        puts(0 || puts_int("3"));
+        puts(1 || puts_int("4"));
+}
+#pragma end
+op_1_7
+} -output "0\n2\n9\n3\n9\n1\n"
+
+
+
+test array-1.0 { Single-dimensional array creation and indexing } -body {
+#pragma language L
+array_1_0() {
+    int array[3];
+
+    array[0] = 1;
+    array[1] = 2;
+    array[2] = 3;
+    puts(array);
+    puts(array[2]);
+}
+#pragma end
+array_1_0
+} -output "1 2 3\n3\n"
+
+test array-1.1 { Multi-dimensional array creation and indexing } -body {
+#pragma language L
+array_1_0() {
+    int array[4][3][2];
+
+    puts(array);
+    array[0][0][0] = 1;
+    array[1][1][1] = 2;
+    array[2][2][0] = 3;
+    array[3][0][1] = 4;
+    puts(array);
+    puts(array[0]);
+    puts(array[2][2]);
+    puts(array[3][0][1]);
+}
+#pragma end
+array_1_0
+} -output "{{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}}
+{{1 {}} {{} {}} {{} {}}} {{{} {}} {{} 2} {{} {}}} {{{} {}} {{} {}} {3 {}}} {{{} 4} {{} {}} {{} {}}}
+{1 {}} {{} {}} {{} {}}
+3 {}
+4
+"
+
+
+test loop-1.0 {while loops} -body {
+#pragma language L
+loop_1_0() {
+        int i = 0;
+        while (i++ < 5) puts (i);
+        while (i) {
+                int j = i--;
+                puts(j);
+        }
+}
+#pragma end
+loop_1_0
+} -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
+
+
+test struct-1.0 {structs} -body {
+#pragma language L
+struct struct_1_0_point {
+        int x, y;
+        string label;
+};
+
+struct_1_0() {
+        struct struct_1_0_point p1, p2;
+
+        p1.x = 1;
+        p1.y = 2;
+        p1.label = "this is a label";
+        puts("p1 is:");
+        puts(p1);
+        puts(format("p1.x is %d, p1.y is %d, and p1.label is %s", p1.x, p1.y, p1.label));
+        p2 = p1;
+        p2.label = "this is another label";
+        puts("p1 is:");
+        puts(p1);
+        puts("p2 is:");
+        puts(p2);
+}
+#pragma end
+struct_1_0
+} -output "p1 is:
+1 2 {this is a label}
+p1.x is 1, p1.y is 2, and p1.label is this is a label
+p1 is:
+1 2 {this is a label}
+p2 is:
+1 2 {this is another label}
+"
+
+test struct-1.1 {struct allocation and arrays of structs} -body {
+#pragma language L
+struct struct_1_1_point {
+        int x[4], y;
+        string label;
+};
+
+struct struct_1_1_point new_struct() {
+    struct struct_1_1_point a;
+    a.label = "labelled";
+    return a;
+}
+
+struct_1_1() {
+   int i = 0;
+   struct struct_1_1_point s[1][10];
+
+   while(i < 10) {
+      s[0][i] = new_struct();
+      s[0][i].y = i;
+      s[0][i].x[1] = 42 + i;
+      i++;
+   }
+   puts(s);
+}
+#pragma end
+struct_1_1
+} -output "{{{{} 42 {} {}} 0 labelled} {{{} 43 {} {}} 1 labelled} {{{} 44 {} {}} 2 labelled} {{{} 45 {} {}} 3 labelled} {{{} 46 {} {}} 4 labelled} {{{} 47 {} {}} 5 labelled} {{{} 48 {} {}} 6 labelled} {{{} 49 {} {}} 7 labelled} {{{} 50 {} {}} 8 labelled} {{{} 51 {} {}} 9 labelled}}\n"
+
+
+test hash-1.0 {basic hashtable support} -body {
+#pragma language L
+void hash_1_0() {
+  hash foo;
+  foo{"key"} = "value";
+  puts(foo{"key"});
+}
+#pragma end
+hash_1_0
+} -output "value\n"
+
+test hash-1.1 {array of hashtables} -body {
+#pragma language L
+void hash_1_1() {
+  hash foo[10];
+  foo[5]{"key"} = "value";
+  puts(foo[5]{"key"});
+  puts(foo[4]{"key"});
+}
+#pragma end
+hash_1_1
+} -output "value\n\n"
+
+test regexp-1.0 {regular expression support} -body {
+#pragma language L
+void regexp_1_0() {
+        string s = "string";
+        puts(s =~ /ring/);
+        puts(s =~ /bob/);
+        puts(s !~ /ring/);
+        puts(s !~ /bob/);
+}
+#pragma end
+regexp_1_0
+} -output "1\n0\n0\n1\n"
+
+test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
+#pragma language L
+void regexp_1_1() {
+        string s = "Go not to the elves for counsel, for they will say both yes and no.";
+
+        if (s =~ /((Go).*(elves)).*/) {
+                puts($0);
+                puts($1);
+                puts($2);
+                puts($3);
+        }
+}
+#pragma end
+regexp_1_1
+} -output "Go not to the elves for counsel, for they will say both yes and no.
+Go not to the elves\nGo\nelves\n"
+
+# cleanup
+::tcltest::cleanupTests
+return

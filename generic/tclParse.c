@@ -16,6 +16,7 @@
  */
 
 #include "tclInt.h"
+#include "Last.h"
 
 /*
  * The following table provides parsing information about each possible 8-bit
@@ -172,6 +173,8 @@ static CONST char charTypeTable[] = {
  */
 
 static int		CommandComplete(CONST char *script, int numBytes);
+static int		ParsePragma(Tcl_Interp *interp, CONST char *src, 
+                            int numBytes, Tcl_Parse *parsePtr, int *scanned);
 static int		ParseComment(CONST char *src, int numBytes,
 			    Tcl_Parse *parsePtr);
 static int		ParseTokens(CONST char *src, int numBytes,
@@ -179,6 +182,141 @@ static int		ParseTokens(CONST char *src, int numBytes,
 static int		ParseWhiteSpace(CONST char *src, int numBytes,
 			    Tcl_Parse *parsePtr, char *typePtr);
 
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * ParsePragma --
+ *	Scans up to numBytes bytes starting at src, consuming a Tcl pragma
+ *
+ * Results:
+ * 	Records in parsePtr information about the parse. Returns the number of
+ * 	bytes consumed.
+ *
+ * Side effects:
+ * 	None.
+ *
+ *----------------------------------------------------------------------
+ */
+static int
+ParsePragma(
+    Tcl_Interp *interp,         /* Tcl interpreter */
+    CONST char *src,		/* First character to parse. */
+    register int numBytes,	/* Max number of bytes to scan. */
+    Tcl_Parse *parsePtr, 	/* Information about parse in progress.
+				 * Updated if parsing indicates an incomplete
+				 * command. */
+    int *scanned)               /* How many bytes we used */
+{
+    register CONST char *p = src;
+    char *end_of_first_line, *end;
+    Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
+    int wordIndex;		/* Index of word token for current word. */
+    L_ast_node *L_ast;
+
+    if (strncmp(p, "#pragma end", 11) == 0) {
+        /* don't do anything, but eat the pragma */
+        end = strchr(p, '\n');
+        if (end == NULL) {
+            *scanned = 11;
+        } else {
+            *scanned = end - p;
+        }
+        if (parsePtr->commentStart) {
+                parsePtr->commentSize += *scanned;
+        } else {
+                parsePtr->commentStart = p;
+                parsePtr->commentSize = *scanned;
+        }
+        parsePtr->commandStart = NULL;
+        parsePtr->commandSize = 0;
+        return TCL_BREAK;
+    }
+    if (strncmp(p, "#pragma language", 16) != 0) {
+        if (interp)
+            Tcl_SetResult(interp, "unknown pragma directive", TCL_STATIC);
+	return TCL_ERROR;
+    }
+    end_of_first_line = strchr(p, '\n');
+    parsePtr->commandStart = p;
+    end = strstr(p, "#pragma end");
+    if (end == NULL) {
+        if (interp) Tcl_SetResult(interp, "unfinished pragma", TCL_STATIC);
+        parsePtr->incomplete = 1;
+        return TCL_ERROR;
+    }
+    parsePtr->commandSize = end - p;
+    parsePtr->term = parsePtr->commandStart + parsePtr->commandSize; 
+
+    if (strncmp(p, "#pragma language L", 18) != 0) {
+        if (interp)
+            Tcl_SetResult(interp, "unknown language", TCL_STATIC);
+        Tcl_FreeParse(parsePtr);
+        return TCL_ERROR;
+    }
+
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    if (strncmp(p, "#pragma end", 11) == 0) {
+        /* don't do anything, but eat the pragma */
+        return TCL_ERROR;
+    }
+ 
+    /* A pragma turns into two words, each with a single text component.  The
+       first one contains "#pragma language L" and the next one contains the L
+       code.  (That makes a total of 4 tokens.)  */
+    /* 1. add a word for the L compile command */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+    tokenPtr->start = parsePtr->commandStart;
+    tokenPtr->size  = 18;       // strlen("#pragma language L")
+    tokenPtr->numComponents = 1;
+    parsePtr->numTokens++;
+    parsePtr->numWords++;
+    /* 2. add the text component token for the L compile command  */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_TEXT;
+    tokenPtr->start = parsePtr->commandStart;
+    tokenPtr->size  = 18; 
+    tokenPtr->numComponents = 0;
+    parsePtr->numTokens++;
+    /* 3. add a new word for the L code itself */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+    tokenPtr->start = end_of_first_line;
+    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
+    tokenPtr->numComponents = 1;
+    parsePtr->numTokens++;
+    parsePtr->numWords++;
+    /* 4. add the text component token for the L code itself */
+    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+	TclExpandTokenArray(parsePtr);
+    }
+    wordIndex = parsePtr->numTokens;
+    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+    tokenPtr->type = TCL_TOKEN_TEXT;
+    tokenPtr->start = end_of_first_line;
+    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
+    tokenPtr->numComponents = 0;
+    parsePtr->numTokens++;
+ 
+    return TCL_OK;
+}
 
 /*
  *----------------------------------------------------------------------
@@ -293,14 +431,28 @@ Tcl_ParseCommand(
      * Parse any leading space and comments before the first word of the
      * command.
      */
-
-    scanned = ParseComment(start, numBytes, parsePtr);
-    src = (start + scanned);
+    src = start;
+comments:
+    scanned = ParseComment(src, numBytes, parsePtr);
+    src += scanned;
     numBytes -= scanned;
     if (numBytes == 0) {
 	if (nested) {
 	    parsePtr->incomplete = nested;
 	}
+    }
+    
+    /*
+     * Check for pragmas
+     */
+
+    if (strncmp(src, "#pragma", 7) == 0) {
+        int rc = ParsePragma(interp, src, numBytes, parsePtr, &scanned);
+        if (rc != TCL_BREAK) return rc;
+        src += scanned;
+        numBytes -= scanned;
+        if (numBytes > 0)
+            goto comments;
     }
 
     /*
@@ -839,7 +991,7 @@ ParseComment(
 	p += scanned;
 	numBytes -= scanned;
 
-	if ((numBytes == 0) || (*p != '#')) {
+	if ((numBytes == 0) || (*p != '#') || (strncmp(p, "#pragma", 7) == 0)) {
 	    break;
 	}
 	if (parsePtr->commentStart == NULL) {
@@ -2322,7 +2474,6 @@ TclObjCommandComplete(
  *
  *----------------------------------------------------------------------
  */
-
 int
 TclIsLocalScalar(
     CONST char *src,

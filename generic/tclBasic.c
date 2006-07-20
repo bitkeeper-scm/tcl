@@ -162,7 +162,7 @@ static CmdInfo builtInCmds[] = {
     {"upvar",		Tcl_UpvarObjCmd,	NULL,			1},
     {"variable",	Tcl_VariableObjCmd,	NULL,			1},
     {"while",		Tcl_WhileObjCmd,	TclCompileWhileCmd,	1},
-
+    {"#pragma language L", L_PragmaObjCmd,	LCompilePragmaCmd,      1},
     /*
      * Commands in the UNIX core:
      */
