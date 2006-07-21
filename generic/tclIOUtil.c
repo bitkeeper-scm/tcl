@@ -1820,7 +1820,6 @@ Tcl_FSEvalFileEx(
     iPtr->scriptFile = pathPtr;
     Tcl_IncrRefCount(iPtr->scriptFile);
 #ifdef	BK
-    string = Tcl_GetStringFromObj(objPtr, &length);
     /*
      * Here we create a stack for the security stuff.  We were called
      * from bk then !rand_checkSeed() will be true and only when that
@@ -1845,13 +1844,17 @@ Tcl_FSEvalFileEx(
     } else {
 	    oldbk = enable_secure_bk_calls;
     }
+    string = Tcl_GetStringFromObj(objPtr, &length);
+
     if ((strncmp(string, "#%-\n", 4) == 0) && oldbk) {
 	FILE *f;
 	unsigned len;
 	unsigned long outlen;
 	char buf[8196], out[8196];
 	blf_ctx C;
+	char	*s = malloc(length);
 
+	assert(s);
 	f = fopen(Tcl_GetString(pathPtr), "rb");
 	length = 0;
 	while (fgets(buf, sizeof(buf), f)) {
@@ -1860,22 +1863,22 @@ Tcl_FSEvalFileEx(
 		if (base64_decode((unsigned char *)buf,
 		    len, (unsigned char *)out, &outlen)) {
 			fclose(f);
-        		Tcl_ResetResult(interp);
+			Tcl_ResetResult(interp);
 			Tcl_AppendResult(interp,
 			    "couldn't decode file \"", Tcl_GetString(pathPtr),
 			      "\": ", Tcl_PosixError(interp), (char *) NULL);
 			goto end;
 		}
-	    	memcpy(&string[length], out, outlen);
-	    	length += outlen;
+		memcpy((s + length), out, outlen);
+		length += outlen;
 	}
 	fclose(f);
 	blf_key(&C, bkey, 10);
-	blf_dec(&C, (u32 *)(string), length/8);
+	blf_dec(&C, (u32 *)(s), length/8);
 
 	/* put the decrypted script back into the Tcl_Obj */
-	Tcl_SetStringObj(objPtr, strlen(string), string);
-
+	Tcl_SetStringObj(objPtr, s, length);
+	free(s);
 	enable_secure_bk_calls = 1;
     } else {
 	enable_secure_bk_calls = 0;
