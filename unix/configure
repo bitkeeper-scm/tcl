@@ -1431,7 +1431,7 @@ fi;
 		echo "$as_me:$LINENO: checking for BK source tree" >&5
 echo $ECHO_N "checking for BK source tree... $ECHO_C" >&6
 		if test x"${with_bksource}" != x ; then
-			if test -f "${with_bksource}/tclkey.h" ; then
+			if test -f "${with_bksource}/src/tclkey.h" ; then
 				ac_cv_c_bksource=`(cd ${with_bksource}/src ; pwd)`
 			else
 				{ { echo "$as_me:$LINENO: error: ${with_bksource}/src directory does not contain tclkey.h" >&5

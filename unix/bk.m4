@@ -23,7 +23,7 @@ AC_DEFUN(SC_PATH_BK, [
 		AC_ARG_WITH(bk, [  --with-bk              directory containing BK source], with_bksource=${withval})
 		AC_MSG_CHECKING([for BK source tree])
 		if test x"${with_bksource}" != x ; then
-			if test -f "${with_bksource}/tclkey.h" ; then
+			if test -f "${with_bksource}/src/tclkey.h" ; then
 				ac_cv_c_bksource=`(cd ${with_bksource}/src ; pwd)`
 			else
 				AC_MSG_ERROR([${with_bksource}/src directory does not contain tclkey.h])
