@@ -29,10 +29,11 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_FUNCALL,
 	L_EXPRESSION_ARRAY_INDEX,
 	L_EXPRESSION_STRUCT_INDEX,
-	L_EXPRESSION_HASH_INDEX
+	L_EXPRESSION_HASH_INDEX,
+	L_EXPRESSION_INTERPOLATED_STRING
 } L_expression_kind;
 
-extern char *L_expression_tostr[13];
+extern char *L_expression_tostr[14];
 typedef enum L_statement_kind {
 	L_STATEMENT_EXPR,
 	L_STATEMENT_IF_UNLESS,

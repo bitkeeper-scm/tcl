@@ -323,6 +323,22 @@ syntax_1_1() {
 syntax_1_1
 } -output "didn't crash\n"
 
+test syntax-1.2 {interpolated strings} -body {
+#pragma language L
+
+syntax_1_2() {
+        int i = 1, j = 2;
+        string m = "ASDF";
+
+        puts("syntax_${ i + j - 2 }_${j}.");
+        puts("foo ${"bar ${m} baz"} zot");
+}
+
+#pragma end
+syntax_1_2
+} -output "syntax_1_2.\nfoo bar ASDF baz zot\n"
+
+
 test op-1.0 {increment and decrement operators} -body {
 #pragma language L
 op_1_0() {

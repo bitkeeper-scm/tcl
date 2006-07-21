@@ -47,7 +47,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 
 %right T_EQUALS "="
 
-%token T_ARROW "=>"
+%token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL
 %token T_WHILE T_FOR T_DO T_STRUCT
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
@@ -291,9 +291,7 @@ expr:
 	| expr T_BITOR expr     { MK_BINOP_NODE($$, T_BITOR, $1, $3); }
 	| expr T_BITAND expr    { MK_BINOP_NODE($$, T_BITAND, $1, $3); }
 	| expr T_BITXOR expr    { MK_BINOP_NODE($$, T_BITXOR, $1, $3); }
-/* 	| expr "=~" T_RE	{ } */
-/* 	| expr "!~" T_RE	{ } */
-        | T_STR_LITERAL
+        | string_literal        { REVERSE(L_expression, c, $1); $$ = $1; }
         | T_INT_LITERAL
         | T_DOUBLE_LITERAL
 	| lvalue
@@ -515,6 +513,23 @@ initializer_list_element:
 constant_expression:
           expr
         ;
+
+string_literal:
+          string_literal_component
+        | string_literal string_literal_component
+        {
+                ((L_expression *)$2)->c = $1;
+                $$ = $2;
+        }
+
+string_literal_component:
+          T_STR_LITERAL
+        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
+        {
+                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
+                                   NULL, NULL, NULL);
+        }
+
 %%
 
 
