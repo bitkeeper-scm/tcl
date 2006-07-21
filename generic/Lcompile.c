@@ -132,8 +132,10 @@ LParseScript(
     int numBytes,
     L_ast_node **L_ast
 ) {
-    void    *lex_buffer = (void *)L__scan_bytes(str, numBytes);
+    void    *lex_buffer;
 
+    L_start_lexer();
+    lex_buffer = (void *)L__scan_bytes(str, numBytes);
     L_trace("Parsing: %.*s", numBytes, str);
     L_line_number = 0;
     L_errors = NULL;
@@ -552,6 +554,7 @@ L_compile_expressions(L_expression *expr)
         L_compile_unop(expr);
         break;
     case L_EXPRESSION_BINARY:
+        L_trace("Binary expression");
         L_compile_binop(expr);
         break;
     case L_EXPRESSION_INT:
@@ -563,6 +566,9 @@ L_compile_expressions(L_expression *expr)
         obj = Tcl_NewStringObj(expr->u.s, strlen(expr->u.s));
         TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
                     lframe->envPtr);
+        break;
+    case L_EXPRESSION_INTERPOLATED_STRING:
+        L_compile_interpolated_string(expr);
         break;
     case L_EXPRESSION_DOUBLE:
         obj = Tcl_NewDoubleObj(expr->u.d);
@@ -673,6 +679,33 @@ void L_compile_binop(L_expression *expr)
             L_bomb("Undefined operator %d", expr->op);
         }
         TclEmitOpcode(instruction, lframe->envPtr);
+    }
+}
+
+void
+L_compile_interpolated_string(L_expression *expr)
+{
+    int tempVar;
+
+    /* XXX is there really no better way to concatenate 3 strings
+       using TCL bytecode? */
+    L_compile_expressions(expr->a);
+    tempVar = TclFindCompiledLocal(NULL, 0, 1, VAR_SCALAR, lframe->envPtr->procPtr);
+    L_STORE_SCALAR(tempVar);
+    L_compile_expressions(expr->b);
+    TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    if (expr->c) {
+        L_compile_expressions(expr->c);
+        TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_LOAD_SCALAR(tempVar);
+    } else {
+        /* Currently, an interpolated string node will always be
+           followed by another one, or by a regular string node, so
+           there's no way to test this branch.  */
+        L_bomb("Malformed AST");
     }
 }
 
@@ -1065,7 +1098,7 @@ emit_call_to_main(CompileEnv *envPtr, int with_args_p)
                     envPtr);
         TclEmitOpcode(INST_ADD, envPtr);
         /* Now push argv0 and argv and concatenate them:  */
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "concat", strlen("lappend")),
+        TclEmitPush(TclRegisterNewLiteral(envPtr, "concat", strlen("concat")),
                     envPtr);
         TclEmitPush(TclRegisterNewLiteral(envPtr, "argv0", strlen("argv0")),
                     envPtr);
