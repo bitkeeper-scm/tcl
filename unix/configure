@@ -1469,7 +1469,7 @@ echo "$as_me: WARNING: Can't find BK source tree encryption disabled" >&2;}
 			BK_SRCS=""
 			BK_OBJS=""
 			BK_LIBS=""
-			BK_INCLUDES="-I$BK_DIR"
+			BK_INCLUDES="-I$BK_DIR -I${BK_DIR}/tomcrypt -I${BK_DIR}/tomcrypt/src/headers"
 			cat >>confdefs.h <<\_ACEOF
 #define BK 1
 _ACEOF

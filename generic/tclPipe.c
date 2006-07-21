@@ -14,8 +14,8 @@
 
 #include "tclInt.h"
 #ifdef	BK
-#include "tomcrypt/mycrypt.h"
-#include "tomcrypt/randseed.h"
+#include "tomcrypt.h"
+#include "randseed.h"
 
 extern int	enable_secure_bk_calls;
 #endif

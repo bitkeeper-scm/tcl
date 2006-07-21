@@ -58,7 +58,7 @@ AC_DEFUN(SC_PATH_BK, [
 			BK_SRCS=""
 			BK_OBJS=""
 			BK_LIBS=""
-			BK_INCLUDES="-I$BK_DIR"
+			BK_INCLUDES="-I$BK_DIR -I${BK_DIR}/tomcrypt -I${BK_DIR}/tomcrypt/src/headers"
 			AC_DEFINE(BK)
 			AC_SUBST(BK_DIR)
 			AC_SUBST(BK_HDRS)

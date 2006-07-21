@@ -359,7 +359,7 @@ TOMMATH_OBJS = \
 
 BK_HDRS ?= \
 	$(BK_DIR)/tclkey.h \
-	$(BK_DIR)/tomcrypt/mycrypt.h \
+	$(BK_DIR)/tomcrypt/src/headers/tomcrypt.h \
 	$(BK_DIR)/tomcrypt/randseed.h
 
 BK_OBJS ?= \

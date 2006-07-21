@@ -28,8 +28,8 @@
 #ifdef	BK
 #include "blowfish.h"
 #include "tclkey.h"
-#include "tomcrypt/mycrypt.h"
-#include "tomcrypt/randseed.h"
+#include "tomcrypt.h"
+#include "randseed.h"
 
 extern	char *keydecode(char *key);
 int	enable_secure_bk_calls = -1;
