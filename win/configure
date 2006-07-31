@@ -1312,7 +1312,7 @@ fi;
 		echo "$as_me:$LINENO: checking for BK source tree" >&5
 echo $ECHO_N "checking for BK source tree... $ECHO_C" >&6
 		if test x"${with_bksource}" != x ; then
-			if test -f "${with_bksource}/tclkey.h" ; then
+			if test -f "${with_bksource}/src/tclkey.h" ; then
 				ac_cv_c_bksource=`(cd ${with_bksource}/src ; pwd)`
 			else
 				{ { echo "$as_me:$LINENO: error: ${with_bksource}/src directory does not contain tclkey.h" >&5
@@ -1350,7 +1350,7 @@ echo "$as_me: WARNING: Can't find BK source tree encryption disabled" >&2;}
 			BK_SRCS=""
 			BK_OBJS=""
 			BK_LIBS=""
-			BK_INCLUDES="-I$BK_DIR"
+			BK_INCLUDES="-I$BK_DIR -I${BK_DIR}/tomcrypt -I${BK_DIR}/tomcrypt/src/headers"
 			cat >>confdefs.h <<\_ACEOF
 #define BK 1
 _ACEOF
@@ -4089,10 +4089,9 @@ for ac_i in : $LIBOBJS; do test "x$ac_i" = x: && continue
   # 1. Remove the extension, and $U if already installed.
   ac_i=`echo "$ac_i" |
 	 sed 's/\$U\././;s/\.o$//;s/\.obj$//'`
-  # 2. Prepend LIBOBJDIR.  When used with automake>=1.10 LIBOBJDIR
-  #    will be set to the directory where LIBOBJS objects are built.
-  ac_libobjs="$ac_libobjs \${LIBOBJDIR}$ac_i\$U.$ac_objext"
-  ac_ltlibobjs="$ac_ltlibobjs \${LIBOBJDIR}$ac_i"'$U.lo'
+  # 2. Add them.
+  ac_libobjs="$ac_libobjs $ac_i\$U.$ac_objext"
+  ac_ltlibobjs="$ac_ltlibobjs $ac_i"'$U.lo'
 done
 LIBOBJS=$ac_libobjs
 
