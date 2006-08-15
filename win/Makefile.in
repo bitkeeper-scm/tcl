@@ -110,7 +110,9 @@ BK_INCLUDES		= @BK_INCLUDES@
 @BK_LIBS@
 @BK_OBJS@
 @BK_HDRS@
-BK_LIBS			?= $(BK_DIR)/tomcrypt/libtomcrypt.a
+ifndef BK_LIBS
+BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
+endif
 
 # Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
@@ -357,14 +359,18 @@ TOMMATH_OBJS = \
 	bn_s_mp_sub.${OBJEXT}
 
 
-BK_HDRS ?= \
+ifndef BK_HDRS
+BK_HDRS = \
 	$(BK_DIR)/tclkey.h \
 	$(BK_DIR)/tomcrypt/src/headers/tomcrypt.h \
 	$(BK_DIR)/tomcrypt/randseed.h
+endif
 
-BK_OBJS ?= \
+ifndef BK_OBJS
+BK_OBJS = \
 	blowfish.$(OBJEXT) \
 	keydecode.$(OBJEXT)
+endif
 
 L_HDRS	= \
 	$(GENERIC_DIR)/Lcompile.h \

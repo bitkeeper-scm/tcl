@@ -252,7 +252,9 @@ BK_INCLUDES		= @BK_INCLUDES@
 @BK_OBJS@
 @BK_HDRS@
 @BK_SRCS@
-BK_LIBS			?= $(BK_DIR)/tomcrypt/libtomcrypt.a
+ifndef BK_LIBS
+BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
+endif
 # Must be absolute because of the cd dltest $(DLTEST_DIR)/configure below.
 DLTEST_DIR		= @TCL_SRC_DIR@/unix/dltest
 # Must be absolute to so the corresponding tcltest's tcl_library is absolute.
@@ -347,7 +349,9 @@ STUB_LIB_OBJS = tclStubLib.o ${COMPAT_OBJS}
 
 MAC_OSX_OBJS = tclMacOSXBundle.o tclMacOSXFCmd.o tclMacOSXNotify.o
 
-BK_OBJS	?= blowfish.o keydecode.o
+ifndef BK_OBJS
+BK_OBJS	= blowfish.o keydecode.o
+endif
 
 OBJS = ${GENERIC_OBJS} ${TOMMATH_OBJS} ${L_OBJS} ${UNIX_OBJS} ${NOTIFY_OBJS} \
 	${COMPAT_OBJS} ${BK_OBJS} @DL_OBJS@ @PLAT_OBJS@
@@ -444,14 +448,18 @@ GENERIC_SRCS = \
 	$(GENERIC_DIR)/tclUtil.c \
 	$(GENERIC_DIR)/tclVar.c
 
-BK_HDRS ?= \
+ifndef BK_HDRS
+BK_HDRS = \
 	$(BK_DIR)/tclkey.h \
 	$(BK_DIR)/tomcrypt/src/headers/tomcrypt.h \
 	$(BK_DIR)/tomcrypt/randseed.h
+endif
 
+ifndef BK_SRCS
 BK_SRCS	?= \
 	$(GENERIC_DIR)/blowfish.c \
 	$(GENERIC_DIR)/keydecode.c 
+endif
 
 L_HDRS = \
 	$(GENERIC_DIR)/Lcompile.h \

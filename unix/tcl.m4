@@ -1478,8 +1478,8 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS=""
-	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
-	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
 	    AC_CACHE_CHECK([for ELF], tcl_cv_ld_elf, [
 		AC_EGREP_CPP(yes, [
 #ifdef __ELF__
@@ -1731,6 +1731,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    DL_LIBS=""
 	    CC_SEARCH_FLAGS=""
 	    LD_SEARCH_FLAGS=""
+	    CFLAGS="$CFLAGS -D_SVID3"
 	    ;;
 	SINIX*5.4*)
 	    SHLIB_CFLAGS="-K PIC"
@@ -2226,6 +2227,7 @@ closedir(d);
 	AC_DEFINE(NO_STDLIB_H, 1, [Do we have <stdlib.h>?])
     fi
     AC_CHECK_HEADER(string.h, tcl_ok=1, tcl_ok=0)
+    AC_CHECK_HEADER(strings.h, [AC_DEFINE(HAVE_STRINGS_H)], )
     AC_EGREP_HEADER(strstr, string.h, , tcl_ok=0)
     AC_EGREP_HEADER(strerror, string.h, , tcl_ok=0)
 
