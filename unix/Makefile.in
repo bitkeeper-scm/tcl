@@ -252,7 +252,7 @@ BK_INCLUDES		= @BK_INCLUDES@
 @BK_OBJS@
 @BK_HDRS@
 @BK_SRCS@
-ifndef BK_LIBS
+ifdef BK_DIR
 BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
 endif
 # Must be absolute because of the cd dltest $(DLTEST_DIR)/configure below.
@@ -448,7 +448,7 @@ GENERIC_SRCS = \
 	$(GENERIC_DIR)/tclUtil.c \
 	$(GENERIC_DIR)/tclVar.c
 
-ifndef BK_HDRS
+ifdef BK_DIR
 BK_HDRS = \
 	$(BK_DIR)/tclkey.h \
 	$(BK_DIR)/tomcrypt/src/headers/tomcrypt.h \
