@@ -153,14 +153,14 @@ long		tclObjsShared[TCL_MAX_SHARED_OBJ_STATS] = { 0, 0, 0, 0, 0 };
 	switch (nCleanup) {\
 	    case 1: goto cleanup1_pushObjResultPtr;\
 	    case 2: goto cleanup2_pushObjResultPtr;\
-	    default: Tcl_Panic("ERROR: bad usage of macro NEXT_INST_F");\
+	    default: Tcl_Panic("bad usage of macro NEXT_INST_F");\
 	}\
     } else {\
 	pc += (pcAdjustment);\
 	switch (nCleanup) {\
 	    case 1: goto cleanup1;\
 	    case 2: goto cleanup2;\
-	    default: Tcl_Panic("ERROR: bad usage of macro NEXT_INST_F");\
+	    default: Tcl_Panic("bad usage of macro NEXT_INST_F");\
 	}\
     }
 
@@ -502,7 +502,7 @@ TclDeleteExecEnv(
     if (eePtr->stackPtr[-1] == (Tcl_Obj *) ((char *) 1)) {
 	ckfree((char *) (eePtr->stackPtr-1));
     } else {
-	Tcl_Panic("ERROR: freeing an execEnv whose stack is still in use.\n");
+	Tcl_Panic("freeing an execEnv whose stack is still in use");
     }
     TclDecrRefCount(eePtr->constants[0]);
     TclDecrRefCount(eePtr->constants[1]);
@@ -1040,7 +1040,7 @@ TclIncrObj(
     mp_int value, incr;
 
     if (Tcl_IsShared(valuePtr)) {
-	Tcl_Panic("shared object passed to TclIncrObj");
+	Tcl_Panic("%s called with shared object", "TclIncrObj");
     }
 
     if (GetNumberFromObj(NULL, valuePtr, &ptr1, &type1) != TCL_OK) {
@@ -1791,7 +1791,7 @@ TclExecuteByteCode(
 	     */
 
 	    DECACHE_STACK_INFO();
-	    Tcl_ResetResult(interp);
+	    /*Tcl_ResetResult(interp);*/
 	    result = TclEvalObjvInternal(interp, objc, objv, bytes, length, 0);
 	    CACHE_STACK_INFO();
 
@@ -1890,7 +1890,7 @@ TclExecuteByteCode(
 
 	objPtr = *tosPtr;
 	DECACHE_STACK_INFO();
-	Tcl_ResetResult(interp);
+	/*Tcl_ResetResult(interp);*/
 	result = Tcl_ExprObj(interp, objPtr, &valuePtr);
 	CACHE_STACK_INFO();
 	if (result != TCL_OK) {
@@ -4858,7 +4858,7 @@ TclExecuteByteCode(
 		w2 /= 2;
 		for (; w2>Tcl_LongAsWide(1) ; w1*=w1,w2/=2) {
 		    wasNegative = (wResult < 0);
-		    if (w1 < 0) {
+		    if (w1 <= 0) {
 			goto overflow;
 		    }
 		    if (w2 & 1) {
@@ -4869,6 +4869,9 @@ TclExecuteByteCode(
 		    }
 		}
 		wasNegative = (wResult < 0);
+		if (w1 <= 0) {
+		    goto overflow;
+		}
 		wResult *=  w1;
 		if (wasNegative != (wResult < 0)) {
 		    goto overflow;
@@ -5205,17 +5208,21 @@ TclExecuteByteCode(
     }
 
     case INST_BREAK:
+	/*
 	DECACHE_STACK_INFO();
 	Tcl_ResetResult(interp);
 	CACHE_STACK_INFO();
+	*/
 	result = TCL_BREAK;
 	cleanup = 0;
 	goto processExceptionReturn;
 
     case INST_CONTINUE:
+	/*
 	DECACHE_STACK_INFO();
 	Tcl_ResetResult(interp);
 	CACHE_STACK_INFO();
+	*/
 	result = TCL_CONTINUE;
 	cleanup = 0;
 	goto processExceptionReturn;
@@ -5411,6 +5418,7 @@ TclExecuteByteCode(
 
     case INST_END_CATCH:
 	catchTop--;
+	Tcl_ResetResult(interp);
 	result = TCL_OK;
 	TRACE(("=> catchTop=%d\n", (catchTop - initCatchTop - 1)));
 	NEXT_INST_F(1, 0, 0);
@@ -5474,7 +5482,7 @@ TclExecuteByteCode(
 	    goto checkForCatch;
 	}
 	if (objResultPtr == NULL) {
-	    Tcl_ResetResult(interp);
+	    /*Tcl_ResetResult(interp);*/
 	    Tcl_AppendResult(interp, "key \"", TclGetString(*tosPtr),
 		    "\" not known in dictionary", NULL);
 	    TRACE_WITH_OBJ(("%u => ERROR ", opnd), Tcl_GetObjResult(interp));
