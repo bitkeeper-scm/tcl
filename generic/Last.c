@@ -49,9 +49,10 @@ char *L_loop_tostr[4] = {
 	"L_LOOP_DO"
 };
 
-char *L_toplevel_statement_tostr[2] = {
+char *L_toplevel_statement_tostr[3] = {
 	"L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION",
-	"L_TOPLEVEL_STATEMENT_TYPE"
+	"L_TOPLEVEL_STATEMENT_TYPE",
+	"L_TOPLEVEL_STATEMENT_GLOBAL"
 };
 
 char *L_node_type_tostr[9] = {

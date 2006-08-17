@@ -40,7 +40,8 @@ static L_expression *L_write_array_index_chunk(int varIndex, L_expression *i,
 static L_expression *L_read_array_index_chunk(L_expression *i,
                                               L_type *base_type);
 static L_expression *L_read_hash_index_chunk(L_expression *i);
-
+static Tcl_Obj *literal_to_TclObj(L_expression *expr);
+static Tcl_Obj *blank_initial_value(L_type *type);
 
 
 
@@ -204,6 +205,9 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
     case L_TOPLEVEL_STATEMENT_TYPE:
         L_compile_struct_decl(stmt->u.type);
         break;
+    case L_TOPLEVEL_STATEMENT_GLOBAL:
+        L_compile_global_decls(stmt->u.global);
+        break;
     default:
         L_bomb("Unexpected toplevel statement type %d", stmt->kind);
     }
@@ -292,6 +296,35 @@ L_compile_struct_decl(L_type *decl)
     L_trace("Declared struct type %s", decl->struct_tag->u.s);
 }
 
+void
+L_compile_global_decls(L_variable_declaration *decl)
+{
+    L_symbol *symbol;
+    Tcl_Obj *initial_value;
+
+    if (!decl) return;
+    L_trace("Global variable named %s\n", decl->name->u.s);
+    if (decl->initial_value) {
+        initial_value = literal_to_TclObj(decl->initial_value);
+    } else {
+        initial_value = blank_initial_value(decl->type);
+    }
+    symbol = L_make_symbol(decl->name, decl->type, -1);
+    symbol->global_p = TRUE;
+    if (lframe->envPtr) {
+        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, decl->name->u.s,
+                                          strlen(decl->name->u.s)),
+                    lframe->envPtr);
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL),
+                    lframe->envPtr);
+        TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
+    } else {
+        Tcl_SetVar2Ex(lframe->interp, decl->name->u.s, NULL,
+                      initial_value, TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
+    }
+    L_compile_global_decls(decl->next);
+}
+
 /* Initialize the struct types table and lookup a type in it.  Returns the
    type, or NULL if none was found.  */
 L_type *
@@ -330,27 +363,66 @@ L_compile_variable_decls(L_variable_declaration *var)
     }
     symbol = L_make_symbol(var->name, var->type, localIndex);
     if (array_p(var->type) || (var->type->kind == L_TYPE_STRUCT)) {
-        Tcl_Obj *initial_value =
-            create_array_or_struct(var->type->next_dim, var->type);
         /* We don't support literal initializers for structs and arrays yet.
            Just always initialize to a blank TCL list. */
-        if (initial_value) {
-            TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL),
-                        lframe->envPtr);
-            L_STORE_SCALAR(localIndex);
-            TclEmitOpcode(INST_POP, lframe->envPtr);
-        }
-    } else if (var->type->kind == L_TYPE_HASH) {
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
-                    lframe->envPtr);
+        var->initial_value = NULL;
+    }
+/*         Tcl_Obj *initial_value = */
+/*             create_array_or_struct(var->type->next_dim, var->type); */
+/*         if (initial_value) { */
+/*             TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL), */
+/*                         lframe->envPtr); */
+/*             L_STORE_SCALAR(localIndex); */
+/*             TclEmitOpcode(INST_POP, lframe->envPtr); */
+/*         } */
+/*     } else if (var->type->kind == L_TYPE_HASH) { */
+/*         TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL), */
+/*                     lframe->envPtr); */
+/*         L_STORE_SCALAR(localIndex); */
+/*         TclEmitOpcode(INST_POP, lframe->envPtr); */
+/*     } else */
+    if (var->initial_value) {
+        L_compile_expressions(var->initial_value);
         L_STORE_SCALAR(localIndex);
         TclEmitOpcode(INST_POP, lframe->envPtr);
-    } else if (var->initial_value) {
-        L_compile_expressions(var->initial_value);
+    } else {
+        Tcl_Obj *initial_value = blank_initial_value(var->type);
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL),
+                    lframe->envPtr);
         L_STORE_SCALAR(localIndex);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
     L_compile_variable_decls(var->next);
+}
+
+/* Create a blank initial value appropriate for type. */
+Tcl_Obj *
+blank_initial_value(L_type *type) {
+    Tcl_Obj *initial_value = NULL;
+
+    if (array_p(type) || (type->kind == L_TYPE_STRUCT)) {
+        initial_value = create_array_or_struct(type->next_dim, type);
+        if (!initial_value) {
+            initial_value = Tcl_NewObj();
+        }
+/*         /\* We don't support literal initializers for structs and arrays yet. */
+/*            Just always initialize to a blank TCL list. *\/ */
+/*         if (initial_value) { */
+/*             TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL), */
+/*                         lframe->envPtr); */
+/*             L_STORE_SCALAR(localIndex); */
+/*             TclEmitOpcode(INST_POP, lframe->envPtr); */
+/*         } */
+    } else if (type->kind == L_TYPE_HASH) {
+        initial_value = Tcl_NewObj();
+/*         TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL), */
+/*                     lframe->envPtr); */
+/*         L_STORE_SCALAR(localIndex); */
+/*         TclEmitOpcode(INST_POP, lframe->envPtr); */
+    } else {
+        initial_value = Tcl_NewObj();
+    }
+    return initial_value;
 }
 
 /* Variables of array or struct types will be initialized to TCL lists of the
@@ -441,8 +513,7 @@ array_p(L_type *t)
 int
 global_symbol_p(L_symbol *symbol)
 {
-    /* XXX implement me once we have globals.  --timjr 2006.5.7 */
-    return FALSE;
+    return symbol->global_p;
 }
 
 void
@@ -529,7 +600,6 @@ L_compile_parameters(L_variable_declaration *param)
 void 
 L_compile_expressions(L_expression *expr)
 {
-    Tcl_Obj *obj;
     int i = 0;
     L_expression *tmp;
 
@@ -558,22 +628,16 @@ L_compile_expressions(L_expression *expr)
         L_compile_binop(expr);
         break;
     case L_EXPRESSION_INT:
-        obj = Tcl_NewIntObj(expr->u.i);
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
-                    lframe->envPtr);
-        break;
     case L_EXPRESSION_STRING:
-        obj = Tcl_NewStringObj(expr->u.s, strlen(expr->u.s));
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
+    case L_EXPRESSION_DOUBLE:
+/*         obj = Tcl_NewDoubleObj(expr->u.d); */
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr,
+                                     literal_to_TclObj(expr),
+                                     NULL),
                     lframe->envPtr);
         break;
     case L_EXPRESSION_INTERPOLATED_STRING:
         L_compile_interpolated_string(expr);
-        break;
-    case L_EXPRESSION_DOUBLE:
-        obj = Tcl_NewDoubleObj(expr->u.d);
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),
-                    lframe->envPtr);
         break;
     case L_EXPRESSION_VARIABLE:
         L_push_variable(expr);
@@ -582,6 +646,29 @@ L_compile_expressions(L_expression *expr)
         L_bomb("Unknown expression type %d", expr->kind);
     }
     L_compile_expressions(expr->next);
+}
+
+/* Create a Tcl Obj containing the value of a constant literal L AST
+   node. */
+Tcl_Obj *literal_to_TclObj(L_expression *expr)
+{
+    Tcl_Obj *obj;
+
+    switch (expr->kind) {
+    case L_EXPRESSION_INT:
+        obj = Tcl_NewIntObj(expr->u.i);
+        break;
+    case L_EXPRESSION_STRING:
+        obj = Tcl_NewStringObj(expr->u.s, strlen(expr->u.s));
+        break;
+    case L_EXPRESSION_DOUBLE:
+        obj = Tcl_NewDoubleObj(expr->u.d);
+        break;
+    default:
+        L_bomb("literal_to_TclObj can't handle expressions of type %d\n",
+               expr->kind);
+    }
+    return obj;
 }
 
 void L_compile_unop(L_expression *expr)
@@ -848,12 +935,20 @@ L_push_variable(L_expression *expr)
     L_expression *name = expr->a;
 
     if (!(var = L_get_symbol(name, TRUE))) return;
-    L_LOAD_SCALAR(var->localIndex);
-    if (expr->indices) {
-        if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) {
-            L_read_hash_index_chunk(expr->indices);
-        } else {
-            L_read_array_index_chunk(expr->indices, var->type);
+    if (global_symbol_p(var)) {
+        Tcl_Obj *fullName = Tcl_NewStringObj("::", 2);
+        Tcl_AppendToObj(fullName, name->u.s, -1);
+        TclEmitPush(TclAddLiteralObj(lframe->envPtr, fullName, NULL),
+                    lframe->envPtr);
+        TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr)
+    } else {
+        L_LOAD_SCALAR(var->localIndex);
+        if (expr->indices) {
+            if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) {
+                L_read_hash_index_chunk(expr->indices);
+            } else {
+                L_read_array_index_chunk(expr->indices, var->type);
+            }
         }
     }
 }
@@ -883,17 +978,37 @@ L_compile_assignment(L_expression *expr)
     L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
-    if (lval->indices) {
-        if (lval->indices->kind == L_EXPRESSION_HASH_INDEX) {
-            L_write_hash_index_chunk(var->localIndex, lval->indices, rval);
+    if (global_symbol_p(var)) {
+        L_trace("it's a global");
+        if (lframe->envPtr) {
+            Tcl_Obj *fullName = Tcl_NewStringObj("::", 2);
+            Tcl_AppendToObj(fullName, var->name, -1);
+/*             TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, var->name, */
+/*                                               strlen(var->name)), */
+/*                         lframe->envPtr); */
+            TclEmitPush(TclAddLiteralObj(lframe->envPtr, fullName, NULL),
+                        lframe->envPtr);
+            L_compile_expressions(rval);
+            TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
         } else {
-            L_write_array_index_chunk(var->localIndex, lval->indices,
-                                      var->type, rval);
+/*             Tcl_SetVar2Ex(lframe->interp, var->name, NULL, */
+/*                           initial_value, TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG); */
+            L_bomb("what?!");
         }
     } else {
-        /* no array indices */
-        L_compile_expressions(rval);
-        L_STORE_SCALAR(var->localIndex);
+        L_trace("it's NOT a global");
+        if (lval->indices) {
+            if (lval->indices->kind == L_EXPRESSION_HASH_INDEX) {
+                L_write_hash_index_chunk(var->localIndex, lval->indices, rval);
+            } else {
+                L_write_array_index_chunk(var->localIndex, lval->indices,
+                                          var->type, rval);
+            }
+        } else {
+            /* no array indices */
+            L_compile_expressions(rval);
+            L_STORE_SCALAR(var->localIndex);
+        }
     }
 }
 
@@ -1129,6 +1244,7 @@ L_make_symbol(
     symbol->name = name->u.s;
     symbol->type = type;
     symbol->localIndex = localIndex;
+    symbol->global_p = FALSE;
     Tcl_SetHashValue(hPtr, symbol);
     return symbol;
     return (L_symbol*)0;

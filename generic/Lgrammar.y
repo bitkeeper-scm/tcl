@@ -85,15 +85,31 @@ toplevel_code:
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPE, $1);
                 ((L_toplevel_statement *)$$)->u.type = $2;
         }
+        | toplevel_code declaration
+        {
+                // Global variables
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_GLOBAL, $1);
+                ((L_toplevel_statement *)$$)->u.global = $2;
+        }
 	| /* epsilon */         { $$ = NULL; }
 	;
 
 function_declaration:
-          return_type_specifier T_ID "(" parameter_list ")" compound_statement 
-        {  
+          type_specifier T_ID "(" parameter_list ")" compound_statement
+        {
                 $$ = mk_function_declaration($2, $4, $1, ((L_statement *)$6)->u.block);
         }
+        | optional_void T_ID "(" parameter_list ")" compound_statement
+        {
+                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL);
+                $$ = mk_function_declaration($2, $4, v, ((L_statement *)$6)->u.block);
+        }
 	;
+
+optional_void:
+          T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
+        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
+        ;
 
 
 stmt:
@@ -426,12 +442,6 @@ declarator:
                             ((L_variable_declaration *)$1)->type, NULL);
                 $$ = $1;
         }
-        ;
-
-return_type_specifier:
-          type_specifier
-        | T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
-        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
         ;
 
 type_specifier:
