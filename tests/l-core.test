@@ -101,6 +101,7 @@ struct var_1_3_point lglobal1_3[5];
 var_1_3(void)
 {
         int i = 0;
+        puts(lglobal1_3);
         while (i < 5) {
                 lglobal1_3[i].x = i * 10;
                 lglobal1_3[i].y = i * 20;
@@ -118,7 +119,10 @@ var_1_3_aux(int i)
 }
 #pragma end
 var_1_3
-} -output "3\n4\n5\n"
+} -output "{{} {}} {{} {}} {{} {}} {{} {}} {{} {}}
+{0 0} {10 20} {20 40} {30 60} {40 80}
+{0 0} {10 20} {20 40} {105 135} {40 80}
+"
 
 
 test pragma-1.0 {Test pragma parsing} -body {
