@@ -42,7 +42,7 @@ static L_expression *L_read_array_index_chunk(L_expression *i,
 static L_expression *L_read_hash_index_chunk(L_expression *i);
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *blank_initial_value(L_type *type);
-
+static L_symbol *import_global_symbol(L_symbol *var);
 
 
 /* we keep track of each AST node we allocate and free them all at once */
@@ -367,20 +367,6 @@ L_compile_variable_decls(L_variable_declaration *var)
            Just always initialize to a blank TCL list. */
         var->initial_value = NULL;
     }
-/*         Tcl_Obj *initial_value = */
-/*             create_array_or_struct(var->type->next_dim, var->type); */
-/*         if (initial_value) { */
-/*             TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL), */
-/*                         lframe->envPtr); */
-/*             L_STORE_SCALAR(localIndex); */
-/*             TclEmitOpcode(INST_POP, lframe->envPtr); */
-/*         } */
-/*     } else if (var->type->kind == L_TYPE_HASH) { */
-/*         TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL), */
-/*                     lframe->envPtr); */
-/*         L_STORE_SCALAR(localIndex); */
-/*         TclEmitOpcode(INST_POP, lframe->envPtr); */
-/*     } else */
     if (var->initial_value) {
         L_compile_expressions(var->initial_value);
         L_STORE_SCALAR(localIndex);
@@ -405,20 +391,8 @@ blank_initial_value(L_type *type) {
         if (!initial_value) {
             initial_value = Tcl_NewObj();
         }
-/*         /\* We don't support literal initializers for structs and arrays yet. */
-/*            Just always initialize to a blank TCL list. *\/ */
-/*         if (initial_value) { */
-/*             TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL), */
-/*                         lframe->envPtr); */
-/*             L_STORE_SCALAR(localIndex); */
-/*             TclEmitOpcode(INST_POP, lframe->envPtr); */
-/*         } */
     } else if (type->kind == L_TYPE_HASH) {
         initial_value = Tcl_NewObj();
-/*         TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL), */
-/*                     lframe->envPtr); */
-/*         L_STORE_SCALAR(localIndex); */
-/*         TclEmitOpcode(INST_POP, lframe->envPtr); */
     } else {
         initial_value = Tcl_NewObj();
     }
@@ -652,7 +626,7 @@ L_compile_expressions(L_expression *expr)
    node. */
 Tcl_Obj *literal_to_TclObj(L_expression *expr)
 {
-    Tcl_Obj *obj;
+    Tcl_Obj *obj = NULL;
 
     switch (expr->kind) {
     case L_EXPRESSION_INT:
@@ -936,21 +910,45 @@ L_push_variable(L_expression *expr)
 
     if (!(var = L_get_symbol(name, TRUE))) return;
     if (global_symbol_p(var)) {
-        Tcl_Obj *fullName = Tcl_NewStringObj("::", 2);
-        Tcl_AppendToObj(fullName, name->u.s, -1);
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr, fullName, NULL),
-                    lframe->envPtr);
-        TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr)
-    } else {
-        L_LOAD_SCALAR(var->localIndex);
-        if (expr->indices) {
-            if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) {
-                L_read_hash_index_chunk(expr->indices);
-            } else {
-                L_read_array_index_chunk(expr->indices, var->type);
-            }
+        var = import_global_symbol(var);
+    }
+    L_LOAD_SCALAR(var->localIndex);
+    if (expr->indices) {
+        if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) {
+            L_read_hash_index_chunk(expr->indices);
+        } else {
+            L_read_array_index_chunk(expr->indices, var->type);
         }
     }
+}
+
+/* Import a global variable into a procedure's table of locals and
+   create an L symbol that shadows the global one. Return the new L
+   symbol. */
+L_symbol *
+import_global_symbol(L_symbol *var)
+{
+    L_symbol *local;
+    int localIndex;
+    L_expression *name;  // eugh
+
+    L_trace("importing global variable %s", var->name);
+    /* create a new local variable that shadows the global in our
+       symbol table */
+    localIndex = TclFindCompiledLocal(var->name, strlen(var->name),
+                                      1, 0, lframe->envPtr->procPtr);
+    MK_STRING_NODE(name, var->name);
+    local = L_make_symbol(name, var->type, localIndex);
+    /* link the global variable with our new local using tcl's
+       ``global'' command. */
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "global",
+                                      strlen("global")),
+                lframe->envPtr);
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, var->name, -1),
+                lframe->envPtr);
+    TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    return local;
 }
 
 void 
@@ -980,35 +978,19 @@ L_compile_assignment(L_expression *expr)
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
     if (global_symbol_p(var)) {
         L_trace("it's a global");
-        if (lframe->envPtr) {
-            Tcl_Obj *fullName = Tcl_NewStringObj("::", 2);
-            Tcl_AppendToObj(fullName, var->name, -1);
-/*             TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, var->name, */
-/*                                               strlen(var->name)), */
-/*                         lframe->envPtr); */
-            TclEmitPush(TclAddLiteralObj(lframe->envPtr, fullName, NULL),
-                        lframe->envPtr);
-            L_compile_expressions(rval);
-            TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
+        var = import_global_symbol(var);
+    }
+    if (lval->indices) {
+        if (lval->indices->kind == L_EXPRESSION_HASH_INDEX) {
+            L_write_hash_index_chunk(var->localIndex, lval->indices, rval);
         } else {
-/*             Tcl_SetVar2Ex(lframe->interp, var->name, NULL, */
-/*                           initial_value, TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG); */
-            L_bomb("what?!");
+            L_write_array_index_chunk(var->localIndex, lval->indices,
+                                      var->type, rval);
         }
     } else {
-        L_trace("it's NOT a global");
-        if (lval->indices) {
-            if (lval->indices->kind == L_EXPRESSION_HASH_INDEX) {
-                L_write_hash_index_chunk(var->localIndex, lval->indices, rval);
-            } else {
-                L_write_array_index_chunk(var->localIndex, lval->indices,
-                                          var->type, rval);
-            }
-        } else {
-            /* no array indices */
-            L_compile_expressions(rval);
-            L_STORE_SCALAR(var->localIndex);
-        }
+        /* no array indices */
+        L_compile_expressions(rval);
+        L_STORE_SCALAR(var->localIndex);
     }
 }
 
