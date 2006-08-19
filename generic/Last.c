@@ -31,7 +31,7 @@ char *L_statement_tostr[5] = {
 	"L_STATEMENT_BLOCK"
 };
 
-char *L_type_tostr[8] = {
+char *L_type_tostr[10] = {
 	"L_TYPE_INT",
 	"L_TYPE_STRING",
 	"L_TYPE_DOUBLE",
@@ -39,7 +39,9 @@ char *L_type_tostr[8] = {
 	"L_TYPE_POLY",
 	"L_TYPE_VAR",
 	"L_TYPE_VOID",
-	"L_TYPE_STRUCT"
+	"L_TYPE_STRUCT",
+	"L_TYPE_POINTER",
+	"L_TYPE_ARRAY"
 };
 
 char *L_loop_tostr[4] = {

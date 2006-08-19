@@ -51,10 +51,12 @@ typedef enum L_type_kind {
 	L_TYPE_POLY,
 	L_TYPE_VAR,
 	L_TYPE_VOID,
-	L_TYPE_STRUCT
+	L_TYPE_STRUCT,
+	L_TYPE_POINTER,
+	L_TYPE_ARRAY
 } L_type_kind;
 
-extern char *L_type_tostr[8];
+extern char *L_type_tostr[10];
 typedef enum L_loop_kind {
 	L_LOOP_FOR,
 	L_LOOP_FOREACH,

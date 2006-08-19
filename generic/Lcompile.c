@@ -408,7 +408,9 @@ create_array_or_struct(L_type *array_type, L_type *base_type)
     Tcl_Obj *val = NULL;
     int i;
 
-    if (array_type) {
+    if (array_type && (array_type->kind == L_TYPE_POINTER)) {
+        return create_array_or_struct(array_type->next_dim, base_type);
+    } else if (array_type) {
         if (!(array_type->array_dim->kind == L_EXPRESSION_INT)) {
             L_errorf(array_type, "Invalid array dimension for a declaration, %s",
                      L_expression_tostr[array_type->array_dim->kind]);
@@ -477,7 +479,11 @@ int
 array_p(L_type *t)
 {
     if (t->next_dim) {
-        return TRUE;
+        if (t->next_dim->kind == L_TYPE_ARRAY) {
+            return TRUE;
+        } else {
+            return array_p(t->next_dim);
+        }
     } else {
         return FALSE;
     }
@@ -660,6 +666,12 @@ void L_compile_unop(L_expression *expr)
         break;
     case T_MINUS:
         TclEmitOpcode(INST_UMINUS, lframe->envPtr);
+        break;
+    case T_STAR:
+/*         TclEmitOpcode(INST_UMINUS, lframe->envPtr); */
+        break;
+    case T_BITAND:
+/*         TclEmitOpcode(INST_UMINUS, lframe->envPtr); */
         break;
     default:
         L_bomb("Unknown unary operator %d", expr->op);

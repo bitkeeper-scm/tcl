@@ -62,7 +62,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %left T_LSHIFT T_RSHIFT
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
-%right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT
+%right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT DEREFERENCE ADDRESS
 %left T_DOT
 
 %%
@@ -257,6 +257,14 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BITNOT, $2, NULL, NULL, NULL, NULL);
         }
+ 	| T_BITAND expr %prec ADDRESS
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_BITAND, $2, NULL, NULL, NULL, NULL);
+        }
+ 	| T_STAR expr %prec DEREFERENCE
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_STAR, $2, NULL, NULL, NULL, NULL);
+        }
  	| T_MINUS expr %prec UMINUS
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_MINUS, $2, NULL, NULL, NULL, NULL);
@@ -428,7 +436,8 @@ declarator:
 	| declarator "[" constant_expression "]"
         {
                 L_type *type =
-                        mk_type(-1, $3, NULL, ((L_variable_declaration *)$1)->type, NULL);
+                        mk_type(L_TYPE_ARRAY, $3, NULL,
+                                ((L_variable_declaration *)$1)->type, NULL);
                 ((L_variable_declaration *)$1)->type = type;
                 $$ = $1;
         }
@@ -438,9 +447,17 @@ declarator:
 
                 MK_INT_NODE(zero, 0);
                 ((L_variable_declaration *)$1)->type =
-                    mk_type(-1, zero, NULL,
+                    mk_type(L_TYPE_ARRAY, zero, NULL,
                             ((L_variable_declaration *)$1)->type, NULL);
                 $$ = $1;
+        }
+        | T_STAR declarator
+        {
+                L_type *type =
+                        mk_type(L_TYPE_POINTER, NULL, NULL,
+                                ((L_variable_declaration *)$2)->type, NULL);
+                ((L_variable_declaration *)$2)->type = type;
+                $$ = $2;
         }
         ;
 
