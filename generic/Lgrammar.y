@@ -261,10 +261,6 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BITAND, $2, NULL, NULL, NULL, NULL);
         }
- 	| T_STAR expr %prec DEREFERENCE
-        {
-                $$ = mk_expression(L_EXPRESSION_UNARY, T_STAR, $2, NULL, NULL, NULL, NULL);
-        }
  	| T_MINUS expr %prec UMINUS
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_MINUS, $2, NULL, NULL, NULL, NULL);
@@ -319,10 +315,6 @@ expr:
         | T_INT_LITERAL
         | T_DOUBLE_LITERAL
 	| lvalue
-        {
-                REVERSE(L_expression, indices, $1);
-                $$ = $1;
-        }
         | T_ID "(" argument_expression_list ")"         
         { 
                 REVERSE(L_expression, next, $3);
@@ -340,26 +332,36 @@ expr:
         }
 	| lvalue T_EQUALS expr
         { 
-                REVERSE(L_expression, indices, $1);
                 $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL, NULL);
         }
 	;
 
-
 lvalue:
+          direct_lvalue
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = $1;
+        }
+ 	| T_STAR lvalue
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_STAR, $2, NULL, NULL, NULL, NULL);
+        }
+        ;
+
+direct_lvalue:
           T_ID
         {
                 $$ = mk_expression(L_EXPRESSION_VARIABLE, -1, $1, NULL, NULL, NULL, NULL);
         }
-        | lvalue T_LBRACKET expr T_RBRACKET
+        | direct_lvalue T_LBRACKET expr T_RBRACKET
         {
                 $$ = mk_expression(L_EXPRESSION_ARRAY_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
-        | lvalue T_LBRACE expr T_RBRACE
+        | direct_lvalue T_LBRACE expr T_RBRACE
         {
                 $$ = mk_expression(L_EXPRESSION_HASH_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
-        | lvalue T_DOT T_ID
+        | direct_lvalue T_DOT T_ID
         {
                 $$ = mk_expression(L_EXPRESSION_STRUCT_INDEX, -1, $3, NULL, NULL, $1, NULL);
         }
@@ -429,11 +431,24 @@ init_declarator:
 	;
 
 declarator:
+          direct_declarator
+        | T_STAR declarator
+        {
+                /* just ignore multiple levels of pointer for now */
+                L_type *type =
+                        mk_type(L_TYPE_POINTER, NULL, NULL,
+                                ((L_variable_declaration *)$2)->type, NULL);
+                ((L_variable_declaration *)$2)->type = type;
+                $$ = $2;
+        }
+        ;
+
+direct_declarator:
           T_ID
         {
                 $$ = mk_variable_declaration(NULL, $1, NULL, NULL);
         }
-	| declarator "[" constant_expression "]"
+	| direct_declarator "[" constant_expression "]"
         {
                 L_type *type =
                         mk_type(L_TYPE_ARRAY, $3, NULL,
@@ -441,7 +456,7 @@ declarator:
                 ((L_variable_declaration *)$1)->type = type;
                 $$ = $1;
         }
-	| declarator "[" "]"
+	| direct_declarator "[" "]"
         {
                 L_expression *zero;
 
@@ -450,14 +465,6 @@ declarator:
                     mk_type(L_TYPE_ARRAY, zero, NULL,
                             ((L_variable_declaration *)$1)->type, NULL);
                 $$ = $1;
-        }
-        | T_STAR declarator
-        {
-                L_type *type =
-                        mk_type(L_TYPE_POINTER, NULL, NULL,
-                                ((L_variable_declaration *)$2)->type, NULL);
-                ((L_variable_declaration *)$2)->type = type;
-                $$ = $2;
         }
         ;
 

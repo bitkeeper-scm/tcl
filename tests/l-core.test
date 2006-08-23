@@ -759,6 +759,33 @@ regexp_1_1
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
+
+test pointer-1.0 {slightly strange l pointers} -body {
+#pragma language L
+pointer_1_0() {
+  int bar[4];
+  int *foo;
+
+  bar[0] = 1; bar[1] = 2; bar[2] = 3; bar[3] = 4;
+  foo = &bar;
+  puts(foo);
+  pointer_1_0_aux(foo);
+  puts(bar);
+}
+
+int pointer_1_0_aux(int *foo[4]) {
+  puts(foo);
+  puts(*foo);
+  *foo[1] = 5;
+}
+#pragma end
+pointer_1_0
+} -output "bar
+bar
+1 2 3 4
+1 5 3 4\n"
+
+
 # cleanup
 ::tcltest::cleanupTests
 return

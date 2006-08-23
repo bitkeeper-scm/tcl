@@ -43,6 +43,9 @@ static L_expression *L_read_hash_index_chunk(L_expression *i);
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *blank_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
+static void link_upvar(L_expression *name, L_symbol *var);
+static int pointer_p(L_type *t);
+static L_expression *prepend_star(char *name);
 
 
 /* we keep track of each AST node we allocate and free them all at once */
@@ -489,6 +492,21 @@ array_p(L_type *t)
     }
 }
 
+int
+pointer_p(L_type *t)
+{
+    /* just check for simple pointers for now, ignoring, e.g., arrays
+       of pointers */
+    if (t->next_dim) {
+        return pointer_p(t->next_dim);
+    } else if (t->kind == L_TYPE_POINTER) {
+        L_trace("t is a pointer");
+        return TRUE;
+    } else {
+        L_trace("t is not a pointer");
+        return FALSE;
+    }
+}
 
 int
 global_symbol_p(L_symbol *symbol)
@@ -552,6 +570,8 @@ L_compile_parameters(L_variable_declaration *param)
     int i;
     
     for (i = 0; param; param = param->next, i++) {
+        L_symbol *symbol;
+
         L_trace("Compiling parameter %d (%s)", i, param->name->u.s);
         /* Formal parameters are stored in local variable slots. */
         procPtr->numArgs = i + 1;
@@ -572,8 +592,11 @@ L_compile_parameters(L_variable_declaration *param)
         localPtr->resolveInfo = NULL;
         localPtr->defValuePtr = NULL;
         strcpy(localPtr->name, param->name->u.s);
-        
-        L_make_symbol(param->name, param->type, i);
+        symbol = L_make_symbol(param->name, param->type, i);
+        /* treat parameters with a * in the type as upvars */
+        if (pointer_p(param->type)) {
+            link_upvar(param->name, symbol);
+        }
     }
 }
 
@@ -588,8 +611,7 @@ L_compile_expressions(L_expression *expr)
 /*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, expr->a->u.s,
-                                          strlen(expr->a->u.s)),
+        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, expr->a->u.s, -1),
                     lframe->envPtr);
         L_compile_expressions(expr->b);
         /* count the parameters */
@@ -653,25 +675,43 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
 
 void L_compile_unop(L_expression *expr)
 {
-    L_compile_expressions(expr->a);
     switch (expr->op) {
     case T_BANG:
+        L_compile_expressions(expr->a);
         TclEmitOpcode(INST_LNOT, lframe->envPtr);
         break;
     case T_BITNOT:
+        L_compile_expressions(expr->a);
         TclEmitOpcode(INST_BITNOT, lframe->envPtr);
         break;
     case T_PLUS:
+        L_compile_expressions(expr->a);
         TclEmitOpcode(INST_UPLUS, lframe->envPtr);
         break;
     case T_MINUS:
+        L_compile_expressions(expr->a);
         TclEmitOpcode(INST_UMINUS, lframe->envPtr);
         break;
     case T_STAR:
-/*         TclEmitOpcode(INST_UMINUS, lframe->envPtr); */
+        /* *, dereference operator */
+        if (expr->a->kind != L_EXPRESSION_VARIABLE) {
+            L_bomb("Dereference is only supported for simple variables, %s", L_expression_tostr[expr->a->kind]);
+        } else {
+            L_expression *name_with_star = prepend_star(expr->a->a->u.s);
+            L_symbol *symbol;
+            if ((symbol = L_get_symbol(name_with_star, TRUE))) {
+                L_LOAD_SCALAR(symbol->localIndex);
+            }
+        }
         break;
     case T_BITAND:
-/*         TclEmitOpcode(INST_UMINUS, lframe->envPtr); */
+        /* &, address-of operator */
+        if (expr->a->kind != L_EXPRESSION_VARIABLE) {
+            L_bomb("Address-of is only supported on variable names.");
+        } else {
+            L_expression *variable_name = expr->a->a;
+            L_compile_expressions(variable_name);
+        }
         break;
     default:
         L_bomb("Unknown unary operator %d", expr->op);
@@ -963,7 +1003,46 @@ import_global_symbol(L_symbol *var)
     return local;
 }
 
-void 
+void
+link_upvar(L_expression *name, L_symbol *var)
+{
+    L_expression *name_with_star = prepend_star(var->name);
+    int localIndex;
+    L_symbol *newVar = L_get_symbol(name_with_star, FALSE);
+    if (!newVar) {
+        L_trace("declaring %s as an upvar", name_with_star->u.s);
+        localIndex =
+            TclFindCompiledLocal(name_with_star->u.s,
+                                 strlen(name_with_star->u.s),
+                                 1, 0, lframe->envPtr->procPtr);
+        newVar = L_make_symbol(name_with_star,
+                               var->type, /* XXX this is a little funky */
+                               localIndex);
+    }
+    L_trace("linking %s as an upvar", name_with_star->u.s);
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "upvar",
+                                      strlen("upvar")),
+                lframe->envPtr);
+    L_LOAD_SCALAR(var->localIndex);
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, name_with_star->u.s, -1),
+                lframe->envPtr);
+    TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+}
+
+/* Stick a * on the front of name and return the result as an L AST
+   node. */
+L_expression *
+prepend_star(char *name) {
+    L_expression *node;
+    char *name_with_star = ckalloc(strlen(name) + 2);
+    sprintf(name_with_star, "*%s", name);
+    MK_STRING_NODE(node, name_with_star);
+    ckfree(name_with_star);
+    return node;
+}
+
+void
 L_return(int value_on_stack_p)
 {
     if (!value_on_stack_p) {
@@ -985,6 +1064,13 @@ L_compile_assignment(L_expression *expr)
     L_expression *lval = expr->a;
     L_expression *rval = expr->b;
 
+    if (lval->kind == L_EXPRESSION_UNARY) {
+        L_trace("assigning into a pointer, kind of a: %s, a->a: %s", L_expression_tostr[lval->a->kind], L_expression_tostr[lval->a->a->kind]);
+        /* pointer */
+        lval = mk_expression(L_EXPRESSION_VARIABLE, -1,
+                             prepend_star(lval->a->a->u.s), NULL, NULL,
+                             lval->a->indices, NULL);
+    }
     L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
