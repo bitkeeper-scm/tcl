@@ -69,6 +69,10 @@ void L_compile_twiddle(L_expression *expr);
 void L_compile_interpolated_string(L_expression *expr);
 void L_compile_global_decls(L_variable_declaration *decl);
 
+/* in LPointerObj.c */
+Tcl_Obj *L_NewPointerObj(int callFrame, CONST char *varName,
+                         int offset, Tcl_Interp *interp);
+
 /* L_error is yyerror (for parse errors) */
 void L_error(char *s);
 
@@ -78,7 +82,11 @@ int L_parse(void);
 
 void L_start_lexer();
 
-/* This is the type that Yacc will use for all semantic values. */ 
+/* A special value that marks a pointer as having no offset.  */
+#define LPOINTER_NO_OFFSET -1
+
+
+/* This is the type that Yacc will use for all semantic values. */
 #define YYSTYPE void *
 
 /* AST convenience macros */

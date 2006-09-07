@@ -66,9 +66,12 @@ turing(int step, int state, int tape[], int pos) {
 }
 
 multi_dimensional_1_0() {
+    int tape[5];
+
+    tape[0] = 1; tape[1] = 1; tape[2] = 0; tape[3] = 0; tape[4] = 0;
     puts("Step\tState\tTape");
     puts("- - - - - - - - - -");
-    turing(1, 0, list(1, 1, 0, 0, 0), 0);
+    turing(1, 0, tape, 0);
 }
 #pragma end
 multi_dimensional_1_0
