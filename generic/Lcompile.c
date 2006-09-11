@@ -587,10 +587,8 @@ pointer_p(L_type *t)
     if (t->next_dim) {
         return pointer_p(t->next_dim);
     } else if (t->kind == L_TYPE_POINTER) {
-        L_trace("t is a pointer");
         return TRUE;
     } else {
-        L_trace("t is not a pointer");
         return FALSE;
     }
 }
@@ -1009,12 +1007,10 @@ L_compile_if_unless(L_if_unless *cond)
     /* emit a jump which will skip the consequent if the top value on the
        stack is false. */
     TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalse);
-
     L_frame_push(lframe->interp, lframe->envPtr);
     /* consequent */
     if (cond->if_body != NULL) {
         L_compile_statements(cond->if_body);
-        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
     }
     /* alternate */
     if (cond->else_body != NULL) {
@@ -1023,10 +1019,14 @@ L_compile_if_unless(L_if_unless *cond)
         L_frame_pop();
         L_frame_push(lframe->interp, lframe->envPtr);
         TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpEnd);
-        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
+        if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127)) {
+            /* The TCL_FALSE_JUMP that we emitted expanded, so the beginning
+               code offset saved in the jump fixup for the
+               TCL_UNCONDITIONAL_JUMP needs to be adjusted. */
+            jumpEnd.codeOffset += 3;
+        }
         L_compile_statements(cond->else_body);
         TclFixupForwardJumpToHere(lframe->envPtr, &jumpEnd, 127);
-
     } else {
         TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
     }
