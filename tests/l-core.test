@@ -101,15 +101,17 @@ struct var_1_3_point lglobal1_3[5];
 var_1_3(void)
 {
         int i = 0;
-        puts(lglobal1_3);
+        //        puts(format("lglobal1_3 is %s", lglobal1_3));
+/*         puts(pointer("dump", lglobal1_3)); */
+        var_1_3_dump();
         while (i < 5) {
-                lglobal1_3[i].x = i * 10;
-                lglobal1_3[i].y = i * 20;
-                i++;
+          lglobal1_3[i].x = i * 10;
+          lglobal1_3[i].y = i * 20;
+          i++;
         }
-        puts(lglobal1_3);
+        var_1_3_dump();
         var_1_3_aux(3);
-        puts(lglobal1_3);
+        var_1_3_dump();
 }
 
 var_1_3_aux(int i)
@@ -117,11 +119,20 @@ var_1_3_aux(int i)
         lglobal1_3[i].x = i * 35;
         lglobal1_3[i].y = i * 45;
 }
+
+var_1_3_dump() {
+  puts(format("{{%s} {%s}} {{%s} {%s}} {{%s} {%s}} {{%s} {%s}} {{%s} {%s}}",
+              lglobal1_3[0].x, lglobal1_3[0].y,
+              lglobal1_3[1].x, lglobal1_3[1].y,
+              lglobal1_3[2].x, lglobal1_3[2].y,
+              lglobal1_3[3].x, lglobal1_3[3].y,
+              lglobal1_3[4].x, lglobal1_3[4].y));
+}
 #pragma end
 var_1_3
 } -output "{{} {}} {{} {}} {{} {}} {{} {}} {{} {}}
-{0 0} {10 20} {20 40} {30 60} {40 80}
-{0 0} {10 20} {20 40} {105 135} {40 80}
+{{0} {0}} {{10} {20}} {{20} {40}} {{30} {60}} {{40} {80}}
+{{0} {0}} {{10} {20}} {{20} {40}} {{105} {135}} {{40} {80}}
 "
 
 
@@ -595,12 +606,11 @@ array_1_0() {
     array[0] = 1;
     array[1] = 2;
     array[2] = 3;
-    puts(array);
     puts(array[2]);
 }
 #pragma end
 array_1_0
-} -output "1 2 3\n3\n"
+} -output "3\n"
 
 test array-1.1 { Multi-dimensional array creation and indexing } -body {
 #pragma language L
@@ -614,17 +624,13 @@ array_1_0() {
     array[3][0][1] = 4;
     puts(array);
     puts(array[0]);
+    /* prints 3 because of the string coercion */
     puts(array[2][2]);
     puts(array[3][0][1]);
 }
 #pragma end
 array_1_0
-} -output "{{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}}
-{{1 {}} {{} {}} {{} {}}} {{{} {}} {{} 2} {{} {}}} {{{} {}} {{} {}} {3 {}}} {{{} 4} {{} {}} {{} {}}}
-{1 {}} {{} {}} {{} {}}
-3 {}
-4
-"
+} -output "\n\n\n3\n4\n"
 
 
 test loop-1.0 {while loops} -body {
@@ -722,6 +728,7 @@ test hash-1.1 {array of hashtables} -body {
 void hash_1_1() {
   hash foo[10];
   foo[5]{"key"} = "value";
+  foo[4]{"key"} = "";
   puts(foo[5]{"key"});
   puts(foo[4]{"key"});
 }
@@ -760,30 +767,25 @@ regexp_1_1
 Go not to the elves\nGo\nelves\n"
 
 
-test pointer-1.0 {slightly strange l pointers} -body {
+test pointer-1.0 {fairly normal seeming L pointers} -body {
 #pragma language L
 pointer_1_0() {
   int bar[4];
   int *foo;
 
   bar[0] = 1; bar[1] = 2; bar[2] = 3; bar[3] = 4;
-  foo = &bar;
-  puts(foo);
+  foo = bar;
+  puts(format("%d %d %d %d", bar[0], bar[1], bar[2], bar[3]));
   pointer_1_0_aux(foo);
-  puts(bar);
+  puts(format("%d %d %d %d", bar[0], bar[1], bar[2], bar[3]));
 }
 
-int pointer_1_0_aux(int *foo[4]) {
-  puts(foo);
-  puts(*foo);
-  *foo[1] = 5;
+int pointer_1_0_aux(int *foo) {
+  foo[1] = 5;
 }
 #pragma end
 pointer_1_0
-} -output "bar
-bar
-1 2 3 4
-1 5 3 4\n"
+} -output "1 2 3 4\n1 5 3 4\n"
 
 
 # cleanup

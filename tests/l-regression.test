@@ -49,7 +49,7 @@ turing(int step, int state, int tape[], int pos) {
     write_symbol[4][0] = 1;  move[4][0] = 1;  new_state[4][0] = 0;
 
     read_symbol = tape[pos];
-    puts(append("", "  ", step, "\ts", state + 1, "\t", tape));
+    puts(append("", "  ", step, "\ts", state + 1, "\t", dump_tape(tape)));
 
     // state 0 and symbol 0 means to halt
     if (read_symbol + state) {
@@ -65,10 +65,19 @@ turing(int step, int state, int tape[], int pos) {
     }
 }
 
+/* dump the tape to a string */
+dump_tape(int *tape) {
+    return format("%d %d %d %d %d",
+                  tape[0],  tape[1], tape[2], tape[3], tape[4]);
+}
+
 multi_dimensional_1_0() {
+    int tape[5];
+
+    tape[0] = 1; tape[1] = 1; tape[2] = 0; tape[3] = 0; tape[4] = 0;
     puts("Step\tState\tTape");
     puts("- - - - - - - - - -");
-    turing(1, 0, list(1, 1, 0, 0, 0), 0);
+    turing(1, 0, tape, 0);
 }
 #pragma end
 multi_dimensional_1_0

@@ -2501,6 +2501,10 @@ MODULE_SCOPE int	Tcl_WhileObjCmd(ClientData clientData,
 MODULE_SCOPE int	L_PragmaObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *CONST objv[]);
+MODULE_SCOPE int	L_PointerObjCmd(ClientData clientData,
+			    Tcl_Interp *interp, int objc,
+			    Tcl_Obj *CONST objv[]);
+
 
 /*
  *----------------------------------------------------------------
@@ -2553,6 +2557,8 @@ MODULE_SCOPE int	TclCompileSwitchCmd(Tcl_Interp *interp,
 MODULE_SCOPE int	TclCompileWhileCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
 MODULE_SCOPE int	LCompilePragmaCmd(Tcl_Interp *interp,
+			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
+MODULE_SCOPE int	LCompilePointerCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, struct CompileEnv *envPtr);
 
 /*
