@@ -700,7 +700,6 @@ struct_1_1() {
    struct struct_1_1_point s[1][10];
 
    while(i < 10) {
-      s[0][i] = new_struct();
       s[0][i].y = i;
       s[0][i].x[1] = 42 + i;
       i++;
