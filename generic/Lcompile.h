@@ -152,6 +152,20 @@ void L_start_lexer();
     }\
 }
 
+/* Emit code to push a literal string on the stack. */
+#define L_PUSH_STR(str) {\
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, str,\
+                                      strlen(str)),\
+                lframe->envPtr);\
+}
+
+/* Emit code to push a Tcl_Obj on the stack. */
+#define L_PUSH_OBJ(obj) {\
+    TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),\
+                lframe->envPtr);\
+}
+
+
 #endif /* L_COMPILE_H */
 
 /*

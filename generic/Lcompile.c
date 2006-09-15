@@ -61,6 +61,7 @@ static char *gensym(char *name);
 static char *array_initializer_code(L_type *type, L_type *base_type,
                                     char *name, int prev_dimension,
                                     int *needs_eval);
+static char *struct_initializer_code(L_type *type, char *name);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_type *type, L_expression *index,
                           L_expression *rval);
@@ -334,6 +335,7 @@ L_compile_global_decls(L_variable_declaration *decl)
                                        decl->name->u.s, 0, &needs_eval);
     L_trace("Global variable named %s\n", decl->name->u.s);
     if (decl->initial_value) {
+        L_trace("took this path");
         initial_value = literal_to_TclObj(decl->initial_value);
     } else {
         initial_value = blank_initial_value(decl->type);
@@ -341,20 +343,16 @@ L_compile_global_decls(L_variable_declaration *decl)
     symbol = L_make_symbol(decl->name, decl->type, -1);
     symbol->global_p = TRUE;
     if (lframe->envPtr) {
-        L_trace("init code is \n%s\n", init_code);
+        L_trace("init code is:\n%s\nneeds_eval is : %d",
+                init_code, needs_eval);
         if (needs_eval) {
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "eval",
-                                              strlen("eval")),
-                        lframe->envPtr);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, init_code,
-                                              strlen(init_code)),
-                        lframe->envPtr);
+            L_PUSH_STR("eval");
+            L_PUSH_STR(init_code);
             TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
 /*             TclEmitOpcode(INST_POP, lframe->envPtr); */
         } else {
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, init_code,
-                                              strlen(init_code)),
-                        lframe->envPtr);
+            L_PUSH_STR(decl->name->u.s);
+            L_PUSH_OBJ(initial_value);
             TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
         }
     } else {
@@ -364,13 +362,13 @@ L_compile_global_decls(L_variable_declaration *decl)
             Tcl_Obj *initial_value;
             int length;
 
-            L_trace("init code is \n\%s\n", init_code);
-            /*  */
+            L_trace("interpreted init code is \n\%s\n", init_code);
             Tcl_EvalEx(lframe->interp, init_code, -1, 0);
             initial_value = Tcl_GetObjResult(lframe->interp);
             if (initial_value->typePtr != &lPointerType) {
                 L_bomb("Assertion failed -- obj must be a pointer");
             }
+
             Tcl_SetVar2Ex(lframe->interp, decl->name->u.s, NULL,
                           initial_value,
                           TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
@@ -442,56 +440,54 @@ L_compile_variable_decls(L_variable_declaration *var)
                                                  0, &needs_eval);
         if (needs_eval) {
             L_trace("init code is \n%s\n", init_code);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "eval",
-                                              strlen("eval")),
-                        lframe->envPtr);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, init_code,
-                                              strlen(init_code)),
-                        lframe->envPtr);
+            L_PUSH_STR("eval");
+            L_PUSH_STR(init_code);
             TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
 /*             TclEmitOpcode(INST_POP, lframe->envPtr); */
         } else {
-/*             TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, init_code, */
-/*                                               strlen(init_code)), */
-/*                         lframe->envPtr); */
             Tcl_Obj *initial_value = blank_initial_value(var->type);
-            TclEmitPush(TclAddLiteralObj(lframe->envPtr, initial_value, NULL),
-                        lframe->envPtr);
+            L_PUSH_OBJ(initial_value);
             L_STORE_SCALAR(localIndex);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+            TclEmitOpcode(INST_POP, lframe->envPtr);
         }
     }
     L_compile_variable_decls(var->next);
 }
 
-
-/* /\* Emit code to create a new pointer and leave it on the stack. *\/ */
-/* static void */
-/* emit_pointer_new( */
-/*     L_expression *name,         /\* the name of the variable to point */
-/*                                    at *\/ */
-/*     int offset)                 /\* the offset into the variable, or */
-/*                                    LPOINTER_NO_OFFSET *\/ */
-/* { */
-/*     TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer", */
-/*                                       strlen("pointer")), */
-/*                 lframe->envPtr); */
-/*     TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "new", */
-/*                                       strlen("new")), */
-/*                 lframe->envPtr); */
-/*     L_compile_expressions(name); */
-/*     if (offset == LPOINTER_NO_OFFSET) { */
-/*         TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr); */
-/*     } else { */
-/*         TclEmitPush(TclAddLiteralObj(lframe->envPtr, Tcl_NewIntObj(offset), */
-/*                                      NULL), */
-/*                     lframe->envPtr); */
-/*         TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr); */
-/*     } */
-/* } */
-
 static Tcl_Obj *blank_initial_value(L_type *type) {
     return Tcl_NewObj();
+}
+
+static char *
+struct_initializer_code(
+    L_type *type,
+    char *name)
+{
+    L_expression *retval;
+    Tcl_Obj *code = Tcl_NewObj();
+    int i, memberCount;
+    L_variable_declaration *mem;
+
+    if (!type->kind == L_TYPE_STRUCT) {
+        L_bomb("not a struct");
+    }
+    memberCount = struct_member_count(type);
+    TclObjPrintf(NULL, code, "set %s [lrepeat %d {}]\n", name, memberCount);
+    for (i = 0, mem = type->members; mem; mem = mem->next, i++) {
+        char *memName;
+        int needs_eval;
+        char *arrCode;
+        if (array_p(mem->type)) {
+            memName = gensym(mem->name->u.s);
+            arrCode = array_initializer_code(mem->type, mem->type->next_dim, memName,
+                                             FALSE, &needs_eval);
+            TclObjPrintf(NULL, code, "%s\nlset %s %d $%s\n",
+                         arrCode, name, i, memName);
+        }
+    }
+    MK_STRING_NODE(retval, Tcl_GetString(code));
+    Tcl_DecrRefCount(code);
+    return retval->u.s;
 }
 
 static char *
@@ -514,9 +510,18 @@ array_initializer_code(
         array_type = array_type->next_dim;
     }
     if (!array_type || (array_type->array_dim->u.i == 0)) {
-        /* just looks like an array, but doesn't need initialization */
-        TclObjPrintf(NULL, code, "{}");
-        *needs_eval = FALSE;
+        if (base_type->kind == L_TYPE_STRUCT) {
+            /* just a plain struct, not an array */
+            /* XXX this will fail if there's 0 members in the struct... which
+               I don't think is legal syntax anyway */
+            TclObjPrintf(NULL, code, "%s\n",
+                         struct_initializer_code(base_type, name));
+            *needs_eval = TRUE;
+        } else {
+            /* doesn't need hairy initialization */
+            TclObjPrintf(NULL, code, "{}");
+            *needs_eval = FALSE;
+        }
     } else {
         /* generate code to initialize the array */
         dimension = array_type->array_dim->u.i;
@@ -678,8 +683,7 @@ L_compile_statements(L_statement *stmt)
         } else {
             L_trace("    without return value");
             /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
-            TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
-                         lframe->envPtr );
+            L_PUSH_OBJ(Tcl_NewObj());
         }
         /* INST_RETURN_STK involves a little more magic that I haven't wangled out
            yet... but I think it lets us pass back error codes and such that could
@@ -746,8 +750,7 @@ L_compile_expressions(L_expression *expr)
 /*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, expr->a->u.s, -1),
-                    lframe->envPtr);
+        L_PUSH_STR(expr->a->u.s);
         L_compile_expressions(expr->b);
         /* count the parameters */
         for (tmp = expr->b; tmp; tmp = tmp->next, i++);
@@ -767,11 +770,7 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_INT:
     case L_EXPRESSION_STRING:
     case L_EXPRESSION_DOUBLE:
-/*         obj = Tcl_NewDoubleObj(expr->u.d); */
-        TclEmitPush(TclAddLiteralObj(lframe->envPtr,
-                                     literal_to_TclObj(expr),
-                                     NULL),
-                    lframe->envPtr);
+        L_PUSH_OBJ(literal_to_TclObj(expr));
         break;
     case L_EXPRESSION_INTERPOLATED_STRING:
         L_compile_interpolated_string(expr);
@@ -832,17 +831,8 @@ void L_compile_unop(L_expression *expr)
         if (expr->a->kind != L_EXPRESSION_VARIABLE) {
             L_bomb("Dereference is only supported for simple variables, %s", L_expression_tostr[expr->a->kind]);
         } else {
-/*             L_expression *mangled_name = pointer_mangle(expr->a->a->u.s); */
-/*             L_symbol *symbol; */
-/*             if ((symbol = L_get_symbol(mangled_name, TRUE))) { */
-/*                 L_LOAD_SCALAR(symbol->localIndex); */
-/*             } */
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                              strlen("pointer")),
-                        lframe->envPtr);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "get",
-                                              strlen("get")),
-                        lframe->envPtr);
+            L_PUSH_STR("pointer");
+            L_PUSH_STR("get");
             L_compile_expressions(expr->a);
             TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
         }
@@ -853,12 +843,8 @@ void L_compile_unop(L_expression *expr)
             L_bomb("Address-of is only supported on variable names.");
         } else {
             L_expression *variable_name = expr->a->a;
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                              strlen("pointer")),
-                        lframe->envPtr);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "new",
-                                              strlen("new")),
-                        lframe->envPtr);
+            L_PUSH_STR("pointer");
+            L_PUSH_STR("get");
             L_compile_expressions(variable_name);
             TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
         }
@@ -1006,18 +992,14 @@ L_compile_twiddle(L_expression *expr)
         }
     }
     /* emit code to call the regexp object command */
-    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "regexp",
-                                      strlen("regexp")),
-                lframe->envPtr);
-    TclEmitPush(TclAddLiteralObj(lframe->envPtr, regexp, NULL), 
-                lframe->envPtr);
+    L_PUSH_STR("regexp");
+    L_PUSH_OBJ(regexp);
     L_compile_expressions(expr->a);
     /* match/submatch vars */
     for (i = 0; i <= submatchCount; i++) {
         char buf[128];
         snprintf(buf, 128, "$%d", i);
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, buf, strlen(buf)),
-                    lframe->envPtr);
+        L_PUSH_STR(buf);
     }
     TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount, lframe->envPtr);
     if (expr->op == T_BANGTWID) {
@@ -1054,6 +1036,8 @@ L_compile_if_unless(L_if_unless *cond)
     JumpFixup jumpFalse, jumpEnd;
 
     L_compile_expressions(cond->condition);
+    L_PUSH_STR("0");
+    TclEmitOpcode(INST_NEQ, lframe->envPtr);
     /* emit a jump which will skip the consequent if the top value on the
        stack is false. */
     TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalse);
@@ -1098,6 +1082,8 @@ L_compile_loop(L_loop *loop)
         bodyCodeOffset += 3;
     }
     L_compile_expressions(loop->condition);
+    L_PUSH_STR("0");
+    TclEmitOpcode(INST_NEQ, lframe->envPtr);
     jumpDist = lframe->envPtr->codeNext - lframe->envPtr->codeStart -
         bodyCodeOffset;
     if (jumpDist > 127) {
@@ -1133,6 +1119,9 @@ L_push_variable(L_expression *expr)
                 type = NULL;
                 break;
             case L_EXPRESSION_STRUCT_INDEX:
+                if (first_chunk) {
+                    L_LOAD_SCALAR(var->localIndex);
+                }
                 index = L_read_struct_index_chunk(index, &type);
                 break;
             case L_EXPRESSION_ARRAY_INDEX: {
@@ -1186,11 +1175,8 @@ import_global_symbol(L_symbol *var)
     local = L_make_symbol(name, var->type, localIndex);
     /* link the global variable with our new local using tcl's
        ``global'' command. */
-    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "global",
-                                      strlen("global")),
-                lframe->envPtr);
-    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, var->name, -1),
-                lframe->envPtr);
+    L_PUSH_STR("global");
+    L_PUSH_STR(var->name);
     TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
     TclEmitOpcode(INST_POP, lframe->envPtr);
     return local;
@@ -1227,8 +1213,7 @@ L_return(int value_on_stack_p)
 {
     if (!value_on_stack_p) {
         /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
-        TclEmitPush( TclAddLiteralObj(lframe->envPtr, Tcl_NewObj(), NULL),
-                     lframe->envPtr);
+        L_PUSH_OBJ(Tcl_NewObj());
     }
     /* INST_RETURN_STK involves a little more magic that I haven't wangled out
        yet... but I think it lets us pass back error codes and such that could
@@ -1282,12 +1267,8 @@ L_compile_assignment(L_expression *expr)
         L_write_index(var, var->type, lval->indices, rval);
     } else {
         if (pointer_p) {
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                              strlen("pointer")),
-                        lframe->envPtr);
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "set",
-                                              strlen("set")),
-                        lframe->envPtr);
+            L_PUSH_STR("pointer");
+            L_PUSH_STR("set");
             L_compile_expressions(lval);
             L_compile_expressions(rval);
             TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
@@ -1412,19 +1393,10 @@ L_read_array_index_chunk(
          i = i->indices)
     {
         L_trace("[pointer get [pointer add ");
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                          strlen("pointer")),
-                    lframe->envPtr);
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "get",
-                                          strlen("get")),
-                    lframe->envPtr);
-
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                          strlen("pointer")),
-                    lframe->envPtr);
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "add",
-                                          strlen("add")),
-                    lframe->envPtr);
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("get");
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("add");
     }
     L_LOAD_SCALAR(varIndex);
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
@@ -1463,29 +1435,18 @@ L_write_array_index_chunk(
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
          i = i->indices)
     {
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                          strlen("pointer")),
-                    lframe->envPtr);
+        L_PUSH_STR("pointer");
         if (emit_set && !further_indices) {
             L_trace("[pointer set [pointer add ");
             /* only emit set the first time */
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "set",
-                                              strlen("set")),
-                        lframe->envPtr);
+            L_PUSH_STR("set");
             emit_set = FALSE;
         } else {
             L_trace("[pointer get [pointer add ");
-            TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "get",
-                                              strlen("get")),
-                        lframe->envPtr);
+            L_PUSH_STR("get");
         }
-
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                          strlen("pointer")),
-                    lframe->envPtr);
-        TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "add",
-                                          strlen("add")),
-                    lframe->envPtr);
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("add");
     }
     L_LOAD_SCALAR(varIndex);
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
@@ -1509,12 +1470,8 @@ L_write_array_index_chunk(
                 TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
                 L_write_index(NULL, base_type, i->indices, rval);
                 rvalVar = store_in_tempvar(TRUE);
-                TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "pointer",
-                                                  strlen("pointer")),
-                            lframe->envPtr);
-                TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, "set",
-                                                  strlen("set")),
-                            lframe->envPtr);
+                L_PUSH_STR("pointer");
+                L_PUSH_STR("set");
                 L_LOAD_SCALAR(pointerVar);
                 L_LOAD_SCALAR(rvalVar);
             } else {
@@ -1613,10 +1570,7 @@ L_compile_index(
                 L_errorf(index, "Structure field not found, %s", index->a->u.s);
                 return t;
             }
-            TclEmitPush(TclAddLiteralObj(lframe->envPtr,
-                                         Tcl_NewIntObj(memberOffset),
-                                         NULL),
-                        lframe->envPtr);
+            L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
             t = member->type;
         } else {
             L_bomb("Bad struct index");
@@ -1672,28 +1626,22 @@ L_compile_incdec(L_expression *expr)
 void
 emit_call_to_main(CompileEnv *envPtr, int with_args_p)
 {
-    TclEmitPush(TclRegisterNewLiteral(envPtr, "main", strlen("main")),
-                envPtr);
+    L_PUSH_STR("main");
     if (!with_args_p) {
         TclEmitInstInt4(INST_INVOKE_STK4, 1, envPtr);
     } else {
         /* TCL's argv is missing argv[0], which they've placed in argv0.  We
            stick the two together and pass that to L.  So, first push argc and
            add one to it: */
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argc", strlen("argc")),
-                    envPtr);
+        L_PUSH_STR("argc");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "1", strlen("1")),
-                    envPtr);
+        L_PUSH_STR("1");
         TclEmitOpcode(INST_ADD, envPtr);
         /* Now push argv0 and argv and concatenate them:  */
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "concat", strlen("concat")),
-                    envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argv0", strlen("argv0")),
-                    envPtr);
+        L_PUSH_STR("concat");
+        L_PUSH_STR("argv0");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argv", strlen("argv")),
-                    envPtr);
+        L_PUSH_STR("argv");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
         /* invoke concat */
         TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
@@ -1757,8 +1705,7 @@ void
 maybeFixupEmptyCode(L_compile_frame *frame)
 {
     if (frame->envPtr->codeNext == frame->originalCodeNext) {
-        TclEmitPush( TclAddLiteralObj(frame->envPtr, Tcl_NewObj(), NULL),
-            frame->envPtr);
+        L_PUSH_OBJ(Tcl_NewObj());
     }
 }
 
