@@ -356,24 +356,10 @@ L_compile_global_decls(L_variable_declaration *decl)
     } else {
         /* interpreted case */
         if (needs_eval) {
-            extern Tcl_ObjType lPointerType;
-            Tcl_Obj *initial_value;
-            int length;
-
             L_trace("interpreted init code is \n\%s\n", init_code);
             Tcl_EvalEx(lframe->interp, init_code, -1, 0);
-/*             initial_value = Tcl_GetObjResult(lframe->interp); */
-/*             if (initial_value->typePtr != &lPointerType) { */
-/*                 L_bomb("Assertion failed -- obj must be a pointer"); */
-/*             } */
-
-/*             Tcl_SetVar2Ex(lframe->interp, decl->name->u.s, NULL, */
-/*                           initial_value, */
-/*                           TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG); */
-
         } else {
             Tcl_SetVar2Ex(lframe->interp, decl->name->u.s, NULL,
-/*                           Tcl_NewStringObj(init_code, strlen(init_code)), */
                           initial_value,
                           TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
         }
@@ -496,9 +482,9 @@ array_initializer_code(
             }
 
             for (i = 0, mem = base_type->members; mem; mem = mem->next, i++) {
-                char *memName;
-                int needs_eval;
-                char *arrCode;
+/*                 char *memName; */
+/*                 int needs_eval; */
+/*                 char *arrCode; */
                 if (array_p(mem->type)) {
 /*                     memName = gensym(mem->name->u.s); */
 /*                     arrCode = array_initializer_code(mem->type, mem->type->next_dim, memName, */
@@ -1067,11 +1053,19 @@ L_compile_loop(L_loop *loop)
     JumpFixup jumpToCond;
     int bodyCodeOffset, jumpDist;
 
+    if ((loop->kind == L_LOOP_FOR) && loop->pre) {
+        L_compile_expressions(loop->pre);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
+    }
     TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
     L_frame_push(lframe->interp, lframe->envPtr);
     bodyCodeOffset = lframe->envPtr->codeNext - lframe->envPtr->codeStart;
     L_compile_statements(loop->body);
     L_frame_pop(lframe->interp, lframe->envPtr);
+    if ((loop->kind == L_LOOP_FOR) && loop->post) {
+        L_compile_expressions(loop->post);
+        TclEmitOpcode(INST_POP, lframe->envPtr);
+    }
     if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpToCond, 127)) {
         bodyCodeOffset += 3;
     }

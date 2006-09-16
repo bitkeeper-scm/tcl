@@ -648,6 +648,22 @@ loop_1_0
 } -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
 
 
+test loop-1.1 {for loops} -body {
+#pragma language L
+loop_1_1() {
+        int i;
+        for (i=1; i<7; i++) {
+                puts(i);
+        }
+        puts("-*-");
+        for ( ; i; i--) {
+                puts(i);
+        }
+}
+#pragma end
+loop_1_1
+} -output "1\n2\n3\n4\n5\n6\n-*-\n7\n6\n5\n4\n3\n2\n1\n"
+
 test struct-1.0 {structs} -body {
 #pragma language L
 struct struct_1_0_point {
@@ -685,31 +701,37 @@ p2 is:
 test struct-1.1 {struct allocation and arrays of structs} -body {
 #pragma language L
 struct struct_1_1_point {
-        int x[4], y;
+        int x, y;
         string label;
 };
 
-struct struct_1_1_point new_struct() {
-    struct struct_1_1_point a;
-    a.label = "labelled";
-    return a;
-}
-
 struct_1_1() {
    int i = 0;
-   struct struct_1_1_point s[1][10];
+   struct struct_1_1_point s[10];
 
    while(i < 10) {
-      s[0][i].y = i;
-      s[0][i].x[1] = 42 + i;
+      s[i].y = i;
+      s[i].x = 42 + i;
+      s[i].label = format("%d cows", 10 - i);
       i++;
    }
-   puts(s);
+   for (i=0; i<10; i++) {
+     puts(s[i]);
+   }
 }
 #pragma end
 struct_1_1
-} -output "{{{{} 42 {} {}} 0 labelled} {{{} 43 {} {}} 1 labelled} {{{} 44 {} {}} 2 labelled} {{{} 45 {} {}} 3 labelled} {{{} 46 {} {}} 4 labelled} {{{} 47 {} {}} 5 labelled} {{{} 48 {} {}} 6 labelled} {{{} 49 {} {}} 7 labelled} {{{} 50 {} {}} 8 labelled} {{{} 51 {} {}} 9 labelled}}\n"
-
+} -output "42 0 {10 cows}
+43 1 {9 cows}
+44 2 {8 cows}
+45 3 {7 cows}
+46 4 {6 cows}
+47 5 {5 cows}
+48 6 {4 cows}
+49 7 {3 cows}
+50 8 {2 cows}
+51 9 {1 cows}
+"
 
 test hash-1.0 {basic hashtable support} -body {
 #pragma language L

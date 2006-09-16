@@ -201,8 +201,8 @@ iteration_statement:
 
 
 expression_statement
-	: ';'                   { $$ = NULL; }
-	| expr ';'
+	: ";"                   { $$ = NULL; }
+	| expr ";"
 	;
 
 stmt_list:
