@@ -57,7 +57,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %right T_EQUALS "="
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL
-%token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE
+%token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
 
@@ -348,6 +348,10 @@ expr:
 	| lvalue T_EQUALS expr
         { 
                 $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL, NULL);
+        }
+        | T_DEFINED "(" lvalue ")"
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_DEFINED, $3, NULL, NULL, NULL, NULL);
         }
 	;
 

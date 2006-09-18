@@ -833,6 +833,9 @@ void L_compile_unop(L_expression *expr)
             TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
         }
         break;
+    case T_DEFINED:
+        L_compile_defined(expr->a);;
+        break;
     default:
         L_bomb("Unknown unary operator %d", expr->op);
     }
@@ -1231,6 +1234,50 @@ store_in_tempvar(int pop_p)
     return tempVar;
 }
 
+void
+L_compile_defined(L_expression *lval)
+{
+    L_symbol *var;
+    L_expression *name = lval->a, *idx;
+    L_type *type;
+
+    if (!lval->indices) {
+        L_errorf(lval, "defined is only defined for array elements");
+        return;
+    }
+    if (!(var = L_get_symbol(name, TRUE))) return;
+    if (global_symbol_p(var)) {
+        var = import_global_symbol(var);
+    }
+    type = var->type;
+    idx = lval->indices;
+    L_PUSH_STR("pointer");
+    L_PUSH_STR("defined");
+    L_PUSH_STR("pointer");
+    L_PUSH_STR("add");
+    for (idx = idx->indices; idx && (idx->kind == L_EXPRESSION_ARRAY_INDEX);
+         idx = idx->indices)
+    {
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("get");
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("add");
+    }
+    L_LOAD_SCALAR(var->localIndex);
+    for (idx = lval->indices; idx && (idx->kind == L_EXPRESSION_ARRAY_INDEX);
+         idx = idx->indices)
+    {
+        type = L_compile_index(type, idx);
+        /* pointer add */
+        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+        /* pointer defined/get */
+        TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+    }
+    if (idx) {
+        L_errorf(idx, "non-array index found in defined() expression");
+        return;
+    }
+}
 
 void
 L_compile_assignment(L_expression *expr)
@@ -1378,9 +1425,7 @@ L_write_struct_index_chunk(
     return type;
 }
 
-/* Read a value from an array or struct.  We expect the array/struct
-   to be on top of the stack.  Returns the next non-array/struct
-   index. */
+/* Read a value from an array. Returns the next non-array index. */
 static L_expression *
 L_read_array_index_chunk(
     int varIndex,

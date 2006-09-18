@@ -6,8 +6,8 @@ main(int ac, string av[])
 	if (ac == 1) {
 		puts("-nonewline", read("stdin"));
 	} else {
-		for (i = 0; defined(argv[i]); i++) {
-			fd = open(argv[i], "r");
+		for (i = 0; defined(av[i]); i++) {
+			fd = open(av[i], "r");
 			puts("-nonewline", read(fd));
 		}
 	}

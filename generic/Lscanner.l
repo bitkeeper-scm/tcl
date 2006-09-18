@@ -98,6 +98,7 @@ tally_newlines(
         "for"           return T_FOR;
         "struct"        return T_STRUCT;
         "typedef"       return T_TYPEDEF;
+        "defined"       return T_DEFINED;
         "=>"		return T_ARROW;
         "eq"		return T_EQ;
         "ne"		return T_NE;
