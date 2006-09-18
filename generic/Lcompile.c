@@ -1672,31 +1672,41 @@ L_compile_incdec(L_expression *expr)
 void
 emit_call_to_main(CompileEnv *envPtr, int with_args_p)
 {
-    TclEmitPush(TclRegisterNewLiteral(envPtr, "main", strlen("main")),
-                envPtr);
+    /* ugly: mock up lframe->envPtr for the L_PUSH_* macros */
+    L_compile_frame dummy_frame, *lframe;
+    lframe = &dummy_frame;
+    lframe->envPtr = envPtr;
+
+    L_PUSH_STR("main");
     if (!with_args_p) {
         TclEmitInstInt4(INST_INVOKE_STK4, 1, envPtr);
     } else {
+        char *argvName = gensym("L_argv");
         /* TCL's argv is missing argv[0], which they've placed in argv0.  We
            stick the two together and pass that to L.  So, first push argc and
            add one to it: */
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argc", strlen("argc")),
-                    envPtr);
+        L_PUSH_STR("argc");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "1", strlen("1")),
-                    envPtr);
+        L_PUSH_STR("1");
         TclEmitOpcode(INST_ADD, envPtr);
-        /* Now push argv0 and argv and concatenate them:  */
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "concat", strlen("concat")),
-                    envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argv0", strlen("argv0")),
-                    envPtr);
+        /* Use append to stick argv0 and argv together and store them in a new
+           variable. */
+        L_PUSH_STR("append");
+        L_PUSH_STR(argvName);
+        L_PUSH_STR("argv0");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        TclEmitPush(TclRegisterNewLiteral(envPtr, "argv", strlen("argv")),
-                    envPtr);
+        L_PUSH_STR(" ");
+        L_PUSH_STR("argv");
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        /* invoke concat */
-        TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
+        /* invoke append */
+        TclEmitInstInt4(INST_INVOKE_STK4, 5, envPtr);
+        TclEmitOpcode(INST_POP, envPtr);
+        /* Create a pointer to that variable and leave it on the stack. */
+        L_PUSH_STR("pointer");
+        L_PUSH_STR("new");
+        L_PUSH_STR(argvName);
+        L_PUSH_STR("0");
+        TclEmitInstInt4(INST_INVOKE_STK4, 4, envPtr);
         /* invoke main */
         TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
     }
