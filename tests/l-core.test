@@ -808,6 +808,29 @@ int pointer_1_0_aux(int *foo) {
 pointer_1_0
 } -output "1 2 3 4\n1 5 3 4\n"
 
+test typedef-1.0 {basic typedef support} -body {
+#pragma language L
+typedef int typedef_1_0_foot[5];
+typedef string typedef_1_0_nike;
+
+typedef_1_0() {
+  puts(typedef_1_0_aux());
+}
+
+typedef_1_0_nike typedef_1_0_aux() {
+  typedef_1_0_foot cheese;
+  typedef_1_0_nike shoe = "pegasus";
+
+  cheese[2] = 1;
+  cheese[3] = 2;
+  cheese[4] = 3;
+  puts(cheese[3]);
+  puts(shoe);
+  return shoe;
+}
+#pragma end
+typedef_1_0
+} -output "2\npegasus\npegasus\n"
 
 # cleanup
 ::tcltest::cleanupTests

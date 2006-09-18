@@ -68,10 +68,11 @@ extern char *L_loop_tostr[4];
 typedef enum L_toplevel_statement_kind {
 	L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION,
 	L_TOPLEVEL_STATEMENT_TYPE,
-	L_TOPLEVEL_STATEMENT_GLOBAL
+	L_TOPLEVEL_STATEMENT_GLOBAL,
+	L_TOPLEVEL_STATEMENT_TYPEDEF
 } L_toplevel_statement_kind;
 
-extern char *L_toplevel_statement_tostr[3];
+extern char *L_toplevel_statement_tostr[4];
 typedef enum L_node_type {
 	L_NODE_STATEMENT,
 	L_NODE_TYPE,

@@ -97,6 +97,7 @@ tally_newlines(
         "do"            return T_DO;
         "for"           return T_FOR;
         "struct"        return T_STRUCT;
+        "typedef"       return T_TYPEDEF;
         "=>"		return T_ARROW;
         "eq"		return T_EQ;
         "ne"		return T_NE;
@@ -112,7 +113,11 @@ tally_newlines(
         "<="		return T_LESSTHANEQ;
         {ID}		{
                                 MK_STRING_NODE(L_lval, yytext);
-                                return T_ID;
+                                if (L_lookup_typedef(L_lval, FALSE)) {
+                                        return T_TYPE;
+                                } else {
+                                        return T_ID;
+                                }
                         }
         $[0-9]+         {
                                 /* Regular expression submatches */

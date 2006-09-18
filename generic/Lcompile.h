@@ -68,6 +68,8 @@ L_type *L_compile_index(L_type *index_type, L_expression *index);
 void L_compile_twiddle(L_expression *expr);
 void L_compile_interpolated_string(L_expression *expr);
 void L_compile_global_decls(L_variable_declaration *decl);
+L_type *L_lookup_typedef(L_expression *name, int error_p);
+void L_store_typedef(L_expression *name, L_type *type);
 
 /* in LPointerObj.c */
 Tcl_Obj *L_NewPointerObj(int callFrame, CONST char *varName,
@@ -128,8 +130,8 @@ void L_start_lexer();
    (Note that it's actually NCONC). */
 #define APPEND(type,ptr,a,b) { \
     type *runner; \
-    for (runner = a; runner->next; runner = runner->next); \
-    runner->next = b; \
+    for (runner = a; runner->ptr; runner = runner->ptr); \
+    runner->ptr = b; \
 }
 
 

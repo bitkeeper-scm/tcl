@@ -20,6 +20,15 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
         L_type *array_type = decl->type;
 
         REVERSE(L_type, next_dim, array_type);
+        if (type_specifier->next_dim) {
+          /* the type might already have array dimensions if it comes
+             from a typedef. */
+          if (array_type) {
+            APPEND(L_type, next_dim, array_type, type_specifier->next_dim);
+          } else {
+            array_type = type_specifier->next_dim;
+          }
+        }
         decl->type = mk_type(type_specifier->kind, NULL,
                              type_specifier->struct_tag, array_type,
                              type_specifier->members);
@@ -48,7 +57,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %right T_EQUALS "="
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL
-%token T_WHILE T_FOR T_DO T_STRUCT
+%token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
 
@@ -84,6 +93,12 @@ toplevel_code:
         {
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPE, $1);
                 ((L_toplevel_statement *)$$)->u.type = $2;
+        }
+        | toplevel_code T_TYPEDEF type_specifier declarator ";"
+        {
+                L_variable_declaration *typedecl = finish_declaration($3, $4);
+                L_store_typedef(typedecl->name, typedecl->type);
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPEDEF, NULL);
         }
         | toplevel_code declaration
         {
@@ -475,6 +490,7 @@ type_specifier:
 	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL); }
 	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL); }
 	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL); }
+        | T_TYPE        { $$ = L_lookup_typedef($1, TRUE); }
         | struct_specifier
 	;
 
