@@ -77,9 +77,31 @@ kernighan cherry eqn
 .]
 .sh 1 "The Implementation"
 .lp 
-Describe what we've done to the Tcl parser, mention using Tcl to
-generate C code, and explain how L pointers work.  Take opportunity to
-release bile about Tcl being a bizarre backend for a C compiler.
+The first step in processing an L program is to read in the source
+code.  L source code can be in its own file, or it can be in a mixed
+file together with Tcl source code.
+.sh 2 "Parsing Mixed Languages"
+.lp
+The most obvious approach to embedding L code within a Tcl program
+would be to pass the L code as an argument to a new Tcl command which
+implements L.  However, the Tcl syntax rule that "braces nest within a
+word" [cite endekalogue/tcl book?] means that we would still be
+required to match (or escape) braces within the L code.  This would be
+an unpleasant wrinkle for the L programmer to deal with.
+.pp
+In order to free the brace characters from the reign of Tcl, it was
+necessary to modify the Tcl parser.  We added support for special
+comments that start with the word "pragma".  The parser consumes the
+input from an opening pragma to a closing pragma, and packages it as a
+pair of Tcl words -- the name of the command that implements L,
+followed by the source code between the pragmas.  In this way, the
+result of parsing embedded L code is the same as if the L code had
+been properly escaped.
+.sh 1 "..."
+.lp
+Mention using Tcl to generate C code, and explain how L pointers work.
+Take opportunity to release bile about Tcl being a bizarre backend for
+a C compiler.
 .sh 1 "Current Status, Availability"
 .lp 
 L is completely finished and golden, and has a magic shield of +2
