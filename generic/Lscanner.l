@@ -195,8 +195,17 @@ tally_newlines(
 }
 
 <glob_re>{
-	[^\\/]+	        tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
+	\\n		STRBUF_ADD("\n", 1);
+	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
+        "$"             STRBUF_ADD("$", 1);
+	[^\\/\$]+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
+        "${"            {
+				yy_push_state(interpol);
+                                MK_STRING_NODE(L_lval, STRBUF_STRING());
+                                STRBUF_STOP();
+				return T_LEFT_INTERPOL;
+			}
 	"/"		{
                                 yy_pop_state();
                                 MK_STRING_NODE(L_lval, STRBUF_STRING());

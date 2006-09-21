@@ -6,6 +6,9 @@ main(int ac, string av[])
 	string	regex;
 	FILE	fd;
 
+        if (ac < 2) {
+                error("Not enough arguments.");
+        }
 	regex = av[1];
 	ac--;
 	if (ac == 1) {
@@ -24,7 +27,7 @@ grep(string regex, FILE in)
 {
 	string	buf;
 
-	while (gets(in, &buf)) {
+	while (gets(in, "buf") >= 0) {
 		if (buf =~ /${regex}/) {
 			printf("%s\n", buf);
 		}

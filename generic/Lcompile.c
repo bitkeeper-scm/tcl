@@ -942,26 +942,51 @@ L_compile_interpolated_string(L_expression *expr)
         /* Currently, an interpolated string node will always be
            followed by another one, or by a regular string node, so
            there's no way to test this branch.  */
-        L_bomb("Malformed AST");
+        L_bomb("L_compile_interpolated_string: Malformed AST");
     }
 }
 
 void
 L_compile_twiddle(L_expression *expr)
 {
-    Tcl_Obj *regexp = Tcl_NewStringObj(expr->b->u.s, strlen(expr->b->u.s));
+    Tcl_Obj *const_regexp = Tcl_NewObj();
     Tcl_RegExp compiled;
     int submatchCount = 0, i;
+    L_expression *runner;
 
-    /* compile the regular expression so we can figure out how many
-       submatches there are */
-    compiled = Tcl_GetRegExpFromObj(lframe->interp, regexp, TCL_REG_ADVANCED);
+    /* put together the parts of the regexp that we know at compile time */
+    Tcl_IncrRefCount(const_regexp);
+    for (runner = expr->b; runner; runner = runner->c) {
+        switch (runner->kind) {
+        case L_EXPRESSION_INTERPOLATED_STRING:
+            Tcl_AppendToObj(const_regexp, runner->a->u.s, -1);
+            /* if we ever find a spot where the regexp breaks, we could try
+               adding a space to replace the runner->b interpolated part.
+               (see the XXX comment below) */
+            //            Tcl_AppendToObj(const_regexp, " ", 1);
+            break;
+        case L_EXPRESSION_STRING:
+            Tcl_AppendToObj(const_regexp, runner->u.s, -1);
+            break;
+        default:
+            L_bomb("L_compile_twiddle: Malformed AST");
+        }
+    }
+    /* now try to compile the regexp, just to figure out how many submatches
+       there are. */
+    compiled = Tcl_GetRegExpFromObj(lframe->interp, const_regexp,
+                                    TCL_REG_ADVANCED);
     if (compiled == NULL) {
+        /* XXX: does a regexp really have to be correct sans interpolated
+           parts?  If not, this error might happen at the wrong time.  To
+           support such regexps, we would have to count submatches at
+           runtime. */
         L_errorf(expr, "Bad regular expression");
     } else {
         submatchCount = ((TclRegexp *)compiled)->re.re_nsub;
     }
-    L_trace("The submatch count in %s is %d\n", expr->b->u.s, submatchCount);
+    L_trace("The submatch count in %s is %d\n",
+            Tcl_GetString(const_regexp), submatchCount);
     /* create the submatch variables */
     for (i = 0; i <= submatchCount; i++) {
         char buf[128];
@@ -980,7 +1005,9 @@ L_compile_twiddle(L_expression *expr)
     }
     /* emit code to call the regexp object command */
     L_PUSH_STR("regexp");
-    L_PUSH_OBJ(regexp);
+    /* the regexp */
+    L_compile_expressions(expr->b);
+    /* the target string */
     L_compile_expressions(expr->a);
     /* match/submatch vars */
     for (i = 0; i <= submatchCount; i++) {
