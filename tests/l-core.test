@@ -788,6 +788,24 @@ regexp_1_1
 Go not to the elves\nGo\nelves\n"
 
 
+test regexp-1.2 {magic submatch variables with interpolation} -body {
+#pragma language L
+void regexp_1_2() {
+        string s = "Go not to the elves for counsel, for they will say both yes and no.";
+        string interp = "elves";
+
+        if (s =~ /((Go).*(${interp})).*/) {
+                puts($0);
+                puts($1);
+                puts($2);
+                puts($3);
+        }
+}
+#pragma end
+regexp_1_2
+} -output "Go not to the elves for counsel, for they will say both yes and no.
+Go not to the elves\nGo\nelves\n"
+
 test pointer-1.0 {fairly normal seeming L pointers} -body {
 #pragma language L
 pointer_1_0() {

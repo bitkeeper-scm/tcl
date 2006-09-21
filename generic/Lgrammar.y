@@ -300,8 +300,16 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
-        | expr T_EQTWID T_RE    { MK_BINOP_NODE($$, T_EQTWID, $1, $3); }
-        | expr T_BANGTWID T_RE  { MK_BINOP_NODE($$, T_BANGTWID, $1, $3); }
+        | expr T_EQTWID regexp_literal
+        {
+                REVERSE(L_expression, c, $3);
+                MK_BINOP_NODE($$, T_EQTWID, $1, $3);
+        }
+        | expr T_BANGTWID regexp_literal
+        {
+                REVERSE(L_expression, c, $3);
+                MK_BINOP_NODE($$, T_BANGTWID, $1, $3);
+        }
 	| expr T_STAR expr      { MK_BINOP_NODE($$, T_STAR, $1, $3); }
 	| expr T_SLASH expr     { MK_BINOP_NODE($$, T_SLASH, $1, $3); }
 	| expr T_PERC expr      { MK_BINOP_NODE($$, T_PERC, $1, $3); }
@@ -578,6 +586,22 @@ string_literal:
 
 string_literal_component:
           T_STR_LITERAL
+        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
+        {
+                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
+                                   NULL, NULL, NULL);
+        }
+
+regexp_literal:
+          regexp_literal_component
+        | regexp_literal regexp_literal_component
+        {
+                ((L_expression *)$2)->c = $1;
+                $$ = $2;
+        }
+
+regexp_literal_component:
+          T_RE
         | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
         {
                 $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
