@@ -42,6 +42,11 @@ Details
 	Additions over C
 		perl like regex in expressions
 		associative arrays
+		defined() for variables, hashes, arrays
+			defined(foo)		[info exists] or winfo ???
+			defined(foo{"bar"})
+			defined(blech[2])
+		strings are a basic type like int/float
 	Additions over tcl
 		structs
 		type checking
@@ -51,6 +56,13 @@ Details
 		var (unknown type, strongly typed on first assignment)
 		poly (like tcl variable, no type checking)
 		hash (associative array, currently string types for key/val)
+			XXX - need syntax for saying what data type is,
+			currently it is var/var, i.e., indexed by whatever,
+			returns whatever, but first assignment determines
+			type for all later assignments.
+			We could allow
+				hash	poly foo{poly}
+			if we ever want that fucked up syntax.
 	Pass by reference or value?
 		base types are all by value, COW, like tcl
 		arrays and hashes are references
