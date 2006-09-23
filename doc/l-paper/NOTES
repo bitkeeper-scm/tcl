@@ -1,0 +1,114 @@
+[Fri Sep 22 16:07:30 PDT 2006]
+
+The problem is pass by reference vs value.  There isn't a nice way to do it
+like C so we're inventing a different way, trying to keep it readable.
+
+proc tcl_ref {setme} {
+	upvar $setme ptr
+	set ptr "some string"
+}
+
+/*
+ * how this works is that the compiler sees the &setme and generates code like:
+ * upvar $setme 0setme
+ * and then uses 0setme as the variable name in all the function body where it
+ * sees setme.
+ */
+void
+L_ref(string &setme)
+{
+	setme = "some string";
+}
+
+It does mean that if I want to call gets() from L I need to do
+
+	while (gets(fd, &buf) > 0) {
+		...
+	}
+
+which isn't very C like.  That's OK, L isn't C because strings are first
+class in L and they aren't in C.  Oscar wacked that into my head.  Slowly.
+
+The next issue is compound types like arrays / hashes.  I want those to be
+implicit references, like C.  So no &my_array in args, it's just my_array.
+
+/*
+ * as above, the compiler sees foo[] and does the code like
+ * upvar $foo 0foo
+ */
+void
+L_array_ref(int foo[])
+{
+	foo[3] = 3;
+}
+
+/*
+ * as above, the compiler sees foo{} and does the code like
+ * upvar $foo 0foo
+ *
+ * Note also the new full specified syntax for a hash declaration.
+ * The following are the same thing and for 1.0 we implement the 
+ * first one only.  But the second form allows us to have var/poly/int
+ * etc. as keys or indices.  The syntax is "value" varname{"key"} where
+ * value is the type of the value and key is the type of the key.  Nifty.
+ * hash	foo{};
+ * string foo{string};
+ *
+ * For 1.0 this is just
+ * L_hash_ref(hash foo{})
+ * and I do want to insist on the {} in declarations (args and formal) because
+ * it gets people used to the foo{"string"} syntax.
+ */
+void
+L_hash_ref(string foo{string})
+{
+	int	mine{};
+
+	foo{"some key"} = "some value";
+}
+
+A calling wrinkle.
+
+When calling an L function/tcl proc which expects a reference, i.e.,
+func(string &buf) or proc foo {bufname} { upvar $bufname buf ... },
+from an L context, there is a question as to whether or not the 
+L variable needs a leading &.  And the answer is: depends on what you
+want.  All the leading ampersand does is to push the name of the 
+variable on the stack instead of the value of the variable (w/ all
+the COW semantics).  So consider this
+
+void
+stomp(string &buf)
+{
+	buf = "stomped";
+}
+
+void
+L_caller()
+{
+	string	foo = "bar";
+	string	fooname = "foo";
+
+	if (what_I_would_expect) {
+		stomp(&foo);	// foo will get "stomped"
+	} else {
+		stomp(fooname);	// foo will get "stomped" this way too
+	}
+}
+
+That works, I think, because in the first case we put "foo" on the stack
+as the name of the variable.  In the second case we but the value of 
+fooname on the stack, which is also "foo".  All of this "just works"
+because in Tcl everything is a string so there you go.
+
+Oscar noted that all &foo is is syntatic sugar for "foo".  That just works
+the way Tim's gets(fd, "buf") worked to set buf in the calling context.
+Nifty again.
+
+Oscar also explained to me that all the above & or not & stuff works because
+everything is a string in Tcl.  He pointed out that we could (and should in
+1.0) have the stomp(fooname) be a syntax error.  While we can support it
+it is better not to support it until people have some urgent need to have
+it.  And I'm tickled pink that Oscar made that call, it's the right call.
+Do the obvious thing that people will understand and deal with and only if
+that turns out to be too restrictive, ease up a bit.
