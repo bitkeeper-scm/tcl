@@ -55,16 +55,17 @@ static L_type *L_write_struct_index_chunk(int varIndex, L_expression *index,
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *blank_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
-static int pointer_p(L_type *t);
+static void emit_upvar(L_symbol *var, char *upvarName);
 static char *gensym(char *name);
-static char *array_initializer_code(L_type *type, L_type *base_type,
-                                    char *name, int prev_dimension,
+static char *array_initializer_code(L_type *type, char *name,
                                     int *needs_eval);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_type *type, L_expression *index,
                           L_expression *rval);
-static int struct_member_count(L_type *type);
 static Tcl_HashTable *L_typedef_table();
+static L_expression *reference_mangle(char *name);
+static int type_passed_by_name_p(L_type *type);
+
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -333,8 +334,8 @@ L_compile_global_decls(L_variable_declaration *decl)
     if (decl->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(decl->type);
     }
-    init_code = array_initializer_code(decl->type, decl->type,
-                                       decl->name->u.s, 0, &needs_eval);
+    init_code = array_initializer_code(decl->type, decl->name->u.s,
+                                       &needs_eval);
     L_trace("Global variable named %s\n", decl->name->u.s);
     if (decl->initial_value) {
         L_trace("took this path");
@@ -423,8 +424,8 @@ L_compile_variable_decls(L_variable_declaration *var)
         /* create the initial value and emit code to push it on the
            stack */
         int needs_eval;
-        char *init_code = array_initializer_code(var->type, var->type, var->name->u.s,
-                                                 0, &needs_eval);
+        char *init_code = array_initializer_code(var->type, var->name->u.s,
+                                                 &needs_eval);
         if (needs_eval) {
             L_trace("init code is \n%s\n", init_code);
             L_PUSH_STR("eval");
@@ -445,127 +446,70 @@ static Tcl_Obj *blank_initial_value(L_type *type) {
     return Tcl_NewObj();
 }
 
+/* Generate code to initialize an array or struct.  If name is passed,
+   generate a set into a variable of that name.  needs_eval will be set to
+   true if the code must be evaluated, false if the code is constant.  */
 static char *
 array_initializer_code(
     L_type *type,
-    L_type *base_type,
     char *name,
-    int prev_dimension,
     int *needs_eval)
 {
     L_type *array_type = type ? type->next_dim : NULL;
     Tcl_Obj *code = Tcl_NewObj();
-    char *counterName = gensym("counter");
-    char *nameName = gensym(name);
+    int close_brackets = 0, i;
     L_expression *retval;
-    int dimension;
 
-    *needs_eval = TRUE;
     Tcl_IncrRefCount(code);
-    while (array_type && (array_type->kind == L_TYPE_POINTER)) {
-        /* XXX we likely shouldn't be ignoring this... */
-        array_type = array_type->next_dim;
+    /* XXX: Our two call sites know to disregard the value of this function if
+       needs_eval is false.  That's a somewhat funky state of affairs.
+       --timjr 2006.9.24 */
+    *needs_eval = FALSE;
+    if (name) {
+        TclObjPrintf(NULL, code, "set %s ", name);
     }
-    if (!array_type || (array_type->array_dim->u.i == 0)) {
-        if (base_type->kind == L_TYPE_STRUCT) {
-            int memberCount, i;
-            L_variable_declaration *mem;
-
-            TclObjPrintf(NULL, code, "set %s 0\n", counterName);
-            if (prev_dimension) {
-                TclObjPrintf(NULL, code, "while {$%s < %d} {\n",
-                             counterName, prev_dimension);
-            }
-
-            memberCount = struct_member_count(base_type);
-            if (prev_dimension) {
-                TclObjPrintf(NULL, code, "lset $%s $%s [lrepeat %d {}]\n",
-                             name, counterName, memberCount);
-            } else {
-                TclObjPrintf(NULL, code, "set %s [lrepeat %d {}]\n", name, memberCount);
-            }
-
-            for (i = 0, mem = base_type->members; mem; mem = mem->next, i++) {
-/*                 char *memName; */
-/*                 int needs_eval; */
-/*                 char *arrCode; */
-                if (array_p(mem->type)) {
-/*                     memName = gensym(mem->name->u.s); */
-/*                     arrCode = array_initializer_code(mem->type, mem->type->next_dim, memName, */
-/*                                                      memberCount, &needs_eval); */
-
-/*                     TclObjPrintf(NULL, code, "%s\n", arrCode); */
-/*                     TclObjPrintf(NULL, code, "lset $%s $%s %d $%s\n", */
-/*                                  name, counterName, i, memName); */
-                    /* XXX this is not finished. */
-                }
-            }
-
-
-            if (prev_dimension) {
-                TclObjPrintf(NULL, code, "incr %s\n}\n", counterName);
-            }
-
+    while (array_type) {
+        if (array_type->array_dim->kind != L_EXPRESSION_INT) {
+            L_errorf(array_type->array_dim,
+                     "Bad dimension for an array: must be an int.");
+            break;
+        }
+        if (array_type->array_dim->u.i > 0) {
+            close_brackets++;
+            *needs_eval = TRUE;
+            TclObjPrintf(NULL, code, "[lrepeat %d ",
+                         array_type->array_dim->u.i);
+            array_type = array_type->next_dim;
         } else {
-            /* doesn't need hairy initialization */
-/*             TclObjPrintf(NULL, code, "{}"); */
-            *needs_eval = FALSE;
+            break;
         }
-    } else {
-        /* generate code to initialize the array */
-        dimension = array_type->array_dim->u.i;
-        TclObjPrintf(NULL, code, "set %s 0\n", counterName);
-        if (prev_dimension) {
-            TclObjPrintf(NULL, code, "while {$%s < %d} {\n",
-                         counterName, prev_dimension);
-        }
-        TclObjPrintf(NULL, code, "set %s {}\n", nameName);
-        TclObjPrintf(NULL, code, "append %s %s $%s\n", nameName, nameName,
-                     counterName);
+    }
+    /* the base type */
+    if (type->kind == L_TYPE_STRUCT) {
+        L_variable_declaration *mem;
 
-        TclObjPrintf(NULL, code, "set $%s [lrepeat %d {}]\n", nameName,
-                     dimension);
-        if (prev_dimension) {
-            TclObjPrintf(NULL, code, "lset $%s $%s [pointer new $%s 0]\n",
-                         name, counterName, nameName);
-
-        } else {
-            TclObjPrintf(NULL, code, "set %s [pointer new $%s 0]\n",
-                         name, nameName);
-        }
-        if (array_type->next_dim) {
-            Tcl_AppendToObj(code,
-                            array_initializer_code(array_type, base_type,
-                                                   nameName, dimension,
-                                                   needs_eval),
-                            -1);
-        } else if (base_type->kind == L_TYPE_STRUCT) {
-            Tcl_AppendToObj(code,
-                            array_initializer_code(NULL, base_type, nameName,
-                                                   dimension, needs_eval),
-                            -1);
-        }
-        if (prev_dimension) {
-            TclObjPrintf(NULL, code, "incr %s\n}\n", counterName);
-        }
         *needs_eval = TRUE;
+        TclObjPrintf(NULL, code, "[list ");
+        for (mem = type->members; mem; mem = mem->next) {
+            if (array_p(mem->type)) {
+                int dummy;
+                TclObjPrintf(NULL, code, "%s ",
+                             array_initializer_code(mem->type, NULL, &dummy));
+            } else {
+                TclObjPrintf(NULL, code, "{} ");
+            }
+        }
+        TclObjPrintf(NULL, code, "]");
+    } else {
+        TclObjPrintf(NULL, code, "{} ");
+    }
+    for (i = 0; i < close_brackets; i++) {
+        TclObjPrintf(NULL, code, "]");
     }
     MK_STRING_NODE(retval, Tcl_GetString(code));
     Tcl_DecrRefCount(code);
     return retval->u.s;
 }
-
-static int struct_member_count(L_type *type) {
-    int count = 0;
-    L_variable_declaration *member;
-    fixup_struct_type(type);
-    for (member = type->members; member; member = member->next, count++);
-    return count;
-}
-
-/* static Tcl_Obj *create_array_or_struct(L_type *array_type, L_type *base_type) { */
-/*     return Tcl_NewObj(); */
-/* } */
 
 void
 fixup_struct_type(L_type *type)
@@ -613,20 +557,6 @@ array_p(L_type *t)
         } else {
             return array_p(t->next_dim);
         }
-    } else {
-        return FALSE;
-    }
-}
-
-int
-pointer_p(L_type *t)
-{
-    /* just check for simple pointers for now, ignoring, e.g., arrays
-       of pointers */
-    if (t->next_dim) {
-        return pointer_p(t->next_dim);
-    } else if (t->kind == L_TYPE_POINTER) {
-        return TRUE;
     } else {
         return FALSE;
     }
@@ -690,18 +620,26 @@ L_compile_parameters(L_variable_declaration *param)
 {
     Proc *procPtr = lframe->envPtr->procPtr;
     CompiledLocal *localPtr;
+    L_expression *name;
     int i;
     
     for (i = 0; param; param = param->next, i++) {
         L_symbol *symbol;
-
-        L_trace("Compiling parameter %d (%s)", i, param->name->u.s);
+        int by_name = (param->by_name || type_passed_by_name_p(param->type));
+        if (by_name) {
+            /* if the parameter is pass by name, we use a mangled name for it
+               so that we can define an upvar using the original name */
+            name = reference_mangle(param->name->u.s);
+        } else {
+            name = param->name;
+        }
+        L_trace("Compiling parameter %d (%s)", i, name->u.s);
         /* Formal parameters are stored in local variable slots. */
         procPtr->numArgs = i + 1;
         procPtr->numCompiledLocals = i + 1;
         localPtr = (CompiledLocal *) ckalloc(sizeof(CompiledLocal) -
                                              sizeof(localPtr->name) +
-                                             strlen(param->name->u.s) + 1);
+                                             strlen(name->u.s) + 1);
         if (procPtr->firstLocalPtr == NULL) {
             procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr;
         } else {
@@ -709,21 +647,37 @@ L_compile_parameters(L_variable_declaration *param)
             procPtr->lastLocalPtr = localPtr;
         }
         localPtr->nextPtr = NULL;
-        localPtr->nameLength = strlen(param->name->u.s);
+        localPtr->nameLength = strlen(name->u.s);
         localPtr->frameIndex = i;
         localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
         localPtr->resolveInfo = NULL;
         localPtr->defValuePtr = NULL;
-        strcpy(localPtr->name, param->name->u.s);
-        symbol = L_make_symbol(param->name, param->type, i);
-        /* treat parameters with a * in the type as upvars */
-/*         if (pointer_p(param->type)) { */
-/*             link_upvar(param->name, symbol); */
-/*         } */
+        strcpy(localPtr->name, name->u.s);
+        symbol = L_make_symbol(name, param->type, i);
+        if (by_name) {
+            int localIndex =
+                TclFindCompiledLocal(param->name->u.s, strlen(param->name->u.s),
+                                     1, 0, procPtr);
+            emit_upvar(symbol, param->name->u.s);
+            L_make_symbol(param->name, param->type, localIndex);
+        }
     }
 }
 
-void 
+/* arrays, and hashes are all passed by name.  array_p() is too general to use
+   here. */
+static int
+type_passed_by_name_p(L_type *type)
+{
+/*     return ((type->next_dim && */
+/*              type->next_dim->kind == L_TYPE_ARRAY) || */
+/*             type->kind == L_TYPE_HASH); */
+    /* XXX: this is disabled for the moment because it looks like it might be
+       a problem... --timjr 2009.9.24 */
+    return FALSE;
+}
+
+void
 L_compile_expressions(L_expression *expr)
 {
     int i = 0;
@@ -810,27 +764,12 @@ void L_compile_unop(L_expression *expr)
         L_compile_expressions(expr->a);
         TclEmitOpcode(INST_UMINUS, lframe->envPtr);
         break;
-    case T_STAR:
-        /* *, dereference operator */
-        if (expr->a->kind != L_EXPRESSION_VARIABLE) {
-            L_bomb("Dereference is only supported for simple variables, %s", L_expression_tostr[expr->a->kind]);
-        } else {
-            L_PUSH_STR("pointer");
-            L_PUSH_STR("get");
-            L_compile_expressions(expr->a);
-            TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
-        }
-        break;
     case T_BITAND:
         /* &, address-of operator */
-        if (expr->a->kind != L_EXPRESSION_VARIABLE) {
+        if (expr->a->kind != L_EXPRESSION_STRING) {
             L_bomb("Address-of is only supported on variable names.");
         } else {
-            L_expression *variable_name = expr->a->a;
-            L_PUSH_STR("pointer");
-            L_PUSH_STR("new");
-            L_compile_expressions(variable_name);
-            TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+            L_compile_expressions(expr->a);
         }
         break;
     case T_DEFINED:
@@ -1169,15 +1108,14 @@ L_push_variable(L_expression *expr)
                 L_bomb("corrupt AST, unknown index type");
             }
             first_chunk = FALSE;
-            /*         if (expr->indices->kind == L_EXPRESSION_HASH_INDEX) { */
-            /*             L_LOAD_SCALAR(var->localIndex); */
-            /*             L_read_hash_index_chunk(expr->indices); */
-            /*         } else { */
-            /*             L_read_array_index_chunk(var->localIndex, expr->indices, var->type); */
-            /*         } */
         }
     } else {
-        L_LOAD_SCALAR(var->localIndex);
+        if (type_passed_by_name_p(var->type)) {
+            /* behave as if there was an & here */
+            L_PUSH_STR(var->name);
+        } else {
+            L_LOAD_SCALAR(var->localIndex);
+        }
     }
 }
 
@@ -1207,31 +1145,16 @@ import_global_symbol(L_symbol *var)
     return local;
 }
 
-
-/* /\* Stick a _ on the front of name and return the result as an L AST */
-/*    node. *\/ */
-/* L_expression * */
-/* pointer_mangle(char *name) { */
-/*     L_expression *node; */
-/*     char *mangled_name = ckalloc(strlen(name) + 2); */
-/*     sprintf(mangled_name, "_%s", name); */
-/*     MK_STRING_NODE(node, mangled_name); */
-/*     ckfree(mangled_name); */
-/*     return node; */
-/* } */
-
-/* /\* Stick a __ on the front of name and return the result as an L AST */
-/*    node. *\/ */
-/* L_expression * */
-/* array_mangle(char *name) { */
-/*     L_expression *node; */
-/*     char *mangled_name = ckalloc(strlen(name) + 3); */
-/*     sprintf(mangled_name, "__%s", name); */
-/*     MK_STRING_NODE(node, mangled_name); */
-/*     ckfree(mangled_name); */
-/*     return node; */
-/* /\*     return gensym(name); *\/ */
-/* } */
+/* Make an upvar named upvarName that references the variable named by var. */
+static void
+emit_upvar(L_symbol *var, char *upvarName)
+{
+    L_PUSH_STR("upvar");
+    L_LOAD_SCALAR(var->localIndex);
+    L_PUSH_STR(upvarName);
+    TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+}
 
 void
 L_return(int value_on_stack_p)
@@ -1264,46 +1187,9 @@ store_in_tempvar(int pop_p)
 void
 L_compile_defined(L_expression *lval)
 {
-    L_symbol *var;
-    L_expression *name = lval->a, *idx;
-    L_type *type;
-
-    if (!lval->indices) {
-        L_errorf(lval, "defined is only defined for array elements");
-        return;
-    }
-    if (!(var = L_get_symbol(name, TRUE))) return;
-    if (global_symbol_p(var)) {
-        var = import_global_symbol(var);
-    }
-    type = var->type;
-    idx = lval->indices;
-    L_PUSH_STR("pointer");
-    L_PUSH_STR("defined");
-    L_PUSH_STR("pointer");
-    L_PUSH_STR("add");
-    for (idx = idx->indices; idx && (idx->kind == L_EXPRESSION_ARRAY_INDEX);
-         idx = idx->indices)
-    {
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("get");
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("add");
-    }
-    L_LOAD_SCALAR(var->localIndex);
-    for (idx = lval->indices; idx && (idx->kind == L_EXPRESSION_ARRAY_INDEX);
-         idx = idx->indices)
-    {
-        type = L_compile_index(type, idx);
-        /* pointer add */
-        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
-        /* pointer defined/get */
-        TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
-    }
-    if (idx) {
-        L_errorf(idx, "non-array index found in defined() expression");
-        return;
-    }
+    /* XXX: Going to have to think about how to implement this... it used to
+       just say "pointer defined foo".  --timjr 2006.9.24 */
+    L_PUSH_STR("0");
 }
 
 void
@@ -1312,19 +1198,7 @@ L_compile_assignment(L_expression *expr)
     L_symbol *var;
     L_expression *lval = expr->a;
     L_expression *rval = expr->b;
-    int pointer_p = FALSE;
 
-    if (lval->kind == L_EXPRESSION_UNARY) {
-        L_trace("assigning into a pointer, kind of a: %s, a->a: %s",
-                L_expression_tostr[lval->a->kind],
-                L_expression_tostr[lval->a->a->kind]);
-        /* pointer */
-/*         lval = mk_expression(L_EXPRESSION_VARIABLE, -1, */
-/*                              pointer_mangle(lval->a->a->u.s), NULL, NULL, */
-/*                              lval->a->indices, NULL); */
-        lval = lval->a;
-        pointer_p = TRUE;
-    }
     L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
             lval->a->u.s);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
@@ -1335,17 +1209,8 @@ L_compile_assignment(L_expression *expr)
     if (lval->indices) {
         L_write_index(var, var->type, lval->indices, rval);
     } else {
-        if (pointer_p) {
-            L_PUSH_STR("pointer");
-            L_PUSH_STR("set");
-            L_compile_expressions(lval);
-            L_compile_expressions(rval);
-            TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
-        } else {
-            /* no array indices */
-            L_compile_expressions(rval);
-            L_STORE_SCALAR(var->localIndex);
-        }
+        L_compile_expressions(rval);
+        L_STORE_SCALAR(var->localIndex);
     }
 }
 
@@ -1440,7 +1305,7 @@ L_write_struct_index_chunk(
         TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
         L_write_index(NULL, type, index->indices, rval);
         rvalVar = store_in_tempvar(TRUE);
-        L_LOAD_SCALAR(varIndex);
+        L_LOAD_SCALAR(indexVar);
         L_LOAD_SCALAR(rvalVar);
     } else {
         type = L_compile_index(type, index);
@@ -1461,29 +1326,22 @@ L_read_array_index_chunk(
     L_type *base_type)
 {
     L_expression *i;
+    int index_count = 0;
 
-    for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-         i = i->indices)
-    {
-        L_trace("[pointer get [pointer add ");
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("get");
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("add");
-    }
     L_LOAD_SCALAR(varIndex);
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
          i = i->indices)
     {
         *type = L_compile_index(*type, i);
-        L_trace(" %d ] ]", i->a->u.i);
-        /* pointer add */
-        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
-        /* pointer get */
-        TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
-
+        index_count++;
     }
-    *type = base_type;
+    if (index_count == 1) {
+        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+    } else {
+        TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
+                        lframe->envPtr);
+    }
+    /*     *type = base_type; */
     return i;
 }
 
@@ -1497,63 +1355,42 @@ L_write_array_index_chunk(
 
 {
     L_expression *i;
-    int emit_set = TRUE;
-    int further_indices = FALSE;
+    int index_count = 0;
 
-
+    /* walk to the end of the list of indices so we can check if anything
+       comes after that */
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
          i = i->indices);
-    if (i) further_indices = TRUE;
-
-    for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-         i = i->indices)
-    {
-        L_PUSH_STR("pointer");
-        if (emit_set && !further_indices) {
-            L_trace("[pointer set [pointer add ");
-            /* only emit set the first time */
-            L_PUSH_STR("set");
-            emit_set = FALSE;
-        } else {
-            L_trace("[pointer get [pointer add ");
-            L_PUSH_STR("get");
+    if (i) {
+        int indexVar, rvalVar;
+        /* there are struct or hash indices following the array indices, so
+           we'll have to read out the array and store it back. */
+        L_LOAD_SCALAR(varIndex);
+        type = L_compile_index(type, index);
+        indexVar = store_in_tempvar(FALSE);
+        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+        L_write_index(NULL, type, index->indices, rval);
+        rvalVar = store_in_tempvar(TRUE);
+        L_LOAD_SCALAR(indexVar);
+        L_LOAD_SCALAR(rvalVar);
+        L_LOAD_SCALAR(varIndex);
+        TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+        L_STORE_SCALAR(varIndex);
+    } else {
+        for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
+             i = i->indices)
+        {
+            type = L_compile_index(type, i);
+            index_count++;
         }
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("add");
-    }
-    L_LOAD_SCALAR(varIndex);
-    for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-         i = i->indices)
-    {
-        type = L_compile_index(type, i);
-        L_trace(" %d ] ]", i->a->u.i);
-        /* pointer add */
-        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
-        if (i->indices && (i->indices->kind == L_EXPRESSION_ARRAY_INDEX)) {
-            /* pointer get */
-            TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+        L_compile_expressions(rval);
+        L_LOAD_SCALAR(varIndex);
+        if (index_count == 1) {
+            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
         } else {
-            /* the last time around, pointer set */
-            if (further_indices) {
-                /* process any remaining indices.  unfortunately, we have to
-                   reshuffle the stack a bit. */
-                int pointerVar, rvalVar;
-                pointerVar = store_in_tempvar(FALSE);
-                /* pointer get */
-                TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
-                L_write_index(NULL, base_type, i->indices, rval);
-                rvalVar = store_in_tempvar(TRUE);
-                L_PUSH_STR("pointer");
-                L_PUSH_STR("set");
-                L_LOAD_SCALAR(pointerVar);
-                L_LOAD_SCALAR(rvalVar);
-            } else {
-                /* no more indices, so just stack rval */
-                L_compile_expressions(rval);
-            }
-            TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+            TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
         }
-
+        L_STORE_SCALAR(varIndex);
     }
     return type;
 }
@@ -1651,7 +1488,8 @@ L_compile_index(
         break;
     case L_EXPRESSION_ARRAY_INDEX:
         /* array index */
-        if (!(array_p(t) || pointer_p(t))) {
+/*         if (!(array_p(t) || pointer_p(t))) { */
+        if (!array_p(t)) {
             L_errorf(index, "Index into something that's not an array");
             return t;
         }
@@ -1727,13 +1565,13 @@ emit_call_to_main(CompileEnv *envPtr, int with_args_p)
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
         /* invoke append */
         TclEmitInstInt4(INST_INVOKE_STK4, 5, envPtr);
-        TclEmitOpcode(INST_POP, envPtr);
-        /* Create a pointer to that variable and leave it on the stack. */
-        L_PUSH_STR("pointer");
-        L_PUSH_STR("new");
-        L_PUSH_STR(argvName);
-        L_PUSH_STR("0");
-        TclEmitInstInt4(INST_INVOKE_STK4, 4, envPtr);
+/*         TclEmitOpcode(INST_POP, envPtr); */
+/*         /\* Create a pointer to that variable and leave it on the stack. *\/ */
+/*         L_PUSH_STR("pointer"); */
+/*         L_PUSH_STR("new"); */
+/*         L_PUSH_STR(argvName); */
+/*         L_PUSH_STR("0"); */
+/*         TclEmitInstInt4(INST_INVOKE_STK4, 4, envPtr); */
         /* invoke main */
         TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
     }
@@ -1782,6 +1620,16 @@ L_get_symbol(L_expression *name, int error_p)
     }
 }
 
+/* Stick an & on the front of name and return the result as an L AST node. */
+static L_expression *
+reference_mangle(char *name) {
+    L_expression *node;
+    char *mangled_name = ckalloc(strlen(name) + 2);
+    sprintf(mangled_name, "&%s", name);
+    MK_STRING_NODE(node, mangled_name);
+    ckfree(mangled_name);
+    return node;
+}
 
 /* maybeFixupEmptyCode() doesn't fix anything up right now, because we always
    emit code for the implicit return value.  But I guess that when we start

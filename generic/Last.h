@@ -52,11 +52,10 @@ typedef enum L_type_kind {
 	L_TYPE_VAR,
 	L_TYPE_VOID,
 	L_TYPE_STRUCT,
-	L_TYPE_POINTER,
 	L_TYPE_ARRAY
 } L_type_kind;
 
-extern char *L_type_tostr[10];
+extern char *L_type_tostr[9];
 typedef enum L_loop_kind {
 	L_LOOP_FOR,
 	L_LOOP_FOREACH,
@@ -177,6 +176,7 @@ struct L_variable_declaration {
 	L_type *type;
 	L_expression *name;
 	L_expression *initial_value;
+	int by_name;
 	L_variable_declaration *next;
 };
 
@@ -187,7 +187,7 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
 L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next);
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body);
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,L_variable_declaration *next);
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,int by_name,L_variable_declaration *next);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);
 L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);
 L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);

@@ -101,17 +101,16 @@ struct var_1_3_point lglobal1_3[5];
 var_1_3(void)
 {
         int i = 0;
-        //        puts(format("lglobal1_3 is %s", lglobal1_3));
-/*         puts(pointer("dump", lglobal1_3)); */
-        var_1_3_dump();
+
+        puts(lglobal1_3);
         while (i < 5) {
           lglobal1_3[i].x = i * 10;
           lglobal1_3[i].y = i * 20;
           i++;
         }
-        var_1_3_dump();
+        puts(lglobal1_3);
         var_1_3_aux(3);
-        var_1_3_dump();
+        puts(lglobal1_3);
 }
 
 var_1_3_aux(int i)
@@ -119,20 +118,11 @@ var_1_3_aux(int i)
         lglobal1_3[i].x = i * 35;
         lglobal1_3[i].y = i * 45;
 }
-
-var_1_3_dump() {
-  puts(format("{{%s} {%s}} {{%s} {%s}} {{%s} {%s}} {{%s} {%s}} {{%s} {%s}}",
-              lglobal1_3[0].x, lglobal1_3[0].y,
-              lglobal1_3[1].x, lglobal1_3[1].y,
-              lglobal1_3[2].x, lglobal1_3[2].y,
-              lglobal1_3[3].x, lglobal1_3[3].y,
-              lglobal1_3[4].x, lglobal1_3[4].y));
-}
 #pragma end
 var_1_3
 } -output "{{} {}} {{} {}} {{} {}} {{} {}} {{} {}}
-{{0} {0}} {{10} {20}} {{20} {40}} {{30} {60}} {{40} {80}}
-{{0} {0}} {{10} {20}} {{20} {40}} {{105} {135}} {{40} {80}}
+{0 0} {10 20} {20 40} {30 60} {40 80}
+{0 0} {10 20} {20 40} {105 135} {40 80}
 "
 
 
@@ -623,14 +613,12 @@ array_1_0() {
     array[2][2][0] = 3;
     array[3][0][1] = 4;
     puts(array);
-    puts(array[0]);
-    /* prints 3 because of the string coercion */
-    puts(array[2][2]);
-    puts(array[3][0][1]);
 }
 #pragma end
 array_1_0
-} -output "\n\n\n3\n4\n"
+} -output "{{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}}
+{{1 {}} {{} {}} {{} {}}} {{{} {}} {{} 2} {{} {}}} {{{} {}} {{} {}} {3 {}}} {{{} 4} {{} {}} {{} {}}}
+"
 
 
 test loop-1.0 {while loops} -body {
@@ -733,6 +721,43 @@ struct_1_1
 51 9 {1 cows}
 "
 
+test struct-1.1 {arrays of structs containing arrays} -body {
+#pragma language L
+struct struct_1_2_point {
+        int x, y;
+        string label;
+  int z[4];
+};
+
+struct_1_2() {
+   int i = 0;
+   struct struct_1_2_point s[10];
+
+   while(i < 10) {
+      s[i].y = i;
+      s[i].x = 42 + i;
+      s[i].label = format("%d cows", 10 - i);
+      s[i].z[i%4] = i;
+      i++;
+   }
+   for (i=0; i<10; i++) {
+     puts(s[i]);
+   }
+}
+#pragma end
+struct_1_2
+} -output "42 0 {10 cows} {0 {} {} {}}
+43 1 {9 cows} {{} 1 {} {}}
+44 2 {8 cows} {{} {} 2 {}}
+45 3 {7 cows} {{} {} {} 3}
+46 4 {6 cows} {4 {} {} {}}
+47 5 {5 cows} {{} 5 {} {}}
+48 6 {4 cows} {{} {} 6 {}}
+49 7 {3 cows} {{} {} {} 7}
+50 8 {2 cows} {8 {} {} {}}
+51 9 {1 cows} {{} 9 {} {}}
+"
+
 test hash-1.0 {basic hashtable support} -body {
 #pragma language L
 void hash_1_0() {
@@ -806,25 +831,26 @@ regexp_1_2
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
-test pointer-1.0 {fairly normal seeming L pointers} -body {
+test reference-1.0 {L references} -body {
 #pragma language L
-pointer_1_0() {
-  int bar[4];
-  int *foo;
-
-  bar[0] = 1; bar[1] = 2; bar[2] = 3; bar[3] = 4;
-  foo = bar;
-  puts(format("%d %d %d %d", bar[0], bar[1], bar[2], bar[3]));
-  pointer_1_0_aux(foo);
-  puts(format("%d %d %d %d", bar[0], bar[1], bar[2], bar[3]));
+reference_1_0() {
+  string foo = "this is a string";
+  printf("so far, so good: %s\n", foo);
+  reference_1_0_aux("bleh", &foo);
+  printf("%s\n", foo);
 }
 
-int pointer_1_0_aux(int *foo) {
-  foo[1] = 5;
+reference_1_0_aux(string dummy, string &bob) {
+  printf("foot: %s\n", bob);
+  bob = "This was a string.";
 }
 #pragma end
-pointer_1_0
-} -output "1 2 3 4\n1 5 3 4\n"
+reference_1_0
+} -output "so far, so good: this is a string
+foot: this is a string
+This was a string.
+"
+
 
 test typedef-1.0 {basic typedef support} -body {
 #pragma language L

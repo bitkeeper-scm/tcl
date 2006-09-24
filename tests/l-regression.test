@@ -66,7 +66,7 @@ turing(int step, int state, int tape[], int pos) {
 }
 
 /* dump the tape to a string */
-dump_tape(int *tape) {
+dump_tape(int tape[]) {
     return format("%d %d %d %d %d",
                   tape[0],  tape[1], tape[2], tape[3], tape[4]);
 }

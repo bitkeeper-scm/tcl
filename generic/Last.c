@@ -31,7 +31,7 @@ char *L_statement_tostr[5] = {
 	"L_STATEMENT_BLOCK"
 };
 
-char *L_type_tostr[10] = {
+char *L_type_tostr[9] = {
 	"L_TYPE_INT",
 	"L_TYPE_STRING",
 	"L_TYPE_DOUBLE",
@@ -40,7 +40,6 @@ char *L_type_tostr[10] = {
 	"L_TYPE_VAR",
 	"L_TYPE_VOID",
 	"L_TYPE_STRUCT",
-	"L_TYPE_POINTER",
 	"L_TYPE_ARRAY"
 };
 
@@ -150,7 +149,7 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	return function_declaration;
 }
 
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,L_variable_declaration *next) 
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,int by_name,L_variable_declaration *next) 
 {
 	L_variable_declaration *variable_declaration;
 
@@ -158,6 +157,7 @@ L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,
 	variable_declaration->type = type;
 	variable_declaration->name = name;
 	variable_declaration->initial_value = initial_value;
+	variable_declaration->by_name = by_name;
 	variable_declaration->next = next;
 	((L_ast_node *)variable_declaration)->_trace = ast_trace_root;
 	ast_trace_root = (void *)variable_declaration;
