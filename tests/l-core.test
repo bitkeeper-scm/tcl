@@ -102,15 +102,15 @@ var_1_3(void)
 {
         int i = 0;
 
-        puts(lglobal1_3);
+        puts((tcl)lglobal1_3);
         while (i < 5) {
           lglobal1_3[i].x = i * 10;
           lglobal1_3[i].y = i * 20;
           i++;
         }
-        puts(lglobal1_3);
+        puts((tcl)lglobal1_3);
         var_1_3_aux(3);
-        puts(lglobal1_3);
+        puts((tcl)lglobal1_3);
 }
 
 var_1_3_aux(int i)
@@ -607,12 +607,12 @@ test array-1.1 { Multi-dimensional array creation and indexing } -body {
 array_1_0() {
     int array[4][3][2];
 
-    puts(array);
+    puts((tcl)array);
     array[0][0][0] = 1;
     array[1][1][1] = 2;
     array[2][2][0] = 3;
     array[3][0][1] = 4;
-    puts(array);
+    puts((tcl)array);
 }
 #pragma end
 array_1_0
@@ -895,6 +895,7 @@ defined_1_0() {
   }
   puts("-*-");
   puts(defined(arr[3]));
+  puts(defined(arr[-1]));
 }
 #pragma end
 defined_1_0
@@ -910,6 +911,7 @@ defined_1_0
 4, 1
 -*-
 1
+0
 "
 
 # cleanup

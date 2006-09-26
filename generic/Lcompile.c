@@ -622,16 +622,16 @@ L_compile_parameters(L_variable_declaration *param)
     CompiledLocal *localPtr;
     L_expression *name;
     int i;
-    
-    for (i = 0; param; param = param->next, i++) {
-        L_symbol *symbol;
-        int by_name = (param->by_name || type_passed_by_name_p(param->type));
+    L_variable_declaration *p;
+
+    for (p = param, i = 0; p; p = p->next, i++) {
+        int by_name = (p->by_name || type_passed_by_name_p(p->type));
         if (by_name) {
             /* if the parameter is pass by name, we use a mangled name for it
                so that we can define an upvar using the original name */
-            name = reference_mangle(param->name->u.s);
+            name = reference_mangle(p->name->u.s);
         } else {
-            name = param->name;
+            name = p->name;
         }
         L_trace("Compiling parameter %d (%s)", i, name->u.s);
         /* Formal parameters are stored in local variable slots. */
@@ -653,13 +653,28 @@ L_compile_parameters(L_variable_declaration *param)
         localPtr->resolveInfo = NULL;
         localPtr->defValuePtr = NULL;
         strcpy(localPtr->name, name->u.s);
-        symbol = L_make_symbol(name, param->type, i);
+        L_make_symbol(name, p->type, i);
+    }
+    /* we have to loop over them again, otherwise TclFindCompiledLocal somehow
+       screws up the compiled locals for us, such that L code with args after
+       a by-name arg will segfault.  I haven't 100% understood what's going
+       on.  --timjr 2006.9.26*/
+    for (p = param, i = 0; p; p = p->next, i++) {
+        int by_name = (p->by_name || type_passed_by_name_p(p->type));
         if (by_name) {
-            int localIndex =
-                TclFindCompiledLocal(param->name->u.s, strlen(param->name->u.s),
-                                     1, 0, procPtr);
-            emit_upvar(symbol, param->name->u.s);
-            L_make_symbol(param->name, param->type, localIndex);
+            L_symbol *symbol;
+            int localIndex;
+
+            /* if the parameter is pass by name, we use a mangled name for it
+               so that we can define an upvar using the original name */
+            name = reference_mangle(p->name->u.s);
+            symbol = L_get_symbol(name, TRUE);
+
+            localIndex =
+                TclFindCompiledLocal(p->name->u.s, strlen(p->name->u.s),
+                                     1, VAR_SCALAR, procPtr);
+            L_make_symbol(p->name, p->type, localIndex);
+            emit_upvar(symbol, p->name->u.s);
         }
     }
 }
@@ -669,12 +684,9 @@ L_compile_parameters(L_variable_declaration *param)
 static int
 type_passed_by_name_p(L_type *type)
 {
-/*     return ((type->next_dim && */
-/*              type->next_dim->kind == L_TYPE_ARRAY) || */
-/*             type->kind == L_TYPE_HASH); */
-    /* XXX: this is disabled for the moment because it looks like it might be
-       a problem... --timjr 2009.9.24 */
-    return FALSE;
+    return ((type->next_dim &&
+             type->next_dim->kind == L_TYPE_ARRAY) ||
+            type->kind == L_TYPE_HASH);
 }
 
 void
@@ -687,13 +699,32 @@ L_compile_expressions(L_expression *expr)
 /*     L_trace("Compiling an expression of type %s", */
 /*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
-    case L_EXPRESSION_FUNCALL:
+    case L_EXPRESSION_FUNCALL: {
+        L_expression *param, *next;
         L_PUSH_STR(expr->a->u.s);
-        L_compile_expressions(expr->b);
-        /* count the parameters */
-        for (tmp = expr->b; tmp; tmp = tmp->next, i++);
+        /* count the parameters stack them  */
+        for (i = 0, param = expr->b; param; param = param->next, i++) {
+            L_symbol *var = NULL;
+
+            if ((param->kind == L_EXPRESSION_VARIABLE) && !param->indices) {
+                var = L_get_symbol(param->a, FALSE);
+            }
+            /* check if the parameter needs to be passed by name */
+            if (var && type_passed_by_name_p(var->type)) {
+                L_PUSH_STR(var->name);
+            } else {
+                /* compile the parameter for its value, but just the one */
+                L_expression *next = param->next;
+                param->next = NULL;
+                L_compile_expressions(param);
+                param->next = next;
+            }
+        }
+/*         L_compile_expressions(expr->b); */
+/*         for (tmp = expr->b; tmp; tmp = tmp->next, i++); */
         TclEmitInstInt4(INST_INVOKE_STK4, i+1, lframe->envPtr);
         break;
+    }
     case L_EXPRESSION_PRE:
     case L_EXPRESSION_POST:
         L_compile_incdec(expr);
@@ -748,6 +779,32 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
 void L_compile_unop(L_expression *expr)
 {
     switch (expr->op) {
+    case T_TCL_CAST:
+        if ((expr->a->kind == L_EXPRESSION_VARIABLE) && !expr->a->indices) {
+            /* XXX: this duplicates some code from L_push_variable... maybe
+               'twould be better to parameterize L_push_variable? */
+            L_symbol *var;
+            L_expression *name = expr->a->a;
+            if (!(var = L_get_symbol(name, TRUE))) return;
+            if (global_symbol_p(var)) {
+                var = import_global_symbol(var);
+            }
+            L_LOAD_SCALAR(var->localIndex);
+        } else {
+            /* we don't do anything special if it's not a plain jane
+               variable */
+            L_compile_expressions(expr->a);
+        }
+        break;
+    case T_STRING_CAST:
+        L_bomb("casts to string aren't implemented yet");
+        break;
+    case T_INT_CAST:
+        L_bomb("casts to int aren't implemented yet");
+        break;
+    case T_DOUBLE_CAST:
+        L_bomb("casts to double aren't implemented yet");
+        break;
     case T_BANG:
         L_compile_expressions(expr->a);
         TclEmitOpcode(INST_LNOT, lframe->envPtr);
@@ -938,7 +995,8 @@ L_compile_twiddle(L_expression *expr)
                 TclFindCompiledLocal(name->u.s, strlen(name->u.s),
                                      1, 0, lframe->envPtr->procPtr);
             L_make_symbol(name,
-                          mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL),
+                          mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL,
+                                  FALSE),
                           localIndex);
         }
     }
@@ -1110,12 +1168,7 @@ L_push_variable(L_expression *expr)
             first_chunk = FALSE;
         }
     } else {
-        if (type_passed_by_name_p(var->type)) {
-            /* behave as if there was an & here */
-            L_PUSH_STR(var->name);
-        } else {
-            L_LOAD_SCALAR(var->localIndex);
-        }
+        L_LOAD_SCALAR(var->localIndex);
     }
 }
 
@@ -1187,9 +1240,37 @@ store_in_tempvar(int pop_p)
 void
 L_compile_defined(L_expression *lval)
 {
-    /* XXX: Going to have to think about how to implement this... it used to
-       just say "pointer defined foo".  --timjr 2006.9.24 */
+    int tempVar;
+
+    L_expression *idx, *last_index;
+    if ((lval->kind == L_EXPRESSION_VARIABLE) && !lval->indices) {
+        L_errorf(lval, "defined is only defined for array elements");
+        return;
+    }
+    /* walk idx down to the second-to-last index */
+    for (idx = lval; idx->indices && idx->indices->indices; idx = idx->indices);
+    /* trim the last index off and save it in last_index */
+    last_index = idx->indices;
+    idx->indices = NULL;
+    /* read out the list and leave it on the stack */
+    L_compile_expressions(lval);
+    /* get the list's length */
+    TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
+    /* evaluate the last index and check if it's within bounds */
+    if (last_index) {
+        L_compile_expressions(last_index->a);
+        tempVar = store_in_tempvar(FALSE);
+    } else {
+        L_bomb("assertion failed: I was expecting at least one index");
+    }
+    TclEmitOpcode(INST_GT, lframe->envPtr);
     L_PUSH_STR("0");
+    L_LOAD_SCALAR(tempVar);
+    TclEmitOpcode(INST_LE, lframe->envPtr);
+    TclEmitOpcode(INST_LAND, lframe->envPtr);
+
+    /* put the AST back the way it was */
+    idx->indices = last_index;
 }
 
 void
@@ -1546,7 +1627,8 @@ emit_call_to_main(CompileEnv *envPtr, int with_args_p)
     if (!with_args_p) {
         TclEmitInstInt4(INST_INVOKE_STK4, 1, envPtr);
     } else {
-        char *argvName = gensym("L_argv");
+        /* XXX if we use a gensym the number on the front confuses upvar */
+        char *argvName = "L_argv";
         /* TCL's argv is missing argv[0], which they've placed in argv0.  We
            stick the two together and pass that to L.  So, first push argc and
            add one to it: */
@@ -1565,13 +1647,10 @@ emit_call_to_main(CompileEnv *envPtr, int with_args_p)
         TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
         /* invoke append */
         TclEmitInstInt4(INST_INVOKE_STK4, 5, envPtr);
-/*         TclEmitOpcode(INST_POP, envPtr); */
-/*         /\* Create a pointer to that variable and leave it on the stack. *\/ */
-/*         L_PUSH_STR("pointer"); */
-/*         L_PUSH_STR("new"); */
-/*         L_PUSH_STR(argvName); */
-/*         L_PUSH_STR("0"); */
-/*         TclEmitInstInt4(INST_INVOKE_STK4, 4, envPtr); */
+        /* pop argv off the stack and push its name, since arrays are passed
+           by reference  */
+        TclEmitOpcode(INST_POP, envPtr);
+        L_PUSH_STR(argvName);
         /* invoke main */
         TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
     }
@@ -1807,8 +1886,12 @@ L_type *L_lookup_typedef(L_expression *name, int error_p) {
     }
 }
 
+/* side effects: modifies the type so that typedef_p is true, maps name to
+   type in the typedef table so that type will will be returned by
+   L_lookup_typedef of name. */
 void L_store_typedef(L_expression *name, L_type *type) {
     int new;
+    type->typedef_p = TRUE;
     Tcl_HashEntry *hPtr =
         Tcl_CreateHashEntry(L_typedef_table(), name->u.s, &new);
     if (!new) {

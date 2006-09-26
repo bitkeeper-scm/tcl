@@ -20,7 +20,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
         L_type *array_type = decl->type;
 
         REVERSE(L_type, next_dim, array_type);
-        if (type_specifier->next_dim) {
+        if (type_specifier->typedef_p && type_specifier->next_dim) {
           /* the type might already have array dimensions if it comes
              from a typedef. */
           if (array_type) {
@@ -31,7 +31,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
         }
         decl->type = mk_type(type_specifier->kind, NULL,
                              type_specifier->struct_tag, array_type,
-                             type_specifier->members);
+                             type_specifier->members, FALSE);
         return decl;
 }
 
@@ -72,6 +72,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT ADDRESS
+%right T_STRING_CAST T_TCL_CAST T_DOUBLE_CAST T_INT_CAST
 %left T_DOT
 
 %%
@@ -116,14 +117,14 @@ function_declaration:
         }
         | optional_void T_ID "(" parameter_list ")" compound_statement
         {
-                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL);
+                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
                 $$ = mk_function_declaration($2, $4, v, ((L_statement *)$6)->u.block);
         }
 	;
 
 optional_void:
-          T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
-        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL); }
+          T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); }
+        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); }
         ;
 
 
@@ -269,6 +270,26 @@ argument_expression_list:
 
 expr:
           "(" expr ")"          { $$ = $2; }
+        | T_STRING_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_STRING_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
+        | T_TCL_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_TCL_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
+        | T_DOUBLE_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_DOUBLE_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
+        | T_INT_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_INT_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
  	| T_BANG expr
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BANG, $2, NULL, NULL, NULL, NULL);
@@ -461,7 +482,8 @@ declarator:
         {
                 L_type *type =
                         mk_type(L_TYPE_ARRAY, $3, NULL,
-                                ((L_variable_declaration *)$1)->type, NULL);
+                                ((L_variable_declaration *)$1)->type, NULL,
+                                FALSE);
                 ((L_variable_declaration *)$1)->type = type;
                 $$ = $1;
         }
@@ -472,18 +494,19 @@ declarator:
                 MK_INT_NODE(zero, 0);
                 ((L_variable_declaration *)$1)->type =
                     mk_type(L_TYPE_ARRAY, zero, NULL,
-                            ((L_variable_declaration *)$1)->type, NULL);
+                            ((L_variable_declaration *)$1)->type, NULL,
+                            FALSE);
                 $$ = $1;
         }
         ;
 
 type_specifier:
-	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL); }
-	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL); }
-	| T_DOUBLE      { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL, NULL, NULL); }
-	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL); }
-	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL); }
-	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL); }
+	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE); }
+	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE); }
+	| T_DOUBLE      { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL, NULL, NULL, FALSE); }
+	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL, FALSE); }
+	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE); }
+	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL, FALSE); }
         | T_TYPE        { $$ = L_lookup_typedef($1, TRUE); }
         | struct_specifier
 	;
@@ -492,16 +515,16 @@ struct_specifier:
           T_STRUCT T_ID "{" struct_declaration_list "}"
         {
                 REVERSE(L_variable_declaration, next, $4);
-                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, $4);
+                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, $4, FALSE);
         }
 	| T_STRUCT "{" struct_declaration_list "}"
         {
                 REVERSE(L_variable_declaration, next, $3);
-                $$ = mk_type(L_TYPE_STRUCT, NULL, NULL, NULL, $3);
+                $$ = mk_type(L_TYPE_STRUCT, NULL, NULL, NULL, $3, FALSE);
         }
 	| T_STRUCT T_ID
         {
-                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, NULL);
+                $$ = mk_type(L_TYPE_STRUCT, NULL, $2, NULL, NULL, FALSE);
         }
         ;
 

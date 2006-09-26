@@ -90,6 +90,12 @@ tally_newlines(
         "hash"          return T_HASH;
         "poly"          return T_POLY;
         "var"           return T_VAR;
+
+        "("[ \t]*"string"[ \t]*")"      return T_STRING_CAST;
+        "("[ \t]*"tcl"[ \t]*")"         return T_TCL_CAST;
+        "("[ \t]*"double"[ \t]*")"      return T_DOUBLE_CAST;
+        "("[ \t]*"int"[ \t]*")"         return T_INT_CAST;
+
         "if"		return T_IF;
         "else"		return T_ELSE;
         "unless"	return T_UNLESS;

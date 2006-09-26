@@ -169,6 +169,7 @@ struct L_type {
 	L_expression *struct_tag;
 	L_type *next_dim;
 	L_variable_declaration *members;
+	int typedef_p;
 };
 
 struct L_variable_declaration {
@@ -183,7 +184,7 @@ struct L_variable_declaration {
 
 /* Prototypes */
 L_statement *mk_statement(L_statement_kind kind,L_statement *next);
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members);
+L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p);
 L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
 L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next);
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body);

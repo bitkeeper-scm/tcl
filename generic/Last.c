@@ -85,7 +85,7 @@ L_statement *mk_statement(L_statement_kind kind,L_statement *next)
 	return statement;
 }
 
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members) 
+L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p) 
 {
 	L_type *type;
 
@@ -95,6 +95,7 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 	type->struct_tag = struct_tag;
 	type->next_dim = next_dim;
 	type->members = members;
+	type->typedef_p = typedef_p;
 	((L_ast_node *)type)->_trace = ast_trace_root;
 	ast_trace_root = (void *)type;
 	((L_ast_node *)type)->line_no = L_line_number;
