@@ -851,6 +851,26 @@ foot: this is a string
 This was a string.
 "
 
+test reference-1.1 {L references} -body {
+#pragma language L
+struct reference_1_1_point { int x, y; };
+
+reference_1_1() {
+  struct reference_1_1_point a;
+  puts(a);
+  reference_1_1_tweak(&a);
+  puts(a);
+}
+
+reference_1_1_tweak(struct reference_1_1_point &foo) {
+  foo.x = 2;
+}
+#pragma end
+reference_1_1
+} -output "{} {}
+2 {}
+"
+
 
 test typedef-1.0 {basic typedef support} -body {
 #pragma language L

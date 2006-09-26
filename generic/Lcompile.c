@@ -529,7 +529,7 @@ fixup_struct_type(L_type *type)
         struct_type = lookup_struct_type(struct_type->struct_tag->u.s);
         if (!struct_type) {
             L_errorf(type, "Undefined structure type: %s",
-                     struct_type->struct_tag->u.s);
+                     type->struct_tag->u.s);
             return;
         }
         /* Fixup the original type so that it also has the member
@@ -1554,9 +1554,12 @@ L_compile_index(
                 L_errorf(index, "Not a structure");
                 return t;
             }
+            fixup_struct_type(t);
             for (memberOffset = 0, member = t->members;
                  member && strcmp(member->name->u.s, index->a->u.s);
-                 memberOffset++, member = member->next);
+                 memberOffset++, member = member->next) {
+                L_trace("member is %s", member->name->u.s);
+            }
             if (!member) {
                 L_errorf(index, "Structure field not found, %s", index->a->u.s);
                 return t;
