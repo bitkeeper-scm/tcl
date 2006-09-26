@@ -321,10 +321,6 @@ typedef long LONG;
  * Miscellaneous declarations.
  */
 
-#ifndef NULL
-#   define NULL 0
-#endif
-
 #ifndef _CLIENTDATA
 #   ifndef NO_VOID
 	typedef void *ClientData;
@@ -349,6 +345,7 @@ typedef long LONG;
 #	undef TCL_WIDE_INT_IS_LONG
 #	undef TCL_CFG_DO64BIT
 #    endif /* __LP64__ */
+#    undef HAVE_STRUCT_STAT64
 #endif /* __APPLE__ */
 
 /*
@@ -393,10 +390,10 @@ typedef struct stati64 Tcl_StatBuf;
 #         define TCL_LL_MODIFIER	"L"
 #         define TCL_LL_MODIFIER_SIZE	1
 #      else /* __BORLANDC__ */
-#         if _MSC_VER < 1400
+#         if _MSC_VER < 1400 || !defined(_M_IX86)
 typedef struct _stati64	Tcl_StatBuf;
 #         else
-typedef struct __stat64	Tcl_StatBuf;
+typedef struct _stat64	Tcl_StatBuf;
 #         endif /* _MSC_VER < 1400 */
 #         define TCL_LL_MODIFIER	"I64"
 #         define TCL_LL_MODIFIER_SIZE	3

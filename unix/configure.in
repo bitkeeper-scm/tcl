@@ -167,6 +167,41 @@ if test "`uname -s`" = "Darwin" && test "${TCL_THREADS}" = 1 && \
 fi
 AC_CHECK_FUNC(realpath, , [AC_DEFINE(NO_REALPATH, 1, [Do we have realpath()])])
 
+#-------------------------------------------------------------------- 
+#	Look for thread-safe variants of some library functions.
+#--------------------------------------------------------------------
+
+if test "${TCL_THREADS}" = 1; then
+    SC_TCL_GETPWUID_R
+    SC_TCL_GETPWNAM_R
+    SC_TCL_GETGRGID_R
+    SC_TCL_GETGRNAM_R
+    if test "`uname -s`" = "Darwin" && \
+	    test "`uname -r | awk -F. '{print [$]1}'`" -gt 5; then
+	# Starting with Darwin 6 (Mac OSX 10.2), gethostbyX
+	# are actually MT-safe as they always return pointers
+	# from TSD instead of static storage.
+	AC_DEFINE(HAVE_MTSAFE_GETHOSTBYNAME, 1,
+		[Do we have MT-safe gethostbyname() ?])
+	AC_DEFINE(HAVE_MTSAFE_GETHOSTBYADDR, 1,
+		[Do we have MT-safe gethostbyaddr() ?])
+
+    elif test "`uname -s`" = "HP-UX" && \
+	      test "`uname -r|sed -e 's|B\.||' -e 's|\..*$||'`" -gt 10; then
+        # Starting with HPUX 11.00 (we believe), gethostbyX
+        # are actually MT-safe as they always return pointers
+	# from TSD instead of static storage.
+	AC_DEFINE(HAVE_MTSAFE_GETHOSTBYNAME, 1,
+		[Do we have MT-safe gethostbyname() ?])
+	AC_DEFINE(HAVE_MTSAFE_GETHOSTBYADDR, 1,
+		[Do we have MT-safe gethostbyaddr() ?])
+
+    else
+	SC_TCL_GETHOSTBYNAME_R
+	SC_TCL_GETHOSTBYADDR_R
+    fi
+fi
+
 #---------------------------------------------------------------------------
 #	Determine which interface to use to talk to the serial port.
 #	Note that #include lines must begin in leftmost column for
@@ -443,6 +478,8 @@ if test "`uname -s`" = "Darwin" ; then
 	[Are we to override what our default encoding is?])
     AC_DEFINE(TCL_LOAD_FROM_MEMORY, 1,
 	[Can this platform load code from memory?])
+    AC_DEFINE(TCL_WIDE_CLICKS, 1,
+	[Does this platform have wide high-resolution clicks?])
     AC_CHECK_HEADERS(AvailabilityMacros.h)
     if test "$ac_cv_header_AvailabilityMacros_h" = yes; then
 	AC_CACHE_CHECK([if weak import is available], tcl_cv_cc_weak_import, [

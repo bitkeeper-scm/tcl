@@ -54,22 +54,14 @@
  * Values used to compute how much space is really available for Tcl's use for
  * the stack.
  *
- * NOTE: Now I have some idea why the maximum stack size must be divided by 64
- * on FreeBSD with threads enabled to get a reasonably correct value.
- *
  * The getrlimit() function is documented to return the maximum stack size in
- * bytes. However, with threads enabled, the pthread library does bad things
- * to the stack size limits. First, the limits cannot be changed. Second, they
- * appear to be reported incorrectly by a factor of about 64.
+ * bytes. However, with threads enabled, the pthread library on some platforms
+ * does bad things to the stack size limits. First, the limits cannot be
+ * changed. Second, they appear to be sometimes reported incorrectly.
  *
  * The defines below may need to be adjusted if more platforms have this
  * broken behavior with threads enabled.
  */
-
-#if defined(__FreeBSD__)
-#   define TCL_MAGIC_STACK_DIVISOR	64
-#   define TCL_RESERVED_STACK_PAGES	3
-#endif
 
 #ifndef TCL_MAGIC_STACK_DIVISOR
 #define TCL_MAGIC_STACK_DIVISOR		1
@@ -480,21 +472,9 @@ TclpInitLibraryPath(
 #define LIBRARY_SIZE	    32
     Tcl_Obj *pathPtr, *objPtr;
     CONST char *str;
-    Tcl_DString buffer, ds;
-    int pathc;
-    CONST char **pathv;
-    char installLib[LIBRARY_SIZE];
+    Tcl_DString buffer;
 
-    Tcl_DStringInit(&ds);
     pathPtr = Tcl_NewObj();
-
-    /*
-     * Initialize the substrings used when locating an executable. The
-     * installLib variable computes the path as though the executable is
-     * installed.
-     */
-
-    sprintf(installLib, "lib/tcl%s", TCL_VERSION);
 
     /*
      * Look for the library relative to the TCL_LIBRARY env variable. If the
@@ -508,6 +488,21 @@ TclpInitLibraryPath(
     str = Tcl_DStringValue(&buffer);
 
     if ((str != NULL) && (str[0] != '\0')) {
+	Tcl_DString ds;
+	int pathc;
+	CONST char **pathv;
+	char installLib[LIBRARY_SIZE];
+
+	Tcl_DStringInit(&ds);
+
+	/*
+	 * Initialize the substrings used when locating an executable. The
+	 * installLib variable computes the path as though the executable is
+	 * installed.
+	 */
+
+	sprintf(installLib, "lib/tcl%s", TCL_VERSION);
+
 	/*
 	 * If TCL_LIBRARY is set, search there.
 	 */
@@ -537,7 +532,7 @@ TclpInitLibraryPath(
     /*
      * Finally, look for the library relative to the compiled-in path. This is
      * needed when users install Tcl with an exec-prefix that is different
-     * from the prtefix.
+     * from the prefix.
      */
 
     {
@@ -770,6 +765,30 @@ TclpSetVariables(
 
 #ifdef HAVE_COREFOUNDATION
     char tclLibPath[MAXPATHLEN + 1];
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED > 1020
+    /*
+     * Set msgcat fallback locale to current CFLocale identifier.
+     */
+    CFLocaleRef localeRef;
+    
+    if (CFLocaleCopyCurrent != NULL && CFLocaleGetIdentifier != NULL &&
+	    (localeRef = CFLocaleCopyCurrent())) {
+	CFStringRef locale = CFLocaleGetIdentifier(localeRef);
+
+	if (locale) {
+	    char loc[256];
+
+	    if (CFStringGetCString(locale, loc, 256, kCFStringEncodingUTF8)) {
+		if (!Tcl_CreateNamespace(interp, "::tcl::mac", NULL, NULL)) {
+		    Tcl_ResetResult(interp);
+		}
+		Tcl_SetVar(interp, "::tcl::mac::locale", loc, TCL_GLOBAL_ONLY);
+	    }
+	}
+	CFRelease(localeRef);
+    }
+#endif
 
     if (MacOSXGetLibraryPath(interp, MAXPATHLEN, tclLibPath) == TCL_OK) {
 	CONST char *str;

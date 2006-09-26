@@ -132,7 +132,8 @@ GENERIC_FLAGS =
 #GENERIC_FLAGS = -DTCL_GENERIC_ONLY
 UNIX_OBJS = tclUnixChan.o tclUnixEvent.o tclUnixFCmd.o \
 	tclUnixFile.o tclUnixPipe.o tclUnixSock.o \
-	tclUnixTime.o tclUnixInit.o tclUnixThrd.o 
+	tclUnixTime.o tclUnixInit.o tclUnixThrd.o \
+	tclUnixCompat.o 
 #UNIX_OBJS =
 NOTIFY_OBJS = tclUnixNotfy.o
 #NOTIFY_OBJS =
@@ -553,7 +554,8 @@ UNIX_SRCS = \
 	$(UNIX_DIR)/tclUnixTest.c \
 	$(UNIX_DIR)/tclUnixThrd.c \
 	$(UNIX_DIR)/tclUnixTime.c \
-	$(UNIX_DIR)/tclUnixInit.c
+	$(UNIX_DIR)/tclUnixInit.c \
+	$(UNIX_DIR)/tclUnixCompat.c
 
 NOTIFY_SRCS = \
 	$(UNIX_DIR)/tclUnixNotfy.c
@@ -681,10 +683,17 @@ ddd: tclsh
 	$(DDD) -command=gdb.run ./tclsh
 	rm gdb.run
 
+VALGRINDARGS=--tool=memcheck --num-callers=8 --leak-resolution=high --leak-check=yes --show-reachable=yes -v
+
 valgrind: tclsh tcltest
 	@LD_LIBRARY_PATH_VAR@=`pwd`:$${@LD_LIBRARY_PATH_VAR@}; export @LD_LIBRARY_PATH_VAR@; \
 	TCL_LIBRARY="${TCL_BUILDTIME_LIBRARY}"; export TCL_LIBRARY; \
-	valgrind --num-callers=8 --leak-resolution=high -v --leak-check=yes --show-reachable=yes $(VALGRINDARGS) ./tcltest $(TOP_DIR)/tests/all.tcl -singleproc 1 $(TESTFLAGS)
+	valgrind $(VALGRINDARGS) ./tcltest $(TOP_DIR)/tests/all.tcl -singleproc 1 $(TESTFLAGS)
+
+valgrindshell: tclsh
+	@LD_LIBRARY_PATH_VAR@=`pwd`:$${@LD_LIBRARY_PATH_VAR@}; export @LD_LIBRARY_PATH_VAR@; \
+	TCL_LIBRARY="${TCL_BUILDTIME_LIBRARY}"; export TCL_LIBRARY; \
+	valgrind $(VALGRINDARGS) ./tclsh $(SCRIPT)
 
 # The following target outputs the name of the top-level source directory
 # for Tcl (it is used by Tk's configure script, for example).  The
@@ -821,17 +830,17 @@ install-libraries: libraries install-tzdata install-msgs
 	    do \
 	    $(INSTALL_DATA) $$j $(SCRIPT_INSTALL_DIR)/http1.0; \
 	    done;
-	@echo "Installing package http 2.5.2 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/http/http.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/http-2.5.2.tm;
+	@echo "Installing package http 2.5.3 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/http/http.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/http-2.5.3.tm;
 	@echo "Installing library opt0.4 directory";
 	@for j in $(TOP_DIR)/library/opt/*.tcl ; \
 	    do \
 	    $(INSTALL_DATA) $$j $(SCRIPT_INSTALL_DIR)/opt0.4; \
 	    done;
-	@echo "Installing package msgcat 1.4.1 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/msgcat/msgcat.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/msgcat-1.4.1.tm;
-	@echo "Installing package tcltest 2.2.8 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/tcltest/tcltest.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.3/tcltest-2.2.8.tm;
+	@echo "Installing package msgcat 1.4.2 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/msgcat/msgcat.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/msgcat-1.4.2.tm;
+	@echo "Installing package tcltest 2.3.0 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/tcltest/tcltest.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.3/tcltest-2.3.0.tm;
 	@echo "Installing library encoding directory";
 	@for i in $(TOP_DIR)/library/encoding/*.enc ; do \
 		$(INSTALL_DATA) $$i $(SCRIPT_INSTALL_DIR)/encoding; \
@@ -1499,6 +1508,9 @@ tclUnixInit.o: $(UNIX_DIR)/tclUnixInit.c tclConfig.sh
 	$(CC) -c $(CC_SWITCHES) -DTCL_LIBRARY=\"${TCL_LIBRARY}\" \
 		-DTCL_PACKAGE_PATH="\"${TCL_PACKAGE_PATH}\"" \
 		$(UNIX_DIR)/tclUnixInit.c
+
+tclUnixCompat.o: $(UNIX_DIR)/tclUnixCompat.c
+	$(CC) -c $(CC_SWITCHES) $(UNIX_DIR)/tclUnixCompat.c
 
 # The following are Mac OS X only sources:
 tclMacOSXBundle.o: $(MAC_OSX_DIR)/tclMacOSXBundle.c

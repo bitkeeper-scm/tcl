@@ -4694,7 +4694,7 @@ TclExecuteByteCode(
 
 	/* TODO: Attempts to re-use unshared operands on stack */
 	if (*pc == INST_EXPON) {
-	    long l2 = 0;
+	    long l1, l2 = 0;
 	    int oddExponent = 0, negativeExponent = 0;
 	    if (type2 == TCL_NUMBER_LONG) {
 		l2 = *((CONST long *)ptr2);
@@ -4735,7 +4735,7 @@ TclExecuteByteCode(
 
 	    if (negativeExponent) {
 		if (type1 == TCL_NUMBER_LONG) {
-		    long l1 = *((CONST long *)ptr1);
+		    l1 = *((CONST long *)ptr1);
 		    switch (l1) {
 		    case 0:
 			/* zero to a negative power is div by zero error */
@@ -4762,7 +4762,7 @@ TclExecuteByteCode(
 	    }
 
 	    if (type1 == TCL_NUMBER_LONG) {
-		long l1 = *((CONST long *)ptr1);
+		l1 = *((CONST long *)ptr1);
 		switch (l1) {
 		case 0:
 		    /* zero to a positive power is zero */
@@ -4781,13 +4781,8 @@ TclExecuteByteCode(
 		    NEXT_INST_F(1, 2, 1);
 		}
 	    }
-
-	    if (type2 != TCL_NUMBER_LONG) {
-		result = TCL_ERROR;
-		Tcl_SetObjResult(interp,
-			Tcl_NewStringObj("exponent too large", -1));
-		goto checkForCatch;
-	    }
+	    /* TODO: Perform those computations that fit in native types */
+	    goto overflow;
 	}
 
 	if ((*pc != INST_MULT)
@@ -4846,38 +4841,6 @@ TclExecuteByteCode(
 		    wResult -= 1;
 		}
 		break;
-	    case INST_EXPON: {
-		/* TODO: smarter overflow detection ? */
-		int wasNegative;
-		if (w2 & 1) {
-		    wResult = w1;
-		} else {
-		    wResult = Tcl_LongAsWide(1);
-		}
-		w1 *= w1;
-		w2 /= 2;
-		for (; w2>Tcl_LongAsWide(1) ; w1*=w1,w2/=2) {
-		    wasNegative = (wResult < 0);
-		    if (w1 <= 0) {
-			goto overflow;
-		    }
-		    if (w2 & 1) {
-			wResult *= w1;
-			if (wasNegative != (wResult < 0)) {
-			    goto overflow;
-			}
-		    }
-		}
-		wasNegative = (wResult < 0);
-		if (w1 <= 0) {
-		    goto overflow;
-		}
-		wResult *=  w1;
-		if (wasNegative != (wResult < 0)) {
-		    goto overflow;
-		}
-		break;
-	    }
 	    default:
 		/* Unused, here to silence compiler warning. */
 		wResult = 0;
@@ -6266,13 +6229,13 @@ PrintByteCodeInfo(
 	    0.0);
 
 #ifdef TCL_COMPILE_STATS
-    fprintf(stdout, "  Code %d = header %d+inst %d+litObj %d+exc %d+aux %d+cmdMap %d\n",
-	    codePtr->structureSize,
-	    (sizeof(ByteCode) - (sizeof(size_t) + sizeof(Tcl_Time))),
+    fprintf(stdout, "  Code %lu = header %lu+inst %d+litObj %lu+exc %lu+aux %lu+cmdMap %d\n",
+	    (unsigned long) codePtr->structureSize,
+	    (unsigned long) (sizeof(ByteCode) - (sizeof(size_t) + sizeof(Tcl_Time))),
 	    codePtr->numCodeBytes,
-	    (codePtr->numLitObjects * sizeof(Tcl_Obj *)),
-	    (codePtr->numExceptRanges * sizeof(ExceptionRange)),
-	    (codePtr->numAuxDataItems * sizeof(AuxData)),
+	    (unsigned long) (codePtr->numLitObjects * sizeof(Tcl_Obj *)),
+	    (unsigned long) (codePtr->numExceptRanges * sizeof(ExceptionRange)),
+	    (unsigned long) (codePtr->numAuxDataItems * sizeof(AuxData)),
 	    codePtr->numCmdLocBytes);
 #endif /* TCL_COMPILE_STATS */
     if (procPtr != NULL) {
@@ -6818,11 +6781,11 @@ EvalStatsCmd(
 	    statsPtr->totalByteCodeBytes);
     fprintf(stdout, "    Literal bytes		%.6g\n",
 	    totalLiteralBytes);
-    fprintf(stdout, "      table %d + bkts %d + entries %ld + objects %ld + strings %.6g\n",
-	    sizeof(LiteralTable),
-	    iPtr->literalTable.numBuckets * sizeof(LiteralEntry *),
-	    statsPtr->numLiteralsCreated * sizeof(LiteralEntry),
-	    statsPtr->numLiteralsCreated * sizeof(Tcl_Obj),
+    fprintf(stdout, "      table %lu + bkts %lu + entries %lu + objects %lu + strings %.6g\n",
+	    (unsigned long) sizeof(LiteralTable),
+	    (unsigned long) (iPtr->literalTable.numBuckets * sizeof(LiteralEntry *)),
+	    (unsigned long) (statsPtr->numLiteralsCreated * sizeof(LiteralEntry)),
+	    (unsigned long) (statsPtr->numLiteralsCreated * sizeof(Tcl_Obj)),
 	    statsPtr->totalLitStringBytes);
     fprintf(stdout, "  Mean code/compile		%.1f\n",
 	    totalCodeBytes / statsPtr->numCompilations);
@@ -6839,11 +6802,11 @@ EvalStatsCmd(
 	    statsPtr->currentByteCodeBytes);
     fprintf(stdout, "    Literal bytes		%.6g\n",
 	    currentLiteralBytes);
-    fprintf(stdout, "      table %d + bkts %d + entries %d + objects %d + strings %.6g\n",
-	    sizeof(LiteralTable),
-	    iPtr->literalTable.numBuckets * sizeof(LiteralEntry *),
-	    iPtr->literalTable.numEntries * sizeof(LiteralEntry),
-	    iPtr->literalTable.numEntries * sizeof(Tcl_Obj),
+    fprintf(stdout, "      table %lu + bkts %lu + entries %lu + objects %lu + strings %.6g\n",
+	    (unsigned long) sizeof(LiteralTable),
+	    (unsigned long) (iPtr->literalTable.numBuckets * sizeof(LiteralEntry *)),
+	    (unsigned long) (iPtr->literalTable.numEntries * sizeof(LiteralEntry)),
+	    (unsigned long) (iPtr->literalTable.numEntries * sizeof(Tcl_Obj)),
 	    statsPtr->currentLitStringBytes);
     fprintf(stdout, "  Mean code/source		%.1f\n",
 	    currentCodeBytes / statsPtr->currentSrcBytes);
@@ -6933,11 +6896,11 @@ EvalStatsCmd(
 	    (sharingBytesSaved * 100.0) / (objBytesIfUnshared + strBytesIfUnshared));
     fprintf(stdout, "    Bytes with sharing		%.6g\n",
 	    currentLiteralBytes);
-    fprintf(stdout, "      table %d + bkts %d + entries %d + objects %d + strings %.6g\n",
-	    sizeof(LiteralTable),
-	    iPtr->literalTable.numBuckets * sizeof(LiteralEntry *),
-	    iPtr->literalTable.numEntries * sizeof(LiteralEntry),
-	    iPtr->literalTable.numEntries * sizeof(Tcl_Obj),
+    fprintf(stdout, "      table %lu + bkts %lu + entries %lu + objects %lu + strings %.6g\n",
+	    (unsigned long) sizeof(LiteralTable),
+	    (unsigned long) (iPtr->literalTable.numBuckets * sizeof(LiteralEntry *)),
+	    (unsigned long) (iPtr->literalTable.numEntries * sizeof(LiteralEntry)),
+	    (unsigned long) (iPtr->literalTable.numEntries * sizeof(Tcl_Obj)),
 	    statsPtr->currentLitStringBytes);
     fprintf(stdout, "    Bytes if no sharing		%.6g = objects %.6g + strings %.6g\n",
 	    (objBytesIfUnshared + strBytesIfUnshared),
@@ -6948,10 +6911,10 @@ EvalStatsCmd(
     fprintf(stdout, "  Literal mgmt overhead	 	%ld (%0.1f%% of bytes with sharing)\n",
 	    literalMgmtBytes,
 	    (literalMgmtBytes * 100.0) / currentLiteralBytes);
-    fprintf(stdout, "    table %d + buckets %d + entries %d\n",
-	    sizeof(LiteralTable),
-	    iPtr->literalTable.numBuckets * sizeof(LiteralEntry *),
-	    iPtr->literalTable.numEntries * sizeof(LiteralEntry));
+    fprintf(stdout, "    table %lu + buckets %lu + entries %lu\n",
+	    (unsigned long) sizeof(LiteralTable),
+	    (unsigned long) (iPtr->literalTable.numBuckets * sizeof(LiteralEntry *)),
+	    (unsigned long) (iPtr->literalTable.numEntries * sizeof(LiteralEntry)));
 
     /*
      * Breakdown of current ByteCode space requirements.

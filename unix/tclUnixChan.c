@@ -2271,7 +2271,7 @@ TcpGetOptionProc(
 		Tcl_DStringStartSublist(dsPtr);
 	    }
 	    Tcl_DStringAppendElement(dsPtr, inet_ntoa(peername.sin_addr));
-	    hostEntPtr = gethostbyaddr(			/* INTL: Native. */
+	    hostEntPtr = TclpGetHostByAddr(			/* INTL: Native. */
 		    (char *) &peername.sin_addr,
 		    sizeof(peername.sin_addr), AF_INET);
 	    if (hostEntPtr != NULL) {
@@ -2318,7 +2318,7 @@ TcpGetOptionProc(
 		Tcl_DStringStartSublist(dsPtr);
 	    }
 	    Tcl_DStringAppendElement(dsPtr, inet_ntoa(sockname.sin_addr));
-	    hostEntPtr = gethostbyaddr(			/* INTL: Native. */
+	    hostEntPtr = TclpGetHostByAddr(			/* INTL: Native. */
 		    (char *) &sockname.sin_addr,
 		    sizeof(sockname.sin_addr), AF_INET);
 	    if (hostEntPtr != NULL) {
@@ -3253,6 +3253,9 @@ TclUnixWaitForFile(
 	}
 	if (timeout == 0) {
 	    break;
+	}
+	if (timeout < 0) {
+	    continue;
 	}
 
 	/*

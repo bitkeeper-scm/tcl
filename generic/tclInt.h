@@ -1263,6 +1263,15 @@ typedef struct ResolverScheme {
 typedef struct LimitHandler LimitHandler;
 
 /*
+ * TIP #268.
+ * Values for the selection mode, i.e the package require preferences.
+ */
+
+enum PkgPreferOptions {
+    PKG_PREFER_LATEST, PKG_PREFER_STABLE
+};
+
+/*
  *----------------------------------------------------------------
  * This structure defines an interpreter, which is a collection of commands
  * plus other state information related to interpreting commands, such as
@@ -1377,7 +1386,6 @@ typedef struct Interp {
 				 * commands for packages that aren't described
 				 * in packageTable. Ckalloc'ed, may be
 				 * NULL. */
-
     /*
      * Miscellaneous information:
      */
@@ -1519,6 +1527,14 @@ typedef struct Interp {
 				 * NULL), takes precedence over a posix error
 				 * code returned by a channel operation. */
 
+    /*
+     * TIP #268.
+     * The currently active selection mode,
+     * i.e the package require preferences.
+     */
+
+    int packagePrefer;          /* Current package selection mode.
+				 */
     /*
      * Statistical information about the bytecode compiler and interpreter's
      * operation.
@@ -2235,6 +2251,10 @@ MODULE_SCOPE int	TclpLoadMemory(Tcl_Interp *interp, void *buffer,
 MODULE_SCOPE void	TclInitThreadStorage(void);
 MODULE_SCOPE void	TclpFinalizeThreadDataThread(void);
 MODULE_SCOPE void	TclFinalizeThreadStorage(void);
+#ifdef TCL_WIDE_CLICKS
+MODULE_SCOPE Tcl_WideInt TclpGetWideClicks(void);
+MODULE_SCOPE Tcl_WideInt TclpWideClicksToNanoseconds(Tcl_WideInt clicks);
+#endif
 
 /*
  *----------------------------------------------------------------

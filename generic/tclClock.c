@@ -1684,13 +1684,18 @@ ClockClicksObjCmd(
     switch (index) {
     case CLICKS_MILLIS:
 	Tcl_GetTime(&now);
-	Tcl_SetObjResult(interp, Tcl_NewWideIntObj( (Tcl_WideInt)
-		now.sec * 1000 + now.usec / 1000 ) );
+	Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt)
+		now.sec * 1000 + now.usec / 1000));
 	break;
-    case CLICKS_NATIVE:
-	Tcl_SetObjResult(interp, Tcl_NewWideIntObj( (Tcl_WideInt)
-		TclpGetClicks()));
+    case CLICKS_NATIVE: {
+#ifndef TCL_WIDE_CLICKS
+	unsigned long clicks = TclpGetClicks();
+#else
+	Tcl_WideInt clicks = TclpGetWideClicks();
+#endif
+	Tcl_SetObjResult(interp, Tcl_NewWideIntObj((Tcl_WideInt) clicks));
 	break;
+    }
     case CLICKS_MICROS:
 	Tcl_GetTime(&now);
 	Tcl_SetObjResult(interp, Tcl_NewWideIntObj(

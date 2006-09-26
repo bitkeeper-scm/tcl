@@ -506,12 +506,12 @@ extern double strtod();
  */
 
 #ifdef __APPLE__
-/* 
+/*
  * Support for fat compiles: configure runs only once for multiple architectures
  */
-#   ifdef __LP64__
+#   if defined(__LP64__) && defined (NO_COREFOUNDATION_64)
 #       undef HAVE_COREFOUNDATION
-#    endif /* __LP64__ */
+#    endif /* __LP64__ && NO_COREFOUNDATION_64 */
 #   include <sys/cdefs.h>
 #   ifdef __DARWIN_UNIX03
 #       if __DARWIN_UNIX03
@@ -519,18 +519,24 @@ extern double strtod();
 #       else
 #           define HAVE_PUTENV_THAT_COPIES 1
 #       endif
-#       define USE_TERMIOS 1
-#       undef USE_TERMIO
-#       undef USE_SGTTY
 #   endif /* __DARWIN_UNIX03 */
-/* 
+/*
+ * The termios configure test program relies on the configure script being run
+ * from a terminal, which is not the case e.g. when configuring from Xcode.
+ * Since termios is known to be present on all Mac OS X releases since 10.0,
+ * override the configure defines for serial API here. [Bug 497147]
+ */
+#   define USE_TERMIOS 1
+#   undef  USE_TERMIO
+#   undef  USE_SGTTY
+/*
  * Include AvailabilityMacros.h here (when available) to ensure any symbolic
  * MAC_OS_X_VERSION_* constants passed on the command line are translated.
  */
 #   ifdef HAVE_AVAILABILITYMACROS_H
 #       include <AvailabilityMacros.h>
 #   endif
-/* 
+/*
  * Support for weak import.
  */
 #   ifdef HAVE_WEAK_IMPORT
@@ -547,6 +553,9 @@ extern double strtod();
  * only use API available in the indicated OS version or earlier.
  */
 #   ifdef MAC_OS_X_VERSION_MAX_ALLOWED
+#       if MAC_OS_X_VERSION_MAX_ALLOWED < 1050 && defined(__LP64__)
+#           undef HAVE_COREFOUNDATION
+#       endif
 #       if MAC_OS_X_VERSION_MAX_ALLOWED < 1040
 #           undef HAVE_OSSPINLOCKLOCK
 #           undef HAVE_PTHREAD_ATFORK
@@ -560,6 +569,17 @@ extern double strtod();
 #           undef HAVE_LANGINFO
 #       endif
 #   endif /* MAC_OS_X_VERSION_MAX_ALLOWED */
+#   if defined(HAVE_COREFOUNDATION) && defined(__LP64__) && \
+	    defined(HAVE_WEAK_IMPORT) && MAC_OS_X_VERSION_MIN_REQUIRED < 1050
+#       warning "Weak import of 64-bit CoreFoundation is not supported, will not run on Mac OS X < 10.5."
+#   endif
+/*
+ * At present, using vfork() instead of fork() causes execve() to fail
+ * intermittently on Darwin x86_64. rdar://4685553
+ */
+#   if defined(__x86_64__) && !defined(FIXED_RDAR_4685553)
+#       undef USE_VFORK
+#   endif /* __x86_64__ */
 #endif /* __APPLE__ */
 
 /*
@@ -631,5 +651,23 @@ EXTERN int pthread_getattr_np _ANSI_ARGS_((pthread_t, pthread_attr_t *));
 #	endif /* HAVE_PTHREAD_GETATTR_NP */
 #   endif /* HAVE_PTHREAD_ATTR_GET_NP */
 #endif /* TCL_THREADS */
+
+/*
+ * Set of MT-safe implementations of some
+ * known-to-be-MT-unsafe library calls.
+ * Instead of returning pointers to the
+ * static storage, those return pointers
+ * to the TSD data. 
+ */
+
+#include <pwd.h>
+#include <grp.h>
+
+MODULE_SCOPE struct passwd*  TclpGetPwNam(const char *name);
+MODULE_SCOPE struct group*   TclpGetGrNam(const char *name);
+MODULE_SCOPE struct passwd*  TclpGetPwUid(uid_t uid);
+MODULE_SCOPE struct group*   TclpGetGrGid(gid_t gid);
+MODULE_SCOPE struct hostent* TclpGetHostByName(const char *name);
+MODULE_SCOPE struct hostent* TclpGetHostByAddr(const char *addr, int length, int type);
 
 #endif /* _TCLUNIXPORT */
