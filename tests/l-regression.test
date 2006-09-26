@@ -7,15 +7,15 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 
 
 test empty-1.0 {empty code blocks} -body {
-#pragma language L
+#lang(L)
 empty_1_0() {
 } 
-#pragma end
+#lang(tcl)
 empty_1_0
 } 
 
 test empty-1.1 {empty code blocks with some control flow} -body {
-#pragma language L
+#lang(L)
 empty_1_1() {
         /* note that none of these conditions is true, 
            so no code is executed */
@@ -27,14 +27,14 @@ empty_1_1() {
                 puts("1 working");
         }
 } 
-#pragma end
+#lang(tcl)
 empty_1_1
 } 
 
 test multi-dimensional-1.0 {move[state][read_symbol] was being evaluated as
 move[state][state[read_symbol]][read_symbol], or thereabouts, because the AST
 was built in an ambiguous way.} -body {
-#pragma language L
+#lang(L)
 turing(int step, int state, int tape[], int pos) {
     int write_symbol[5][2], move[5][2], new_state[5][2], read_symbol;
 
@@ -79,7 +79,7 @@ multi_dimensional_1_0() {
     puts("- - - - - - - - - -");
     turing(1, 0, tape, 0);
 }
-#pragma end
+#lang(tcl)
 multi_dimensional_1_0
 } -output {Step	State	Tape
 - - - - - - - - - -

@@ -166,7 +166,7 @@ static CmdInfo builtInCmds[] = {
      * L Commands
      */
 
-    {"#pragma language L", L_PragmaObjCmd,	LCompilePragmaCmd,      1},
+    {"#lang(L)",	L_PragmaObjCmd,		LCompilePragmaCmd,      1},
     {"pointer",		L_PointerObjCmd,	LCompilePointerCmd,	1},
     /*
      * Commands in the UNIX core:

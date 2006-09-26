@@ -6,17 +6,17 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 }
 
 test proc-1.0 {Test L function definition.} -body {
-#pragma language L
+#lang(L)
 main(void) {
         puts("foo");
 }
-#pragma end
+#lang(tcl)
 main  
 } -output "foo\n"
 
 
 test proc-1.1 {Test L function returns.} -body {
-#pragma language L
+#lang(L)
 f1() {
         puts("whiz");
 }
@@ -33,46 +33,46 @@ main(void) {
         puts(f2());
         puts(f3());
 }
-#pragma end
+#lang(tcl)
 main  
 } -output "whiz\n\nbang\nfoo\n\n"
 
 test proc-1.2 {Test L function parameters.} -body {
-#pragma language L
+#lang(L)
 proc_1_2(string arg1, string arg2) {
         puts(arg1);
         puts(arg2);
 } 
-#pragma end
+#lang(tcl)
 proc_1_2 "val1" "val2" 
 } -output "val1\nval2\n"
 
 test var-1.0 {Test L variable assignment and reference} -body {
-#pragma language L
+#lang(L)
 var_1_0(void)
 {
 	string s;
         s = "Hello";
 	puts(s);
 }
-#pragma end
+#lang(tcl)
 var_1_0
 } -output "Hello\n"
 
 test var-1.1 {L global variables} -body {
-#pragma language L
+#lang(L)
 int lglobal1_1 = 1;
 var_1_1(void)
 {
         puts(lglobal1_1);
 }
-#pragma end
+#lang(tcl)
 var_1_1
 } -output "1\n"
 
 
 test var-1.2 {L global variables, harder} -body {
-#pragma language L
+#lang(L)
 int lglobal1_2 = 3;
 var_1_2(void)
 {
@@ -87,13 +87,13 @@ var_1_2_aux()
         puts(lglobal1_2);
         lglobal1_2 = 5;
 }
-#pragma end
+#lang(tcl)
 var_1_2
 } -output "3\n4\n5\n"
 
 
 test var-1.3 {A global array of structs} -body {
-#pragma language L
+#lang(L)
 
 struct var_1_3_point { int x, y; };
 struct var_1_3_point lglobal1_3[5];
@@ -118,7 +118,7 @@ var_1_3_aux(int i)
         lglobal1_3[i].x = i * 35;
         lglobal1_3[i].y = i * 45;
 }
-#pragma end
+#lang(tcl)
 var_1_3
 } -output "{{} {}} {{} {}} {{} {}} {{} {}} {{} {}}
 {0 0} {10 20} {20 40} {30 60} {40 80}
@@ -126,40 +126,41 @@ var_1_3
 "
 
 
-test pragma-1.0 {Test pragma parsing} -body {
+test lang-1.0 {Test lang parsing} -body {
 # These are some Tcl Comments
-#pragma language L
+#lang(L)
 main(void)
 {
 	puts("worked");
 }
 
-#pragma end
+#lang(tcl)
 # More comments
 main
 } -output "worked\n"
 
-test pragma-2.0 {Test failure path in pragma parsing} -body {
-#pragma language foo
+test lang-2.0 {Test failure path in lang parsing} -body {
+#lang(foo)
 main(void)
 {
 	puts("worked");
 }
 
-#pragma end
+#lang(tcl)
 main
 } -returnCodes {error} -result {unknown language}
 
-test pragma-3.0 {Test lack of end pragma} -body {
-#pragma language L
+# no output because we're not calling any functions
+test lang-3.0 {Test not switching back to Tcl} -body {
+#lang(L)
 main(void)
 {
 	puts("worked");
 }
-} -returnCodes {error} -result {unfinished pragma}
+}
 
 test decl-1.0 {Variable and parameter declaration syntax} -body {
-#pragma language L
+#lang(L)
 fun1() { }
 fun2(void) { }
 void fun3() { }
@@ -180,25 +181,25 @@ void fun8() {
                 }
         }
 }
-#pragma end
+#lang(tcl)
 fun8
 } -output "om\n";
 
 test decl-1.1 {Hairy literal hash syntax in initializers} -body {
-#pragma language L
+#lang(L)
 initmewoo() {
         hash h = { "key" => "val", "key2" => "val" };
 }
-#pragma end
+#lang(tcl)
 }
 
 test decl-1.2 {Undeclared variable error} -body {
-#pragma language L
+#lang(L)
 undecl() {
         foo = "bar";
         puts(cheese);
 }
-#pragma end
+#lang(tcl)
 undecl
 } -returnCodes error -result {L Error: Undeclared variable: foo on line 2
 L Error: Undeclared variable: cheese on line 3
@@ -206,7 +207,7 @@ L Error: Undeclared variable: cheese on line 3
 
 
 test decl-1.3 {Variable shadowing} -body {
-#pragma language L
+#lang(L)
 shadow() {
         int foo = 1;
         if (1) {
@@ -215,13 +216,13 @@ shadow() {
         } 
         puts(foo);
 }
-#pragma end
+#lang(tcl)
 shadow
 } -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
 }
 
 test if-1.0 {If statements} -body {
-#pragma language L
+#lang(L)
 if_1_0() {
         if (1) puts("0 working");
         if (0) {
@@ -232,13 +233,13 @@ if_1_0() {
                 puts("1 working");
         } 
 }
-#pragma end
+#lang(tcl)
 if_1_0
 } -output "0 working\nbetween\n1 working\n"
 
 
 test if-1.1 {If statements with else clauses and multistatement bodies} -body {
-#pragma language L
+#lang(L)
 if_1_1() {
         if (1) {
                 puts("1 working");
@@ -258,13 +259,13 @@ if_1_1() {
                 puts(".");
         }
 }
-#pragma end
+#lang(tcl)
 if_1_1
 } -output "1 working\n.\n2 working\n.\n.\n"
 
 
 test if-1.2 {"else if" clauses} -body {
-#pragma language L
+#lang(L)
 if_1_2() {
         if (0) {
                 puts("1 broken");
@@ -282,12 +283,12 @@ if_1_2() {
                 puts("2 working");
         }
 }
-#pragma end
+#lang(tcl)
 if_1_2
 } -output "1 working\nbetween\n2 working\n"
 
 test if-1.3 {nested if statements} -body {
-#pragma language L
+#lang(L)
 if_1_3() {
         if (1) {
                 puts("1 before");
@@ -302,23 +303,23 @@ if_1_3() {
         }
         puts("1 done");
 }
-#pragma end
+#lang(tcl)
 if_1_3
 } -output "1 before\n1 working\n1 after\n1 done\n"
 
 
 test if-1.4 {else is only allowed with curly braces} -body {
-#pragma language L
+#lang(L)
 main(void)
 {
 	if (0) puts("1 broken"); else puts("1 even more broken");
 }
-#pragma end
+#lang(tcl)
 } -returnCodes {error} -result "L Error: syntax error, unexpected T_ELSE on line 3\n"
 
 
 test unless-1.0 {unless statements} -body {
-#pragma language L
+#lang(L)
 unless_1_0() {
         unless(0) puts("0 working");
         unless(0) {
@@ -337,12 +338,12 @@ unless_1_0() {
                 puts("3 working");
         }
 } 
-#pragma end
+#lang(tcl)
 unless_1_0
 } -output "0 working\n1 working\n2 working\n3 working\n"
 
 test unless-1.1 {unless and if statements mixed} -body {
-#pragma language L
+#lang(L)
 unless_1_1() {
         unless(1) {
                 puts("1 broken");
@@ -353,24 +354,24 @@ unless_1_1() {
         }
         puts("done");
 } 
-#pragma end
+#lang(tcl)
 unless_1_1
 } -output "1 working\ndone\n"
 
 test syntax-1.0 {single-line comments a la C++} -body {
-#pragma language L
+#lang(L)
 syntax_1_0() {
         // single-line comments are 
         puts("working"); //see?
         //////cruftilioucious 
 }
-#pragma end
+#lang(tcl)
 syntax_1_0
 } -output "working\n" 
 
 
 test syntax-1.1 {structure syntax} -body {
-#pragma language L
+#lang(L)
 
 struct syntax_1_1_point {
         int x, y;
@@ -386,12 +387,12 @@ syntax_1_1() {
         puts("didn't crash");
 }
 
-#pragma end
+#lang(tcl)
 syntax_1_1
 } -output "didn't crash\n"
 
 test syntax-1.2 {interpolated strings} -body {
-#pragma language L
+#lang(L)
 
 syntax_1_2() {
         int i = 1, j = 2;
@@ -401,13 +402,13 @@ syntax_1_2() {
         puts("foo ${"bar ${m} baz"} zot");
 }
 
-#pragma end
+#lang(tcl)
 syntax_1_2
 } -output "syntax_1_2.\nfoo bar ASDF baz zot\n"
 
 
 test op-1.0 {increment and decrement operators} -body {
-#pragma language L
+#lang(L)
 op_1_0() {
         int i = 1;
 
@@ -431,12 +432,12 @@ op_1_0() {
         puts(i--);
         puts(i);
 }
-#pragma end
+#lang(tcl)
 op_1_0
 } -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
 
 test op-1.1 {plus, minus, multiply, divide, and modulus operators} -body {
-#pragma language L
+#lang(L)
 op_1_1() {
         int i = 2;
         puts(i + 5);
@@ -448,12 +449,12 @@ op_1_1() {
         // precedence
         puts(i + i / i - i * i % i);
 }
-#pragma end
+#lang(tcl)
 op_1_1
 } -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
 
 test op-1.2 {unary plus and minus} -body {
-#pragma language L
+#lang(L)
 op_1_2() {
         int i = -2;
         int j = +2;
@@ -470,12 +471,12 @@ op_1_2() {
         puts(j * +3);
         puts(+8 - +2);
 }
-#pragma end
+#lang(tcl)
 op_1_2
 } -output "-2\n-102\n306\n-6\n2\n102\n306\n6\n"
 
 test op-1.3 {numeric comparison operators} -body {
-#pragma language L
+#lang(L)
 op_1_3() {
         if (-1 < 1) { puts("1okay"); } else { puts("1broken"); }
         if (1 > -1) { puts("2okay"); } else { puts("2broken"); }
@@ -495,13 +496,13 @@ op_1_3() {
         if (-1 >= 1) { puts("6broken"); } else { puts("6okay"); }
 
 }
-#pragma end
+#lang(tcl)
 op_1_3
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
 --\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
 
 test op-1.4 {lexicographic comparison operators} -body {
-#pragma language L
+#lang(L)
 op_1_4() {
         if ("aa" lt "ab") { puts("1okay"); } else { puts("1broken"); }
         if ("ab" gt "aa") { puts("2okay"); } else { puts("2broken"); }
@@ -521,14 +522,14 @@ op_1_4() {
         if ("aa" ge "ab") { puts("6broken"); } else { puts("6okay"); }
 
 }
-#pragma end
+#lang(tcl)
 op_1_4
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
 --\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
 
 
 test op-1.5 {boolean operators} -body {
-#pragma language L
+#lang(L)
 op_1_5() {
         int true = 1, false = 0;
         if (true && true)       { puts("1okay"); } else { puts("1broken"); }
@@ -544,13 +545,13 @@ op_1_5() {
         if (!true)              { puts("3broken"); } else { puts("3okay"); }
 
 }
-#pragma end
+#lang(tcl)
 op_1_5
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n--\n1okay\n2okay\n3okay\n"
 
 
 test op-1.6 {bitwise operators} -body {
-#pragma language L
+#lang(L)
 op_1_6(){
         int bits = 715827882;
 
@@ -565,13 +566,13 @@ op_1_6(){
         puts(bits ^ (bits + 1));
 
 }
-#pragma end
+#lang(tcl)
 op_1_6
 } -output "1431655764\n357913941\n1\n-1024\n-2\n-715827883\n0\n-1\n1\n"
 
 
 test op-1.7 {logical operator short-circuiting} -body {
-#pragma language L
+#lang(L)
 puts_int(string str) {
         puts(str);
         return 9;
@@ -582,14 +583,14 @@ op_1_7(){
         puts(0 || puts_int("3"));
         puts(1 || puts_int("4"));
 }
-#pragma end
+#lang(tcl)
 op_1_7
 } -output "0\n2\n9\n3\n9\n1\n"
 
 
 
 test array-1.0 { Single-dimensional array creation and indexing } -body {
-#pragma language L
+#lang(L)
 array_1_0() {
     int array[3];
 
@@ -598,12 +599,12 @@ array_1_0() {
     array[2] = 3;
     puts(array[2]);
 }
-#pragma end
+#lang(tcl)
 array_1_0
 } -output "3\n"
 
 test array-1.1 { Multi-dimensional array creation and indexing } -body {
-#pragma language L
+#lang(L)
 array_1_0() {
     int array[4][3][2];
 
@@ -614,7 +615,7 @@ array_1_0() {
     array[3][0][1] = 4;
     puts((tcl)array);
 }
-#pragma end
+#lang(tcl)
 array_1_0
 } -output "{{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}} {{{} {}} {{} {}} {{} {}}}
 {{1 {}} {{} {}} {{} {}}} {{{} {}} {{} 2} {{} {}}} {{{} {}} {{} {}} {3 {}}} {{{} 4} {{} {}} {{} {}}}
@@ -622,7 +623,7 @@ array_1_0
 
 
 test loop-1.0 {while loops} -body {
-#pragma language L
+#lang(L)
 loop_1_0() {
         int i = 0;
         while (i++ < 5) puts (i);
@@ -631,13 +632,13 @@ loop_1_0() {
                 puts(j);
         }
 }
-#pragma end
+#lang(tcl)
 loop_1_0
 } -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
 
 
 test loop-1.1 {for loops} -body {
-#pragma language L
+#lang(L)
 loop_1_1() {
         int i;
         for (i=1; i<7; i++) {
@@ -648,12 +649,12 @@ loop_1_1() {
                 puts(i);
         }
 }
-#pragma end
+#lang(tcl)
 loop_1_1
 } -output "1\n2\n3\n4\n5\n6\n-*-\n7\n6\n5\n4\n3\n2\n1\n"
 
 test struct-1.0 {structs} -body {
-#pragma language L
+#lang(L)
 struct struct_1_0_point {
         int x, y;
         string label;
@@ -675,7 +676,7 @@ struct_1_0() {
         puts("p2 is:");
         puts(p2);
 }
-#pragma end
+#lang(tcl)
 struct_1_0
 } -output "p1 is:
 1 2 {this is a label}
@@ -687,7 +688,7 @@ p2 is:
 "
 
 test struct-1.1 {struct allocation and arrays of structs} -body {
-#pragma language L
+#lang(L)
 struct struct_1_1_point {
         int x, y;
         string label;
@@ -707,7 +708,7 @@ struct_1_1() {
      puts(s[i]);
    }
 }
-#pragma end
+#lang(tcl)
 struct_1_1
 } -output "42 0 {10 cows}
 43 1 {9 cows}
@@ -722,7 +723,7 @@ struct_1_1
 "
 
 test struct-1.1 {arrays of structs containing arrays} -body {
-#pragma language L
+#lang(L)
 struct struct_1_2_point {
         int x, y;
         string label;
@@ -744,7 +745,7 @@ struct_1_2() {
      puts(s[i]);
    }
 }
-#pragma end
+#lang(tcl)
 struct_1_2
 } -output "42 0 {10 cows} {0 {} {} {}}
 43 1 {9 cows} {{} 1 {} {}}
@@ -759,18 +760,18 @@ struct_1_2
 "
 
 test hash-1.0 {basic hashtable support} -body {
-#pragma language L
+#lang(L)
 void hash_1_0() {
   hash foo;
   foo{"key"} = "value";
   puts(foo{"key"});
 }
-#pragma end
+#lang(tcl)
 hash_1_0
 } -output "value\n"
 
 test hash-1.1 {array of hashtables} -body {
-#pragma language L
+#lang(L)
 void hash_1_1() {
   hash foo[10];
   foo[5]{"key"} = "value";
@@ -778,12 +779,12 @@ void hash_1_1() {
   puts(foo[5]{"key"});
   puts(foo[4]{"key"});
 }
-#pragma end
+#lang(tcl)
 hash_1_1
 } -output "value\n\n"
 
 test regexp-1.0 {regular expression support} -body {
-#pragma language L
+#lang(L)
 void regexp_1_0() {
         string s = "string";
         puts(s =~ /ring/);
@@ -791,12 +792,12 @@ void regexp_1_0() {
         puts(s !~ /ring/);
         puts(s !~ /bob/);
 }
-#pragma end
+#lang(tcl)
 regexp_1_0
 } -output "1\n0\n0\n1\n"
 
 test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
-#pragma language L
+#lang(L)
 void regexp_1_1() {
         string s = "Go not to the elves for counsel, for they will say both yes and no.";
 
@@ -807,14 +808,14 @@ void regexp_1_1() {
                 puts($3);
         }
 }
-#pragma end
+#lang(tcl)
 regexp_1_1
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
 
 test regexp-1.2 {magic submatch variables with interpolation} -body {
-#pragma language L
+#lang(L)
 void regexp_1_2() {
         string s = "Go not to the elves for counsel, for they will say both yes and no.";
         string interp = "elves";
@@ -826,13 +827,13 @@ void regexp_1_2() {
                 puts($3);
         }
 }
-#pragma end
+#lang(tcl)
 regexp_1_2
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
 test reference-1.0 {L references} -body {
-#pragma language L
+#lang(L)
 reference_1_0() {
   string foo = "this is a string";
   printf("so far, so good: %s\n", foo);
@@ -844,7 +845,7 @@ reference_1_0_aux(string dummy, string &bob) {
   printf("foot: %s\n", bob);
   bob = "This was a string.";
 }
-#pragma end
+#lang(tcl)
 reference_1_0
 } -output "so far, so good: this is a string
 foot: this is a string
@@ -852,7 +853,7 @@ This was a string.
 "
 
 test reference-1.1 {L references} -body {
-#pragma language L
+#lang(L)
 struct reference_1_1_point { int x, y; };
 
 reference_1_1() {
@@ -865,7 +866,7 @@ reference_1_1() {
 reference_1_1_tweak(struct reference_1_1_point &foo) {
   foo.x = 2;
 }
-#pragma end
+#lang(tcl)
 reference_1_1
 } -output "{} {}
 2 {}
@@ -873,7 +874,7 @@ reference_1_1
 
 
 test typedef-1.0 {basic typedef support} -body {
-#pragma language L
+#lang(L)
 typedef int typedef_1_0_foot[5];
 typedef string typedef_1_0_nike;
 typedef struct typedef_1_0_point {
@@ -900,12 +901,12 @@ typedef_1_0_nike typedef_1_0_aux() {
   puts(shoe);
   return shoe;
 }
-#pragma end
+#lang(tcl)
 typedef_1_0
 } -output "1 2\n2\npegasus\npegasus\n"
 
 test defined-1.0 {interesting defined form support} -body {
-#pragma language L
+#lang(L)
 defined_1_0() {
   int arr[5][2], i, j;
   for (i = 0; defined(arr[i]); i++) {
@@ -917,7 +918,7 @@ defined_1_0() {
   puts(defined(arr[3]));
   puts(defined(arr[-1]));
 }
-#pragma end
+#lang(tcl)
 defined_1_0
 } -output "0, 0
 0, 1

@@ -46,8 +46,8 @@ static void		FsAddMountsToGlobResult(Tcl_Obj *resultPtr,
 			    Tcl_Obj *pathPtr, CONST char *pattern,
 			    Tcl_GlobTypeData *types);
 static void		FsUpdateCwd(Tcl_Obj *cwdObj, ClientData clientData);
-static Tcl_Obj *        FsMaybeWrapInLPragmas(Tcl_Interp *interp,
-                            Tcl_Obj *fileContents, const char *path);
+static Tcl_Obj *	FsMaybeWrapInLLang(Tcl_Interp *interp,
+			    Tcl_Obj *fileContents, const char *path);
 
 
 #ifdef TCL_THREADS
@@ -1817,7 +1817,7 @@ Tcl_FSEvalFileEx(
 	goto end;
     }
 
-    objPtr = FsMaybeWrapInLPragmas(interp, objPtr, Tcl_GetString(pathPtr));
+    objPtr = FsMaybeWrapInLLang(interp, objPtr, Tcl_GetString(pathPtr));
 
     iPtr = (Interp *) interp;
     oldScriptFile = iPtr->scriptFile;
@@ -1932,10 +1932,10 @@ Tcl_FSEvalFileEx(
 }
 
 /* If the path ends in .l assume it's meant to contain L code, in which case
-   ensure that the file contents are wrapped in L pragmas.  Return a Tcl_Obj
+   ensure that the file contents are wrapped in #lang(L).  Return a Tcl_Obj
    containing the potentially wrapped string. */
 static Tcl_Obj *
-FsMaybeWrapInLPragmas(
+FsMaybeWrapInLLang(
     Tcl_Interp *interp,
     Tcl_Obj *fileContents,
     const char *path)
@@ -1943,16 +1943,16 @@ FsMaybeWrapInLPragmas(
     int len = strlen(path);
 
     if ((len >= 2) && (path[len-2] == '.') && (path[len-1] == 'l') &&
-        !Tcl_RegExpMatch(interp, Tcl_GetString(fileContents),
-                         "\\s*#pragma language L"))
+      !Tcl_RegExpMatch(interp, Tcl_GetString(fileContents),
+	"\\s*#lang\(L\)"))
     {
-        Tcl_Obj *newContents = Tcl_NewObj();
-        Tcl_IncrRefCount(newContents);
-        TclObjPrintf(interp, newContents,
-                     "#pragma language L\n%s\n#pragma end\n",
-                     Tcl_GetString(fileContents));
-        Tcl_DecrRefCount(fileContents);
-        fileContents = newContents;
+	Tcl_Obj *newContents = Tcl_NewObj();
+	Tcl_IncrRefCount(newContents);
+	TclObjPrintf(interp, newContents,
+	      "#lang(L)\n%s\n",
+	  Tcl_GetString(fileContents));
+	Tcl_DecrRefCount(fileContents);
+	fileContents = newContents;
     }
     return fileContents;
 }
