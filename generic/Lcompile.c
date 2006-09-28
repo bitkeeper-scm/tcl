@@ -72,14 +72,14 @@ L_ast_node *ast_trace_root = NULL;
 
 /* If TCL encounters an L pragma while evaluating code directly, e.g., from an
    upvar, it will enter the L compiler via L_PragmaObjCmd(). */
-int 
+int
 L_PragmaObjCmd(
     ClientData clientData,
-    Tcl_Interp *interp, 
+    Tcl_Interp *interp,
     int objc,
     Tcl_Obj *CONST objv[])
-{ 
-    int stringLen; 
+{
+    int stringLen;
     char *stringPtr;
     L_ast_node *ast;
 
@@ -92,6 +92,7 @@ L_PragmaObjCmd(
     if (LParseScript(interp, stringPtr, stringLen, &ast) != TCL_OK) {
         return TCL_ERROR;
     }
+    if (ast == NULL) return TCL_OK;	/* empty script */
     return LCompileScript(interp, stringPtr, stringLen, NULL, ast);
 }
 
@@ -122,10 +123,18 @@ LCompilePragmaCmd(
     }
     // advance to the second token
     lTokenPtr = parsePtr->tokenPtr + parsePtr->tokenPtr->numComponents + 1;
+    if (lTokenPtr->size == 0) {
+	/* if script is empty, don't even bother */
+	return TCL_OK;
+    }
     // the first component of the second token contains the code
     if (LParseScript(interp, lTokenPtr[1].start,
                      lTokenPtr[1].size, &ast) != TCL_OK) {
         return TCL_ERROR;
+    }
+    if (ast == NULL) {
+	/* empty script, which is fine */
+	return TCL_OK;
     }
     post_compile_action = 0;
     retval = LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
@@ -161,7 +170,7 @@ LParseScript(
     lex_buffer = (void *)L__scan_bytes(str, numBytes);
     /* L_trace("Parsing: %.*s", numBytes, str); */
     L_trace("parsing");
-    L_line_number = 0;
+    L_line_number = 1;
     L_errors = NULL;
     L_parse();
     if (L_ast == NULL) {
@@ -1088,6 +1097,12 @@ L_compile_loop(L_loop *loop)
         L_compile_expressions(loop->pre);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
+    /* XXX: need optimiztion for null conditions and infinite loops
+     * See TclCompileWhileComd() for the stuff Tcl does.
+     *
+     * Also need to handle the Exception Ranges so that continue and
+     * break work inside the loop body.
+     */
     TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
     L_frame_push(lframe->interp, lframe->envPtr);
     bodyCodeOffset = lframe->envPtr->codeNext - lframe->envPtr->codeStart;
@@ -1102,6 +1117,9 @@ L_compile_loop(L_loop *loop)
     }
     L_compile_expressions(loop->condition);
     L_PUSH_STR("0");
+    /*
+     * Why NEQ? Wouldn't == be better?
+     */
     TclEmitOpcode(INST_NEQ, lframe->envPtr);
     jumpDist = lframe->envPtr->codeNext - lframe->envPtr->codeStart -
         bodyCodeOffset;

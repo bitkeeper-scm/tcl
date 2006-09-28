@@ -242,7 +242,7 @@ ParseLang(
 	    Tcl_SetResult(interp, "unknown lang directive", TCL_STATIC);
 	return TCL_ERROR;
     }
-    end_of_first_line = strchr(p, '\n');
+    end_of_first_line = strchr(p, '\n') + 1;
     parsePtr->commandStart = p;
     end = strstr(end_of_first_line, "#lang(");
     if (end == NULL) {

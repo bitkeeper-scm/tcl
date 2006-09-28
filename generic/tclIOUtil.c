@@ -1949,7 +1949,7 @@ FsMaybeWrapInLLang(
 	Tcl_Obj *newContents = Tcl_NewObj();
 	Tcl_IncrRefCount(newContents);
 	TclObjPrintf(interp, newContents,
-	      "#lang(L)\n%s\n",
+	      "#lang(L)\n%s",
 	  Tcl_GetString(fileContents));
 	Tcl_DecrRefCount(fileContents);
 	fileContents = newContents;

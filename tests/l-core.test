@@ -3,7 +3,43 @@
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest 2
     namespace import -force ::tcltest::*
+    testConstraint exec [llength [info commands exec]]
 }
+
+test parse-1.0 {Test parsing an empty L script} -body {
+#lang(L)
+}
+
+test parse-1.1 {Test parsing an L script that's just white space} -body {
+#lang(L)
+	
+
+
+}
+
+test parse-1.2 {Test parsing an empty L file} -setup {
+	set fName [makeFile {} LFileTest]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fName
+} -cleanup {
+	removeFile LFileTest
+} -result {}
+
+test parse-1.3 {Test parsing an L file that just has whitespace} -setup {
+	set fName [makeFile {
+
+
+
+	} LFileTest]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fName
+} -cleanup {
+	removeFile LFileTest
+} -result {}
 
 test proc-1.0 {Test L function definition.} -body {
 #lang(L)
