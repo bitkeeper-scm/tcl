@@ -1,6 +1,6 @@
 typedef string FILE;
 
-main(int ac, string av[])
+main(int ac, string av[], hash env)
 {
 	int	i;
 	string	regex;
@@ -27,7 +27,7 @@ grep(string regex, FILE in)
 {
 	string	buf;
 
-	while (gets(in, "buf") >= 0) {
+	while (gets(in, &buf) >= 0) {
 		if (buf =~ /${regex}/) {
 			printf("%s\n", buf);
 		}

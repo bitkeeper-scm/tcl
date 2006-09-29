@@ -1,8 +1,9 @@
 main(int argc, string argv[], hash env)
 {
-	string	p;
+	string	key, val;
 
-	foreach (p, keys(env)) {
-		printf("env{%s} = %s\n", p, env{p});
+	foreach (env as key => val) {
+		printf("env{%s} = %s\n", key, val);
 	}
+
 }
