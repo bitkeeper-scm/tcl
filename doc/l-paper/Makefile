@@ -1,4 +1,4 @@
-l.ps: l.ms
+l.ps: l.ms references
 	groff -R -ms -p -t l.ms > l.ps
 
 g: l.ms
