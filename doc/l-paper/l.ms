@@ -13,7 +13,7 @@ label A.nD.y%a
 .R2
 .de CS
 .sp .25
-.in +1
+.in +.5
 .ft CW
 .nf
 ..
@@ -26,12 +26,13 @@ label A.nD.y%a
 .de BR
 \fB\\$1\fR\\$2
 ..
+.de LI
+.LP
+.B "\\$*"
+'br
+..
 .de BU
 .IP \(bu 2
-..
-.de LI
-.BU
-.B "\\$*"
 ..
 .\" Title, authors, etc.
 .nr PO 1i
@@ -86,6 +87,9 @@ people will find it useful and it may encourage more people will join
 the Tcl/Tk community.
 .AE
 .bp
+.EQ
+delim @@
+.EN
 .ce 1
 .I "\(lqIt's like perl without the nastiest bits.\(rq"
 .sp .5
@@ -276,7 +280,7 @@ at run time.
 The dynamic nature of the language prevents this by definition.
 .LP
 There are drawbacks to this approach in language design:
-.LI "Data structures."
+.LI Data structures.
 Probably the single largest problem we found with Tcl was the lack of
 a C-like struct data structure.  
 These are commonly emulated with associative arrays.
@@ -370,10 +374,10 @@ So you may say:
 if (buf =~ /foo.*bar/)
 .CE
 instead of the usual function call to \f(CWregex\fP.
-.LI "Associative arrays."
+.LI Associative arrays.
 We call these hashes in L to distinguish them from traditional C like arrays.
 The keys and the values are strings.
-.LI "Arrays grow."
+.LI Arrays grow.
 If you assign into an array past the last element the array grows as needed.
 Many constructs that would normally use C pointers, such as linked lists
 or trees, can be constructed with an array of structures linked via indices
@@ -398,7 +402,7 @@ pointer.
 L currently does not have a C-like preprocessor though one is planned.
 .NH 2
 Extensions to Tcl
-.LI "Type checking."
+.LI Type checking.
 L is a type checked language.  
 By default, variables may not change types, unlike Tcl where everything is
 a string except when it's not (when it is a float or an int or a list, etc.)
@@ -406,7 +410,7 @@ a string except when it's not (when it is a float or an int or a list, etc.)
 C like structs are part of L.
 A Tcl API is provided which supports getting/setting fields as well as
 introspection.
-.LI "References."
+.LI References.
 Pass by reference in Tcl is possible but awkward.
 Attempts have been made to improve it in Tcl
 .[
@@ -414,7 +418,7 @@ pass by reference
 .]
 but they are unsatisfying.
 We think our syntax is cleaner and easier to read.
-.LI "Function prototypes."
+.LI Function prototypes.
 Currently these are used to get type checking when calling Tcl builtins.
 For example, we can prototype gets() as
 .CS
@@ -429,21 +433,54 @@ Integer types are like C ints, they are sized to the machine (at least 32
 bits and possibly 64).
 They are not bignums and if we add support for bignum in L we will make a
 bignum type.
-.ig
-.LI uint.
-Unsigned integer, like C's unsigned int.
-Sized as above.
-..
+.LP
+Any constant that looks like an int is typed as an int.
 .LI float.
 The floating point type is called float, strangely enough, but is
 implemented as whatever Tcl uses which is currently a double.
 For both int and float, if we ever support larger or smaller versions,
 they will be explicitly sized, like int16 (16 bit integer), or float32
 (32 bit float).
+.LP
+Any constant that looks like an float is typed as a float.
+Note that this means the following is only legal because of automatic
+type conversion of integer to float constant:
+.CS
+float f = 1;	// Converts to 1.0
+.CE
 .LI string.
 The string type is the same as a Tcl string, but different than a C string.
-As mentioned above, strings are first class objects but are not pointers
-as they are in C.
+Strings are not null terminated as they are in C, nor are they an array 
+of bytes.
+L strings are Tcl strings, which are UTF-8 encoded and have a known length.
+To interate over each character in a string use the defined() operator:
+.CS
+int	i;
+string	s = "a string";
+
+for (i = 0; defined(s[i]); i++) {
+	printf("s[%d]=%s\\n", i, s[i]);
+}
+.CE
+Note that there is no separate character type in L.
+When indexing into a string, each character is merely a string of length 1.
+This also means that there is no need to use special single-quoted
+syntax for character literals:
+.CS
+str[i] = "c";
+.CE
+L provides a special escape sequence, ${, which allows embedding code
+in strings.  All the text from ${ to the matching } will be collected
+and evaluated.  Its value is then substituted into the string:
+.CS
+int i = 41;
+
+printf("41 + 1 is ${i + 1}\\n"); 
+.CE
+prints:
+.CS
+41 + 1 is 42
+.CE
 .NH 3
 Tclish types
 .LI poly.
@@ -452,23 +489,84 @@ is done.
 Normal variables will cause an error if they attempt to change types; 
 a poly variable supresses the type checking so a variable can switch from
 float to array to int, etc.
+The following is legal code:
+.CS
+poly unchecked;
+
+unchecked = 1;
+unchecked = "Hey there";
+unchecked = 3.14;
+.CE
 .LI var.
 This is a compromise variable type, it is type checked but the type is not
 set until the first assignment.
 The type is determined from the assignment and may not change.
+The following will throw an error:
+.CS
+var late_binding;
+
+late_binding = 1;
+late_binding = "Hey there";
+.CE
+As we noted above, constant types are intuited.
+This may cause problem with @var@ variables.
+For example, this will throw an error:
+.CS
+var	f = 1;	// f is now an int
+
+f += 3.14;	// int/float type error
+.CE
+but this works fine:
+.CS
+var	f = 1.0;
+
+f += 3.14;
+.CE
 .NH 3
 Compound types
 .LI array.
 Arrays are like C arrays in syntax but are implemented as Tcl lists under
 the covers.
 Array elements are homogeneous, all elements must share the same type.
+Array assignments in declarations are supported for globals and locals:
+.CS
+string	foo[] = { "Hi", "there" };
+int	bar[] = { 1, 2, 3, 4 };
+int	i;
+int	total = 0;
+
+for (i = 0; defined(bar[i]); i++) {
+	total += bar[i];
+}
+.CE
 .LI hash.
 Hashes are associative arrays, indexed by strings and returning string
 values.
 They are implemented by Tcl dictionaries under the covers.
+Hash assignments in declarations are supported for globals and locals
+and follow the Perl syntax:
+.CS
+hash	h = { "key" => "val",
+	      "key2" => "val2" };
+
+h{"foo"} = "bar";
+if (defined(h{"blech"})) {
+	printf("blech is not a key!\\n");
+}
+.CE
 .LI struct.
 Structs are a collection of typed variables, as in C.  
 Declarations are same as C declarations.
+Struct assignments in declarations are supported for globals and locals:
+.CS
+typedef struct {
+	int	a;
+	float	b;
+	string	c;
+} eg;
+
+eg	s = { 1, 3.14, "hi there" };
+.CE
 .NH 2
 Passing semantics
 .NH 3
@@ -482,9 +580,138 @@ Casts
 .LI (tcl).
 .LI (L).
 .NH 2
-Expressions
+Operators
 .LP
-XXX - can I get some help here?
+L supports all of the operators in the C programming language,\** as
+well as several of the most useful operators from Perl.  In the this
+section we do a quick run through all of the operators in L, and
+discuss some of the more subtle aspects in depth.
+.FS
+Since L does not (yet) have pointers in the sense that C does, the C &
+address-of operator and * dereference operator are not needed.
+.FE
+.NH 3
+Arithmetic operators
+.LP
+The binary arithmetic operators in L are +, -, *, /, and % (modulus).
+They work as in C with the C precedence rules.
+.NH 3
+True vs. false
+.LP
+All of the relational and logical operators are part of an expression and
+that expression will evaluate to either true or false.
+.LP
+In L, there is only one false value.  This is different from Tcl,
+which allows many false values, such as the strings "false" and "off".
+The false value in L is 0, or, equivalently, "0".  
+.CS
+if (0) {
+	printf("consequent\\n");
+} else {
+	printf("alternative\\n");
+}
+.CE
+prints: alternative
+.LP
+Any value other than 0 is considered true.
+.NH 3
+Numeric Comparison
+.LP
+These all work as in C with the C precedence rules.
+.B "Relational operators"
+.CS
+@expr@ > @expr@
+@expr@ >= @expr@
+@expr@ < @expr@
+@expr@ <= @expr@
+.CE
+.B "Equality operators"
+.CS
+@expr@ == @expr@
+@expr@ != @expr@
+.CE
+.B "Logical Operators"
+.LP
+These all work as in C with the C precedence rules.
+The && and || operators short circuit like they do in C.
+.CS
+@expr@ && @expr@
+@expr@ || @expr@
+!@expr@
+.NH 3
+Regular expression statements
+.LP
+Stolen from Perl, the first one is true if @regex@ is a regular expression
+which matches @string@.  
+The second one is true if @regex@ is a regular expression
+which does not match @string@.  
+@regex@ may be a string variable if it is in the form /\fI${variable}\fP/.
+.CS
+@string@ =~ /@regex@/
+@string@ !~ /@regex@/
+.CE
+.ig
+.NH 3
+String Comparison
+.LP
+To use a numeric operator on a string is a type error in L.  Instead
+of extending the numeric operators to work on strings, L provides a
+separate set of string operators.
+.LP
+**** relational operators
+
+    gt      Greater Than 
+    ge      Greater Than or Equal
+    lt      Less Than
+    le      Less Than or Equal
+
+**** equality operators
+
+    eq      Equal
+    ne      Not equal
+..
+.CE
+.NH 3
+Increment and Decrement Operators
+.LP
+As in C, with the value returned either before or after the 
+increment or decrement.
+.CS
+@var@++
+++@var@
+@var@--
+--@var@
+.CE
+.NH 3
+Bitwise Operators
+.CS
+@expr@ & @expr@
+@expr@ | @expr@
+@expr@ ^ @expr@
+@expr@ << @expr@
+@expr@ >> @expr@
+~@expr@
+.CE
+.NH 3
+Assignment Operators
+.CS
+@variable@ = @expr@
+@variable@ += @expr@
+@variable@ -= @expr@
+@variable@ *= @expr@
+@variable@ /= @expr@
+@variable@ %= @expr@
+@variable@ <<= @expr@
+@variable@ >>= @expr@
+@variable@ &= @expr@
+@variable@ |= @expr@
+@variable@ ^= @expr@
+.CE
+.NH 3
+Ternary Operator
+.CS
+@expr@ ? @expr@ : @expr@
+.CE
 .NH 2
 Reserved Words
 .LP
@@ -498,9 +725,6 @@ while
 .CE
 .NH 2
 Control flow
-.EQ
-delim @@
-.EN
 .LI Conditional statements
 .CS
 if ( @expr@ ) @statement@
@@ -1007,7 +1231,7 @@ Status
 The short summary is we are probably 2 months away from the language 
 actually being useful.
 What follows are a list of known issues.
-.LI "Type checking."
+.LI Type checking.
 Is compile time only, run time checking is unimplemented.
 XXX
 .NH 1
