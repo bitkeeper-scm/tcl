@@ -5,9 +5,6 @@
 .\"    groff -R -ms l.ms > l.ps
 .\"
 .\" Commands for refer
-.EQ
-delim $$
-.EN
 .R1
 database references
 accumulate
@@ -499,13 +496,16 @@ while
 .CE
 .NH 2
 Control flow
+.EQ
+delim @@
+.EN
 .LI Conditional statements
 .CS
-if ( $expr$ ) $statement$
-if ( $expr$ ) $statement$ else $statement$
-unless ( $expr$ ) $statement$
+if ( @expr@ ) @statement@
+if ( @expr@ ) @statement@ else @statement@
+unless ( @expr@ ) @statement@
 .CE
-In all cases $expr$ is evaluated and if it returns anything other than
+In all cases @expr@ is evaluated and if it returns anything other than
 zero then the first 
 .B if
 statement is executed, if it returns zero then the 
@@ -515,67 +515,67 @@ statement or the
 statement is executed.
 .LI While/until statements
 .CS
-while ( $expr$ ) $statement$
-until ( $expr$ ) $statement$
+while ( @expr@ ) @statement@
+until ( @expr@ ) @statement@
 .CE
-The $expr$ is evaluated and $statement$ is executed repeatedly while
-$expr$ is non-zero in the 
+The @expr@ is evaluated and @statement@ is executed repeatedly while
+@expr@ is non-zero in the 
 .B while 
 case, or zero in the
 .B until 
 case.
 .LI do statements
 .CS
-do $statement$ while ( $expr$ )
-do $statement$ until ( $expr$ )
+do @statement@ while ( @expr@ )
+do @statement@ until ( @expr@ )
 .CE
-$statement$ is executed repeatedly while $expr$ is non-zero in the
+@statement@ is executed repeatedly while @expr@ is non-zero in the
 .B while 
 case, or until zero in the
 .B until
 case.
 .LI for statement
 .CS
-for ( $exp1 sub opt$; $exp2 sub opt$; $exp3 sub opt$ ) $statement$
+for ( @exp1 sub opt@; @exp2 sub opt@; @exp3 sub opt@ ) @statement@
 .CE
 All expressions are optional.
 Other than the continue statement, which in this case will execute
-$exp3$, this is the same as
+@exp3@, this is the same as
 .CS
-$exp1$;
-while ( $exp2$ ) {
-	$statement$
-	$exp3$;
+@exp1@;
+while ( @exp2@ ) {
+	@statement@
+	@exp3@;
 }
 .CE
 .LI foreach statement
 .CS
-foreach ($h$ as $key$ => $val$) $statement$
+foreach (@h@ as @key@ => @val@) @statement@
 .CE
-This statement interates over each key/value pair in the hash $h$.
-The key/value pair is placed in $key$ and $val$ and then $statement$ 
+This statement interates over each key/value pair in the hash @h@.
+The key/value pair is placed in @key@ and @val@ and then @statement@ 
 is executed.
-Behaviour is undefined if $h$ is modified in $statement$.
+Behaviour is undefined if @h@ is modified in @statement@.
 .LI switch statement
 .CS
-switch ( $expr$ ) statement
+switch ( @expr@ ) statement
 .CE
-$expr$ must evaluate to an 
+@expr@ must evaluate to an 
 .B int
 or a
 .BR string .
-Any statement within $statement$ may contain one or more labeled statements
+Any statement within @statement@ may contain one or more labeled statements
 of the form
 .CS
-case $constant-expr$: $statement$
+case @constant-expr@: @statement@
 .CE
 There may be at most one statement of the form:
 .CS
-default: $statement$
+default: @statement@
 .CE
 When the 
 .B switch 
-statement is run, $expr$ is evaluated and cause a jump to the 
+statement is run, @expr@ is evaluated and cause a jump to the 
 .B case
 label which matches.
 If no label matches then if the 
@@ -613,10 +613,10 @@ loop.
 .LI return
 .CS
 return;
-return ( $expr$ );
+return ( @expr@ );
 .CE
 In the first case the return value is undefined, in the second the return
-value is $expr$.
+value is @expr@.
 XXX - talk about returning locals and how that works?
 .NH 1
 Example code
@@ -743,9 +743,9 @@ the array bounds:
 .CS
 // will print 'no'
 if (defined(a[101])) {
-	printf("yes\n");
+	printf("yes\\n");
 } else {
-	printf("no\n");
+	printf("no\\n");
 }
 .CE
 .NH 3
@@ -765,7 +765,7 @@ brackets:
 .CS
 foo{"key"} = "value";
 // prints "value"
-printf("Value is %s\n", foo{"key"});
+printf("Value is %s\\n", foo{"key"});
 .CE
 .LP
 The defined operator can also be use to check if a key is present in a
@@ -773,9 +773,9 @@ hash:
 .CS
 // prints no
 if (defined(foo{"k"})) {
-	printf("yes\");
+	printf("yes\\n");
 } else {
-	printf("no\");
+	printf("no\\n");
 }
 .CE
 .LP
@@ -783,7 +783,7 @@ It is possible to iterate over each value in a hash using a foreach
 loop:
 .CS
 foreach (k, keys(h)) {
-	printf("%s => %s", k, h{k});
+	printf("%s => %s\\n", k, h{k});
 }
 .CE
 
@@ -812,7 +812,7 @@ Individual members of the struct can be denoted using a `.`:
 b.x = 128;
 b.y = 256;
 // prints "128 256"
-printf("%s\n", b);
+printf("%s\\n", b);
 .CE
 .LP
 Structures are implemented as Tcl Lists just like L arrays.  The names
@@ -826,7 +826,6 @@ If you use (tcl) as a typecast, you're basically saying, take this object
 and get the string representation of it the same way as Tcl would do it. For
 example:
 .CS
-#lang(L)
 string	s[] =
     {"hi", "there", "big mamma"};
 
@@ -839,7 +838,6 @@ Examples
 .LP
 This is an example of calling Tcl's [puts] from L
 .CS
-#lang(L)
 puts("Hello World");
 .CE
 .LP
@@ -849,20 +847,19 @@ int
 main(int ac, string av[])
 {
 	if (ac < 1) {
-		printf("Hello Stranger\n");
+		printf("Hello Stranger\\n");
 	} else {
-		printf("Hello %s\n", av[1])
+		printf("Hello %s\\n", av[1])
 	}
 }
 .CE
 .LP
 Same program written in Tcl/L
 .CS
-#lang(L)
 void
 print(string s)
 {
-	printf("This is from L: %s\n", s)
+	printf("This is from L: %s\\n", s)
 }
 #lang(tcl)
 print "Howdy, stranger"
@@ -874,12 +871,10 @@ L is designed to interoperate with Tcl by abiding by Tcl's calling
 conventions. What this means is that you can call L functions from Tcl
 and you can call Tcl functions from L.
 .CS
-#lang(L)
 string
 toupper(string s)
 {
-	/* we're
-	 * calling Tcl's
+	/* we're calling Tcl's
 	 * [string toupper $s]
 	 */
 	return string("toupper", s);
@@ -889,7 +884,6 @@ toupper(string s)
 Calling Tcl functions that do upvar on the arguments is accomplished
 by using the & operator.
 .CS
-#lang(L)
 int
 main()
 {
@@ -904,7 +898,6 @@ Calling from Tcl to L when we need to pass by reference is
 accomplished by using the name of the variable in Tcl and declaring
 the variable with the & variant of the type in L.
 .CS
-#lang(L)
 string
 toupper(string &s)
 {
@@ -943,7 +936,7 @@ main()
 {
 	int fib[] = fib(100);
 	for (i=0; i<length(fib); i++) {
-		printf("%3d\t%6d\n", i, fib[i]);
+		printf("%3d\t%6d\\n", i, fib[i]);
 	}
 }
 .CE	
@@ -983,7 +976,7 @@ grep(string regex, FILE in)
 	
 	while (gets(in, &buf) >= 0) {
 		if (buf =~ /${regex}/) {
-			printf("%s\n", buf);
+			printf("%s\\n", buf);
 		}
 	}
 }
