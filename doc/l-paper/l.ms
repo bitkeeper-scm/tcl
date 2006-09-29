@@ -597,16 +597,155 @@ eg	s = { 1, 3.14, "hi there" };
 .CE
 .NH 2
 Passing semantics
+.LP
+L and Tcl have fairly different views on passing information around.
+For the most part Tcl is a pass by value system, where each variable
+is passed in with an annotation which makes the variable copy on write.
+.LP
+L is trying to mimic C semantics to some extent so L wants to be able
+to pass base types and structures by either value or reference and 
+wants to pass arrays and hashes by reference.
+.LP
+This section describes how this works and how the two languages interoperate
+with respect to parameters and returns.
 .NH 3
 By value
+.LP
+L obeys Tcl's semantics for pass by value.
+Parameter passing looks like it does in C:
+.CS
+int	i = 1234;
+
+foo(i, 0xdeadbeef, "string");
+.CE
+L has no way to pass compound types by value to other L functions but 
+see the @(tcl)@ cast below for how to pass them to Tcl procs.
 .NH 3
 By reference
+.LP
+The Tcl system has a way of passing by reference that may appear strange
+to C programmers.
+.CS
+proc foo {ref} {
+	upvar $ref pointer
+
+	set pointer 1
+}
+.CE
+The @upvar@ command creates a reference to the variable in the caller's
+context and places it in @pointer@.  
+Assignments to @pointer@ are the same as if the assignment was done in
+the caller's context (after evaluating the right hand side).
+.LP
+We used this mechanism to emulate pass by reference in L.
+We call it ``pass by name'' because what it is doing is putting the name
+of the variable on the stack and in the caller it is doing an automatic
+@upvar@ to create the reference.
+The syntax looks like:
+.CS
+void foo(int &ref)
+{
+	ref = 1234;
+}
+
+int	a = 19;
+
+foo(a);
+puts(a);
+.CE
+and that prints
+.CS
+1234
+.CE
+Arrays and hashes do not take the ampersand because they are trying to 
+behave like C arrays, i.e., they are already references.
+.CS
+void clear(int v[])
+{
+	int	i;
+
+	for (i = 0; defined(v[i]); i++) {
+		v[i] = 0;
+	}
+}
+
+int	junk[] = { 1, 2, 3 };
+
+clear(junk);	// junk = { 0, 0, 0 }
+.CE
+Note that strings, unlike in C, are first class objects and are
+.B not
+references.
+If you want to modify a string you must pass it as a reference.
+For example, to use the Tcl builtin for reading a line of intput
+you have to do this:
+.CS
+string	buf;
+
+// buf is an out parameter
+gets(stdin, &buf);
+.CE
 .NH 3
 Return values
+.LP
+Return values ``just work.''
+In Tcl and in L returns are always by value in the Tcl sense, i.e., 
+a variable that is marked copy on write.
+C programmers take note that this is a way to do automatic allocation:
+.CS
+string[]
+vector(int n)
+{
+	string	v[];
+
+	// Allocate 0..n-1
+	v[n - 1] = "";
+	return (v);
+}
+
+string	foo[] = v(100);
+.CE
 .NH 2
 Casts
 .LI (tcl).
+There are times when we need to pass a compound object (structure, array,
+hash) as a string.
+Any Tcl proc which expects to see a string on the stack will want this.
+The @(tcl)@ cast is used to do this.
+.CS
+struct {
+	int	a;
+	float	b;
+	string	c;
+} foo = { 1, 2.3, "Hi there" };
+
+puts((tcl)foo);
+.CE
+prints
+.CS
+1 2.3 {Hi there}
+.CE
 .LI (L).
+There may be times when a Tcl proc is returning a complex structure to us
+and we want to cast it from the Tcl list to our structure:
+.CS
+#lang(tcl)
+proc demo {} {
+	return [list 1 2.3 "Hi there"]
+}
+
+#lang(L)
+// same struct as above
+foo = (L)demo();
+printf("a=%d b=%f c=%s\\n",
+    foo.a, foo.b, foo.c);
+.CE
+prints
+.CS
+a=1 b=2.3 c=Hi there
+.CE
+Note: doing this sort of thing puts you at the mercy of the Tcl code
+which knows nothing about the L type system.
 .NH 2
 Operators
 .LP
@@ -659,14 +798,14 @@ These all work as in C with the C precedence rules.
 @expr@ == @expr@
 @expr@ != @expr@
 .CE
-.B "Logical Operators"
-.LP
+.LI "Logical Operators"
 These all work as in C with the C precedence rules.
 The && and || operators short circuit like they do in C.
 .CS
 @expr@ && @expr@
 @expr@ || @expr@
 !@expr@
+.CE
 .NH 3
 Regular expression statements
 .LP
@@ -699,7 +838,6 @@ a separate set of string operators.
     eq      Equal
     ne      Not equal
 ..
-.CE
 .NH 3
 Increment and Decrement Operators
 .LP
@@ -1123,6 +1261,7 @@ print(string s)
 #lang(tcl)
 print "Howdy, stranger"
 .CE
+.ig
 .NH 2
 Passing Parameters by Reference
 .LP
@@ -1233,6 +1372,7 @@ instead of its name.
   int v[] = { 0, 1, 2, 3, 4 };
   puts(llength((tcl)v));    // prints 5
 .CE
+..
 .NH 1
 Longer Examples
 .NH 2
@@ -1241,7 +1381,6 @@ Fibonacci
 int[]
 fib(int n)
 {
-	// no need to declare size of array
 	int	fib[] = { 0, 1 };
 	int	i;
 	
@@ -1260,16 +1399,16 @@ main()
 	}
 }
 .CE	
+.ne 30
 .NH 2
 A simple grep
 .CS
 int
 main(int ac, string av[])
 {
-	int	i;
-	string	regex;
-	// just an alias for string
-	FILE	fd;
+	int     i;
+	string  regex;
+	FILE    fd;
 	
 	if (ac < 2) {
 		// Tcl's [error]
