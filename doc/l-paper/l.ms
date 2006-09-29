@@ -169,17 +169,12 @@ and a summary.
 L overview
 .LP
 L is actually a very small addition to the Tcl system.
-If we divide the Tcl system in the logical parts this becomes obvious:\**
-.FS
-The set of sources are: Tcl, Tk, Tile, tktable, treecontrol, and Bwidgets.
-These numbers are rough, they include the docs and all platform specific 
-code that may not be used.  Even if we are off by 2x, the <= 1% holds true.
-.FE
+If we divide the Tcl system in the logical parts this becomes obvious:
 .TS
 expand box;
 l l
 l c.
-Subsection	Percentage of total
+Subsection	Percentage of Tcl/Tk 8.5
 =
 Tcl parser/compiler	<= 1%
 L parser/compiler	<= 1%
@@ -382,11 +377,11 @@ L uses Perl's syntax for regular expressions in statements, but it uses
 Tcl's regular expression engine.
 So you may say:
 .CS
-if (buf =~ /foo.*bar/)
+if (a =~ /${r}/) {...
 .CE
 to get the same results as Tcl's
 .CS
-if {[regexp {foo.*bar} $buf]}
+if {[regexp $r $a]} {...
 .CE
 .LI Associative arrays.
 We call these hashes in L to distinguish them from traditional C like arrays.
@@ -460,26 +455,34 @@ Types
 .NH 3
 Simple types
 .LI int.
-Integer types are like C ints, they are sized to the machine (at least 32
-bits and possibly 64).
-They are not bignums and if we add support for bignum in L we will make a
-bignum type.
+Integer types in L are like C integers, they are sized to the
+machine's word size (at least 32 bits and possibly 64).
+Integers in L are initialized to 0, even for local variables.
+.CS
+int     a = 5;
+int     b; // defaults to 0
+.CE
 .LP
 Any constant that looks like an int is typed as an int.
 .LI float.
 Floating point numbers in L are at least double precision IEEE 754.
 .LP
 Any constant that looks like an float is typed as a float.
-Note that this means the following is only legal because of automatic
-type conversion of integer to float constant:
+Note that this means that assigning an integer to a float is only
+legal because of automatic type conversion.
 .CS
-float f = 1;	// Converts to 1.0
+float f = 1; // converts to 1.0
+float g; // defaults to 0.0
+float pi = 3.14159265;
 .CE
 .LI string.
 The string type is the same as a Tcl string, but different than a C string.
 Strings are not null terminated as they are in C, nor are they an array 
 of bytes.
-L strings are Tcl strings, which are UTF-8 encoded and have a known length.
+L strings are Tcl strings, which are UTF-8 encoded and have a known
+length.
+L strings are initialized to the empty string.
+
 To interate over each character in a string use the defined() operator:
 .CS
 int	i;
@@ -512,18 +515,21 @@ prints:
 .NH 3
 Tclish types
 .LI poly.
-This is a generic type that is like a Tcl variable in that no type checking
+This is a generic type that is like a Tcl variable where no type checking
 is done.
-Normal variables will cause an error if they attempt to change types; 
-a poly variable supresses the type checking so a variable can switch from
-float to array to int, etc.
+Normal variables will cause a compile time error if they attempt to
+change types; a poly variable supresses the static type checking so
+that a variable can switch from one type to another, e.g. float to
+array or to int, etc.
 The following is legal code:
 .CS
 poly unchecked;
+string s;
 
 unchecked = 1;
 unchecked = "Hey there";
 unchecked = 3.14;
+s = (string)unchecked; // cast needed
 .CE
 .LI var.
 This is a compromise variable type, it is type checked but the type is not
@@ -567,6 +573,25 @@ for (i = 0; defined(bar[i]); i++) {
 	total += bar[i];
 }
 .CE
+Arrays are dynamically grown and cannot be sparse.
+.CS
+a[0] = 10;
+a[100] = 20; // allowed
+.CE
+After the previous code has been executed, @a@ has 101 elements,
+@a[1]@ to @a[99]@ have the value 0 which is the default initial
+value for integers.
+.LP
+The defined operator is an easy way to check if an index is outside
+the array bounds:
+.CS
+// will print 'no'
+if (defined(a[101])) {
+	printf("yes\\n");
+} else {
+	printf("no\\n");
+}
+.CE
 .LI hash.
 Hashes are associative arrays, indexed by strings and returning string
 values.
@@ -582,9 +607,28 @@ if (defined(h{"blech"})) {
 	printf("blech is not a key!\\n");
 }
 .CE
+.LP
+The defined operator can also be used to check if a key is present in a
+hash:
+.CS
+// prints no
+if (defined(foo{"k"})) {
+	printf("yes\\n");
+} else {
+	printf("no\\n");
+}
+.CE
+.LP
+It is possible to iterate over each value in a hash using a foreach
+loop:
+.CS
+foreach (h as k => v) {
+	printf("%s => %s\\n", k, v);
+}
+.CE
 .LI struct.
 Structs are a collection of typed variables, as in C.  
-Declarations are same as C declarations.
+Declarations are the same as C declarations.
 Struct assignments in declarations are supported for globals and locals:
 .CS
 typedef struct {
@@ -595,6 +639,11 @@ typedef struct {
 
 eg	s = { 1, 3.14, "hi there" };
 .CE
+.LP
+Structures are implemented as Tcl Lists just like L arrays.
+The names are translated into integer indices by the L compiler.
+Since it is just a Tcl list, an L structure can be passed to any Tcl proc
+that expects a list.
 .NH 2
 Passing semantics
 .NH 3
@@ -881,162 +930,6 @@ Types
 .NH 3
 Basic Data Types
 .NH 3
-string
-.LP
-Same as Tcl string.
-Unlike C, they are not NULL terminated.
-There is no concept of `char` in L.
-.CS
-// defaults to empty string
-string foo;
-// initialized string
-string bar = "hi mom";
-.CE
-.LP	
-strings support interpolation of L code using `${}`
-.CS
-string foo = "mom";
-// bar is "Hi mom"
-string bar = "Hi ${foo}";
-.CE
-.LP
-they are passed by value with Tcl's copy-on-write semantics:
-.CS
-string foo = "abcdefg";
-string bar;
-
-// now bar is "abcdefg"
-bar = foo;
-// now foo is "zbcdefg"
-// but bar is "abcdefg"
-foo[0] = 'z';
-.CE
-.LP
-to pass a string by reference, use &
-.CS
-void
-toUpper(string& s)
-{
-	s = string("toupper", s);
-}
-
-int
-main()
-{
-	string foo = "abcdefg";
-
-	toUpper(&foo);
-	// prints "ABCDEFG"
-	puts(foo);
-}
-.CE
-.NH 3
-int
-.LP
-Same as a Tcl integer, which is at least native machine sized integer value. 
-.CS
-int     a = 5;
-int     b; // defaults to 0
-.CE
-.NH 3
-float
-.LP
-Same as Tcl's floating point numbers which means double precision floating
-point numbers.
-.CS
-float   f; // defaults to 0.0
-float   pi = 3.14159265;
-.CE        
-.NH 3
-poly
-.LP
-Generic type that means the variable might change types at runtime.
-It basically instructs the compiler to ignore type-checking for this
-variable.
-.CS
-string  s;
-int     i;
-poly    p;
-
-p = s; // ok
-p = i; // ok
-s = (string)p; // cast needed
-.CE
-
-.NH 3
-var
-.LP
-Variables of type `var` get their type from then first assignment.
-Once the type has been assigned, it cannot be changed.
-.CS
-var s = "hi mom"; // type string
-s = "look at me now"; // ok
-s = 10; // error
-s = (string)10; // ok
-.CE
-.NH 2
-Compound Data Types
-
-.NH 3
-Arrays
-.LP
-Arrays are just lists of variables of a common type.
-
-.CS
-int	a[10];
-int	a[] = { 1, 2, 3, 4 };
-.CE
-.LP
-they are dynamically growing and cannot be sparse.
-.CS
-a[0] = 10;
-a[100] = 20; // allowed
-// now a has 101 elements,
-// a[1..99] == 0 which is
-// the default value for integers
-.CE
-.LP
-The defined operator is an easy way to check if an index is outside
-the array bounds:
-.CS
-// will print 'no'
-if (defined(a[101])) {
-	printf("yes\\n");
-} else {
-	printf("no\\n");
-}
-.CE
-.NH 3
-Hashes
-.LP
-Hashes are key, value pairs.
-Internally they are Tcl Dictionaries.
-.CS
-hash    foo;
-hash	h = {
-	"key" => "val",
-	"key1" => "val1"
-};	
-.CE
-.LP	
-Hashes are read and written using curly braces instead of square
-brackets:
-.CS
-foo{"key"} = "value";
-// prints "value"
-printf("Value is %s\\n", foo{"key"});
-.CE
-.LP
-The defined operator can also be use to check if a key is present in a
-hash:
-.CS
-// prints no
-if (defined(foo{"k"})) {
-	printf("yes\\n");
-} else {
-	printf("no\\n");
-}
-.CE
 .LP
 It is possible to iterate over each value in a hash using a foreach
 loop:
@@ -1046,38 +939,6 @@ foreach (k, keys(h)) {
 }
 .CE
 
-.NH 3
-Structures
-.LP
-An L structure works like a struct in C.
-Declaring a structure defines a new type which amounts to a collection of
-named variables, each of which is called a `member` or `field`.
-For example, this defines a "struct point" type, which could be used to
-represent a location on the screen:
-.CS
-struct point { int x; int y; };
-.CE
-.LP
-Struct types can be used in the same places as other types, so to
-declare a parameter `a` and a local variable `b` that are points:
-.CS
-int fun(struct point a) {
-    struct point b = { 1, 2 };
-    ...
-.CE
-.LP
-Individual members of the struct can be denoted using a `.`:
-.CS
-b.x = 128;
-b.y = 256;
-// prints "128 256"
-printf("%s\\n", b);
-.CE
-.LP
-Structures are implemented as Tcl Lists just like L arrays.
-The names are translated into integer indices by the L compiler.
-Since it is just a Tcl list, an L structure can be passed to any Tcl proc
-that expects a list.
 .NH 2
 Casting between types
 .LP
