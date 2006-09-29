@@ -940,19 +940,6 @@ foreach (k, keys(h)) {
 .CE
 
 .NH 2
-Casting between types
-.LP
-If you use (tcl) as a typecast, you're basically saying, take this object
-and get the string representation of it the same way as Tcl would do it.
-For example:
-.CS
-string	s[] =
-    {"hi", "there", "fellow earthling"};
-
-// prints "hi there {fellow earthling}"
-puts((tcl)s);
-.CE
-.NH 2
 Examples
 
 .LP
@@ -1069,11 +1056,14 @@ generally more useful than passing them by value.
 caller() {
   int v[] = { 0, 1, 2, 3, 4 };
   callee(v);
-  puts(v[0]);    // v[0] now holds 2 instead of 0
+  // v[0] now holds 2
+  // instead of 0
+  puts(v[0]);
 }
 callee(int parameter[]) {
   parameter[0] = 2;
 }
+.CE
 .LP
 However, sometimes when calling a Tcl proc it is necessary to pass an
 L array or hash by value.  For example, when calling [llength] on an L
@@ -1115,7 +1105,7 @@ int
 main()
 {
 	int fib[] = fib(100);
-	for (i=0; i<length(fib); i++) {
+	for (i=0; defined(fib[i]); i++) {
 		printf("%d\\t%d\\n", i, fib[i]);
 	}
 }
