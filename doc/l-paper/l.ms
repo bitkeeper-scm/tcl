@@ -13,6 +13,7 @@ label A.nD.y%a
 .R2
 .de CS
 .sp .25
+.KS
 .in +.5
 .ft CW
 .nf
@@ -22,11 +23,14 @@ label A.nD.y%a
 .in
 .ft
 .fi
+.KE
 ..
 .de BR
 \fB\\$1\fR\\$2
 ..
 .de LI
+'br
+.ne 4
 .LP
 .B "\\$*"
 'br
@@ -430,10 +434,11 @@ A Tcl API is provided which supports getting/setting fields as well as
 introspection.
 .LI References.
 Pass by reference in Tcl is possible but awkward.
-Attempts have been made to improve it in Tcl.[
- pass by reference.]
- but they
-are unsatisfying.
+Attempts have been made to improve it in Tcl
+.[
+pass by reference
+.]
+but they are unsatisfying.
 We think our syntax is cleaner and easier to read.
 .LI Function prototypes.
 Currently these are used to get type checking when calling Tcl builtins.
@@ -716,6 +721,7 @@ Bitwise Operators
 @expr@ >> @expr@
 ~@expr@
 .CE
+.ne 10
 .NH 3
 Assignment Operators
 .CS
@@ -1173,11 +1179,8 @@ int[]
 fib(int n)
 {
 	// no need to declare size of array
-	int	fib[];
+	int	fib[] = { 0, 1 };
 	int	i;
-	
-	fib[0] = 0;
-	fib[1] = 1;
 	
 	for (i=2; i<n; i++) {
 		fib[i] = fib[i-1] + fib[i-2];
@@ -1190,7 +1193,7 @@ main()
 {
 	int fib[] = fib(100);
 	for (i=0; i<length(fib); i++) {
-		printf("%3d\t%6d\\n", i, fib[i]);
+		printf("%d\\t%d\\n", i, fib[i]);
 	}
 }
 .CE	
@@ -1239,21 +1242,17 @@ grep(string regex, FILE in)
 
 .NH 2
 Changes to Tcl
-
-
 .NH 3
 Toplevel Compilation
-
+.LP
 Toplevel code in Tcl, i.e., code that isn't contained in a proc body,
 is now passed to the bytecode compiler.
 We require this so that the L compiler can emit bytecode for toplevel L
 code.
 It could be useful in the future for saving Tcl bytecode between
 invocations, similar to the TclPro compiler.
-
 .NH 3
 Changes to the Tcl Parser
-
 .NH 1
 Status
 .LP
