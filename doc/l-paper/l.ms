@@ -5,6 +5,9 @@
 .\"    groff -R -ms l.ms > l.ps
 .\"
 .\" Commands for refer
+.EQ
+delim $$
+.EN
 .R1
 database references
 accumulate
@@ -22,6 +25,9 @@ label A.nD.y%a
 .in
 .ft
 .fi
+..
+.de BR
+\fB\\$1\fR\\$2
 ..
 .de BU
 .IP \(bu 2
@@ -493,18 +499,125 @@ while
 .CE
 .NH 2
 Control flow
-.LI if/else
-.LI unless
-.LI for
-.LI foreach
-.LI while
-.LI until
-.LI do/while
-.LI do/until
+.LI Conditional statements
+.CS
+if ( $expr$ ) $statement$
+if ( $expr$ ) $statement$ else $statement$
+unless ( $expr$ ) $statement$
+.CE
+In all cases $expr$ is evaluated and if it returns anything other than
+zero then the first 
+.B if
+statement is executed, if it returns zero then the 
+.B else 
+statement or the 
+.B until 
+statement is executed.
+.LI While/until statements
+.CS
+while ( $expr$ ) $statement$
+until ( $expr$ ) $statement$
+.CE
+The $expr$ is evaluated and $statement$ is executed repeatedly while
+$expr$ is non-zero in the 
+.B while 
+case, or zero in the
+.B until 
+case.
+.LI do statements
+.CS
+do $statement$ while ( $expr$ )
+do $statement$ until ( $expr$ )
+.CE
+$statement$ is executed repeatedly while $expr$ is non-zero in the
+.B while 
+case, or until zero in the
+.B until
+case.
+.LI for statement
+.CS
+for ( $exp1 sub opt$; $exp2 sub opt$; $exp3 sub opt$ ) $statement$
+.CE
+All expressions are optional.
+Other than the continue statement, which in this case will execute
+$exp3$, this is the same as
+.CS
+$exp1$;
+while ( $exp2$ ) {
+	$statement$
+	$exp3$;
+}
+.CE
+.LI foreach statement
+.CS
+foreach ($h$ as $key$ => $val$) $statement$
+.CE
+This statement interates over each key/value pair in the hash $h$.
+The key/value pair is placed in $key$ and $val$ and then $statement$ 
+is executed.
+Behaviour is undefined if $h$ is modified in $statement$.
+.LI switch statement
+.CS
+switch ( $expr$ ) statement
+.CE
+$expr$ must evaluate to an 
+.B int
+or a
+.BR string .
+Any statement within $statement$ may contain one or more labeled statements
+of the form
+.CS
+case $constant-expr$: $statement$
+.CE
+There may be at most one statement of the form:
+.CS
+default: $statement$
+.CE
+When the 
+.B switch 
+statement is run, $expr$ is evaluated and cause a jump to the 
+.B case
+label which matches.
+If no label matches then if the 
+.B default
+a jump to the 
+.B default 
+statement will occur.
+As in C, control will continue to flow past labels, see
+the \(lqbreak statement\(rq for exiting from a 
+.BR switch .
 .LI break
+.CS
+break ;
+.CE
+causes termination of the smallest enclosing 
+.BR while ,
+.BR until ,
+.BR do ,
+.BR for ,
+or
+.B switch
+statement.
 .LI continue
-.LI switch
+.CS
+continue ;
+.CE
+causes control to pass to the loop-continuation portion of the smallest 
+enclosing
+.BR while ,
+.BR until ,
+.BR do ,
+or
+.B for 
+loop.
 .LI return
+.CS
+return;
+return ( $expr$ );
+.CE
+In the first case the return value is undefined, in the second the return
+value is $expr$.
+XXX - talk about returning locals and how that works?
 .NH 1
 Example code
 .NH 2
