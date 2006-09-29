@@ -1,18 +1,25 @@
 Outline
 	What is it?
-	Why did we do it?
-	Details
+	Why is that interesting?
+	Why not some other runtime?
+	Why not just tcl?
+	Language details
 	Code examples
-	How does it work?
 	Status or what doesn't work yet
 	Future directions
 	License and Availability
+	What people are saying 
 What is it?
-	C-like syntax with a compiler that generates tcl byte codes
+	C-like syntax on top of the Tcl runtime
+	Alternate compiler that generates tcl byte codes
 	Does not change tcl system
 	Interoperates with the tcl system
 	Leverages the tcl runtime
 	An example of a multi-syntax system (can have tcl & L in same file)
+Why not some other runtime?
+	Lotso good stuff about the tcl runtime
+Why not pure tcl?
+	Tcl cons from below
 Why did we do it?
 	Already comitted to tcl/tk
 	Tcl pros
@@ -28,6 +35,7 @@ Why did we do it?
 			or
 			if {[regexp blah.*blah buf]}
 			etc.
+			Pass by reference with upvar is annoying
 	We're a conservative development organization.	We sell
 	to enterprise customers and we support releases going back
 	indefinitely in some cases.  All code goes through peer review and
@@ -36,11 +44,11 @@ Why did we do it?
 	because of the lack of structs but also because of the lack of 
 	syntactic sugar - calling procs to do array indexing is way over
 	our threshold of pain for readability.
-Details
+Language details
 	C-like syntax compiled to tcl byte code
 		L can call tcl, tcl can call L
 	Additions over C
-		perl like regex in expressions
+		perl like regex in statements
 		associative arrays
 		defined() for variables, hashes, arrays
 			defined(foo)		[info exists] or winfo ???
@@ -50,22 +58,72 @@ Details
 	Additions over tcl
 		structs
 		type checking
+		pass by reference improvements
+		function fingerprints
 	Types
 		string (same as tcl string)
 		int, float (type checked)
 		var (unknown type, strongly typed on first assignment)
 		poly (like tcl variable, no type checking)
 		hash (associative array, currently string types for key/val)
-			XXX - need syntax for saying what data type is,
-			currently it is var/var, i.e., indexed by whatever,
-			returns whatever, but first assignment determines
-			type for all later assignments.
+			Implemented as dicts
+			string types as key/values
 			We could allow
 				hash	poly foo{poly}
 			if we ever want that fucked up syntax.
+		structs
+			like C structs
+			implemented as lists
+			fields are in ::L::{struct name} as a list of lists,
+			each list is {type name comments}
+			struct struct {
+				string	type;
+				string	name;
+				string	comments;
+			}
 	Pass by reference or value?
 		base types are all by value, COW, like tcl
-		arrays and hashes are references
+		arrays and hashes are implicit references
 			pass an array to a proc, modify array[3], caller sees
-		strings are a mess
-			think upvar in gets
+		base types and structures may be passed by reference
+			pass by reference is done with &variable in the
+			caller which is an alias for "variable", i.e., 
+			we pass by name.
+			In the callee the argument also wants a & and it means
+			do an automagic upvar to get the real variable
+	Returns
+		All returns are by value
+			all types just work as expected
+				push the object onto the stack
+				the other end gets the object into it's 
+				variable name.
+Code examples
+	printenv.l
+Status or what doesn't work yet
+	Well there are issues
+Future directions
+	Scoping so you can do modules
+	Precompiled modules (and byte code loader)
+	Optimizations
+	Debugging support
+	Having an L contest for the best ($10K seem right?)
+License and Availability
+	Same license as Tcl
+	Exported as tarballs nightly
+What people are saying
+	"It'll make your jaw drop"
+	    -- Steve Jobs
+	"It's an amazing, amazing innovation."
+	    -- Steve Ballmer
+	"I want to thank Larry McVoy" 
+	    -- Richard Stallman
+	"L == Tcl 9.0"
+	    -- Jeff Hobbs
+	"L?  Of course I like it.  It's named for me.  Right?"
+	    -- Linus Torvalds
+	"It's like perl without the nastiest bits"
+	    -- Donal K Fellows
+	"I think that's easier to read."
+	    -- Larry Wall
+	"L is the coolest thing I've ever seen"
+	    -- Vadim Gelfer
