@@ -65,10 +65,12 @@ L is a typed language with int, float, string, struct, array, and
 hash as first class objects.
 The L syntax is reminiscent of C with a bit of C++ thrown in.
 .PP
-The implementation consists primarily of an additional parser which is
-invoked to compile L to byte codes whenever L code is seen.
-Tcl has been modified to always compile all procs to byte codes as well 
-to enable L<->Tcl cross calls.
+The implementation consists primarily of a simple compiler which Tcl
+invokes whenever L source code is encountered.  The L code is parsed
+by a Bison generated parser into an AST which is typechecked and then
+translated into Tcl bytecode.  Upon its execution, L code is
+indistinguishable from Tcl code, which makes for easy
+interoperability.
 .ig
 .PP
 L has been discussed slightly on the #tcl IRC channel and the best quote
@@ -715,9 +717,9 @@ example:
 .CS
 #lang(L)
 string	s[] =
-    {"hi", "there", "big mamma"};
+    {"hi", "there", "fellow earthling"};
 
-// prints "hi there {big mamma}"
+// prints "hi there {fellow earthling}"
 puts((tcl)s);
 .CE
 .NH 2
