@@ -757,53 +757,106 @@ print(string s)
 print "Howdy, stranger"
 .CE
 .NH 2
-Calling between L and Tcl
+Passing Parameters by Reference
 .LP
-L is designed to interoperate with Tcl by abiding by Tcl's calling
-conventions. What this means is that you can call L functions from Tcl
-and you can call Tcl functions from L.
+Parameters in Tcl are passed by value.  That means that a Tcl function
+can't do anything to its parameters that will affect the values of
+variables in the function that called it.
 .CS
-#lang(L)
-string
-toupper(string s)
-{
-	/* we're
-	 * calling Tcl's
-	 * [string toupper $s]
-	 */
-	return string("toupper", s);
+proc caller {} {
+  set v 1
+  callee $v
+  puts $v;   # v still holds 1
+}
+proc callee {parameter} {
+  set parameter 2
 }
 .CE
 .LP
-Calling Tcl functions that do upvar on the arguments is accomplished
-by using the & operator.
+For cases where changes to a parameter should be reflected in the
+calling function, Tcl provides upvar.  The calling function passes the
+name of a variable instead of its value, and the callee uses the upvar
+command to create a local variable that is linked to the original
+variable in the calling procedure.  When they are linked in this way,
+they act as one variable -- any change to one is reflected in the
+other.
 .CS
-#lang(L)
-int
-main()
-{
-	string buf;
-	while(gets(stdin, &buf) >= 0) {
-		puts(stdout, buf);
-	}
+proc caller {} {
+  set v 1
+  callee v
+  puts $v;   # v now holds 2
+}
+proc callee {parameter} {
+  upvar v $parameter
+  set v 2
 }
 .CE
 .LP
-Calling from Tcl to L when we need to pass by reference is
-accomplished by using the name of the variable in Tcl and declaring
-the variable with the & variant of the type in L.
+Using upvar in this way amounts to passing parameters by reference.
+In L, we support both of these modes of parameter passing -- by value
+and by reference.  Atomic types like int and string are passed by
+value by default.
 .CS
-#lang(L)
-string
-toupper(string &s)
-{
-	s = string("toupper", s);
+caller() {
+  int v = 1;
+  callee(v);
+  puts(v);    // v still holds 1
 }
-#lang(tcl)
-set mystring "this is cool"
-toupper mystring
-# prints "THIS IS COOL"
-puts $mystring	
+callee(int parameter) {
+  parameter = 2;
+}
+.CE
+.LP
+To get the pass by reference behavior, that is, to use upvar from L,
+you must use an & both on the formal parameter and on the actual
+parameter:
+.CS
+caller() {
+  int v = 1;
+  callee(v);
+  puts(v);    // v now holds 2
+}
+callee(int &parameter) {
+  parameter = 2;
+}
+.CE
+.LP
+The ampersand can also be used when a Tcl proc is expecting a variable
+name, for example:
+.CS
+  string buf;
+  gets("stdin", &buf);
+.CE
+.LP
+Arrays and hashes are passed by reference by default, so they don't
+require an &.  This is the way that C arrays behave, and it is
+generally more useful than passing them by value.
+.CS
+caller() {
+  int v[] = { 0, 1, 2, 3, 4 };
+  callee(v);
+  puts(v[0]);    // v[0] now holds 2 instead of 0
+}
+callee(int parameter[]) {
+  parameter[0] = 2;
+}
+.LP
+However, sometimes when calling a Tcl proc it is necessary to pass an
+L array or hash by value.  For example, when calling [llength] on an L
+array (which is a Tcl list), due to the pass-by-reference nature of
+arrays, the result is not what you want:
+.CS
+  int v[] = { 0, 1, 2, 3, 4 };
+  puts(llength(v));    // prints 1
+.CE
+.LP
+What was actually passed to [llength] was the string "v", not the
+array itself.  To handle these cases, L provides a special (tcl)
+typecast.  Casting an array or hash to (tcl) causes L to pass the
+variable value instead of its name.
+.CS
+  int v[] = { 0, 1, 2, 3, 4 };
+  puts(llength((tcl)v));    // prints 5
 .CE
 .NH 1
 Longer Examples
@@ -885,7 +938,7 @@ Changes to Tcl
 
 .NH 3
 Toplevel Compilation
-
+.LP
 Toplevel code in Tcl, i.e., code that isn't contained in a proc body,
 is now passed to the bytecode compiler.  We require this so that the L
 compiler can emit bytecode for toplevel L code.  It could be useful in
