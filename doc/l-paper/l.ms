@@ -58,11 +58,11 @@ This paper describes a new programming language called L.
 L is a compiled-to-byte-code language with the unusual twist that it
 compiles to Tcl byte codes and by doing so leverages the entire Tcl
 runtime.  
-L is designed to peacefully coexist with Tcl rather than replace Tcl
-and L functions may call Tcl procs and vice versa.
-L and Tcl may coexist in the same source file.
-L is a typed language with int, float, string, struct, array, and
-hash as first class objects.
+L is designed to peacefully coexist with Tcl rather than replace Tcl.
+L functions may call Tcl procs and vice versa, they may also coexist
+in the same source file.
+L is a static weakly typed language with int, float, string, struct,
+array, and hash as first class.
 The L syntax is reminiscent of C with a bit of C++ thrown in.
 .PP
 The implementation consists primarily of an additional parser which is
@@ -85,50 +85,50 @@ the Tcl/Tk community.
 .I "\(lqIt's like perl without the nastiest bits.\(rq"
 .sp .5
 .ce 1
--- Donal K Fellows
+-- Donal K. Fellows
 .sp
 .2C
 .NH
 Introduction
 .LP
 BitMover products are produced using a conservative development methodology.
-All development goes through a stringent process which relies on heavily
+All development goes through a stringent process which relies heavily on
 peer review and extensive regression tests to ensure a quality product.
 .LP
 Because of the stability requirements of our market,
 we read code much more than we write it.
 Spot checks indicate that we spend at least 10 times as much
 time reading and reviewing than we do writing.
-So we tend to optimize heavily for the read path rather than the
+Naturally, we tend to optimize heavily for the read path rather than the
 write path.
 .\" Much like a filesystem.  Hmm.  Work that into the talk?
 .LP
 For years, we have used the Tcl/Tk system for our graphical user interfaces.
 We periodically consider the alternatives and have consistently found that 
-short of doing native Windows, Aqua, and Java or QT implementations, the
+short of doing native implementations, the
 Tcl/Tk system is still the best choice from a development cost point of 
 view.
-Our estimate is that it would cost at roughly six times as much to develop
-and maintain native GUIs instead of using a single sourcing Tcl answer for all 
+Our estimate is that it would cost roughly six times as much to develop
+and maintain native GUIs instead of using a single Tcl sourcebase for all 
 platforms.
-However, the Tcl answer became problematic as two things happened:
+However, the maintenance of our Tcl sourcebase has recently become
+problematic because two things happened:
 .BU
 our Tcl source base grew past a manageable size (for us).
 .BU
-the emphasis is placed on mainly reading and extending, rather than writing.
+our emphasis shifted mainly to reading and extending, rather than writing.
 .LP
 We have about 25,000 lines lines of Tcl implementing about a dozen
-graphical interfaces for browsing code, checking in code, view changes,
+graphical interfaces for browsing code, checking in code, viewing changes,
 etc.\**
 .FS
 This number is artificially low because we have been holding off on a number 
-GUIs until we had a better answer.  A more realistic number might be 4 times
+of GUIs until we had a better answer.  A more realistic number might be 4 times
 that size.
 .FE
-For us, that has become unmanageable, maintainence and extending 
-this source has become too expensive.
-When the review process was added to the mix, the Tcl costs were starting to
-be too high.
+Maintaining and extending the Tcl source base has become unmanageable, and
+when the review process was added to the mix, the costs started to be
+too high.
 .LP
 This has been a problem for us for years and we were forced to come up with 
 a better answer.
@@ -151,7 +151,7 @@ current status,
 features we have not yet done but want to do,
 licensing and availability,
 and a summary.
-.\" Acknowledgements?  Rob?
+.\" Acknowledgements?  Rob? Jeff?
 .NH 1
 L overview
 .LP
@@ -170,26 +170,26 @@ Subsection	Percentage of total
 =
 Tcl parser/compiler	<= 1%
 L parser/compiler	<= 1%
-Tcl runtime	50%
-Tk + libraries	50%
+Tcl runtime	48%
+Tk	51%
 .TE
 .LP
-The syntax part of the system is quite small when compared to the
+The syntax parser and compiler is quite small when compared to the
 code that implements the runtime and the libraries (in both Tcl and L it
 is less than 10K lines of code).
 Because the parser/compiler is such a small part of the system, it is
-reasonable add an alternative parser/compiler to the
+reasonable to add an alternative parser/compiler to the
 system and let them both run side by side.
-In nutshell, that is L.  It is the small amount of effort required to
+That is L in a nutshell.  It is the small amount of effort required to
 leverage a large amount of effort embodied in the runtime and libraries.
 .LP
 The L compiler creates an abstract syntax tree from L
 source and compiles that to byte codes.
 The bytes codes generated are traditional Tcl byte codes, following Tcl 
 call/return conventions, and using Tcl variables.
-Because we were careful to not break any Tcl rules,
+Because we are careful to not break any Tcl rules,
 L functions may call Tcl procs and vice versa.
-This allows to L being able to use the extensive, mature Tcl/Tk runtime
+This allows L to use the extensive, mature Tcl/Tk runtime
 and libraries unmodified.
 .NH 1
 Unique design
@@ -198,15 +198,15 @@ As we dive deeper into the L syntax and semantics it would be
 easy to be drawn into a discussion of why L is better or why Tcl
 is better.
 To do so would be to miss an important point.
-Whether the L language takes over the world or is used only at
-BitMover,  the value of L is that it demonstrates a new way to 
-leverage, or reuse, existing code.
+Regardless of the merits of each language's syntax, the value of L
+is that it demonstrates a new way to leverage and reuse, existing code.
 With a relatively small amount of effort, we have leveraged over 
 1.4 million lines of source making up the Tcl/Tk system plus the 
-extensions we use.  
+extensions we use.
 .LP
 The existence of L opens the door to any number of domain
-specific languages being added to the Tcl system.
+specific languages being added to the Tcl runtime system.
+.ig
 If some group prefers Python syntax we see no reason they could
 not take the L scanner and parser, change the syntax to Python,
 and add another syntax to Tcl.
@@ -216,6 +216,7 @@ The answer isn't Python, it is domain specific languages.
 Any effort that needs a specific syntax to be interpreted could
 take our approach and get the job done for far less effort than
 starting from scratch.
+..
 .LP
 For example, consider the GDB debugger.
 GDB wants to let users type C, C++, etc., at it and run the code.
@@ -232,20 +233,23 @@ Alternative runtimes
 .LP
 Once the idea of adding a different parser/compiler to a scripting language
 is understood, the question becomes: why Tcl rather than some other runtime?
-There are rich set of runtimes, Perl, Python, Ruby, and others.  Why not 
+There is a rich set of runtimes, Perl, Python, Ruby, and others.  Why not 
 one of them?
 We looked, briefly, at that question.
 Our need was for a well supported, mature runtime that supported scripting
-GUI interfaces.
+GUI interfaces and was extensible from C.
 .LP
 We dismissed Java because the runtime is too large and the GUI toolkits
 are weak, both in features and in performance.
 The other runtimes addressed the GUI issues mostly by providing Tk bindings
-(but in some cases Qt or Gtk bindings).
+(and in some cases Qt or Gtk bindings).
 Any system that is using Tk bindings is already dragging along a Tcl 
 interpreter to run the Tk code.
-To us, it seemed too weird to have an interpreter trying to talk to another
-interpreter to get the job done; our experience with has not been good.
+It seemed like a waste to have a different interpreter just for the
+GUIs. It has also been our experience that the only way to build
+robust software systems is to have the minimum number of "moving
+parts". Having two interpreters is an unnecessary complication.
+
 .LP
 But even if there were a good runtime with a good GUI interface, there was
 another requirement we felt was only well addressed by Tcl.
@@ -260,23 +264,23 @@ L vs pure Tcl
 .\" Brian went on and on about syntax / lint checker.
 .\" Coverity example.
 .LP
-Many in the Tcl community may question whether is any value in an
+Many in the Tcl community may question whether there is any value in an
 alternate syntax for the Tcl runtime.
 After all, Tcl is a powerful, dynamic language and many significant
 applications are based on Tcl.
 .LP
-We agree that Tcl is powerful but that power comes at a cost.
-Tcl does not have a grammer and is impossible to parse correctly except
-at run time.
-The dynamic nature of the language prevents this by definition.
+We agree that Tcl is powerful but that power comes at a cost. Tcl's
+dynamic nature makes it impossible to detect even simple parse errors,
+such as a typo, without running the program.
 .LP
-There are drawbacks to this approach in language design:
+Although there are some advantages to this approach in language
+design, there are also big drawbacks:
 .LI "Data structures."
 Probably the single largest problem we found with Tcl was the lack of
-a C-like struct data structure.  
+C-like structs.
 These are commonly emulated with associative arrays.
-For us, that wasn't good enough because the "struct fields" are 
-scatter all over the source base rather than being in one place,
+That isn't good enough because the "struct fields" are 
+scattered all over the source base rather than being in one place,
 laid out with types and comments.
 A fairly famous paraphrasing of something Fred Brooks said summarizes
 it nicely:
@@ -304,9 +308,11 @@ actually being said in the code.
 .LI Optimization.
 Optimizing Tcl is more challenging than optimizing a ``weaker'' language
 such as L.
-Many well understood optimizations could be applied to the compilation
-of L, resulting in a significant performance increase for some programs.
-One example is known as the ``shimmering problem.''
+Many well understood optimization techniques could be applied to the
+compilation of L, resulting in a significant performance increase for
+some programs.
+As an example, due to the static type system of L, we believe it's
+possible to make L immune to ``shimmering.''
 .[
 shimmering
 .]
@@ -314,10 +320,10 @@ shimmering
 We tend to view Tcl more like assembly language on steriods.
 It is a powerful tool and when that power is needed it is 
 appreciated.
-But most of the time we are doing fairly simplistic programming,
-deliberately so it is easy to read, and we find that language with a
-formal grammer and formal data structures is much easier for us to read
-and easier for a compiler to optimize.
+But most of the time we are doing fairly simplistic programming
+deliberately so it is easy to read, and we find that a static language
+with a static type system is much easier for us to read and easier
+for a compiler to optimize and check.
 .NH 1
 L vs native GUIs
 .LP
@@ -358,13 +364,16 @@ form Tcl, types, call/return conventions, expressions, and control flow.
 .NH 2
 Extensions to C
 .LI Regex.
-We stole Perl's syntax for regular expressions in statements (but not 
-Perl's regular expressions, we use Tcl's).
+L uses Perl's syntax for regular expressions in statements, but it uses
+Tcl's regular expression engine.
 So you may say:
 .CS
 if (buf =~ /foo.*bar/)
 .CE
-instead of the usual function call to \f(CWregex\fP.
+to get the same results as Tcl's
+.CS
+if {[regexp {foo.*bar} $buf]}
+.CE
 .LI "Associative arrays."
 We call these hashes in L to distinguish them from traditional C like arrays.
 The keys and the values are strings.
@@ -374,7 +383,7 @@ Many constructs that would normally use C pointers, such as linked lists
 or trees, can be constructed with an array of structures linked via indices
 rather than pointers.
 .LI defined().
-A built in which indicates if the variable passed is defined.
+A built-in which indicates if the variable passed is defined.
 The following test for the existence of the variable, the existence of the
 field in the hash, and the existence of the array element, respectively.
 .CS
@@ -383,8 +392,12 @@ defined(stuff[3])
 .CE
 .LI Strings.
 Strings are first class objects like any other base type.
-The implications of this are that unlike C strings which are pointers,
-if you want to pass a reference to the string you must do so explicitly.
+One implication of this are that unlike C strings which are pointers,
+if you want to pass a reference to the string you must do so
+explicitly.
+.ig
+XXX: See References?
+..
 .NH 2
 Unimplemented C features
 .LP
@@ -394,8 +407,10 @@ L currently does not have a C-like preprocessor though one is planned.
 .NH 2
 Extensions to Tcl
 .LI "Type checking."
-L is a type checked language.  
-By default, variables may not change types, unlike Tcl where everything is
+L has a weak static type system which makes it possible to do type
+checking at compile time. Note that L's type system is independent of
+Tcl's runtime type system, although the two of them can interoperate.
+Variables in L may not change types, unlike Tcl where everything is
 a string except when it's not (when it is a float or an int or a list, etc.)
 .LI Structs.
 C like structs are part of L.
@@ -413,8 +428,16 @@ We think our syntax is cleaner and easier to read.
 Currently these are used to get type checking when calling Tcl builtins.
 For example, we can prototype gets() as
 .CS
-extern tcl gets(FILE, string &);
+extern int gets(FILE, string &);
 .CE
+to always require gets to be called with two arguments. We could also
+prototype gets as
+.CS
+extern string gets(FILE);
+.CE
+to make it return a string. If prototypes are missing, L treats
+undefined functions as external Tcl functions that return poly and
+take a variable number of arguments of type poly.
 .NH 2
 Types
 .NH 3
@@ -430,11 +453,7 @@ Unsigned integer, like C's unsigned int.
 Sized as above.
 ..
 .LI float.
-The floating point type is called float, strangely enough, but is
-implemented as whatever Tcl uses which is currently a double.
-For both int and float, if we ever support larger or smaller versions,
-they will be explicitly sized, like int16 (16 bit integer), or float32
-(32 bit float).
+Floating point numbers in L are at least double precision IEEE 754.
 .LI string.
 The string type is the same as a Tcl string, but different than a C string.
 As mentioned above, strings are first class objects but are not pointers
