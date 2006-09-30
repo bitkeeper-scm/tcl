@@ -8,6 +8,13 @@
 %P 151-157
 %K eqn
 
+%A Brian W. Kernighan
+%A Dennis M. Ritchie
+%T The C Programming Language, Second Edition
+%P 87-88
+%D 1988
+%K qsort C
+
 %A Fred Brooks
 %T The Mythical Man Month
 %D 1975
@@ -35,10 +42,3 @@
 %D 1997
 %I Morgan Kaufmann
 %K optimization
-
-%A Brian W. Kernighan
-%A Dennis M. Richie
-%I Prentice-Hall, Inc.
-%T The C Programming Language
-%D 1978
-%K C

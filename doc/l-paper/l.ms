@@ -1383,6 +1383,12 @@ main()
 .CE	
 .SH
 Quicksort
+.LP
+(Adapted from
+.[
+qsort
+.]
+).
 .CS
 /* qsort: sort v[left]...v[right] into increasing order */
 void qsort(int v[], int left, int right)
