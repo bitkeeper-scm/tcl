@@ -111,7 +111,7 @@ peer review and extensive regression tests to ensure a quality product.
 Because of the stability requirements of our market,
 we read code much more than we write it.
 Spot checks indicate that we spend at least 10 times as much
-time reading and reviewing than we do writing.
+time reading and reviewing as we do writing.
 Naturally, we tend to optimize heavily for the read path rather than the
 write path.
 .\" Much like a filesystem.  Hmm.  Work that into the talk?
@@ -151,11 +151,11 @@ We solved our problems by marrying the language syntax we felt
 was well suited for  fast reviewing and understanding with what
 we feel is the best GUI toolkit and run time available today.
 .LP
-The rest of the paper is divided sections which discuss the following
+The rest of the paper is divided into sections which discuss the following
 topics:
 an overview of L,
 why the L approach is interesting,
-why other runtimes were not choosen,
+why other runtimes were not chosen,
 why not pure Tcl,
 why not native GUIs,
 L language details such as types, calling/return conventions,
@@ -1295,6 +1295,10 @@ grep(string regex, FILE in)
 
 .NH 2
 Changes to Tcl
+.LP
+In the course of implementing L, two small but important changes were
+made to Tcl which will affect all Tcl programs.  We expect the effect
+to be really horrible.
 .NH 3
 Toplevel Compilation
 .LP
@@ -1350,11 +1354,16 @@ Optimizations
 Since the L compiler is building an abstract syntax tree. A number of
 traditional optimization techniques could be applied to L source
 before generating Tcl bytecodes. These include: constant subexpression
-elimination, dead code removal, strenght reduction, loop invariant
+elimination, dead code removal, strength reduction, loop invariant
 code motion, tail-call optimization, code hoisting, and others.
 .LP
 Also, the lack of general C pointers greatly simplifies alias analysis
 and makes it possible be more aggressive when applying optimizations.
+.LP
+For an in-depth treatment of alias analysis and optimization see
+.[ [
+optimization
+.]] .
 .NH 2
 Debugging
 .LP
