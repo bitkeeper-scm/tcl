@@ -4,5 +4,5 @@ l.pdf: l.ps l.ms
 l.ps: l.ms references
 	groff -e -R -ms -p -t l.ms > l.ps
 
-g: l.ms
+g: l.ms references
 	g groff -e -R -ms -p -t l.ms 

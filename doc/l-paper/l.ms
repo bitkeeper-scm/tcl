@@ -70,7 +70,7 @@ L is designed to peacefully coexist with Tcl rather than replace Tcl.
 L functions may call Tcl procs and vice versa, they may also coexist
 in the same source file.
 L is a static weakly typed language with int, float, string, struct,
-array, and hash as first class.
+array, and hash as first class objects.
 The L syntax is reminiscent of C with a bit of C++ thrown in.
 .PP
 The implementation consists primarily of a simple compiler which Tcl
@@ -87,7 +87,7 @@ to date is from Donal K Fellows who said:
 ..
 .PP
 L is open source under the same license as Tcl/Tk with the hope that 
-people will find it useful and it may encourage more people will join
+people will find it useful and it may encourage more people to join
 the Tcl/Tk community.
 .AE
 .bp
@@ -208,10 +208,10 @@ easy to be drawn into a discussion of why L is better or why Tcl
 is better.
 To do so would be to miss an important point.
 Regardless of the merits of each language's syntax, the value of L
-is that it demonstrates a new way to leverage and reuse, existing code.
+is that it demonstrates a new way to leverage and reuse existing code.
 With a relatively small amount of effort, we have leveraged over 
-1.4 million lines of source making up the Tcl/Tk system plus the 
-extensions we use.
+1.4 million lines of source making up the Tcl/Tk system plus some
+extensions.
 .LP
 The existence of L opens the door to any number of domain
 specific languages being added to the Tcl runtime system.
@@ -267,7 +267,8 @@ The original vision was that Tcl was glue and all the heavy lifting would
 be done by C extensions to the language.
 The internal Tcl code is fairly small and quite pleasant to use; adding
 extensions is straightforward and natural.
-Other systems fell short in this area.
+We need to take advantage of this feature of the Tcl system and other
+runtimes made this difficult.
 .NH 1
 L vs pure Tcl
 .\" Brian went on and on about syntax / lint checker.
@@ -282,21 +283,24 @@ We agree that Tcl is powerful but that power comes at a cost.
 Tcl's dynamic nature makes it impossible to detect even simple parse
 errors, such as a typo, without running the program.
 .LP
-Although there are some advantages to this approach in language
-design, there are also big drawbacks:
+Although there are advantages to the dynamic approach in language
+design, there are also drawbacks:
 .LI Data structures.
 Probably the single largest problem we found with Tcl was the lack of
-C-like structs.
-These are commonly emulated with associative arrays.
+C structs, i.e., a centralized collection of a set of variables with
+annotations as to why they were there.
+These are commonly emulated in Tcl with associative arrays.
 That isn't good enough because the "struct fields" are 
 scattered all over the source base rather than being in one place,
 laid out with types and comments.
-A fairly famous paraphrasing of something Fred Brooks said summarizes
-it nicely:
+To paraphrase Fred Brooks:
 .ft I
 \(lqShow me your code and conceal your data structures, and I shall
 continue to be mystified. Show me your data structures, and I won't
 usually need your code; it'll be obvious.\(rq
+.[
+mythical man month
+.]
 .LI Lint.
 It is impossible to write syntax checker or a lint-like tool for Tcl that
 works 100% of the time unless that tool is actually running the language.
@@ -311,9 +315,15 @@ other forms of code reading.
 For the same reasons that it is difficult to write a lint-like tool
 for Tcl, it is difficult for a human to look at Tcl and understand what
 it is doing.
-The verbose style of basic operations in Tcl (\f(CWset tmp [lindex $foo
-$i]\fP vs "\f(CWtmp = foo[i]\fP" for example) tend to obscure what is
-actually being said in the code.
+The verbose style of basic operations in Tcl, i.e.,
+.CS
+set tmp [lindex $foo $i]
+.CE
+vs 
+.CS
+tmp = foo[i]
+.CE
+tend to obscure what is actually being said in the code.
 .LI Optimization.
 Optimizing Tcl is more challenging than optimizing a ``weaker'' language
 such as L.
@@ -548,7 +558,7 @@ For example, this will throw an error:
 .CS
 var	f = 1;	// f is now an int
 
-f += 3.14;	// int/float type error
+f = "pi";	// int/string error
 .CE
 but this works fine:
 .CS
@@ -556,6 +566,27 @@ var	f = 1.0;
 
 f += 3.14;
 .CE
+.NH 3
+Magic
+.LI :constant.
+Many Tcl/Tk interfaces take key/value pairs which look like
+.CS
+text .t -bg white -fg black
+.CE
+which in L might look like
+.CS
+text(.t,
+    "-bg", "white", "-fg", "black");
+.CE
+We wanted a way to make the @-whatever@ stand out from the values being passed
+as an argument to @-whatever@.
+We decide to do that like this:
+.CS
+text(.t, :bg, "white", :fg, "black");
+.CE
+When the parser sees an identifier in a function call that has a leading 
+colon L treates it as if it were a quoted string with the colon replaced
+with a dash.
 .NH 3
 Compound types
 .LI array.
@@ -599,7 +630,7 @@ They are implemented by Tcl dictionaries under the covers.
 Hash assignments in declarations are supported for globals and locals
 and follow the Perl syntax:
 .CS
-hash	h = { "key" => "val",
+hash  h = { "key" => "val",
 	      "key2" => "val2" };
 
 h{"foo"} = "bar";
@@ -644,19 +675,30 @@ Structures are implemented as Tcl Lists just like L arrays.
 The names are translated into integer indices by the L compiler.
 Since it is just a Tcl list, an L structure can be passed to any Tcl proc
 that expects a list.
+.LP
+It is likely that we will extend the struct construct to have initializers,
+i.e.,
+.CS
+typedef struct {
+	int	a = 1;
+	float	b = 3.14;
+	string	c = "hi there";
+} eg;
+
+eg	foo;
+puts(foo.a);	// prints 1
+.CE
 .NH 2
 Passing semantics
 .LP
-L and Tcl have fairly different views on passing information around.
-For the most part Tcl is a pass by value system, where each variable
-is passed in with an annotation which makes the variable copy on write.
-.LP
-L is trying to mimic C semantics to some extent so L wants to be able
-to pass base types and structures by either value or reference and 
-wants to pass arrays and hashes by reference.
-.LP
-This section describes how this works and how the two languages interoperate
-with respect to parameters and returns.
+A C programmer, looking at Tcl, would think that the Tcl model is pass by 
+value.
+While Tcl has no way to pass a C like pointer to an object, it does have
+a way to fake it with something called @upvar@.
+L wants pass by value but it also wants to provide pass by reference.
+This section describes how we used the Tcl system to provide the L passing
+semantics.
+It amounts to a little syntatic sugar on top of @upvar@.
 .NH 3
 By value
 .LP
@@ -667,8 +709,11 @@ int	i = 1234;
 
 foo(i, 0xdeadbeef, "string");
 .CE
-L has no way to pass compound types by value to other L functions but 
-see the @(tcl)@ cast below for how to pass them to Tcl procs.
+L programs typically do not pass compound types by value to other
+L functions but see the @(tcl)@ cast below for how to pass them to
+Tcl procs.
+.br
+.ne 8
 .NH 3
 By reference
 .LP
@@ -688,7 +733,7 @@ the caller's context (after evaluating the right hand side).
 .LP
 We used this mechanism to emulate pass by reference in L.
 We call it ``pass by name'' because what it is doing is putting the name
-of the variable on the stack and in the caller it is doing an automatic
+of the variable on the stack and in the callee it is doing an automatic
 @upvar@ to create the reference.
 The syntax looks like:
 .CS
@@ -735,12 +780,94 @@ string	buf;
 gets(stdin, &buf);
 .CE
 .NH 3
+L pointers
+.LP
+While the @upvar@ trick works nicely for many cases there is still a need 
+for real pointers.
+When creating a widget, such as an entry box, it would be natural to 
+have a struct which contained all the things related to that widget
+such as its path, the variable that the entry box sets, etc.  Like so:
+.CS
+widgets(entry &e)
+{
+	e.frame = frame(".f");
+	e.entry = entry("${top}.entry"); 
+	f(:configure,
+	    :textvariable, &e.textvar);
+}
+.CE
+Our trick of making an ampersand just mean push the variable name on the 
+stack will not work here for multiple reasons.
+First, the variable in this case is a structure field, which is an element
+of a Tcl list.
+There is currently no way to pass a list element as a @-variable@ argument,
+Tcl does not support that.
+Second, @-variable@ arguments must be accessible at the global scope.
+There is no guarentee that the name passed in makes sense at the global scope.
+.LP
+What is needed is a way to take an L variable and turn it into something
+that Tcl can find out of the event loop.
+The natural answer is some kind of pointer.
+.LP
+We created a new Tcl object type to hold all the information related to a
+pointer.
+The information looks like:
+.CS
+struct pointer {
+    int    depth;  // upvar #depth
+    string name;   // var pointed to
+    string index;  // optional index
+};
+.CE
+The depth field is used to get to the call frame where the variable being
+pointed at was declared. 
+For GUI code like the example above, the depth will almost always be 0
+indicating a global.
+The string is the name of the variable to which the pointer refers.
+If the underlying type of the variable is a list (remember that structs
+are implemented as lists) then the index is the index into that list.
+The index is a string because in the future we intend to make pointers 
+into hashes work.
+.br
+.ne 10
+.LP
+There is a new Tcl command, @pointer@, which may be used to manipulate
+pointers from Tcl directly.
+The following code creates a pointer,
+points it at the last element of the list @l@,
+uses the pointer to get the value of the variable pointed at,
+and uses the pointer to set the value of the variable pointed at to @foo@.
+When we are done @$l@ contains \fIa\ b\ foo\fP.
+.CS
+set l [list a b c]
+set p [pointer create l]
+pointer index $p 2
+pointer get $p
+pointer set $p foo
+.CE
+If we now consider the widget example above, remembering that it had a 
+variable reference @&e.entry@.
+The compiler provides some magic to make that construct be treated as
+an L pointer.
+When the compiler sees a string constant of the form @-.*variable@\** and
+the next token is an L variable with a leading ampersand,
+the compiler automatically wraps the variable in pointer.
+.FS
+Remember that @:foo@ token is just syntatic sugar for "@-foo@".
+.FE
+.NH 3
 Return values
 .LP
-Return values ``just work.''
-In Tcl and in L returns are always by value in the Tcl sense, i.e., 
-a variable that is marked copy on write.
-C programmers take note that this is a way to do automatic allocation:
+Because returns are by value in L, and Tcl also returns by value, 
+no changes were required to make returns work in L.
+.LP
+It is worth noting, especially for C programmers, that there is a sneaky
+way to do an allocation.
+When a local variable is returned, the return bumps the reference count.
+Without that bump, the local variable in question would have been freed
+along with any other locals that were on the callees stack.
+Tcl is garbage collected so the variable will get freed when the caller is
+done with it.
 .CS
 string[]
 vector(int n)
@@ -757,22 +884,18 @@ string	foo[] = v(100);
 .NH 2
 Casts
 .LI (tcl).
-There are times when we need to pass a compound object (structure, array,
+There are times when we need to pass a compound object (array,
 hash) as a string.
 Any Tcl proc which expects to see a string on the stack will want this.
 The @(tcl)@ cast is used to do this.
 .CS
-struct {
-	int	a;
-	float	b;
-	string	c;
-} foo = { 1, 2.3, "Hi there" };
+string	v[] = { "hi", "good day" };
 
-puts((tcl)foo);
+puts((tcl)v);
 .CE
 prints
 .CS
-1 2.3 {Hi there}
+hi {good day}
 .CE
 .LI (L).
 There may be times when a Tcl proc is returning a complex structure to us
@@ -780,32 +903,31 @@ and we want to cast it from the Tcl list to our structure:
 .CS
 #lang(tcl)
 proc demo {} {
-	return [list 1 2.3 "Hi there"]
+	return [list {good day} sir]
 }
 
 #lang(L)
-// same struct as above
-foo = (L)demo();
-printf("a=%d b=%f c=%s\\n",
-    foo.a, foo.b, foo.c);
+v = (L)demo();
+printf("%s %s\\n", v[0], v[1]);
 .CE
 prints
 .CS
-a=1 b=2.3 c=Hi there
+good day sir
 .CE
 Note: doing this sort of thing puts you at the mercy of the Tcl code
 which knows nothing about the L type system.
 .NH 2
 Operators
 .LP
-L supports all of the operators in the C programming language,\** as well
+L supports most of the operators in the C programming language, as well
 as several of the most useful operators from Perl.
 In the this section we do a quick run through all of the operators in L,
 and discuss some of the more subtle aspects in depth.
-.FS
-Since L does not (yet) have pointers in the sense that C does, the C &
-address-of operator and * dereference operator are not needed.
-.FE
+.LP
+Much of this section is cribbed from the C reference manual.
+.[
+C
+.]
 .NH 3
 Arithmetic operators
 .LP
@@ -848,24 +970,29 @@ These all work as in C with the C precedence rules.
 @expr@ != @expr@
 .CE
 .LI "Logical Operators"
-These all work as in C with the C precedence rules.
-The && and || operators short circuit like they do in C.
+.sp .25
+The && and || operators short circuit as in C.
 .CS
 @expr@ && @expr@
 @expr@ || @expr@
 !@expr@
 .CE
 .NH 3
-Regular expression statements
+Regular expression operators
 .LP
 Stolen from Perl, the first one is true if @regex@ is a regular expression
 which matches @string@.  
 The second one is true if @regex@ is a regular expression
 which does not match @string@.  
-@regex@ may be a string variable if it is in the form /\fI${variable}\fP/.
+The @//@ construct is an alias for a double quoted string
+which means all or part
+of the string may be an interpolated variable (or expression).
+The @m||@ construct is also from perl, it means use the vertical bars intead
+of slashes (frequently useful when dealing with path names).
 .CS
 @string@ =~ /@regex@/
 @string@ !~ /@regex@/
+@string@ =~ m|\fI${expr}\fP|
 .CE
 .ig
 .NH 3
@@ -935,7 +1062,7 @@ Reserved Words
 These are L's reserved words
 .CS
 break case continue defined do
-else float for foreach if int
+else float for foreach if int L
 poly return string struct switch
 tcl typedef unless until var void
 while
@@ -954,7 +1081,7 @@ zero then the first
 statement is executed, if it returns zero then the 
 .B else 
 statement or the 
-.B until 
+.B unless
 statement is executed.
 .LI While/until statements
 .CS
@@ -974,9 +1101,11 @@ do @statement@ until ( @expr@ )
 .CE
 @statement@ is executed repeatedly while @expr@ is non-zero in the
 .B while 
-case, or until zero in the
+case, or until non-zero in the
 .B until
 case.
+.br
+.ne 10
 .LI for statement
 .CS
 for ( @exp1 sub opt@; @exp2 sub opt@; @exp3 sub opt@ ) @statement@
@@ -994,11 +1123,14 @@ while ( @exp2@ ) {
 .LI foreach statement
 .CS
 foreach (@h@ as @key@ => @val@) @statement@
+foreach (@p@ in @v@) @statement@
 .CE
-This statement interates over each key/value pair in the hash @h@.
-The key/value pair is placed in @key@ and @val@ and then @statement@ 
-is executed.
+The first statement iterates over each key/value pair in the hash @h@.
+The key/value pair is placed in @key@ and @val@ 
+and then @statement@ is executed.
 Behaviour is undefined if @h@ is modified in @statement@.
+The second statement sets @p@ to each element of @v@, calling @statement@
+once per element.
 .LI switch statement
 .CS
 switch ( @expr@ ) statement
@@ -1011,6 +1143,8 @@ Any statement within @statement@ may contain one or more labeled statements
 of the form
 .CS
 case @constant-expr@: @statement@
+case /@constant-expr@/: @statement@
+case <@constant-expr@>: @statement@
 .CE
 There may be at most one statement of the form:
 .CS
@@ -1018,14 +1152,18 @@ default: @statement@
 .CE
 When the 
 .B switch 
-statement is run, @expr@ is evaluated and cause a jump to the 
+statement is run, @expr@ is evaluated and jumps to the 
 .B case
 label which matches.
+Case labels may be double quoted string constants,
+integer constants (not floats),
+constant regular expressions (@/.*.[ch]/@),
+or constant globs (@<*.[ch]>@).
 If no label matches then if the 
 .B default
-a jump to the 
+label exists, a jump to the 
 .B default 
-statement will occur.
+label will occur.
 As in C, control will continue to flow past labels, see
 the \(lqbreak statement\(rq for exiting from a 
 .BR switch .
@@ -1060,198 +1198,125 @@ return ( @expr@ );
 .CE
 In the first case the return value is undefined, in the second the return
 value is @expr@.
-XXX - talk about returning locals and how that works?
+.NH 2
+Changes to Tcl
+.LP
+In the course of implementing L, two small but important changes were
+made to Tcl which will affect all Tcl programs.  We expect the effect
+to be really horrible.
+.NH 3
+Toplevel Compilation
+.LP
+Toplevel code in Tcl, i.e., code that isn't contained in a proc body,
+is now passed to the bytecode compiler.
+We require this so that the L compiler can emit bytecode for toplevel L
+code.
+It could be useful in the future for saving Tcl bytecode between
+invocations, similar to the TclPro compiler.
+.NH 3
+Changes to the Tcl Parser
+.LP
+Tcl's @Tcl_ParseCommand@ has been modified to recognize a
+comment with a special form. Whenever the parser sees @#lang(L)@ it
+stops normal parsing and inserts two tokens into the token stream. The
+first token is a call to a the @LCompileCommand@ function and the second
+is the text after the @#lang(L)@ comment up to the next @#lang(tcl)@
+comment or end-of-file.
+.EQ
+delim ||
+.EN
 .NH 1
-Example code
+Status
+.LP
+The L language is under active development and the speed of development
+is increasing.
+Our expectation is that we will have a usuable system in 1-2 months.
+Our goal is to be rewriting our GUI tools in L early in 2007.
+There is a mailing list, \f(CWl@bitmover.com\fP, and an IRC channel,
+\f(CW##l\fP on \f(CWFreenode\fP.
+People are welcome to join either.
+.NH 1
+Future work
 .NH 2
-Types
-.NH 3
-Basic Data Types
-.NH 3
+Scoping
 .LP
-It is possible to iterate over each value in a hash using a foreach
-loop:
-.CS
-foreach (k, keys(h)) {
-	printf("%s => %s\\n", k, h{k});
-}
-.CE
-
+Like a C source file, a scope provides a container for private and/or
+public variables and/or functions.
+Could be used to provide a self contained "class".
 .NH 2
-Examples
-
+Precompiled modules
 .LP
-This is an example of calling Tcl's [puts] from L
-.CS
-puts("Hello World");
-.CE
-.LP
-A personalized version of Hello-World written entirely in L
-.CS
-int
-main(int ac, string av[])
-{
-	if (ac < 1) {
-		printf("Hello Stranger\\n");
-	} else {
-		printf("Hello %s\\n", av[1])
-	}
-}
-.CE
-.LP
-Same program written in Tcl/L
-.CS
-void
-print(string s)
-{
-	printf("This is from L: %s\\n", s)
-}
-#lang(tcl)
-print "Howdy, stranger"
-.CE
-.ig
+Imagine that each scope is a module and each module could be precompiled.
+The on disk format is in sections, there is a byte code section and a
+sort of table of contents which can be thought of as a header file containing
+function prototypes.
 .NH 2
-Passing Parameters by Reference
+Optimizations
 .LP
-Parameters in Tcl are passed by value.
-That means that a Tcl function can't do anything to its parameters that
-will affect the values of variables in the function that called it.
-.CS
-proc caller {} {
-  set v 1
-  callee $v
-  puts $v;   # v still holds 1
-}
-proc callee {parameter} {
-  set parameter 2
-}
-.CE
+The dynamic nature of Tcl means that many traditonal compiler optimization
+techniques may not be used.
+L compiles the source to an abstract syntax tree and could take advantage
+of a number of well known optimizations.
+These include: constant subexpression elimination,
+dead code removal, strength reduction, loop invariant code
+motion, tail-call optimization, code hoisting, and others.
+.[
+optimization
+.]
+.NH 2
+Debugging
 .LP
-For cases where changes to a parameter should be reflected in the calling
-function, Tcl provides upvar.
-The calling function passes the name of a variable instead of its value,
-and the callee uses the upvar command to create a local variable that is
-linked to the original variable in the calling procedure.
-When they are linked in this way, they act as one variable -- any change
-to one is reflected in the other.
-For cases where changes to a parameter should be reflected in the calling
-function, Tcl provides upvar.
-The calling function passes the name of a variable instead of its value,
-and the callee uses the upvar command to create a local variable that is
-linked to the original variable in the calling procedure.
-When they are linked in this way, they act as one variable -- any change
-to one is reflected in the other.
-.CS
-proc caller {} {
-  set v 1
-  callee v
-  puts $v;   # v now holds 2
-}
-proc callee {parameter} {
-  upvar v $parameter
-  set v 2
-}
-.CE
+The static nature of the L code would make it possible to create a
+mapping between L source code and Tcl bytecodes such that traditional
+debugging techniques could be used. One possible approach would be to
+instrument the generated bytecode to invoke a debugger every time an L
+statement completes. 
+.NH 2
+L contest
 .LP
-Using upvar in this way amounts to passing parameters by reference.
-In L, we support both of these modes of parameter passing -- by value and
-by reference.
-Atomic types like int and string are passed by value by default.
-.CS
-caller() {
-  int v = 1;
-  callee(v);
-  puts(v);    // v still holds 1
-}
-callee(int parameter) {
-  parameter = 2;
-}
-.CE
+Once the language is stable enough offer a $10K reward for the best new L
+application as a way of drawing people to the language.
+.NH 1
+Licensing and availability
 .LP
-To get the pass by reference behavior, that is, to use upvar from L, you
-must use an & both on the formal parameter and on the actual parameter:
-.CS
-caller() {
-  int v = 1;
-  callee(v);
-  puts(v);    // v now holds 2
-}
-callee(int &parameter) {
-  parameter = 2;
-.CE
+The license is the Tcl license; this is part of Tcl as far as we are
+concerned.
 .LP
-The ampersand can also be used when a Tcl proc is expecting a variable
-name, for example:
-.CS
-  string buf;
-  gets("stdin", &buf);
-.CE
+The source is maintained in a BitKeeper repository which is a import of
+the CVS Tcl repository.
+For the 3 people in the world who won't use BK, we will do nightly tarballs
+and make them available on ftp.
+.NH 1
+Conclusion
 .LP
-Arrays and hashes are passed by reference by default, so they don't
-require an &.
-This is the way that C arrays behave, and it is generally more useful
-than passing them by value.
-.CS
-caller() {
-  int v[] = { 0, 1, 2, 3, 4 };
-  callee(v);
-  // v[0] now holds 2
-  // instead of 0
-  puts(v[0]);
-}
-callee(int parameter[]) {
-  parameter[0] = 2;
-}
-.CE
-.LP
-However, sometimes when calling a Tcl proc it is necessary to pass an L
-array or hash by value.
-For example, when calling [llength] on an L array (which is a Tcl list),
-due to the pass-by-reference nature of arrays, the result is not what you
-want:
-.CS
-  int v[] = { 0, 1, 2, 3, 4 };
-  puts(llength(v));    // prints 1
-.CE
-.LP
-What was actually passed to [llength] was the string "v", not the array
-itself.
-To handle these cases, L provides a special (tcl) typecast.
-Casting an array or hash to (tcl) causes L to pass the variable value
-instead of its name.
-.CS
-  int v[] = { 0, 1, 2, 3, 4 };
-  puts(llength((tcl)v));    // prints 5
-.CE
+Ever since we switched to L the sun shines out of our asses and all our code
+is fantastic.
+Oh, and we get more nooky.
+.[
+$LIST$
+.]
+.bp
+.de CS
+.sp .25
+.KS
+.in +.5
+.ft CW
+.nf
+.ps 9
+.vs 10
 ..
-.NH 1
-Longer Examples
-.NH 2
-Fibonacci
-.CS
-int[]
-fib(int n)
-{
-	int	fib[] = { 0, 1 };
-	int	i;
-	
-	for (i=2; i<n; i++) {
-		fib[i] = fib[i-1] + fib[i-2];
-	}
-	return fib;
-}
-
-int
-main()
-{
-	int fib[] = fib(100);
-	for (i=0; defined(fib[i]); i++) {
-		printf("%d\\t%d\\n", i, fib[i]);
-	}
-}
-.CE	
-.ne 30
-.NH 2
+.de CE
+.sp .25
+.in
+.ft
+.ps
+.vs
+.fi
+.KE
+..
+.SH
+Appendix - code samples
+.SH
 A simple grep
 .CS
 int
@@ -1291,108 +1356,31 @@ grep(string regex, FILE in)
 	}
 }
 .CE	
+.ne 30
+.SH
+Fibonacci
+.CS
+int[]
+fib(int n)
+{
+	int	fib[] = { 0, 1 };
+	int	i;
+	
+	for (i=2; i<n; i++) {
+		fib[i] = fib[i-1] + fib[i-2];
+	}
+	return fib;
+}
+
+int
+main()
+{
+	int fib[] = fib(100);
+	for (i=0; defined(fib[i]); i++) {
+		printf("%d\\t%d\\n", i, fib[i]);
+	}
+}
+.CE	
+.ne 30
 
 
-.NH 2
-Changes to Tcl
-.LP
-In the course of implementing L, two small but important changes were
-made to Tcl which will affect all Tcl programs.  We expect the effect
-to be really horrible.
-.NH 3
-Toplevel Compilation
-.LP
-Toplevel code in Tcl, i.e., code that isn't contained in a proc body,
-is now passed to the bytecode compiler.
-We require this so that the L compiler can emit bytecode for toplevel L
-code.
-It could be useful in the future for saving Tcl bytecode between
-invocations, similar to the TclPro compiler.
-.NH 3
-Changes to the Tcl Parser
-.LP
-Tcl's @Tcl_ParseCommand@ has been modified to recognize a
-comment with a special form. Whenever the parser sees @#lang(L)@ it
-stops normal parsing and inserts two tokens into the token stream. The
-first token is a call to a the @LCompileCommand@ function and the second
-is the text after the @#lang(L)@ comment up to the next @#lang(tcl)@
-comment or end-of-file.
-.NH 1
-Status
-.LP
-The short summary is we are probably 2 months away from the language 
-actually being useful.
-What follows are a list of known issues.
-.LI Type checking.
-Is compile time only, run time checking is unimplemented.
-.ig
-XXX
-Uh, not even compile time checking is done... it's all annotations to
-the source :)
-..
-.NH 1
-Future work
-.ig
-Make it work?
-..
-.NH 2
-Scoping
-.LP
-Like a C source file, a scope provides a container for private and/or
-public variables and/or functions.
-Could be used to provide a self contained "class".
-.NH 2
-Precompiled modules
-.LP
-Imagine that each scope is a module and each module could be precompiled.
-The on disk format is in sections, there is a byte code section and a
-sort of table of contents which can be thought of as a header file containing
-function prototypes.
-.NH 2
-Optimizations
-.LP
-Since the L compiler is building an abstract syntax tree. A number of
-traditional optimization techniques could be applied to L source
-before generating Tcl bytecodes. These include: constant subexpression
-elimination, dead code removal, strength reduction, loop invariant
-code motion, tail-call optimization, code hoisting, and others.
-.LP
-Also, the lack of general C pointers greatly simplifies alias analysis
-and makes it possible be more aggressive when applying optimizations.
-.LP
-For an in-depth treatment of alias analysis and optimization see
-.[ [
-optimization
-.]] .
-.NH 2
-Debugging
-.LP
-The static nature of the L code would make it possible to create a
-mapping between L source code and Tcl bytecodes such that traditional
-debugging techniques could be used. One possible approach would be to
-instrument the generated bytecode to invoke a debugger every time an L
-statement completes. 
-.NH 2
-L contest
-.LP
-Once the language is stable enough offer a $10K reward for the best new L
-application as a way of drawing people to the language.
-.NH 1
-Licensing and availability
-.LP
-The license is the Tcl license; this is part of Tcl as far as we are
-concerned.
-.LP
-The source is maintained in a BitKeeper repository which is a import of
-the CVS Tcl repository.
-For the 3 people in the world who won't use BK, we will do nightly tarballs
-and make them available on ftp.
-.NH 1
-Conclusion
-.LP
-Ever since we switched to L the sun shines out of our asses and all our code
-is fantastic.
-Oh, and we get more nooky.
-.[
-$LIST$
-.]
