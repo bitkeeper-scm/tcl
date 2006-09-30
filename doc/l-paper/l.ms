@@ -1202,8 +1202,8 @@ value is @expr@.
 Changes to Tcl
 .LP
 In the course of implementing L, two small but important changes were
-made to Tcl which will affect all Tcl programs.  We expect the effect
-to be really horrible.
+made to Tcl which could affect all Tcl programs.  However, we don't
+expect the effects to be visible.
 .NH 3
 Toplevel Compilation
 .LP
