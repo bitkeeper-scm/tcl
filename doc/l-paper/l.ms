@@ -1402,12 +1402,6 @@ fib(int n)
 .CE    
 .SH
 Quicksort
-.LP
-(Adapted from
-.[
-qsort
-.]
-).
 .CS
 /*
  * qsort:
