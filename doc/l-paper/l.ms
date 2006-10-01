@@ -87,9 +87,9 @@ to date is from Donal K Fellows who said:
 .I "\(lqIt's like perl without the nastiest bits.\(rq"
 ..
 .PP
-L is open source under the same license as Tcl/Tk with the hope that 
-people will find it useful and it may encourage more people to join
-the Tcl/Tk community.
+L is open source software, and it is made available under the same
+license as Tcl/Tk with the hope that people will find it useful and it
+may encourage more people to join the Tcl/Tk community.
 .AE
 .bp
 .EQ
@@ -105,7 +105,7 @@ delim @@
 .NH
 Introduction
 .LP
-BitMover products are produced using a conservative development methodology.
+BitMover software is produced using a conservative development methodology.
 All development goes through a stringent process which relies heavily on
 peer review and extensive regression tests to ensure a quality product.
 .LP
@@ -229,7 +229,7 @@ starting from scratch.
 ..
 .LP
 For example, consider the GDB debugger.
-GDB wants to let users type C, C++, etc., at it and run the code.
+GDB lets users type C, C++, etc., at it and run the code.
 Doing so means GDB has to provide an interpreter and a runtime.
 Rather than building one, GDB could reuse the ideas and code
 pioneered by the L effort.
@@ -316,11 +316,14 @@ for Tcl, it is difficult for a human to look at Tcl and understand what
 it is doing.
 The verbose style of basic operations in Tcl, i.e.,
 .CS
-set tmp [lindex $foo $i]
+lset fib $i \\
+    [expr \\
+    {[lindex $fib [expr {$i-1}]] +
+     [lindex $fib [expr {$i-2}]]}]
 .CE
 vs 
 .CS
-tmp = foo[i]
+fib[i] = fib[i-1] + fib[i-2];
 .CE
 tend to obscure what is actually being said in the code.
 .LI Optimization.
@@ -866,8 +869,8 @@ way to do an allocation.
 When a local variable is returned, the return bumps the reference count.
 Without that bump, the local variable in question would have been freed
 along with any other locals that were on the callee's stack.
-Tcl is garbage collected so the variable will get freed when the caller is
-done with it.
+Tcl objects are reference counted so the variable will get freed when
+the caller is done with it.
 .CS
 string[]
 vector(int n)
@@ -921,7 +924,7 @@ Operators
 .LP
 L supports most of the operators in the C programming language, as well
 as several of the most useful operators from Perl.
-In the this section we do a quick run through all of the operators in L,
+In this section we do a quick run through all of the operators in L,
 and discuss some of the more subtle aspects in depth.
 .LP
 Much of this section is cribbed from the C reference manual.
