@@ -60,6 +60,14 @@ Oscar Bonilla, Tim Daly, Jr., Larry McVoy
 BitMover, Inc.
 300 Orchard City Drive, Suite 132
 Campbell, CA 95008
+.AU
+Jeffrey Hobbs
+.AI
+ActiveState Software Inc.
+1700-409 Granville Street
+Vancouver, BC, Canada
+V6C 1T2 
+.AE
 \f(CR
 l@bitmover.com
 \fP
@@ -464,6 +472,8 @@ to make it return a string.
 If prototypes are missing, L treats undefined functions as external Tcl
 functions that return poly and take a variable number of arguments of
 type poly.
+.br
+.ne 6
 .NH 2
 Types
 .NH 3
@@ -654,6 +664,8 @@ if (defined(foo{"k"})) {
     printf("no\\n");
 }
 .CE
+.br
+.ne 10
 .LP
 It is possible to iterate over each value in a hash using a foreach
 loop:
@@ -833,8 +845,6 @@ If the underlying type of the variable is a list (remember that structs
 are implemented as lists) then the index is the index into that list.
 The index is a string because in the future we intend to make pointers 
 into hashes work.
-.br
-.ne 10
 .LP
 There is a new Tcl command, @pointer@, which may be used to manipulate
 pointers from Tcl directly.
@@ -1313,8 +1323,10 @@ The L language draws heavily from the C language.  It's hard to imagine
 that Brian, Dennis and Ken need any more pats on the back, but why not?
 We are definitely C fans.
 .LP
-Jeff Hobbs, Rob Netzer, Brian Griffin, and Mark Roseman were helpful in
+Rob Netzer, Brian Griffin, and Mark Roseman were helpful in
 talking over various language problems and ideas.
+.LP
+Kennan Rossi was there as always with editorial help.
 .[
 $LIST$
 .]
@@ -1434,7 +1446,8 @@ Quicksort
 .CS
 /*
  * qsort:
- * sort v[left]...v[right] into increasing order
+ * sort v[left]...v[right]
+ * into increasing order.
  * From K&R C, verbatim.
  */
 void qsort(int v[], int left, int right)
