@@ -4,6 +4,8 @@
 .\" process with 
 .\"    groff -R -ms l.ms > l.ps
 .\"
+.\" Mail to tcl2006@tcl.tk when done.
+.\"
 .\" Commands for refer
 .R1
 database references
@@ -102,7 +104,7 @@ delim @@
 -- Donal K. Fellows
 .sp
 .2C
-.NH
+.NH 1
 Introduction
 .LP
 BitMover products are produced using a conservative development methodology.
@@ -132,13 +134,13 @@ our Tcl source base grew past a manageable size (for us).
 .BU
 our emphasis shifted mainly to reading and extending, rather than writing.
 .LP
-We have about 25,000 lines lines of Tcl implementing about a dozen
+We have about 25,000 lines lines of Tcl, implementing about a dozen
 graphical interfaces for browsing code, checking in code, viewing changes,
 etc.\**
 .FS
 This number is artificially low because we have been holding off on a number 
-of GUIs until we had a better answer.  A more realistic number might be 4 times
-that size.
+of GUIs until we had a better answer.  Had we not been holding back, 100,000
+lines is more likely where we would be.
 .FE
 Maintaining and extending the Tcl source base has become unmanageable, and
 when the review process was added to the mix, the costs started to be
@@ -195,7 +197,7 @@ effort embodied in the runtime and libraries.
 .LP
 The L compiler creates an abstract syntax tree from L
 source and compiles that to byte codes.
-The bytes codes generated are traditional Tcl byte codes, following Tcl 
+The byte codes generated are traditional Tcl byte codes, following Tcl 
 call/return conventions, and using Tcl variables.
 Because we are careful to not break any Tcl rules,
 L functions may call Tcl procs and vice versa.
@@ -243,7 +245,7 @@ Alternative run times
 .LP
 Once the idea of adding a different parser/compiler to a scripting
 language is understood, the question becomes: why Tcl rather than some
-other runtime such as Perl, Python, Ruby or others?
+other runtime such as Perl, Python, Ruby, Java, or others?
 We looked, briefly, at that question.
 Our need was for a well supported, mature runtime that supported
 scripting GUI interfaces and was extensible from C.
@@ -278,7 +280,7 @@ alternate syntax for the Tcl runtime.
 After all, Tcl is a powerful, dynamic language and many significant
 applications are based on Tcl.
 .LP
-We agree that Tcl is powerful but that power comes at a cost.
+We agree that Tcl is powerful, but that power comes at a cost.
 Tcl's dynamic nature makes it impossible to detect even simple parse
 errors, such as a typo, without running the program.
 .LP
@@ -445,7 +447,7 @@ pass by reference
 but they are unsatisfying.
 We think our syntax is cleaner and easier to read.
 .LI Function prototypes.
-Currently these are used to get type checking when calling Tcl built ins.
+Currently these are used to get type checking when calling Tcl built-ins.
 For example, we can prototype gets() as
 .CS
 extern int gets(FILE, string &);
@@ -476,7 +478,7 @@ Any constant that looks like an int is typed as an int.
 .LI float.
 Floating point numbers in L are at least double precision IEEE 754.
 .LP
-Any constant that looks like an float is typed as a float.
+Any constant that looks like a float is typed as a float.
 Note that this means that assigning an integer to a float is only
 legal because of automatic type conversion.
 .CS
@@ -693,7 +695,7 @@ Passing semantics
 .LP
 A C programmer, looking at Tcl, would think that the Tcl model is pass by 
 value.
-While Tcl has no way to pass a C like pointer to an object, it does have
+While Tcl has no way to pass a C-like pointer to an object, it does have
 a way to fake it with something called @upvar@.
 L wants pass by value but it also wants to provide pass by reference.
 This section describes how we used the Tcl system to provide the L passing
@@ -792,12 +794,12 @@ widgets(entry &e)
 {
     e.frame = frame(".f");
     e.entry = entry("${top}.entry"); 
-    f(:configure,
+    e.entry(:configure,
         :textvariable, &e.textvar);
 }
 .CE
-Our trick of making an ampersand just mean push the variable name on the 
-stack will not work here for multiple reasons.
+Trying to use @upvar@ will not work to create a reference to @&e.textvar@
+for multiple reasons.
 First, the variable in this case is a structure field, which is an element
 of a Tcl list.
 There is currently no way to pass a list element as a @-variable@ argument,
@@ -846,7 +848,7 @@ pointer get $p
 pointer set $p foo
 .CE
 If we now consider the widget example above, remembering that it had a 
-variable reference @&e.entry@.
+variable reference @&e.textvar@.
 The compiler provides some magic to make that construct be treated as
 an L pointer.
 When the compiler sees a string constant of the form @-.*variable@\** and
@@ -953,10 +955,13 @@ if (0) {
 prints: alternative
 .LP
 Any value other than 0 is considered true.
+.br
+.ne 20
 .NH 3
 Numeric Comparison
 .LP
 These all work as in C with the C precedence rules.
+.sp .25
 .B "Relational operators"
 .CS
 @expr@ > @expr@
@@ -1128,7 +1133,7 @@ foreach (@p@ in @v@) @statement@
 The first statement iterates over each key/value pair in the hash @h@.
 The key/value pair is placed in @key@ and @val@ 
 and then @statement@ is executed.
-Behavior is undefined if @h@ is modified in @statement@.
+Behavior is undefined if keys are inserted or deleted in @h@ in @statement@.
 The second statement sets @p@ to each element of @v@, calling @statement@
 once per element.
 .LI switch statement
@@ -1216,6 +1221,14 @@ invocations, similar to the TclPro compiler.
 .NH 3
 Changes to the Tcl Parser
 .LP
+The @#lang(tcl)@ string forces the language to be Tcl, the 
+@#lang(L)@ forces the language to be L.
+It is allowed to have snippets of both L and Tcl in the same source file.
+.LP
+When Tcl starts up with a file argument, if the file ends in @.l@ then
+@#lang(L)@ is implicit.
+The default is to start up in Tcl mode.
+.LP
 Tcl's @Tcl_ParseCommand@ has been modified to recognize a
 comment with a special form. Whenever the parser sees @#lang(L)@ it
 stops normal parsing and inserts two tokens into the token stream. The
@@ -1271,27 +1284,34 @@ mapping between L source code and Tcl byte codes such that traditional
 debugging techniques could be used. One possible approach would be to
 instrument the generated byte code to invoke a debugger every time an L
 statement completes. 
-.NH 2
-L contest
-.LP
-Once the language is stable enough offer a $10K reward for the best new L
-application as a way of drawing people to the language.
 .NH 1
 Licensing and availability
 .LP
 The license is the Tcl license; this is part of Tcl as far as we are
 concerned.
 .LP
-The source is maintained in a BitKeeper repository which is a import of
+The source is maintained in a BitKeeper repository which is an import of
 the CVS Tcl repository.
 For the 3 people in the world who won't use BK, we will do nightly tarballs
 and make them available on ftp.
 .NH 1
 Conclusion
 .LP
-Ever since we switched to L the sun shines out of our asses and all our code
-is fantastic.
-Oh, and we get more nooky.
+This paper has described the L programming language.
+The L language is unique in that it is an alternate syntax which peacefully
+coexists with the Tcl/Tk system and leverages all of that system.
+.LP
+Over the course of the next year we expect to use L to rewrite our GUI systems,
+look for an updated version of this paper as the language stabilizes.
+.NH 1
+Acknowledgements
+.LP
+The L language draws heavily from the C language.  It's hard to imagine 
+that Brian, Dennis and Ken need any more pats on the back, but why not?
+We are definitely C fans.
+.LP
+Jeff Hobbs, Rob Netzer, Brian Griffin, and Mark Roseman were helpful in
+talking over various language problems and ideas.
 .[
 $LIST$
 .]
@@ -1341,7 +1361,7 @@ A simple grep
 int
 main(int ac, string av[])
 {
-    int     i;
+    int     i, rc;
     string  regex;
     FILE    fd;
 .sp .5
@@ -1352,13 +1372,16 @@ main(int ac, string av[])
     regex = av[1];
     ac--;
     if (ac == 1) {
-        grep(regex, &stdin);
+        rc = grep(regex, &stdin) ? 0 : 1;
+        return (rc);
     } else {
+	rc = 1;
         for (i = 2; i < ac; i++) {
             fd = open(av[i], "r");
-            grep(regex, fd);
+            if (grep(regex, fd))) rc = 0;
             close(fd);
         }
+        return (rc);
     }
     
 }
@@ -1366,13 +1389,16 @@ main(int ac, string av[])
 void
 grep(string regex, FILE in)
 {
-    string    buf;
+    string buf;
+    int	  matches = 0;
 .sp .5
     while (gets(in, &buf) >= 0) {
         if (buf =~ /${regex}/) {
             printf("%s\\n", buf);
+	    matches++;
         }
     }
+    return (matches);
 }
 .CE    
 .ne 20
