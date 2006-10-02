@@ -67,10 +67,8 @@ ActiveState Software Inc.
 1700-409 Granville Street
 Vancouver, BC, Canada
 V6C 1T2 
-.AE
-\f(CR
-l@bitmover.com
-\fP
+.sp
+\f(CRl@bitmover.com\fP
 .\" Abstract
 .AB
 This paper describes a new programming language called L.  
@@ -82,7 +80,7 @@ L functions may call Tcl procs and vice versa.
 They may also coexist in the same source file.
 L is a static weakly typed language with int, float, string, struct,
 array, and hash as first-class objects.
-The L syntax is reminiscent of C with a bit of C++ thrown in.
+The L syntax is reminiscent of C with a tiny bit of C++ thrown in.
 .PP
 The implementation consists primarily of a simple compiler that Tcl
 invokes whenever L source code is encountered.
@@ -110,7 +108,15 @@ delim @@
 .I "\(lqIt's like perl without the nastiest bits.\(rq"
 .sp .5
 .ce 1
--- Donal K. Fellows
+-- Donal K. Fellows \s7(on the #tcl IRC channel)\s0
+.ig
+.sp .5
+.ce 1
+.I "\(lqHe shouldn't have said if he didn't mean it.\(rq"
+.sp .5
+.ce 1
+-- Oscar Bonilla
+..
 .sp
 .2C
 .NH 1
@@ -118,7 +124,7 @@ Introduction
 .LP
 BitMover software is produced using a conservative development methodology.
 All development goes through a stringent process that relies heavily on
-peer review and extensive regression tests to ensure a quality product.
+peer review and extensive regression tests to ensure quality products.
 .LP
 Because of the stability requirements of our market,
 we read code much more than we write it.
@@ -141,12 +147,11 @@ problematic because two things happened:
 .BU
 Our Tcl source base grew past a manageable size (for us).
 .BU
-Our emphasis shifted mainly to reading and extending, rather than writing.
+Our peer review system could not handle Tcl code.
 .LP
 We have about 25,000 lines lines of Tcl, implementing about a dozen
 graphical interfaces for browsing code, checking in code, viewing changes,
 etc.\**
-.\" XXX Is this footnote really relevant?
 .FS
 This number is artificially low because we have been holding off on a number 
 of GUIs until we had a better answer.  Had we not been holding back, 100,000
@@ -177,7 +182,6 @@ features we have not yet done but want to do,
 licensing and availability,
 and a summary.
 There is an appendix with some small working program examples.
-.\" Acknowledgements?  Rob? Jeff?
 .NH 1
 L overview
 .LP
@@ -195,7 +199,7 @@ Tcl runtime	48%
 Tk	51%
 .TE
 .LP
-The syntax parser and compiler are quite small when compared to the
+The parser and compiler are quite small when compared to the
 code that implements the runtime and the libraries (in both Tcl and L it
 is less than 10K lines of code).
 Because the parser/compiler is such a small part of the system, it is
@@ -207,7 +211,7 @@ value embodied in the runtime and libraries.
 .LP
 The L compiler creates an abstract syntax tree from L
 source and compiles that to byte codes.
-The byte codes generated are traditional Tcl byte codes, following Tcl 
+The byte codes generated are standard Tcl byte codes, following Tcl 
 call/return conventions and using Tcl variables.
 Because we are careful not to break any Tcl rules,
 L functions may call Tcl procs and vice versa.
@@ -314,7 +318,8 @@ mythical man month
 .]
 .LI Lint.
 It is impossible to write a syntax checker or a lint-like tool for Tcl that
-works 100% of the time unless that tool is actually running the language.
+works 100% of the time unless that tool is actually running the program it 
+is checking.
 Even an interpreter-based tool would have the problem that it is not 
 practical to force the application through all possible code paths.
 It is worth noting that this problem is present in all dynamic languages
@@ -368,7 +373,7 @@ toolkits.
 The arguments for doing so are compelling: better look and feel, native
 behavior, etc.
 .LP
-The reasons for using Tcl/Tk are simple:
+The reasons for staying with Tcl/Tk are simple:
 .LI Cost.
 The cost of creating 2-4 different implementations of each GUI interface is
 probably 3 times what it took us to get where we are today.
@@ -418,9 +423,8 @@ or trees, can be constructed with an array of structures linked via indices
 rather than pointers.
 .LI defined().
 A built-in that indicates if the variable passed is defined.
-The following tests for the existence of the variable, the existence of the
+The following tests for the existence of the
 field in the hash, and the existence of the array element, respectively.
-.\" XXX Should there be another example here?
 .CS
 defined(foo{"bar"})
 defined(stuff[3])
@@ -430,9 +434,6 @@ Strings are first-class objects like any other base type.
 One implication of this is that unlike C strings, which are pointers,
 if you want to pass a reference to the string you must do so
 explicitly.
-.ig
-XXX: See References?
-..
 .NH 2
 Unimplemented C features
 .LP
@@ -475,7 +476,7 @@ If prototypes are missing, L treats undefined functions as external Tcl
 functions that return poly and take a variable number of arguments of
 type poly.
 .br
-.ne 6
+.ne 20
 .NH 2
 Types
 .NH 3
@@ -486,19 +487,20 @@ machine's word size (at least 32 bits and possibly 64).
 Integers in L are initialized to 0, even for local variables.
 .CS
 int	a = 5;
-int	b; // defaults to 0
+int	b;         // defaults to 0
 .CE
 .LP
 Any constant that looks like an int is typed as an int.
 .LI float.
 Floating-point numbers in L are at least double-precision IEEE 754.
+Floats are initialized to 0.0, even for local variables.
 .LP
 Any constant that looks like a float is typed as a float.
 Note that this means that assigning an integer to a float is only
 legal because of automatic type conversion.
 .CS
-float	f = 1; // converts to 1.0
-float	g; // defaults to 0.0
+float	f = 1;   // converts to 1.0
+float	g;       // defaults to 0.0
 float	pi = 3.14159265;
 .CE
 .LI string.
@@ -555,7 +557,8 @@ string	s;
 unchecked = 1;
 unchecked = "Hey there";
 unchecked = 3.14;
-s = (string)unchecked; // cast needed
+// cast is required
+s = (string)unchecked;
 .CE
 .LI var.
 This is a compromise variable type.
@@ -573,9 +576,9 @@ As we noted above, constant types are intuited.
 This might cause problems with @var@ variables.
 For example, this throws an error:
 .CS
-var	f = 1;	// f is now an int
+var	f = 1;    // f is now an int
 .sp .5
-f = "pi";	// int/string error
+f = "pi";        // int/string error
 .CE
 but this works fine:
 .CS
@@ -624,6 +627,8 @@ for (i = 0; defined(bar[i]); i++) {
 .CE
 Arrays are dynamically grown and cannot be sparse.
 .CS
+int    a[2];
+.sp .5
 a[0] = 10;
 a[100] = 20; // allowed
 .CE
@@ -691,13 +696,13 @@ typedef struct {
 eg	s = { 1, 3.14, "hi there" };
 .CE
 .LP
-Structures are implemented as Tcl Lists just like L arrays.
+Structures are implemented as Tcl lists just like L arrays.
 The names are translated into integer indices by the L compiler.
 Since it is just a Tcl list, an L structure can be passed to any Tcl proc
 that expects a list.
 .LP
 It is likely that we will extend the struct construct to have initializers,
-i.e.,
+e.g.,
 .CS
 typedef struct {
     int	a = 1;
@@ -706,7 +711,7 @@ typedef struct {
 } eg;
 .sp .5
 eg	foo;
-puts(foo.a);	// prints 1
+puts(foo.a);    // prints 1
 .CE
 .NH 2
 Passing semantics
@@ -764,7 +769,7 @@ void foo(int &ref)
 
 int	a = 19;
 .sp .5
-foo(a);
+foo(&a);
 puts(a);
 .CE
 and that prints
@@ -812,7 +817,7 @@ widgets(entry &e)
 {
     e.frame = frame(".f");
     e.entry = entry("${top}.entry"); 
-    e.entry(:configure,
+    e.entry("configure",
         :textvariable, &e.textvar);
 }
 .CE
@@ -825,7 +830,6 @@ Tcl does not support that.
 Second, @-variable@ arguments must be accessible at the global scope.
 There is no guarantee that the name passed in makes sense at the global scope.
 .LP
-.\" XXX  What's "find out of the event loop" mean?
 What is needed is a way to take an L variable and turn it into something
 that Tcl can find out of the event loop.
 The natural answer is some kind of pointer.
@@ -849,6 +853,8 @@ If the underlying type of the variable is a list (remember that structs
 are implemented as lists) then the index is the index into that list.
 The index is a string because in the future we intend to make pointers 
 into hashes work.
+.br
+.ne 20
 .LP
 There is a new Tcl command, @pointer@, which may be used to manipulate
 pointers from Tcl directly.
@@ -861,7 +867,7 @@ When we are done, @$l@ contains \fIa\ b\ foo\fP.
 set l [list a b c]
 set p [pointer create l]
 pointer index $p 2
-pointer get $p
+pointer get $p          # prints c
 pointer set $p foo
 .CE
 Let's now consider the widget example above, remembering that it had a 
@@ -870,7 +876,7 @@ The compiler provides some magic to treat that construct as
 an L pointer.
 When the compiler sees a string constant of the form @-.*variable@\** and
 the next token is an L variable with a leading ampersand,
-the compiler automatically wraps the variable in a pointer.
+the compiler automatically wraps the variable in an L pointer.
 .FS
 Remember that @:foo@ token is just syntactic sugar for ``@-foo@.''
 .FE
@@ -962,6 +968,7 @@ In L, there is only one false value.
 This is different from Tcl, which allows many false values, such as the
 strings ``false'' and ``off.''
 The false value in L is 0, or, equivalently, ``0''.
+Any value other than 0 is considered true.
 .CS
 if (0) {
     printf("consequent\\n");
@@ -969,9 +976,7 @@ if (0) {
     printf("alternative\\n");
 }
 .CE
-prints: alternative
-.LP
-Any value other than 0 is considered true.
+prints: \f(CWalternative\fP
 .br
 .ne 20
 .NH 3
@@ -1042,10 +1047,10 @@ Increment and Decrement Operators
 As in C, with the value returned either before or after the 
 increment or decrement.
 .CS
-@var@++
-++@var@
-@var@--
---@var@
+@lvalue@++
+++@lvalue@
+@lvalue@--
+--@lvalue@
 .CE
 .NH 3
 Bitwise Operators
@@ -1061,17 +1066,17 @@ Bitwise Operators
 .NH 3
 Assignment Operators
 .CS
-@variable@ = @expr@
-@variable@ += @expr@
-@variable@ -= @expr@
-@variable@ *= @expr@
-@variable@ /= @expr@
-@variable@ %= @expr@
-@variable@ <<= @expr@
-@variable@ >>= @expr@
-@variable@ &= @expr@
-@variable@ |= @expr@
-@variable@ ^= @expr@
+@lvalue@ = @expr@
+@lvalue@ += @expr@
+@lvalue@ -= @expr@
+@lvalue@ *= @expr@
+@lvalue@ /= @expr@
+@lvalue@ %= @expr@
+@lvalue@ <<= @expr@
+@lvalue@ >>= @expr@
+@lvalue@ &= @expr@
+@lvalue@ |= @expr@
+@lvalue@ ^= @expr@
 .CE
 .NH 3
 Ternary Operator
@@ -1097,7 +1102,7 @@ if ( @expr@ ) @statement@
 if ( @expr@ ) @statement@ else @statement@
 unless ( @expr@ ) @statement@
 .CE
-In all casess @expr@ is evaluated and if it returns anything other than
+In all cases @expr@ is evaluated and if it returns anything other than
 zero, then the first 
 .B if
 statement is executed.
@@ -1156,7 +1161,7 @@ The second statement sets @p@ to each element of @v@, calling @statement@
 once per element.
 .LI switch statement
 .CS
-switch ( @expr@ ) statement
+switch ( @expr@ ) @statement@
 .CE
 @expr@ must evaluate to an 
 .B int
@@ -1250,7 +1255,7 @@ The default is to start up in Tcl mode.
 Tcl's @Tcl_ParseCommand@ has been modified to recognize a
 comment with a special form. Whenever the parser sees @#lang(L)@ it
 stops normal parsing and inserts two tokens into the token stream. The
-first token is a call to a the @LCompileCommand@ function and the second
+first token is a call to the @LCompileCommand@ function and the second
 is the text after the @#lang(L)@ comment up to the next @#lang(tcl)@
 comment or end-of-file.
 .EQ
@@ -1294,6 +1299,15 @@ motion, tail-call optimization, code hoisting, and others.
 .[
 optimization
 .]
+.LP
+The lack of general C-like pointers in L greatly simplifies alias analysis
+and makes it possible to be more aggressive when applying optimizations.
+.[
+aliasing1
+.]
+.[
+aliasing2
+.]
 .NH 2
 Debugging
 .LP
@@ -1319,19 +1333,27 @@ This paper has described the L programming language.
 The L language is unique in that it is an alternate syntax which peacefully
 coexists with the Tcl/Tk system and leverages all of that system.
 .LP
-Over the course of the next year we expect to use L to rewrite our GUI systems,
-look for an updated version of this paper as the language stabilizes.
+Over the course of the next year we expect to use L to rewrite our GUI systems.
+Given that L is a young language, we expect that it will continue to evolve
+as we use it.
+It is likely that we will publish 
+an updated version of this paper after the language stabilizes.
 .NH 1
 Acknowledgements
 .LP
 The L language draws heavily from the C language.  It's hard to imagine 
-that Brian, Dennis and Ken need any more pats on the back, but why not?
-We are definitely C fans.
+that Brian, Dennis and Ken want any more pats on the back, but here is one
+more.  We are definitely C fans.
 .LP
 Rob Netzer, Brian Griffin, and Mark Roseman were helpful in
 talking over various language problems and ideas.
 .LP
-Kennan Rossi was there as always with editorial help.
+John Ousterhout for Tcl/Tk, introduced in 1988 and still going strong.
+.LP
+Kennan Rossi for being there as always with editorial help.
+.LP
+This paper was typeset using groff and as always we thank Joe Ossana for
+troff and James Clark for groff.
 .[
 $LIST$
 .]
@@ -1392,7 +1414,7 @@ main(int ac, string av[])
     regex = av[1];
     ac--;
     if (ac == 1) {
-        rc = grep(regex, &stdin) ? 0 : 1;
+        rc = grep(regex, stdin) ? 0 : 1;
         return (rc);
     } else {
 	rc = 1;
@@ -1406,7 +1428,7 @@ main(int ac, string av[])
     
 }
 
-void
+int
 grep(string regex, FILE in)
 {
     string buf;
@@ -1443,7 +1465,7 @@ fib(int n)
     for (i=2; i<n; i++) {
         fib[i] = fib[i-1] + fib[i-2];
     }
-    return fib;
+    return (fib);
 }
 .CE    
 .SH
