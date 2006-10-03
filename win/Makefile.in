@@ -293,7 +293,8 @@ GENERIC_OBJS = \
 L_OBJS	= Lscanner.$(OBJEXT) \
 	Lgrammar.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
-	Last.$(OBJEXT)
+	Last.$(OBJEXT) \
+	LPointerObj.$(OBJEXT)
 
 TOMMATH_OBJS = \
 	bncore.${OBJEXT} \
@@ -380,6 +381,7 @@ L_SRCS	= \
 	$(GENERIC_DIR)/Lscanner.l \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
+	$(GENERIC_DIR)/LPointerObj.c \
 	$(GENERIC_DIR)/Last.c
 
 WIN_OBJS = \
@@ -581,6 +583,8 @@ Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Last.c
 
+LPointerObj.$(OBJEXT): $(GENERIC_DIR)/LPointerObj.c $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/LPointerObj.c
 
 .c.${OBJEXT}:
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
