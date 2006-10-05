@@ -758,7 +758,7 @@ struct_1_1
 51 9 {1 cows}
 "
 
-test struct-1.1 {arrays of structs containing arrays} -body {
+test struct-1.2 {arrays of structs containing arrays} -body {
 #lang(L)
 struct struct_1_2_point {
         int x, y;
@@ -794,6 +794,45 @@ struct_1_2
 50 8 {2 cows} {8 {} {} {}}
 51 9 {1 cows} {{} 9 {} {}}
 "
+
+test struct-1.3 {increment and decrement on struct fields} -body {
+#lang(L)
+struct foo {
+  int i;
+};
+
+struct_1_3() {
+  struct foo v;
+  int i;
+
+  v.i = 0;
+  for (v.i=0; v.i<5; v.i++);
+  puts(v);
+
+  puts("pre:");
+  puts(v.i);
+  ++v.i;
+  puts(v.i);
+  puts(++v.i);
+  --v.i;
+  puts(v.i);
+  puts(--v.i);
+
+  puts("post:");
+  puts(v.i);
+  v.i++;
+  puts(v.i);
+  puts(v.i++);
+  puts(v.i);
+  v.i--;
+  puts(v.i);
+  puts(v.i--);
+  puts(v.i);
+}
+#lang(tcl)
+struct_1_3
+} -output "5\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\n"
+
 
 test hash-1.0 {basic hashtable support} -body {
 #lang(L)

@@ -159,6 +159,7 @@ single_statement:
                 $$ = mk_statement(L_STATEMENT_RETURN, NULL);
                 ((L_statement *)$$)->u.expr = $2;
         }
+        | ";"   { $$ = NULL; }
 	;
 
 selection_statement:
@@ -298,8 +299,9 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BITNOT, $2, NULL, NULL, NULL, NULL);
         }
- 	| T_BITAND T_ID %prec ADDRESS
+ 	| T_BITAND lvalue %prec ADDRESS
         {
+                REVERSE(L_expression, indices, $1);
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BITAND, $2, NULL, NULL, NULL, NULL);
         }
  	| T_MINUS expr %prec UMINUS
@@ -310,21 +312,25 @@ expr:
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_PLUS, $2, NULL, NULL, NULL, NULL);
         }
-        | T_PLUSPLUS T_ID
-        {   
+        | T_PLUSPLUS lvalue
+        {
+                REVERSE(L_expression, indices, $2);
                 $$ = mk_expression(L_EXPRESSION_PRE, T_PLUSPLUS, $2, NULL, NULL, NULL, NULL);
         }
-	| T_MINUSMINUS T_ID
+	| T_MINUSMINUS lvalue
         {   
+                REVERSE(L_expression, indices, $2);
                 $$ = mk_expression(L_EXPRESSION_PRE, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
         }
-	| T_ID T_PLUSPLUS
+	| lvalue T_PLUSPLUS
         {
-                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $2, NULL, NULL, NULL, NULL);
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_POST, T_PLUSPLUS, $1, NULL, NULL, NULL, NULL);
         }
-	| T_ID T_MINUSMINUS
+	| lvalue T_MINUSMINUS
         {
-                $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $2, NULL, NULL, NULL, NULL);
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $1, NULL, NULL, NULL, NULL);
         }
         | expr T_EQTWID regexp_literal
         {
