@@ -96,18 +96,18 @@ void L_start_lexer();
 /* AST convenience macros */
 #define MK_STRING_NODE(var,str) do {\
         var = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);\
-        ((L_expression *)var)->u.s = ckalloc(strlen(str) + 1);\
-        strcpy(((L_expression *)var)->u.s, str);\
+        ((L_expression *)var)->u.string = ckalloc(strlen(str) + 1);\
+        strcpy(((L_expression *)var)->u.string, str);\
 } while(0);
 
 #define MK_INT_NODE(var,int) do {\
-        var = mk_expression(L_EXPRESSION_INT, -1, NULL, NULL, NULL, NULL, NULL);\
-        ((L_expression *)var)->u.i = int;\
+        var = mk_expression(L_EXPRESSION_INTEGER, -1, NULL, NULL, NULL, NULL, NULL);\
+        ((L_expression *)var)->u.integer = int;\
 } while(0);
 
 #define MK_DOUBLE_NODE(var,double) do {\
-        var = mk_expression(L_EXPRESSION_DOUBLE, -1, NULL, NULL, NULL, NULL, NULL);\
-        ((L_expression *)var)->u.d = double;\
+        var = mk_expression(L_EXPRESSION_DOUBLE_, -1, NULL, NULL, NULL, NULL, NULL);\
+        ((L_expression *)var)->u.dbl = double;\
 } while(0);
 
 #define MK_BINOP_NODE(var,op,e1,e2) do {\

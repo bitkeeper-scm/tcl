@@ -324,7 +324,7 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 	tclStubLib.o tclTimer.o tclTrace.o tclUtf.o tclUtil.o tclVar.o \
 	tclTomMathInterface.o
 
-L_OBJS = Lscanner.o Lgrammar.o Lcompile.o Last.o LPointerObj.o
+L_OBJS = Lscanner.o Lgrammar.o Lcompile.o Last.o LastWalker.o LPointerObj.o
 
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
 	bn_fast_s_mp_sqr.o bn_mp_add.o bn_mp_and.o \
@@ -471,7 +471,8 @@ L_SRCS = \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/LPointerObj.c \
-	$(GENERIC_DIR)/Last.c
+	$(GENERIC_DIR)/Last.c \
+	$(GENERIC_DIR)/LastWalker.c
 
 STUB_SRCS = \
 	$(GENERIC_DIR)/tclStubLib.c
@@ -1286,6 +1287,9 @@ Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 
 Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Last.c
+
+LastWalker.o: $(GENERIC_DIR)/LastWalker.c $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/LastWalker.c
 
 LPointerObj.o: $(GENERIC_DIR)/LPointerObj.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/LPointerObj.c

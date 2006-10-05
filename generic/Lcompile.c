@@ -96,6 +96,46 @@ L_PragmaObjCmd(
     return LCompileScript(interp, stringPtr, stringLen, NULL, ast);
 }
 
+/*
+ * Example of an AST dumper... needs work
+ */
+int LCountNodes(void *node, void *data, int order)
+{
+    int i;
+    int *indent = (int *)data;
+
+    if (indent == NULL) {
+	fprintf(stderr, "FOO!\n");
+	return L_WALK_ERROR;
+    }
+    if (order & L_WALK_PRE) {
+	for (i = 0; i < (*indent); i++) fprintf(stderr, " ");
+	fprintf(stderr, "%s: ",
+	  L_node_type_tostr[((L_ast_node *)node)->type]);
+	if (((L_ast_node *)node)->type == L_NODE_EXPRESSION) {
+	    L_expression *e = (L_expression *)node;
+	    switch (e->kind) {
+		case L_EXPRESSION_STRING:
+			fprintf(stderr, "%s\n", e->u.string);
+			break;
+		case L_EXPRESSION_INTEGER:
+			fprintf(stderr, "%d\n", e->u.integer);
+			break;
+		default:
+			fprintf(stderr, "\n");
+			break;
+	    }
+	} else {
+	    fprintf(stderr, "\n");
+	}
+	(*indent)++;
+    }
+    if (order & L_WALK_POST) {
+	(*indent)--;
+    }
+
+    return L_WALK_CONTINUE;
+}
 
 /* If TCL encounters an L pragma while compiling TCL code, for example when
    processing an entire file in TclCompileScript(), it will enter L via
@@ -135,6 +175,10 @@ LCompilePragmaCmd(
     if (ast == NULL) {
 	/* empty script, which is fine */
 	return TCL_OK;
+    }
+    if (getenv("L_DUMP_AST")) {
+	int data = 0;
+	L_walk_ast(ast, L_WALK_PRE, LCountNodes, &data);
     }
     post_compile_action = 0;
     retval = LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
@@ -231,7 +275,7 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 {
     if (!stmt) return;
     switch (stmt->kind) {
-    case L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION:
+    case L_TOPLEVEL_STATEMENT_FUN:
         L_compile_function_decl(stmt->u.fun);
         break;
     case L_TOPLEVEL_STATEMENT_TYPE:
@@ -288,12 +332,12 @@ L_compile_function_decl(L_function_declaration *fun)
     }
     Tcl_IncrRefCount(bodyObjPtr);
 
-    cmd = Tcl_CreateObjCommand(lframe->interp, fun->name->u.s,
+    cmd = Tcl_CreateObjCommand(lframe->interp, fun->name->u.string,
         TclObjInterpProc, (ClientData) procPtr, TclProcDeleteProc);
     procPtr->cmdPtr = (Command *) cmd;
 
     /* Check if we're compiling main() or main(int argc, string argv[]) */
-    if (!strncmp("main", fun->name->u.s, strlen("main"))) {
+    if (!strncmp("main", fun->name->u.string, strlen("main"))) {
         if (!fun->params) {
             post_compile_action = CALL_MAIN;
         } else {
@@ -326,9 +370,9 @@ L_compile_struct_decl(L_type *decl)
         L_errorf(decl, "Untagged struct types are not supported yet");
         return;
     }
-    hPtr = Tcl_CreateHashEntry(L_struct_types, decl->struct_tag->u.s, &freshp);
+    hPtr = Tcl_CreateHashEntry(L_struct_types, decl->struct_tag->u.string, &freshp);
     Tcl_SetHashValue(hPtr, decl);
-    L_trace("Declared struct type %s", decl->struct_tag->u.s);
+    L_trace("Declared struct type %s", decl->struct_tag->u.string);
 }
 
 void
@@ -343,9 +387,9 @@ L_compile_global_decls(L_variable_declaration *decl)
     if (decl->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(decl->type);
     }
-    init_code = array_initializer_code(decl->type, decl->name->u.s,
+    init_code = array_initializer_code(decl->type, decl->name->u.string,
                                        &needs_eval);
-    L_trace("Global variable named %s\n", decl->name->u.s);
+    L_trace("Global variable named %s\n", decl->name->u.string);
     if (decl->initial_value) {
         L_trace("took this path");
         initial_value = literal_to_TclObj(decl->initial_value);
@@ -362,7 +406,7 @@ L_compile_global_decls(L_variable_declaration *decl)
             L_PUSH_STR(init_code);
             TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
         } else {
-            L_PUSH_STR(decl->name->u.s);
+            L_PUSH_STR(decl->name->u.string);
             L_PUSH_OBJ(initial_value);
             TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
         }
@@ -372,7 +416,7 @@ L_compile_global_decls(L_variable_declaration *decl)
             L_trace("interpreted init code is \n\%s\n", init_code);
             Tcl_EvalEx(lframe->interp, init_code, -1, 0);
         } else {
-            Tcl_SetVar2Ex(lframe->interp, decl->name->u.s, NULL,
+            Tcl_SetVar2Ex(lframe->interp, decl->name->u.string, NULL,
                           initial_value,
                           TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
         }
@@ -407,17 +451,17 @@ L_compile_variable_decls(L_variable_declaration *var)
     int localIndex;
 
     if (!var) return;
-    L_trace("declaring variable %s", var->name->u.s);
+    L_trace("declaring variable %s", var->name->u.string);
     if (var->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(var->type);
     }
-    localIndex = TclFindCompiledLocal(var->name->u.s, strlen(var->name->u.s),
+    localIndex = TclFindCompiledLocal(var->name->u.string, strlen(var->name->u.string),
                                       1, 0, lframe->envPtr->procPtr);
     if ((symbol = L_get_symbol(var->name, FALSE)) &&
         !global_symbol_p(symbol))
     {
         L_errorf(var, "Illegal redeclaration of local variable %s",
-                 var->name->u.s);
+                 var->name->u.string);
     }
     symbol = L_make_symbol(var->name, var->type, localIndex);
     if (array_p(var->type) || (var->type->kind == L_TYPE_STRUCT)) {
@@ -433,7 +477,7 @@ L_compile_variable_decls(L_variable_declaration *var)
         /* create the initial value and emit code to push it on the
            stack */
         int needs_eval;
-        char *init_code = array_initializer_code(var->type, var->name->u.s,
+        char *init_code = array_initializer_code(var->type, var->name->u.string,
                                                  &needs_eval);
         if (needs_eval) {
             L_trace("init code is \n%s\n", init_code);
@@ -478,16 +522,16 @@ array_initializer_code(
         TclObjPrintf(NULL, code, "set %s ", name);
     }
     while (array_type) {
-        if (array_type->array_dim->kind != L_EXPRESSION_INT) {
+        if (array_type->array_dim->kind != L_EXPRESSION_INTEGER) {
             L_errorf(array_type->array_dim,
                      "Bad dimension for an array: must be an int.");
             break;
         }
-        if (array_type->array_dim->u.i > 0) {
+        if (array_type->array_dim->u.integer > 0) {
             close_brackets++;
             *needs_eval = TRUE;
             TclObjPrintf(NULL, code, "[lrepeat %d ",
-                         array_type->array_dim->u.i);
+                         array_type->array_dim->u.integer);
             array_type = array_type->next_dim;
         } else {
             break;
@@ -517,7 +561,7 @@ array_initializer_code(
     }
     MK_STRING_NODE(retval, Tcl_GetString(code));
     Tcl_DecrRefCount(code);
-    return retval->u.s;
+    return retval->u.string;
 }
 
 void
@@ -535,10 +579,10 @@ fixup_struct_type(L_type *type)
             L_bomb("Assertion failed: a struct must either have a tag or "
                    "members");
         }
-        struct_type = lookup_struct_type(struct_type->struct_tag->u.s);
+        struct_type = lookup_struct_type(struct_type->struct_tag->u.string);
         if (!struct_type) {
             L_errorf(type, "Undefined structure type: %s",
-                     type->struct_tag->u.s);
+                     type->struct_tag->u.string);
             return;
         }
         /* Fixup the original type so that it also has the member
@@ -591,7 +635,7 @@ L_compile_statements(L_statement *stmt)
            don't. So pop the value. */
         TclEmitOpcode(INST_POP, lframe->envPtr);
         break;
-    case L_STATEMENT_IF_UNLESS:
+    case L_STATEMENT_COND:
         L_compile_if_unless(stmt->u.cond);
         break;
     case L_STATEMENT_LOOP:
@@ -614,6 +658,9 @@ L_compile_statements(L_statement *stmt)
         /* TclEmitOpcode(INST_RETURN_STK, lframe->envPtr); */
         TclEmitOpcode(INST_DONE, lframe->envPtr);
         break;
+    case L_STATEMENT_DECL:
+	    L_bomb("Found L_STATEMENT_DECL where it's not supposed to be");
+	    break;
     }
     L_compile_statements(stmt->next);
 }
@@ -638,17 +685,17 @@ L_compile_parameters(L_variable_declaration *param)
         if (by_name) {
             /* if the parameter is pass by name, we use a mangled name for it
                so that we can define an upvar using the original name */
-            name = reference_mangle(p->name->u.s);
+            name = reference_mangle(p->name->u.string);
         } else {
             name = p->name;
         }
-        L_trace("Compiling parameter %d (%s)", i, name->u.s);
+        L_trace("Compiling parameter %d (%s)", i, name->u.string);
         /* Formal parameters are stored in local variable slots. */
         procPtr->numArgs = i + 1;
         procPtr->numCompiledLocals = i + 1;
         localPtr = (CompiledLocal *) ckalloc(sizeof(CompiledLocal) -
                                              sizeof(localPtr->name) +
-                                             strlen(name->u.s) + 1);
+                                             strlen(name->u.string) + 1);
         if (procPtr->firstLocalPtr == NULL) {
             procPtr->firstLocalPtr = procPtr->lastLocalPtr = localPtr;
         } else {
@@ -656,12 +703,12 @@ L_compile_parameters(L_variable_declaration *param)
             procPtr->lastLocalPtr = localPtr;
         }
         localPtr->nextPtr = NULL;
-        localPtr->nameLength = strlen(name->u.s);
+        localPtr->nameLength = strlen(name->u.string);
         localPtr->frameIndex = i;
         localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
         localPtr->resolveInfo = NULL;
         localPtr->defValuePtr = NULL;
-        strcpy(localPtr->name, name->u.s);
+        strcpy(localPtr->name, name->u.string);
         L_make_symbol(name, p->type, i);
     }
     /* we have to loop over them again, otherwise TclFindCompiledLocal somehow
@@ -676,14 +723,14 @@ L_compile_parameters(L_variable_declaration *param)
 
             /* if the parameter is pass by name, we use a mangled name for it
                so that we can define an upvar using the original name */
-            name = reference_mangle(p->name->u.s);
+            name = reference_mangle(p->name->u.string);
             symbol = L_get_symbol(name, TRUE);
 
             localIndex =
-                TclFindCompiledLocal(p->name->u.s, strlen(p->name->u.s),
+                TclFindCompiledLocal(p->name->u.string, strlen(p->name->u.string),
                                      1, VAR_SCALAR, procPtr);
             L_make_symbol(p->name, p->type, localIndex);
-            emit_upvar(symbol, p->name->u.s);
+            emit_upvar(symbol, p->name->u.string);
         }
     }
 }
@@ -702,15 +749,14 @@ void
 L_compile_expressions(L_expression *expr)
 {
     int i = 0;
-    L_expression *tmp;
 
     if (!expr) return;
 /*     L_trace("Compiling an expression of type %s", */
 /*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL: {
-        L_expression *param, *next;
-        L_PUSH_STR(expr->a->u.s);
+        L_expression *param;
+        L_PUSH_STR(expr->a->u.string);
         /* count the parameters stack them  */
         for (i = 0, param = expr->b; param; param = param->next, i++) {
             L_symbol *var = NULL;
@@ -745,9 +791,9 @@ L_compile_expressions(L_expression *expr)
         L_trace("Binary expression");
         L_compile_binop(expr);
         break;
-    case L_EXPRESSION_INT:
+    case L_EXPRESSION_INTEGER:
     case L_EXPRESSION_STRING:
-    case L_EXPRESSION_DOUBLE:
+    case L_EXPRESSION_DOUBLE_:
         L_PUSH_OBJ(literal_to_TclObj(expr));
         break;
     case L_EXPRESSION_INTERPOLATED_STRING:
@@ -769,14 +815,14 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
     Tcl_Obj *obj = NULL;
 
     switch (expr->kind) {
-    case L_EXPRESSION_INT:
-        obj = Tcl_NewIntObj(expr->u.i);
+    case L_EXPRESSION_INTEGER:
+        obj = Tcl_NewIntObj(expr->u.integer);
         break;
     case L_EXPRESSION_STRING:
-        obj = Tcl_NewStringObj(expr->u.s, strlen(expr->u.s));
+        obj = Tcl_NewStringObj(expr->u.string, strlen(expr->u.string));
         break;
-    case L_EXPRESSION_DOUBLE:
-        obj = Tcl_NewDoubleObj(expr->u.d);
+    case L_EXPRESSION_DOUBLE_:
+        obj = Tcl_NewDoubleObj(expr->u.dbl);
         break;
     default:
         L_bomb("literal_to_TclObj can't handle expressions of type %d\n",
@@ -964,14 +1010,14 @@ L_compile_twiddle(L_expression *expr)
     for (runner = expr->b; runner; runner = runner->c) {
         switch (runner->kind) {
         case L_EXPRESSION_INTERPOLATED_STRING:
-            Tcl_AppendToObj(const_regexp, runner->a->u.s, -1);
+            Tcl_AppendToObj(const_regexp, runner->a->u.string, -1);
             /* if we ever find a spot where the regexp breaks, we could try
                adding a space to replace the runner->b interpolated part.
                (see the XXX comment below) */
             //            Tcl_AppendToObj(const_regexp, " ", 1);
             break;
         case L_EXPRESSION_STRING:
-            Tcl_AppendToObj(const_regexp, runner->u.s, -1);
+            Tcl_AppendToObj(const_regexp, runner->u.string, -1);
             break;
         default:
             L_bomb("L_compile_twiddle: Malformed AST");
@@ -1001,7 +1047,7 @@ L_compile_twiddle(L_expression *expr)
         MK_STRING_NODE(name, buf);
         if (!L_get_symbol(name, FALSE)) {
             int localIndex =
-                TclFindCompiledLocal(name->u.s, strlen(name->u.s),
+                TclFindCompiledLocal(name->u.string, strlen(name->u.string),
                                      1, 0, lframe->envPtr->procPtr);
             L_make_symbol(name,
                           mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL,
@@ -1299,7 +1345,7 @@ L_compile_assignment(L_expression *expr)
     L_expression *rval = expr->b;
 
     L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
-            lval->a->u.s);
+            lval->a->u.string);
     if (!(var = L_get_symbol(lval->a, TRUE))) return;
     if (global_symbol_p(var)) {
         L_trace("it's a global");
@@ -1574,12 +1620,12 @@ L_compile_index(
             }
             fixup_struct_type(t);
             for (memberOffset = 0, member = t->members;
-                 member && strcmp(member->name->u.s, index->a->u.s);
+                 member && strcmp(member->name->u.string, index->a->u.string);
                  memberOffset++, member = member->next) {
-                L_trace("member is %s", member->name->u.s);
+                L_trace("member is %s", member->name->u.string);
             }
             if (!member) {
-                L_errorf(index, "Structure field not found, %s", index->a->u.s);
+                L_errorf(index, "Structure field not found, %s", index->a->u.string);
                 return t;
             }
             L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
@@ -1686,11 +1732,11 @@ L_make_symbol(
 {
     int new;
     L_symbol *symbol = (L_symbol *)ckalloc(sizeof(L_symbol));
-    Tcl_HashEntry *hPtr = Tcl_CreateHashEntry(lframe->symtab, name->u.s, &new);
+    Tcl_HashEntry *hPtr = Tcl_CreateHashEntry(lframe->symtab, name->u.string, &new);
     if (!new) {
-        L_errorf(name, "Duplicate definition of symbol %s", name->u.s);
+        L_errorf(name, "Duplicate definition of symbol %s", name->u.string);
     }
-    symbol->name = name->u.s;
+    symbol->name = name->u.string;
     symbol->type = type;
     symbol->localIndex = localIndex;
     symbol->global_p = FALSE;
@@ -1708,13 +1754,13 @@ L_get_symbol(L_expression *name, int error_p)
     L_compile_frame *frame;
 
     for (frame = lframe; !hPtr && frame; frame = frame->prevFrame) {
-        hPtr = Tcl_FindHashEntry(frame->symtab, name->u.s);
+        hPtr = Tcl_FindHashEntry(frame->symtab, name->u.string);
     }
     if (hPtr) {
         return (L_symbol *)Tcl_GetHashValue(hPtr);
     } else {
         if (error_p) {
-            L_errorf(name, "Undeclared variable: %s", name->u.s);
+            L_errorf(name, "Undeclared variable: %s", name->u.string);
         }
         return NULL;
     }
@@ -1757,7 +1803,7 @@ gensym(char *name)
        compilation has finished. */
     MK_STRING_NODE(node, gensym);
     ckfree(gensym);
-    return node->u.s;
+    return node->u.string;
 }
 
 
@@ -1870,7 +1916,7 @@ L_free_ast(L_ast_node *ast) {
         ast_trace_root = ast_trace_root->_trace;
         if (node->type == L_NODE_EXPRESSION &&
             ((L_expression *)node)->kind == L_EXPRESSION_STRING) {
-            ckfree(((L_expression *)node)->u.s);
+            ckfree(((L_expression *)node)->u.string);
         }
         ckfree((char *)node);
     }
@@ -1896,12 +1942,12 @@ static Tcl_HashTable *L_typedef_table() {
 
 L_type *L_lookup_typedef(L_expression *name, int error_p) {
     Tcl_HashEntry *hPtr = NULL;
-    hPtr = Tcl_FindHashEntry(L_typedef_table(), name->u.s);
+    hPtr = Tcl_FindHashEntry(L_typedef_table(), name->u.string);
     if (hPtr) {
         return (L_type *)Tcl_GetHashValue(hPtr);
     } else {
         if (error_p) {
-            L_errorf(name, "Undeclared type: %s", name->u.s);
+            L_errorf(name, "Undeclared type: %s", name->u.string);
         }
         return NULL;
     }
@@ -1914,7 +1960,7 @@ void L_store_typedef(L_expression *name, L_type *type) {
     int new;
     type->typedef_p = TRUE;
     Tcl_HashEntry *hPtr =
-        Tcl_CreateHashEntry(L_typedef_table(), name->u.s, &new);
+        Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
     if (!new) {
         // XXX: emit a redefinition warning?
     }

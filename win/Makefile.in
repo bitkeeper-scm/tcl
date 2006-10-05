@@ -294,6 +294,7 @@ L_OBJS	= Lscanner.$(OBJEXT) \
 	Lgrammar.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
+	LastWalker.$(OBJEXT) \
 	LPointerObj.$(OBJEXT)
 
 TOMMATH_OBJS = \
@@ -382,7 +383,8 @@ L_SRCS	= \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/LPointerObj.c \
-	$(GENERIC_DIR)/Last.c
+	$(GENERIC_DIR)/Last.c \
+	$(GENERIC_DIR)/LastWalker.c
 
 WIN_OBJS = \
 	tclWin32Dll.$(OBJEXT) \
@@ -582,6 +584,9 @@ Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS
 
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Last.c
+
+LastWalker.$(OBJEXT): $(GENERIC_DIR)/LastWalker.c $(L_HDRS) 
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/LastWalker.c
 
 LPointerObj.$(OBJEXT): $(GENERIC_DIR)/LPointerObj.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/LPointerObj.c

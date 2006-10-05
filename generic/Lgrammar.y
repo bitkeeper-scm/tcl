@@ -87,7 +87,7 @@ start:	  toplevel_code
 toplevel_code:
           toplevel_code function_declaration
         { 
-                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_FUNCTION_DECLARATION, $1);
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_FUN, $1);
                 ((L_toplevel_statement *)$$)->u.fun = $2;
         }
         | toplevel_code struct_specifier ";"
@@ -136,7 +136,7 @@ stmt:
 single_statement:
           selection_statement   
         {
-                $$ = mk_statement(L_STATEMENT_IF_UNLESS, NULL);
+                $$ = mk_statement(L_STATEMENT_COND, NULL);
                 ((L_statement *)$$)->u.cond = $1;
         }
         | iteration_statement
@@ -190,7 +190,7 @@ optional_else:
           T_ELSE compound_statement     { $$ = $2; }
         | T_ELSE selection_statement    
         { 
-                $$ = mk_statement(L_STATEMENT_IF_UNLESS, NULL);
+                $$ = mk_statement(L_STATEMENT_COND, NULL);
                 ((L_statement *)$$)->u.cond = $2;
         }
         | /* epsilon */                 { $$ = NULL; }
@@ -373,9 +373,9 @@ expr:
         | T_DOT T_ID "(" argument_expression_list ")"
         {
                 L_expression *name = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
-                name->u.s = ckalloc(strlen(((L_expression *)$2)->u.s + 2));
-                *name->u.s = '.';
-                strcpy(name->u.s + 1, ((L_expression *)$2)->u.s);
+                name->u.string = ckalloc(strlen(((L_expression *)$2)->u.string + 2));
+                *name->u.string = '.';
+                strcpy(name->u.string + 1, ((L_expression *)$2)->u.string);
                 REVERSE(L_expression, next, $4);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, name, $4, NULL, NULL, NULL);
         }
