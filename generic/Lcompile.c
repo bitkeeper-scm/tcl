@@ -19,7 +19,7 @@ int L_interactive = 0;
 static int post_compile_action = 0; /* what's left to do after compiling an L
                                        script successfully */
 
-static int gensym_counter = 0;  /* used to create unique names */
+/* static int gensym_counter = 0;  /\* used to create unique names *\/ */
 
 /* The table we store typedef information in.  Use L_typedef_table() to access
    it. */
@@ -38,10 +38,9 @@ static L_type *lookup_struct_type(char *tag);
 static void emit_call_to_main(CompileEnv *envPtr, int with_args_p);
 
 static L_type *L_write_hash_index_chunk(int varIndex, L_expression *index,
-                                        L_expression *rval, int leave_lval_p);
+                                        L_expression *expr, int leave_lval_p);
 static L_type *L_write_array_index_chunk(int varIndex, L_expression *index,
-                                         L_type *type, L_type *base_type,
-                                         L_expression *rval);
+                                         L_type *type, L_expression *expr);
 
 static L_expression *L_read_array_index_chunk(int varIndex, L_expression *i,
                                               L_type **type,
@@ -50,22 +49,22 @@ static L_expression *L_read_hash_index_chunk(L_expression *i);
 static L_expression *L_read_struct_index_chunk(L_expression *index,
                                                L_type **type);
 static L_type *L_write_struct_index_chunk(int varIndex, L_expression *index,
-                                          L_type *type, L_expression *rval);
+                                          L_type *type, L_expression *expr);
 
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *blank_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static void emit_upvar(L_symbol *var, char *upvarName);
-static char *gensym(char *name);
+/* static char *gensym(char *name); */
 static char *array_initializer_code(L_type *type, char *name,
                                     int *needs_eval);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_type *type, L_expression *index,
-                          L_expression *rval);
+                          L_expression *expr);
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int type_passed_by_name_p(L_type *type);
-
+static L_symbol *L_get_local_symbol(L_expression *name, int error_p);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -702,14 +701,13 @@ void
 L_compile_expressions(L_expression *expr)
 {
     int i = 0;
-    L_expression *tmp;
 
     if (!expr) return;
 /*     L_trace("Compiling an expression of type %s", */
 /*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL: {
-        L_expression *param, *next;
+        L_expression *param;
         L_PUSH_STR(expr->a->u.s);
         /* count the parameters stack them  */
         for (i = 0, param = expr->b; param; param = param->next, i++) {
@@ -794,10 +792,7 @@ void L_compile_unop(L_expression *expr)
                'twould be better to parameterize L_push_variable? */
             L_symbol *var;
             L_expression *name = expr->a->a;
-            if (!(var = L_get_symbol(name, TRUE))) return;
-            if (global_symbol_p(var)) {
-                var = import_global_symbol(var);
-            }
+            if (!(var = L_get_local_symbol(name, TRUE))) return;
             L_LOAD_SCALAR(var->localIndex);
         } else {
             /* we don't do anything special if it's not a plain jane
@@ -832,11 +827,7 @@ void L_compile_unop(L_expression *expr)
         break;
     case T_BITAND:
         /* &, address-of operator */
-        if (expr->a->kind != L_EXPRESSION_STRING) {
-            L_bomb("Address-of is only supported on variable names.");
-        } else {
-            L_compile_expressions(expr->a);
-        }
+        L_compile_expressions(expr->a->a);
         break;
     case T_DEFINED:
         L_compile_defined(expr->a);;
@@ -1136,10 +1127,7 @@ L_push_variable(L_expression *expr)
     L_symbol *var;
     L_expression *name = expr->a;
 
-    if (!(var = L_get_symbol(name, TRUE))) return;
-    if (global_symbol_p(var)) {
-        var = import_global_symbol(var);
-    }
+    if (!(var = L_get_local_symbol(name, TRUE))) return;
     if (expr->indices) {
         L_expression *index = expr->indices;
         L_type *type = var->type;
@@ -1258,7 +1246,7 @@ store_in_tempvar(int pop_p)
 void
 L_compile_defined(L_expression *lval)
 {
-    int tempVar;
+    int tempVar = 0;
 
     L_expression *idx, *last_index;
     if ((lval->kind == L_EXPRESSION_VARIABLE) && !lval->indices) {
@@ -1298,15 +1286,11 @@ L_compile_assignment(L_expression *expr)
     L_expression *lval = expr->a;
     L_expression *rval = expr->b;
 
-    L_trace("COMPILING ASSIGNMENT: %s, %s", L_expression_tostr[lval->a->kind],
+    if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
+    L_trace("COMPILING ASSIGNMENT: %s", L_expression_tostr[lval->a->kind],
             lval->a->u.s);
-    if (!(var = L_get_symbol(lval->a, TRUE))) return;
-    if (global_symbol_p(var)) {
-        L_trace("it's a global");
-        var = import_global_symbol(var);
-    }
     if (lval->indices) {
-        L_write_index(var, var->type, lval->indices, rval);
+        L_write_index(var, var->type, lval->indices, expr);
     } else {
         L_compile_expressions(rval);
         L_STORE_SCALAR(var->localIndex);
@@ -1317,34 +1301,28 @@ static void
 L_write_index(
     L_symbol *var,              /* variable to write into, or null if the
                                    value should be left on the stack */
-    L_type *type,               /* the type of value that we're modifying  */
+    L_type *type,               /* the type of lvalue that we're modifying */
     L_expression *index,        /* the indices */
-    L_expression *rval)         /* the ultimate value to store */
+    L_expression *expr)         /* the entire original assignment */
 {
     int leave_lval_p = !var;
+    int varIndex;
 
+    if (var) {
+        varIndex = var->localIndex;
+    } else {
+        varIndex = store_in_tempvar(TRUE);
+    }
     switch (index->kind) {
     case L_EXPRESSION_HASH_INDEX: {
-        int varIndex;
-        if (var) {
-            varIndex = var->localIndex;
-        } else {
-            varIndex = store_in_tempvar(TRUE);
-        }
         L_trace("write a hash index");
-        type = L_write_hash_index_chunk(varIndex, index, rval,
+        type = L_write_hash_index_chunk(varIndex, index, expr,
                                         leave_lval_p);
         break;
     }
     case L_EXPRESSION_STRUCT_INDEX: {
-        int varIndex;
-        if (var) {
-            varIndex = var->localIndex;
-        } else {
-            varIndex = store_in_tempvar(TRUE);
-        }
         L_trace("write a struct index");
-        type = L_write_struct_index_chunk(varIndex, index, type, rval);
+        type = L_write_struct_index_chunk(varIndex, index, type, expr);
         if (leave_lval_p) {
             TclEmitOpcode(INST_POP, lframe->envPtr);
             L_LOAD_SCALAR(varIndex);
@@ -1352,20 +1330,8 @@ L_write_index(
         break;
     }
     case L_EXPRESSION_ARRAY_INDEX: {
-        /* write_array_index_chunk wants to read the value from a local
-           variable, so ensure it's in one. */
-        int varIndex;
-        L_type *base_type;
-        if (var) {
-            varIndex = var->localIndex;
-            base_type = type;
-        } else {
-            varIndex = store_in_tempvar(TRUE);
-            base_type = NULL;
-        }
         L_trace("write an array index");
-        type = L_write_array_index_chunk(varIndex, index, type, base_type,
-                                         rval);
+        type = L_write_array_index_chunk(varIndex, index, type, expr);
         if (leave_lval_p) {
             /* if we should leave the modified array on the stack, do that */
             TclEmitOpcode(INST_POP, lframe->envPtr);
@@ -1393,26 +1359,61 @@ L_write_struct_index_chunk(
     int varIndex,
     L_expression *index,
     L_type *type,
-    L_expression *rval)
+    L_expression *expr)
 {
-    int indexVar, rvalVar;
+    int indexVar, rvalVar, lvalVar;
+
     if (index->indices) {
         L_trace("the branch less taken");
         L_LOAD_SCALAR(varIndex);
         type = L_compile_index(type, index);
         indexVar = store_in_tempvar(FALSE);
         TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-        L_write_index(NULL, type, index->indices, rval);
+        L_write_index(NULL, type, index->indices, expr);
         rvalVar = store_in_tempvar(TRUE);
         L_LOAD_SCALAR(indexVar);
         L_LOAD_SCALAR(rvalVar);
+        L_LOAD_SCALAR(varIndex);
+        TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+        L_STORE_SCALAR(varIndex);
     } else {
-        type = L_compile_index(type, index);
-        L_compile_expressions(rval);
+        switch (expr->op) {
+        case T_EQUALS:
+            type = L_compile_index(type, index);
+            L_compile_expressions(expr->b); /* rval */
+            L_LOAD_SCALAR(varIndex);
+            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+            L_STORE_SCALAR(varIndex);
+            break;
+        /* thinking this might be separable if I do it right */
+        case T_PLUSPLUS:
+        case T_MINUSMINUS:
+            L_LOAD_SCALAR(varIndex);
+            type = L_compile_index(type, index);
+            indexVar = store_in_tempvar(FALSE);
+            TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
+            lvalVar = store_in_tempvar(FALSE);
+            if (expr->op == T_PLUSPLUS) {
+                L_PUSH_STR("1");
+            } else {
+                L_PUSH_STR("-1");
+            }
+            TclEmitOpcode(INST_ADD, lframe->envPtr);
+            rvalVar = store_in_tempvar(TRUE);
+            L_LOAD_SCALAR(indexVar);
+            L_LOAD_SCALAR(rvalVar);
+            L_LOAD_SCALAR(varIndex);
+            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
+            L_STORE_SCALAR(varIndex);
+            if (expr->kind == L_EXPRESSION_POST) {
+                TclEmitOpcode(INST_POP, lframe->envPtr);
+                L_LOAD_SCALAR(lvalVar);
+            }
+            break;
+        default:
+            L_bomb("malformed AST: unknown operator in assignment");
+        }
     }
-    L_LOAD_SCALAR(varIndex);
-    TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
-    L_STORE_SCALAR(varIndex);
     return type;
 }
 
@@ -1449,8 +1450,7 @@ L_write_array_index_chunk(
     int varIndex,
     L_expression *index,
     L_type *type,               /* the array type */
-    L_type *base_type,          /* the type of the array elements */
-    L_expression *rval)
+    L_expression *expr)
 
 {
     L_expression *i;
@@ -1468,7 +1468,7 @@ L_write_array_index_chunk(
         type = L_compile_index(type, index);
         indexVar = store_in_tempvar(FALSE);
         TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-        L_write_index(NULL, type, index->indices, rval);
+        L_write_index(NULL, type, index->indices, expr);
         rvalVar = store_in_tempvar(TRUE);
         L_LOAD_SCALAR(indexVar);
         L_LOAD_SCALAR(rvalVar);
@@ -1482,7 +1482,7 @@ L_write_array_index_chunk(
             type = L_compile_index(type, i);
             index_count++;
         }
-        L_compile_expressions(rval);
+        L_compile_expressions(expr->b);
         L_LOAD_SCALAR(varIndex);
         if (index_count == 1) {
             TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
@@ -1519,11 +1519,11 @@ static L_type *
 L_write_hash_index_chunk(
     int varIndex,               /* the variable holding the dictionary */
     L_expression *index,        /* the keys */
-    L_expression *rval,         /* the value to store */
+    L_expression *expr,         /* the entire containing expression */
     int leave_lval_p)           /* whether to leave the dict on the stack or
                                    the rval */
 {
-    int index_count = 0, tempVar;
+    int index_count = 0, tempVar = 0;
     /* push the indices onto the stack */
     while (index && (index->kind == L_EXPRESSION_HASH_INDEX)) {
         L_compile_index(NULL, index);
@@ -1531,10 +1531,10 @@ L_write_hash_index_chunk(
         index_count++;
     }
     if (index) {
-        L_write_index(NULL, NULL, index, rval);
+        L_write_index(NULL, NULL, index, expr);
     }
     /* push the value to store */
-    L_compile_expressions(rval);
+    L_compile_expressions(expr->b);
     if (!leave_lval_p) {
         tempVar = store_in_tempvar(FALSE);
     }
@@ -1554,8 +1554,6 @@ L_write_hash_index_chunk(
    compiling the next index.  We do some minimal type checking on the way. */
 L_type *
 L_compile_index(
-/*     L_type *base_type,          /\* The complete type of the object we're */
-/*                                    indexing into. *\/ */
     L_type *index_type,         /* The type of the index. */
     L_expression *index)        /* The index expression to compile. */
 {
@@ -1598,9 +1596,7 @@ L_compile_index(
         L_compile_expressions(index->a);
         if (array_p(t->next_dim)) {
             t = t->next_dim;
-        } /* else { */
-/*             t = base_type; */
-/*         } */
+        }
         break;
     case L_EXPRESSION_HASH_INDEX:
         L_trace("Spitting out a hash index\n");
@@ -1616,22 +1612,26 @@ void
 L_compile_incdec(L_expression *expr)
 {
     L_symbol *var;
+    L_expression *lval = expr->a;
 
-    /* XXX note that this implementation doesn't allow us to increment array
-       or structure lvalues. --timjr 2006.5.29 */
-    if (!(var = L_get_symbol(expr->a, TRUE))) return;
-    if (expr->kind == L_EXPRESSION_PRE) {
-        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
-                        lframe->envPtr);
-        TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
+    if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
+    if (lval->indices) {
+        L_write_index(var, var->type, lval->indices, expr);
     } else {
-        /* we push the value of the variable, do the increment, and then pop
-           the result of the increment, leaving the old value on top. */
-        L_push_variable(expr);
-        TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
-                        lframe->envPtr);
-        TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_trace("there's no indices");
+        if (expr->kind == L_EXPRESSION_PRE) {
+            TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
+                            lframe->envPtr);
+            TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
+        } else {
+            /* we push the value of the variable, do the increment, and then pop
+               the result of the increment, leaving the old value on top. */
+            L_push_variable(lval);
+            TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
+                            lframe->envPtr);
+            TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
+            TclEmitOpcode(INST_POP, lframe->envPtr);
+        }
     }
 }
 
@@ -1699,6 +1699,22 @@ L_make_symbol(
     return (L_symbol*)0;
 }
 
+/* Look up a symbol in the current symbol table.  If the symbol is a global,
+   import the global.  Return NULL and optionally emit an error if symbol is
+   not found. */
+static L_symbol *
+L_get_local_symbol(L_expression *name, int error_p)
+{
+    L_symbol *var;
+
+    if (!(var = L_get_symbol(name, error_p))) return NULL;
+    if (global_symbol_p(var)) {
+        L_trace("it's a global");
+        var = import_global_symbol(var);
+    }
+    return var;
+}
+
 /* Look up a symbol in the current symbol table, return NULL and optionally
    emit an error if not found */
 L_symbol *
@@ -1746,19 +1762,19 @@ maybeFixupEmptyCode(L_compile_frame *frame)
     }
 }
 
-/* Make a new unique name.  It will be freed when the current AST is freed. */
-static char *
-gensym(char *name)
-{
-    L_expression *node;
-    char *gensym = ckalloc(strlen(name) + TCL_INTEGER_SPACE + 1);
-    sprintf(gensym, "%d%s", gensym_counter++, name);
-    /* exploit the property of AST nodes that they'll free the string after
-       compilation has finished. */
-    MK_STRING_NODE(node, gensym);
-    ckfree(gensym);
-    return node->u.s;
-}
+/* /\* Make a new unique name.  It will be freed when the current AST is freed. *\/ */
+/* static char * */
+/* gensym(char *name) */
+/* { */
+/*     L_expression *node; */
+/*     char *gensym = ckalloc(strlen(name) + TCL_INTEGER_SPACE + 1); */
+/*     sprintf(gensym, "%d%s", gensym_counter++, name); */
+/*     /\* exploit the property of AST nodes that they'll free the string after */
+/*        compilation has finished. *\/ */
+/*     MK_STRING_NODE(node, gensym); */
+/*     ckfree(gensym); */
+/*     return node->u.s; */
+/* } */
 
 
 /* Push and Pop the L_compile_frames. */
@@ -1929,3 +1945,4 @@ void L_store_typedef(L_expression *name, L_type *type) {
  * fill-column: 78
  * End:
  */
+
