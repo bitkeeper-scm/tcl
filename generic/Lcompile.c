@@ -52,12 +52,10 @@ static L_type *L_write_struct_index_chunk(int varIndex, L_expression *index,
                                           L_type *type, L_expression *expr);
 
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
-static Tcl_Obj *blank_initial_value(L_type *type);
+static Tcl_Obj *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static void emit_upvar(L_symbol *var, char *upvarName);
 /* static char *gensym(char *name); */
-static char *array_initializer_code(L_type *type, char *name,
-                                    int *needs_eval);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_type *type, L_expression *index,
                           L_expression *expr);
@@ -65,6 +63,10 @@ static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int type_passed_by_name_p(L_type *type);
 static L_symbol *L_get_local_symbol(L_expression *name, int error_p);
+static void compile_initializer(L_initializer *init, L_type *type);
+static void compile_blank_initializer(L_type *type);
+static char *blank_initializer_code(L_type *type, int *needs_eval);
+
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -378,46 +380,58 @@ void
 L_compile_global_decls(L_variable_declaration *decl)
 {
     L_symbol *symbol;
-    Tcl_Obj *initial_value;
-    char *init_code;
-    int needs_eval;
 
     if (!decl) return;
     if (decl->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(decl->type);
     }
-    init_code = array_initializer_code(decl->type, decl->name->u.string,
-                                       &needs_eval);
     L_trace("Global variable named %s\n", decl->name->u.string);
-    if (decl->initial_value) {
-        L_trace("took this path");
-        initial_value = literal_to_TclObj(decl->initial_value);
-    } else {
-        initial_value = blank_initial_value(decl->type);
-    }
+
     symbol = L_make_symbol(decl->name, decl->type, -1);
     symbol->global_p = TRUE;
+
     if (lframe->envPtr) {
-        L_trace("init code is:\n%s\nneeds_eval is : %d",
-                init_code, needs_eval);
-        if (needs_eval) {
-            L_PUSH_STR("eval");
-            L_PUSH_STR(init_code);
-            TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+        L_trace("went this way");
+        L_PUSH_STR(decl->name->u.string);
+        if (decl->initial_value) {
+            compile_initializer(decl->initial_value, decl->type);
         } else {
-            L_PUSH_STR(decl->name->u.string);
-            L_PUSH_OBJ(initial_value);
-            TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
+            compile_blank_initializer(decl->type);
         }
+        TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
     } else {
         /* interpreted case */
-        if (needs_eval) {
-            L_trace("interpreted init code is \n\%s\n", init_code);
-            Tcl_EvalEx(lframe->interp, init_code, -1, 0);
+        if (decl->initial_value) {
+            Tcl_Obj *initial_value =
+                literal_to_TclObj(decl->initial_value->value);
+            Tcl_IncrRefCount(initial_value);
+            L_trace("initial value is %s", Tcl_GetString(initial_value));
+            if (!initial_value) {
+                L_errorf(decl, "Unsupported initial value for a global");
+            } else {
+                Tcl_SetVar2Ex(lframe->interp, decl->name->u.string, NULL,
+                              initial_value,
+                              TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
+            }
         } else {
-            Tcl_SetVar2Ex(lframe->interp, decl->name->u.string, NULL,
-                          initial_value,
-                          TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
+            char *partial_code;
+            Tcl_Obj *code = Tcl_NewObj();
+            int needs_eval = 0;
+
+            Tcl_IncrRefCount(code);
+            /* no initial value */
+            partial_code = blank_initializer_code(decl->type, &needs_eval);
+            if (needs_eval) {
+                TclObjPrintf(NULL, code, "set %s [%s]", decl->name->u.string,
+                             partial_code, -1);
+            } else {
+                TclObjPrintf(NULL, code, "set %s %s", decl->name->u.string,
+                             partial_code, -1);
+            }
+            L_trace("init code is %s", Tcl_GetString(code));
+            /* Tcl_EvalEx(lframe->interp, Tcl_GetString(code), -1, 0); */
+            Tcl_Eval(lframe->interp, Tcl_GetString(code));
+            Tcl_DecrRefCount(code);
         }
     }
     L_compile_global_decls(decl->next);
@@ -463,63 +477,89 @@ L_compile_variable_decls(L_variable_declaration *var)
                  var->name->u.string);
     }
     symbol = L_make_symbol(var->name, var->type, localIndex);
-    if (array_p(var->type) || (var->type->kind == L_TYPE_STRUCT)) {
-        /* We don't support literal initializers for structs and arrays yet.
-           Just always initialize to a blank TCL list. */
-        var->initial_value = NULL;
-    }
+
     if (var->initial_value) {
-        L_compile_expressions(var->initial_value);
-        L_STORE_SCALAR(localIndex);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        compile_initializer(var->initial_value, var->type);
     } else {
-        /* create the initial value and emit code to push it on the
-           stack */
-        int needs_eval;
-        char *init_code = array_initializer_code(var->type, var->name->u.string,
-                                                 &needs_eval);
-        if (needs_eval) {
-            L_trace("init code is \n%s\n", init_code);
-            L_PUSH_STR("eval");
-            L_PUSH_STR(init_code);
-            TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
-/*             TclEmitOpcode(INST_POP, lframe->envPtr); */
-        } else {
-            Tcl_Obj *initial_value = blank_initial_value(var->type);
-            L_PUSH_OBJ(initial_value);
-            L_STORE_SCALAR(localIndex);
-            TclEmitOpcode(INST_POP, lframe->envPtr);
-        }
+        compile_blank_initializer(var->type);
     }
+    L_STORE_SCALAR(localIndex);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+
     L_compile_variable_decls(var->next);
 }
 
-static Tcl_Obj *blank_initial_value(L_type *type) {
-    return Tcl_NewObj();
+/* Compile an initializer and stack the value */
+static void
+compile_initializer(
+    L_initializer *init,
+    L_type *type)
+{
+    /* XXX: this is not finished.  arrays/structs and hashes need to be
+       implemented.  We just use blank values right now. */
+    if ((type->kind == L_TYPE_STRUCT) ||
+        (type->next_dim && (type->next_dim->kind == L_TYPE_ARRAY)) ||
+        (type->kind == L_TYPE_HASH))
+    {
+        compile_blank_initializer(type);
+    } else {
+        /* atomic type */
+        L_compile_expressions(init->value);
+    }
+}
+
+/* Stack a suitable empty value for variable's type. */
+static void
+compile_blank_initializer(
+    L_type *type)
+{
+    char *code;
+    int needs_eval;
+
+    /* array or struct */
+    code = blank_initializer_code(type, &needs_eval);
+    if (needs_eval) {
+        L_PUSH_STR("eval");
+        L_PUSH_STR(code);
+        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+    } else {
+        L_PUSH_STR(code);
+    }
+}
+
+/* Return the default value for an atomic type, such as 0 for an int or "" for
+   a string.  If the type is not atomic or has no special default initial
+   value, defaults to a Tcl_Obj with an empty string rep and no type.  The
+   reference count on the return value is 0. */
+static Tcl_Obj *
+atomic_initial_value(L_type *type) {
+    switch (type->kind) {
+    case L_TYPE_INT:
+        return Tcl_NewIntObj(0);
+    case L_TYPE_DOUBLE:
+        return Tcl_NewDoubleObj(0.0);
+    case L_TYPE_STRING:
+        return Tcl_NewStringObj("", 0);
+    default:
+        return Tcl_NewObj();
+    }
 }
 
 /* Generate code to initialize an array or struct.  If name is passed,
    generate a set into a variable of that name.  needs_eval will be set to
    true if the code must be evaluated, false if the code is constant.  */
 static char *
-array_initializer_code(
+blank_initializer_code(
     L_type *type,
-    char *name,
     int *needs_eval)
 {
-    L_type *array_type = type ? type->next_dim : NULL;
+    L_type *array_type = type->next_dim;
     Tcl_Obj *code = Tcl_NewObj();
-    int close_brackets = 0, i;
+    int brackets = 0, i;
     L_expression *retval;
 
-    Tcl_IncrRefCount(code);
-    /* XXX: Our two call sites know to disregard the value of this function if
-       needs_eval is false.  That's a somewhat funky state of affairs.
-       --timjr 2006.9.24 */
     *needs_eval = FALSE;
-    if (name) {
-        TclObjPrintf(NULL, code, "set %s ", name);
-    }
+    Tcl_IncrRefCount(code);
     while (array_type) {
         if (array_type->array_dim->kind != L_EXPRESSION_INTEGER) {
             L_errorf(array_type->array_dim,
@@ -527,9 +567,13 @@ array_initializer_code(
             break;
         }
         if (array_type->array_dim->u.integer > 0) {
-            close_brackets++;
             *needs_eval = TRUE;
-            TclObjPrintf(NULL, code, "[lrepeat %d ",
+            /* skip the outermost set of brackets  */
+            if (brackets > 0) {
+                TclObjPrintf(NULL, code, "[");
+            }
+            brackets++;
+            TclObjPrintf(NULL, code, "lrepeat %d ",
                          array_type->array_dim->u.integer);
             array_type = array_type->next_dim;
         } else {
@@ -537,29 +581,46 @@ array_initializer_code(
         }
     }
     /* the base type */
-    if (type->kind == L_TYPE_STRUCT) {
+    if (type->kind != L_TYPE_STRUCT) {
+        if (type->next_dim) {
+            TclObjPrintf(NULL, code, "{%s}",
+                         Tcl_GetString(atomic_initial_value(type)));
+        } else {
+            TclObjPrintf(NULL, code, "%s",
+                         Tcl_GetString(atomic_initial_value(type)));
+        }
+    } else {
         L_variable_declaration *mem;
 
         *needs_eval = TRUE;
-        TclObjPrintf(NULL, code, "[list ");
+        if (brackets > 0) {
+            TclObjPrintf(NULL, code, "[");
+        }
+        TclObjPrintf(NULL, code, "list ");
         for (mem = type->members; mem; mem = mem->next) {
             if (array_p(mem->type)) {
-                int dummy;
-                TclObjPrintf(NULL, code, "%s ",
-                             array_initializer_code(mem->type, NULL, &dummy));
+                int needs_eval1;
+                char *code1 = blank_initializer_code(mem->type, &needs_eval1);
+                if (needs_eval1) {
+                    TclObjPrintf(NULL, code, "[%s] ", code1);
+                } else {
+                    TclObjPrintf(NULL, code, "%s ", code1);
+                }
             } else {
-                TclObjPrintf(NULL, code, "{} ");
+                TclObjPrintf(NULL, code, " {%s} ",
+                             Tcl_GetString(atomic_initial_value(mem->type)));
             }
         }
-        TclObjPrintf(NULL, code, "]");
-    } else {
-        TclObjPrintf(NULL, code, "{} ");
+        if (brackets > 0) {
+            TclObjPrintf(NULL, code, "]");
+        }
     }
-    for (i = 0; i < close_brackets; i++) {
+    for (i = 1; i < brackets; i++) {
         TclObjPrintf(NULL, code, "]");
     }
     MK_STRING_NODE(retval, Tcl_GetString(code));
     Tcl_DecrRefCount(code);
+    L_trace("blank value: %s", retval->u.string);
     return retval->u.string;
 }
 
@@ -823,9 +884,19 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
     case L_EXPRESSION_DOUBLE_:
         obj = Tcl_NewDoubleObj(expr->u.dbl);
         break;
+    case L_EXPRESSION_UNARY:
+        if (expr->op == T_PLUS) {
+            obj = Tcl_NewIntObj(expr->a->u.integer);
+        } else if (expr->op == T_MINUS) {
+            obj = Tcl_NewIntObj(-expr->a->u.integer);
+        } else {
+            L_errorf(expr, "Illegal initializer");
+        }
+        break;
     default:
-        L_bomb("literal_to_TclObj can't handle expressions of type %d\n",
-               expr->kind);
+        return NULL;
+/*         L_bomb("literal_to_TclObj can't handle expressions of type %d\n", */
+/*                expr->kind); */
     }
     return obj;
 }
@@ -1500,45 +1571,7 @@ L_write_array_index_chunk(
     L_expression *expr)
 
 {
-    L_expression *i;
-    int index_count = 0;
-
-    /* walk to the end of the list of indices so we can check if anything
-       comes after that */
-    for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-         i = i->indices);
-    if (i) {
-        int indexVar, rvalVar;
-        /* there are struct or hash indices following the array indices, so
-           we'll have to read out the array and store it back. */
-        L_LOAD_SCALAR(varIndex);
-        type = L_compile_index(type, index);
-        indexVar = store_in_tempvar(FALSE);
-        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-        L_write_index(NULL, type, index->indices, expr);
-        rvalVar = store_in_tempvar(TRUE);
-        L_LOAD_SCALAR(indexVar);
-        L_LOAD_SCALAR(rvalVar);
-        L_LOAD_SCALAR(varIndex);
-        TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
-        L_STORE_SCALAR(varIndex);
-    } else {
-        for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-             i = i->indices)
-        {
-            type = L_compile_index(type, i);
-            index_count++;
-        }
-        L_compile_expressions(expr->b);
-        L_LOAD_SCALAR(varIndex);
-        if (index_count == 1) {
-            TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
-        } else {
-            TclEmitInstInt4(INST_LSET_FLAT, index_count + 2, lframe->envPtr);
-        }
-        L_STORE_SCALAR(varIndex);
-    }
-    return type;
+    return L_write_struct_index_chunk(varIndex, index, type, expr);
 }
 
 /* Read a value out of a hashtable and leave it on the stack.  We

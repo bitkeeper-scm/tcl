@@ -24,6 +24,7 @@ typedef struct L_if_unless L_if_unless;
 typedef struct L_loop L_loop;
 typedef struct L_expression L_expression;
 typedef struct L_type L_type;
+typedef struct L_initializer L_initializer;
 
 /* Enums */
 typedef enum L_expression_kind {
@@ -91,10 +92,11 @@ typedef enum L_node_type {
 	L_NODE_FUNCTION_DECLARATION,
 	L_NODE_VARIABLE_DECLARATION,
 	L_NODE_BLOCK,
+	L_NODE_INITIALIZER,
 	L_NODE_EXPRESSION,
 	L_NODE_IF_UNLESS
 } L_node_type;
-extern char *L_node_type_tostr[9];
+extern char *L_node_type_tostr[10];
 
 /* Struct declarations */
 struct L_ast_node {
@@ -138,6 +140,13 @@ struct L_if_unless {
 	L_expression *condition;
 	L_statement *if_body;
 	L_statement *else_body;
+};
+
+struct L_initializer {
+	L_ast_node node;
+	L_expression *value;
+	L_expression *key;
+	L_initializer *next;
 };
 
 struct L_loop {
@@ -187,7 +196,7 @@ struct L_variable_declaration {
 	L_ast_node node;
 	L_type *type;
 	L_expression *name;
-	L_expression *initial_value;
+	L_initializer *initial_value;
 	int by_name;
 	L_variable_declaration *next;
 };
@@ -204,10 +213,12 @@ L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_top
 int L_walk_toplevel_statement(L_toplevel_statement* node, int order, LWalkFunc func, void *data);
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body);
 int L_walk_function_declaration(L_function_declaration* node, int order, LWalkFunc func, void *data);
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,int by_name,L_variable_declaration *next);
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,L_variable_declaration *next);
 int L_walk_variable_declaration(L_variable_declaration* node, int order, LWalkFunc func, void *data);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);
 int L_walk_block(L_block* node, int order, LWalkFunc func, void *data);
+L_initializer *mk_initializer(L_expression *value,L_expression *key,L_initializer *next);
+int L_walk_initializer(L_initializer* node, int order, LWalkFunc func, void *data);
 L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);
 int L_walk_expression(L_expression* node, int order, LWalkFunc func, void *data);
 L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);

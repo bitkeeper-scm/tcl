@@ -58,7 +58,7 @@ char *L_toplevel_statement_tostr[4] = {
 	"L_TOPLEVEL_STATEMENT_TYPEDEF"
 };
 
-char *L_node_type_tostr[9] = {
+char *L_node_type_tostr[10] = {
 	"L_NODE_STATEMENT",
 	"L_NODE_TYPE",
 	"L_NODE_LOOP",
@@ -66,6 +66,7 @@ char *L_node_type_tostr[9] = {
 	"L_NODE_FUNCTION_DECLARATION",
 	"L_NODE_VARIABLE_DECLARATION",
 	"L_NODE_BLOCK",
+	"L_NODE_INITIALIZER",
 	"L_NODE_EXPRESSION",
 	"L_NODE_IF_UNLESS"
 };
@@ -151,7 +152,7 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	return function_declaration;
 }
 
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_expression *initial_value,int by_name,L_variable_declaration *next) 
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,L_variable_declaration *next) 
 {
 	L_variable_declaration *variable_declaration;
 
@@ -180,6 +181,21 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	((L_ast_node *)block)->line_no = L_line_number;
 	((L_ast_node *)block)->type = L_NODE_BLOCK;
 	return block;
+}
+
+L_initializer *mk_initializer(L_expression *value,L_expression *key,L_initializer *next) 
+{
+	L_initializer *initializer;
+
+	initializer = (L_initializer *)ckalloc(sizeof(L_initializer));
+	initializer->value = value;
+	initializer->key = key;
+	initializer->next = next;
+	((L_ast_node *)initializer)->_trace = ast_trace_root;
+	ast_trace_root = (void *)initializer;
+	((L_ast_node *)initializer)->line_no = L_line_number;
+	((L_ast_node *)initializer)->type = L_NODE_INITIALIZER;
+	return initializer;
 }
 
 L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next) 

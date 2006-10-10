@@ -562,25 +562,32 @@ struct_declarator_list:
 	;
 
 initializer:
-          expr
-        | "{" initializer_list "}"         { $$ = $2; }
+          expr          { $$ = mk_initializer($1, NULL, NULL); }
+        | "{" initializer_list "}"
+        {
+                REVERSE(L_initializer, next, $2);
+                $$ = $2;
+        }
         ;
 
 initializer_list:
-        /* XXX these need work */
           initializer_list_element
-        {
-                MK_STRING_NODE($$, ""); 
-        }
         | initializer_list T_COMMA initializer_list_element
         {
-                MK_STRING_NODE($$, ""); 
+                ((L_initializer *)$3)->next = $1;
+                $$ = $3;
         }
         ;
 
 initializer_list_element:
           initializer
+        {
+                $$ = mk_initializer($1, NULL, NULL);
+        }
         | initializer "=>" initializer
+        {
+                $$ = mk_initializer($1, $3, NULL);
+        }
         ;
 
 constant_expression:
