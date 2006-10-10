@@ -919,10 +919,13 @@ void L_compile_unop(L_expression *expr)
         }
         break;
     case T_STRING_CAST:
-        L_bomb("casts to string aren't implemented yet");
+        /* do nothing: it's all a string. However, we might have to do
+           something here to make the future type checker happy. */
         break;
     case T_INT_CAST:
-        L_bomb("casts to int aren't implemented yet");
+        L_PUSH_STR("::tcl::mathfunc::int");
+        L_compile_expressions(expr->a);
+        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
         break;
     case T_DOUBLE_CAST:
         L_bomb("casts to double aren't implemented yet");

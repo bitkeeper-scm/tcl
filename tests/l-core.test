@@ -623,7 +623,14 @@ op_1_7(){
 op_1_7
 } -output "0\n2\n9\n3\n9\n1\n"
 
-
+test cast-1.0 { Casts to integer } -body {
+#lang(L)
+cast_1_0() {
+    printf("%d\n", (int)(1.9));
+}
+#lang(tcl)
+cast_1_0
+} -output "1\n"
 
 test array-1.0 { Single-dimensional array creation and indexing } -body {
 #lang(L)
