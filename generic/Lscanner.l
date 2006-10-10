@@ -2,7 +2,7 @@
 %option stack
 %x glob_re
 %x comment
-%x str_double
+%x str_float
 %x str_single
 %x interpol
 ID	[a-zA-Z_:][0-9a-zA-Z_:]*
@@ -86,14 +86,14 @@ tally_newlines(
         "void"          return T_VOID;
         "string"        return T_STRING;
         "int"           return T_INT;
-        "double"        return T_DOUBLE;
+        "float"         return T_FLOAT;
         "hash"          return T_HASH;
         "poly"          return T_POLY;
         "var"           return T_VAR;
 
         "("[ \t]*"string"[ \t]*")"      return T_STRING_CAST;
         "("[ \t]*"tcl"[ \t]*")"         return T_TCL_CAST;
-        "("[ \t]*"double"[ \t]*")"      return T_DOUBLE_CAST;
+        "("[ \t]*"float"[ \t]*")"       return T_FLOAT_CAST;
         "("[ \t]*"int"[ \t]*")"         return T_INT_CAST;
 
         "if"		return T_IF;
@@ -136,12 +136,12 @@ tally_newlines(
                                 return T_INT_LITERAL;
                         }
         [0-9]*\.[0-9]+	{
-                                MK_DOUBLE_NODE(L_lval, atof(yytext));
-                                return T_DOUBLE_LITERAL;
+                                MK_FLOAT_NODE(L_lval, atof(yytext));
+                                return T_FLOAT_LITERAL;
                         }
         "//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
         [ \t\n\r]+      tally_newlines(yytext, yyleng);
-        \"		yy_push_state(str_double); STRBUF_START();
+        \"		yy_push_state(str_float); STRBUF_START();
         \'		yy_push_state(str_single); STRBUF_START();
         "/*"		yy_push_state(comment);
         "!~"[ \t]*"/"	yy_push_state(glob_re); STRBUF_START(); return T_BANGTWID;
@@ -161,7 +161,7 @@ tally_newlines(
         "\\}"           return T_RBRACE;
 }
 
-<str_double>{
+<str_float>{
 	\\n		STRBUF_ADD("\n", 1);
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);

@@ -536,7 +536,7 @@ atomic_initial_value(L_type *type) {
     switch (type->kind) {
     case L_TYPE_INT:
         return Tcl_NewIntObj(0);
-    case L_TYPE_DOUBLE:
+    case L_TYPE_FLOAT:
         return Tcl_NewDoubleObj(0.0);
     case L_TYPE_STRING:
         return Tcl_NewStringObj("", 0);
@@ -853,7 +853,7 @@ L_compile_expressions(L_expression *expr)
         break;
     case L_EXPRESSION_INTEGER:
     case L_EXPRESSION_STRING:
-    case L_EXPRESSION_DOUBLE_:
+    case L_EXPRESSION_FLOTE:
         L_PUSH_OBJ(literal_to_TclObj(expr));
         break;
     case L_EXPRESSION_INTERPOLATED_STRING:
@@ -881,8 +881,8 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
     case L_EXPRESSION_STRING:
         obj = Tcl_NewStringObj(expr->u.string, strlen(expr->u.string));
         break;
-    case L_EXPRESSION_DOUBLE_:
-        obj = Tcl_NewDoubleObj(expr->u.dbl);
+    case L_EXPRESSION_FLOTE:
+        obj = Tcl_NewDoubleObj(expr->u.flote);
         break;
     case L_EXPRESSION_UNARY:
         if (expr->op == T_PLUS) {
@@ -927,8 +927,10 @@ void L_compile_unop(L_expression *expr)
         L_compile_expressions(expr->a);
         TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
         break;
-    case T_DOUBLE_CAST:
-        L_bomb("casts to double aren't implemented yet");
+    case T_FLOAT_CAST:
+        L_PUSH_STR("::tcl::mathfunc::double");
+        L_compile_expressions(expr->a);
+        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
         break;
     case T_BANG:
         L_compile_expressions(expr->a);

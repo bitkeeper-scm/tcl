@@ -58,8 +58,8 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
-%token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_DOUBLE_LITERAL
-%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_DOUBLE
+%token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
+%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 
 %left T_OROR
 %left T_ANDAND
@@ -72,7 +72,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT ADDRESS
-%right T_STRING_CAST T_TCL_CAST T_DOUBLE_CAST T_INT_CAST
+%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST
 %left T_DOT
 
 %%
@@ -281,9 +281,9 @@ expr:
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_TCL_CAST, $2,
                                    NULL, NULL, NULL, NULL);
         }
-        | T_DOUBLE_CAST expr
+        | T_FLOAT_CAST expr
         {
-                $$ = mk_expression(L_EXPRESSION_UNARY, T_DOUBLE_CAST, $2,
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_FLOAT_CAST, $2,
                                    NULL, NULL, NULL, NULL);
         }
         | T_INT_CAST expr
@@ -368,7 +368,7 @@ expr:
 	| expr T_BITXOR expr    { MK_BINOP_NODE($$, T_BITXOR, $1, $3); }
         | string_literal        { REVERSE(L_expression, c, $1); $$ = $1; }
         | T_INT_LITERAL
-        | T_DOUBLE_LITERAL
+        | T_FLOAT_LITERAL
 	| lvalue                { REVERSE(L_expression, indices, $1); $$ = $1; }
         | T_ID "(" argument_expression_list ")"         
         { 
@@ -509,7 +509,7 @@ declarator:
 type_specifier:
 	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE); }
 	| T_INT         { $$ = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE); }
-	| T_DOUBLE      { $$ = mk_type(L_TYPE_DOUBLE, NULL, NULL, NULL, NULL, FALSE); }
+	| T_FLOAT       { $$ = mk_type(L_TYPE_FLOAT, NULL, NULL, NULL, NULL, FALSE); }
 	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL, FALSE); }
 	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE); }
 	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL, FALSE); }

@@ -105,9 +105,9 @@ void L_start_lexer();
         ((L_expression *)var)->u.integer = int;\
 } while(0);
 
-#define MK_DOUBLE_NODE(var,double) do {\
-        var = mk_expression(L_EXPRESSION_DOUBLE_, -1, NULL, NULL, NULL, NULL, NULL);\
-        ((L_expression *)var)->u.dbl = double;\
+#define MK_FLOAT_NODE(var,float) do {\
+        var = mk_expression(L_EXPRESSION_FLOTE, -1, NULL, NULL, NULL, NULL, NULL);\
+        ((L_expression *)var)->u.flote = float;\
 } while(0);
 
 #define MK_BINOP_NODE(var,op,e1,e2) do {\

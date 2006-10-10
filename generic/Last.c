@@ -14,7 +14,7 @@ char *L_expression_tostr[14] = {
 	"L_EXPRESSION_POST",
 	"L_EXPRESSION_INTEGER",
 	"L_EXPRESSION_STRING",
-	"L_EXPRESSION_DOUBLE_",
+	"L_EXPRESSION_FLOTE",
 	"L_EXPRESSION_VARIABLE",
 	"L_EXPRESSION_FUNCALL",
 	"L_EXPRESSION_ARRAY_INDEX",
@@ -35,7 +35,7 @@ char *L_statement_tostr[6] = {
 char *L_type_tostr[9] = {
 	"L_TYPE_INT",
 	"L_TYPE_STRING",
-	"L_TYPE_DOUBLE",
+	"L_TYPE_FLOAT",
 	"L_TYPE_HASH",
 	"L_TYPE_POLY",
 	"L_TYPE_VAR",

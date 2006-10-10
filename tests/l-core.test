@@ -203,7 +203,7 @@ void fun3() { }
 int fun4() { }
 fun5(int foo) { }
 hash fun6(hash foo, hash bar[], hash baz[23]) { }
-void fun7(int foo, double bar, hash baz, string quux, poly quuux, var quuuux) { }
+void fun7(int foo, float bar, hash baz, string quux, poly quuux, var quuuux) { }
 void fun8() {
         int foo, bar[], baz[84][42][1];
         string foo1[19], mani[], padmi = "hum";
@@ -412,7 +412,7 @@ test syntax-1.1 {structure syntax} -body {
 struct syntax_1_1_point {
         int x, y;
         string label;
-        double froboz[128];
+        float froboz[128];
         struct { int m, n; } sub_struct;
 };
 
@@ -623,14 +623,33 @@ op_1_7(){
 op_1_7
 } -output "0\n2\n9\n3\n9\n1\n"
 
-test cast-1.0 { Casts to integer } -body {
+test cast-1.0 { Casts to integer and float } -body {
 #lang(L)
 cast_1_0() {
-    printf("%d\n", (int)(1.9));
+    printf("%d\n", (int)1.9);
+    printf("%f\n", (float)5);
 }
 #lang(tcl)
 cast_1_0
-} -output "1\n"
+} -output "1\n5.000000\n"
+
+test cast-1.1 { Invalid cast from string to int } -body {
+#lang(L)
+cast_1_1() {
+    printf("%d\n", (int)"asdf");
+}
+#lang(tcl)
+cast_1_1
+} -returnCodes {error} -result {expected number but got "asdf"}
+
+test cast-1.2 { Invalid cast from string to float } -body {
+#lang(L)
+cast_1_2() {
+    printf("%f\n", (float)"asdf");
+}
+#lang(tcl)
+cast_1_2
+} -returnCodes {error} -result {expected floating-point number but got "asdf"}
 
 test array-1.0 { Single-dimensional array creation and indexing } -body {
 #lang(L)

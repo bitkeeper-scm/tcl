@@ -35,7 +35,7 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_POST,
 	L_EXPRESSION_INTEGER,
 	L_EXPRESSION_STRING,
-	L_EXPRESSION_DOUBLE_,
+	L_EXPRESSION_FLOTE,
 	L_EXPRESSION_VARIABLE,
 	L_EXPRESSION_FUNCALL,
 	L_EXPRESSION_ARRAY_INDEX,
@@ -58,7 +58,7 @@ extern char *L_statement_tostr[6];
 typedef enum L_type_kind {
 	L_TYPE_INT,
 	L_TYPE_STRING,
-	L_TYPE_DOUBLE,
+	L_TYPE_FLOAT,
 	L_TYPE_HASH,
 	L_TYPE_POLY,
 	L_TYPE_VAR,
@@ -123,7 +123,7 @@ struct L_expression {
 	union {
 		int integer;
 		char *string;
-		double dbl;
+		double flote;
 	} u;
 };
 
