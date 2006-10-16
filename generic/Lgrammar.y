@@ -562,7 +562,7 @@ struct_declarator_list:
 	;
 
 initializer:
-          expr          { $$ = mk_initializer($1, NULL, NULL); }
+          expr          { $$ = mk_initializer(NULL, $1, NULL, NULL); }
         | "{" initializer_list "}"
         {
                 REVERSE(L_initializer, next, $2);
@@ -581,12 +581,9 @@ initializer_list:
 
 initializer_list_element:
           initializer
+        | expr "=>" initializer
         {
-                $$ = mk_initializer($1, NULL, NULL);
-        }
-        | initializer "=>" initializer
-        {
-                $$ = mk_initializer($1, $3, NULL);
+                $$ = mk_initializer($1, NULL, $3, NULL);
         }
         ;
 

@@ -183,13 +183,14 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	return block;
 }
 
-L_initializer *mk_initializer(L_expression *value,L_expression *key,L_initializer *next) 
+L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initializer *next_dim,L_initializer *next) 
 {
 	L_initializer *initializer;
 
 	initializer = (L_initializer *)ckalloc(sizeof(L_initializer));
-	initializer->value = value;
 	initializer->key = key;
+	initializer->value = value;
+	initializer->next_dim = next_dim;
 	initializer->next = next;
 	((L_ast_node *)initializer)->_trace = ast_trace_root;
 	ast_trace_root = (void *)initializer;

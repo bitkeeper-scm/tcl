@@ -66,6 +66,7 @@ static L_symbol *L_get_local_symbol(L_expression *name, int error_p);
 static void compile_initializer(L_initializer *init, L_type *type);
 static void compile_blank_initializer(L_type *type);
 static char *blank_initializer_code(L_type *type, int *needs_eval);
+static int LDumpAstNodes(L_ast_node *node, void *data, int order);
 
 
 /* we keep track of each AST node we allocate and free them all at once */
@@ -95,47 +96,6 @@ L_PragmaObjCmd(
     }
     if (ast == NULL) return TCL_OK;	/* empty script */
     return LCompileScript(interp, stringPtr, stringLen, NULL, ast);
-}
-
-/*
- * Example of an AST dumper... needs work
- */
-int LCountNodes(void *node, void *data, int order)
-{
-    int i;
-    int *indent = (int *)data;
-
-    if (indent == NULL) {
-	fprintf(stderr, "FOO!\n");
-	return L_WALK_ERROR;
-    }
-    if (order & L_WALK_PRE) {
-	for (i = 0; i < (*indent); i++) fprintf(stderr, " ");
-	fprintf(stderr, "%s: ",
-	  L_node_type_tostr[((L_ast_node *)node)->type]);
-	if (((L_ast_node *)node)->type == L_NODE_EXPRESSION) {
-	    L_expression *e = (L_expression *)node;
-	    switch (e->kind) {
-		case L_EXPRESSION_STRING:
-			fprintf(stderr, "%s\n", e->u.string);
-			break;
-		case L_EXPRESSION_INTEGER:
-			fprintf(stderr, "%d\n", e->u.integer);
-			break;
-		default:
-			fprintf(stderr, "\n");
-			break;
-	    }
-	} else {
-	    fprintf(stderr, "\n");
-	}
-	(*indent)++;
-    }
-    if (order & L_WALK_POST) {
-	(*indent)--;
-    }
-
-    return L_WALK_CONTINUE;
 }
 
 /* If TCL encounters an L pragma while compiling TCL code, for example when
@@ -177,10 +137,6 @@ LCompilePragmaCmd(
 	/* empty script, which is fine */
 	return TCL_OK;
     }
-    if (getenv("L_DUMP_AST")) {
-	int data = 0;
-	L_walk_ast(ast, L_WALK_PRE, LCountNodes, &data);
-    }
     post_compile_action = 0;
     retval = LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
                             envPtr, ast);
@@ -218,6 +174,10 @@ LParseScript(
     L_line_number = 1;
     L_errors = NULL;
     L_parse();
+    if (getenv("L_DUMP_AST") && L_current_ast) {
+        L_walk_ast(L_current_ast, L_WALK_PRE, LDumpAstNodes, NULL);
+        fprintf(stderr, "\n");
+    }
     if (L_ast == NULL) {
         L_free_ast(L_current_ast);
     } else {
@@ -1962,6 +1922,111 @@ L_errorf(void *node, const char *format, ...)
     TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf,
                  node ? ((L_ast_node *)node)->line_no : -1);
     ckfree(buf);
+}
+
+/* /\* */
+/*  * Example of an AST dumper... needs work */
+/*  *\/ */
+/* int LCountNodes(void *node, void *data, int order) */
+/* { */
+/*     int i; */
+/*     int *indent = (int *)data; */
+
+/*     if (indent == NULL) { */
+/* 	fprintf(stderr, "FOO!\n"); */
+/* 	return L_WALK_ERROR; */
+/*     } */
+/*     if (order & L_WALK_PRE) { */
+/* 	for (i = 0; i < (*indent); i++) fprintf(stderr, " "); */
+/* 	fprintf(stderr, "%s: ", */
+/* 	  L_node_type_tostr[((L_ast_node *)node)->type]); */
+/* 	if (((L_ast_node *)node)->type == L_NODE_EXPRESSION) { */
+/* 	    L_expression *e = (L_expression *)node; */
+/* 	    switch (e->kind) { */
+/* 		case L_EXPRESSION_STRING: */
+/* 			fprintf(stderr, "%s\n", e->u.string); */
+/* 			break; */
+/* 		case L_EXPRESSION_INTEGER: */
+/* 			fprintf(stderr, "%d\n", e->u.integer); */
+/* 			break; */
+/* 		default: */
+/* 			fprintf(stderr, "\n"); */
+/* 			break; */
+/* 	    } */
+/* 	} else { */
+/* 	    fprintf(stderr, "\n"); */
+/* 	} */
+/* 	(*indent)++; */
+/*     } */
+/*     if (order & L_WALK_POST) { */
+/* 	(*indent)--; */
+/*     } */
+
+/*     return L_WALK_CONTINUE; */
+/* } */
+
+/* An AST walker that dumps an AST with parens around it. */
+static int
+LDumpAstNodes(L_ast_node *node, void *data, int order)
+{
+    if (order & L_WALK_PRE) {
+        fprintf(stderr, "(%s", L_node_type_tostr[node->type]);
+        switch (node->type) {
+        case L_NODE_STATEMENT:
+            fprintf(stderr, " :kind %s",
+                    L_statement_tostr[((L_statement *)node)->kind]);
+            break;
+        case L_NODE_TYPE:
+            fprintf(stderr, " :kind %s",
+                    L_type_tostr[((L_type *)node)->kind]);
+            break;
+        case L_NODE_LOOP:
+            fprintf(stderr, " :kind %s",
+                    L_loop_tostr[((L_loop *)node)->kind]);
+            break;
+        case L_NODE_TOPLEVEL_STATEMENT:
+            fprintf(stderr, " :kind %s",
+                    L_toplevel_statement_tostr[((L_toplevel_statement *)
+                                                node)->kind]);
+            break;
+        case L_NODE_FUNCTION_DECLARATION:
+            break;
+        case L_NODE_VARIABLE_DECLARATION:
+            break;
+        case L_NODE_BLOCK:
+            break;
+        case L_NODE_INITIALIZER:
+            break;
+        case L_NODE_EXPRESSION: {
+            L_expression *expr = (L_expression *)node;
+            fprintf(stderr, " :kind %s", L_expression_tostr[expr->kind]);
+            switch (expr->kind) {
+            case L_EXPRESSION_INTEGER:
+                fprintf(stderr, " :value %d", expr->u.integer);
+                break;
+            case L_EXPRESSION_STRING:
+                /* XXX if there's a double-quote in the string, escape it by
+                   hand */
+                fprintf(stderr, " :value \"%s\"", expr->u.string);
+                break;
+            case L_EXPRESSION_FLOTE:
+                fprintf(stderr, " :value %e", expr->u.flote);
+                break;
+            default:
+                break;
+            }
+        }
+            break;
+        case L_NODE_IF_UNLESS:
+            break;
+        default:
+            L_bomb("undefined node type in LDumpAstNodes");
+        }
+    }
+    if (order & L_WALK_POST) {
+        fprintf(stderr, ")");
+    }
+    return L_WALK_CONTINUE;
 }
 
 static void 
