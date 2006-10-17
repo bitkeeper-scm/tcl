@@ -1523,9 +1523,13 @@ L_write_struct_index_chunk(
         case T_EQUALS:
             type = L_compile_index(type, index);
             L_compile_expressions(expr->b); /* rval */
+            rvalVar = store_in_tempvar(FALSE);
             L_LOAD_SCALAR(varIndex);
             TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
             L_STORE_SCALAR(varIndex);
+            /* leave the rvalue, not the whole list on the stack */
+            TclEmitOpcode(INST_POP, lframe->envPtr);
+            L_LOAD_SCALAR(rvalVar);
             break;
         /* thinking this might be separable if I do it right */
         case T_PLUSPLUS:
@@ -1547,9 +1551,13 @@ L_write_struct_index_chunk(
             L_LOAD_SCALAR(varIndex);
             TclEmitOpcode(INST_LSET_LIST, lframe->envPtr);
             L_STORE_SCALAR(varIndex);
+            /* finally, leave a value on the stack that's appropriate for the
+               expression type */
+            TclEmitOpcode(INST_POP, lframe->envPtr);
             if (expr->kind == L_EXPRESSION_POST) {
-                TclEmitOpcode(INST_POP, lframe->envPtr);
                 L_LOAD_SCALAR(lvalVar);
+            } else {
+                L_LOAD_SCALAR(rvalVar);
             }
             break;
         default:

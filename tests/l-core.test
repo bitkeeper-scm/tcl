@@ -685,7 +685,7 @@ array_1_0
 
 test array-1.2 {increment and decrement on array elements} -body {
 #lang(L)
-struct_1_3() {
+array_1_3() {
   int foo[5];
   int i;
 
@@ -715,14 +715,14 @@ struct_1_3() {
   puts((tcl)foo);
 }
 #lang(tcl)
-struct_1_3
+array_1_3
 } -output "0 0 0 5 0
 pre:
 5
 6
-0 0 0 7 0
+7
 6
-0 0 0 5 0
+5
 post:
 5
 6

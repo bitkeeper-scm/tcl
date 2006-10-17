@@ -31,6 +31,23 @@ empty_1_1() {
 empty_1_1
 } 
 
+test values-1.0 {the values of struct increment and assignment} -body {
+#lang(L)
+struct values_1_0 {
+  int clicks;
+  string value;
+};
+
+values_1_0() {
+  struct values_1_0 main_entry;
+  puts(main_entry.clicks = 0);
+  puts(++main_entry.clicks);
+}
+#lang(tcl)
+values_1_0
+} -output "0\n1\n"
+
+
 test multi-dimensional-1.0 {move[state][read_symbol] was being evaluated as
 move[state][state[read_symbol]][read_symbol], or thereabouts, because the AST
 was built in an ambiguous way.} -body {
