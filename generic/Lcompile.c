@@ -67,7 +67,8 @@ static void compile_initializer(L_initializer *init, L_type *type);
 static void compile_blank_initializer(L_type *type);
 static char *blank_initializer_code(L_type *type, int *needs_eval);
 static int LDumpAstNodes(L_ast_node *node, void *data, int order);
-
+static int push_parameters(L_expression *parameters);
+static void L_push_pointer(L_expression *lval);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -124,17 +125,18 @@ LCompilePragmaCmd(
     }
     // advance to the second token
     lTokenPtr = parsePtr->tokenPtr + parsePtr->tokenPtr->numComponents + 1;
-    if (lTokenPtr->size == 0) {
-	/* if script is empty, don't even bother */
-	return TCL_OK;
-    }
     // the first component of the second token contains the code
     if (LParseScript(interp, lTokenPtr[1].start,
                      lTokenPtr[1].size, &ast) != TCL_OK) {
         return TCL_ERROR;
     }
     if (ast == NULL) {
-	/* empty script, which is fine */
+	/* empty script, which is fine, but Tcl expects us to leave a value on
+           the stack. */
+        L_trace("empty script");
+        L_frame_push(interp, envPtr);
+        L_PUSH_OBJ(Tcl_NewObj());
+        L_frame_push(interp, envPtr);
 	return TCL_OK;
     }
     post_compile_action = 0;
@@ -331,7 +333,8 @@ L_compile_struct_decl(L_type *decl)
         L_errorf(decl, "Untagged struct types are not supported yet");
         return;
     }
-    hPtr = Tcl_CreateHashEntry(L_struct_types, decl->struct_tag->u.string, &freshp);
+    hPtr = Tcl_CreateHashEntry(L_struct_types, decl->struct_tag->u.string,
+                               &freshp);
     Tcl_SetHashValue(hPtr, decl);
     L_trace("Declared struct type %s", decl->struct_tag->u.string);
 }
@@ -428,7 +431,8 @@ L_compile_variable_decls(L_variable_declaration *var)
     if (var->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(var->type);
     }
-    localIndex = TclFindCompiledLocal(var->name->u.string, strlen(var->name->u.string),
+    localIndex = TclFindCompiledLocal(var->name->u.string,
+                                      strlen(var->name->u.string),
                                       1, 0, lframe->envPtr->procPtr);
     if ((symbol = L_get_symbol(var->name, FALSE)) &&
         !global_symbol_p(symbol))
@@ -768,38 +772,15 @@ type_passed_by_name_p(L_type *type)
 void
 L_compile_expressions(L_expression *expr)
 {
-    int i = 0;
+    int param_count;
 
     if (!expr) return;
-/*     L_trace("Compiling an expression of type %s", */
-/*             L_expression_tostr[expr->kind]); */
     switch (expr->kind) {
-    case L_EXPRESSION_FUNCALL: {
-        L_expression *param;
+    case L_EXPRESSION_FUNCALL:
         L_PUSH_STR(expr->a->u.string);
-        /* count the parameters stack them  */
-        for (i = 0, param = expr->b; param; param = param->next, i++) {
-            L_symbol *var = NULL;
-
-            if ((param->kind == L_EXPRESSION_VARIABLE) && !param->indices) {
-                var = L_get_symbol(param->a, FALSE);
-            }
-            /* check if the parameter needs to be passed by name */
-            if (var && type_passed_by_name_p(var->type)) {
-                L_PUSH_STR(var->name);
-            } else {
-                /* compile the parameter for its value, but just the one */
-                L_expression *next = param->next;
-                param->next = NULL;
-                L_compile_expressions(param);
-                param->next = next;
-            }
-        }
-/*         L_compile_expressions(expr->b); */
-/*         for (tmp = expr->b; tmp; tmp = tmp->next, i++); */
-        TclEmitInstInt4(INST_INVOKE_STK4, i+1, lframe->envPtr);
+        param_count = push_parameters(expr->b);
+        TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
         break;
-    }
     case L_EXPRESSION_PRE:
     case L_EXPRESSION_POST:
         L_compile_incdec(expr);
@@ -826,6 +807,84 @@ L_compile_expressions(L_expression *expr)
         L_bomb("Unknown expression type %d", expr->kind);
     }
     L_compile_expressions(expr->next);
+}
+
+/* Push the parameters of a function call on the evaluation stack and return
+   the number of parameters pushed.  This is complicated because we need to
+   make arrays and hashtables be implicit references, and check for
+   "-foovariable, &foo", in which case we make an L pointer for foo. */
+static int
+push_parameters(L_expression *parameters)
+{
+    L_expression *p;
+    int i = 0;
+    int widget_flag = FALSE;
+
+    /* push the function's name */
+
+    /* count the parameters stack them, checking for implicit references
+       and L pointers. */
+    for (i = 0, p = parameters; p; p = p->next, i++)
+    {
+        L_symbol *var = NULL;
+
+        if ((p->kind == L_EXPRESSION_VARIABLE) && !p->indices) {
+            var = L_get_symbol(p->a, FALSE);
+        }
+        /* if the previous parameter was -foovariable and there's an &,
+           then we need to make an L pointer */
+        if (widget_flag && (p->kind == L_EXPRESSION_UNARY) &&
+            (p->op == T_BITAND))
+        {
+            L_trace("making an L pointer for %s\n", p->a->a->u.string);
+            /* L_walk_ast(p, L_WALK_PRE, LDumpAstNodes, NULL); */
+            //L_push_pointer(p->a);
+            L_PUSH_STR("asdf");
+        } else if (var && type_passed_by_name_p(var->type)) {
+            /* the parameter needs to be passed by name */
+            L_PUSH_STR(var->name);
+        } else {
+            /* compile just one parameter for its value */
+            L_expression *next = p->next;
+            p->next = NULL;
+            L_compile_expressions(p);
+            p->next = next;
+        }
+        /* if we see a parameter that looks like -foovariable, we set the
+           widget flag to true so we know that the next parameter might be an
+           L pointer. */
+        if (p->kind == L_EXPRESSION_STRING) {
+            widget_flag =
+                (strlen(p->u.string) >= sizeof("-variable")) &&
+                (p->u.string[0] == '-') &&
+                (0 == strcmp("variable",
+                             p->u.string + 1 +
+                             (strlen(p->u.string) - sizeof("variable"))));
+        }
+    }
+    return i;
+}
+
+static void
+L_push_pointer(L_expression *lval)
+{
+    L_PUSH_STR("pointer");
+    L_PUSH_STR("new");
+    L_PUSH_STR(lval->a->u.string);
+    if (!lval->indices) {
+        TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+    } else {
+        L_symbol *var;
+        if (lval->indices->indices) {
+            L_errorf(lval, "more than one index is not supported yet");
+        }
+        if (lval->indices->kind== L_EXPRESSION_HASH_INDEX) {
+            L_errorf(lval, "hash keys are not yet supported by pointers");
+        }
+        if (!(var = L_get_symbol(lval->a, TRUE))) return;
+        L_compile_index(var->type, lval->indices);
+        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+    }
 }
 
 /* Create a Tcl Obj containing the value of a constant literal L AST
