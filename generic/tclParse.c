@@ -243,6 +243,8 @@ ParseLang(
 	return TCL_ERROR;
     }
     end_of_first_line = strchr(p, '\n') + 1;
+    /* in case there's no \n, use the end of the string instead */
+    if (end_of_first_line == 1) end_of_first_line = src + numBytes;
     parsePtr->commandStart = p;
     end = strstr(end_of_first_line, "#lang(");
     if (end == NULL) {
