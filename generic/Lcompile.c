@@ -73,10 +73,10 @@ static void L_push_pointer(L_expression *lval);
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
 
-/* If TCL encounters an L pragma while evaluating code directly, e.g., from an
-   upvar, it will enter the L compiler via L_PragmaObjCmd(). */
+/* If TCL encounters an lang(L) directive while evaluating code directly,
+ * e.g., from an upvar, it will enter the L compiler via L_LObjCmd(). */
 int
-L_PragmaObjCmd(
+Tcl_LObjCmd(
     ClientData clientData,
     Tcl_Interp *interp,
     int objc,
@@ -86,9 +86,9 @@ L_PragmaObjCmd(
     char *stringPtr;
     L_ast_node *ast;
 
-    L_trace("Entering L compiler via L_PragmaObjCmd");
+    L_trace("Entering L compiler via Tcl_LObjCmd");
     if (objc != 2) {
-        L_bomb("Assertion failed in L_PragmaObjCmd: we expected 1 "
+        L_bomb("Assertion failed in Tcl_LObjCmd: we expected 1 "
                "argument but got %d.", objc - 1);
     }
     stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
@@ -101,15 +101,15 @@ L_PragmaObjCmd(
 
 /* If TCL encounters an L pragma while compiling TCL code, for example when
    processing an entire file in TclCompileScript(), it will enter L via
-   LCompilePragmaCmd().  In that case, we get a pointer to the toplevel
+   TclCompileLCmd().  In that case, we get a pointer to the toplevel
    compilation environment, so we have the option of emitting global code.
 
    If there is an error during L compilation, we return TCL_ERROR.  However,
    the error only causes TCL to defer evaluation of the L pragma until
-   runtime, at which point L_PragmaObjCmd() will recompile the L code and hit
+   runtime, at which point Tcl_LObjCmd() will recompile the L code and hit
    the same error.  */
 int
-LCompilePragmaCmd(
+TclCompileLCmd(
     Tcl_Interp *interp,
     Tcl_Parse *parsePtr,
     CompileEnv *envPtr)
@@ -118,9 +118,9 @@ LCompilePragmaCmd(
     Tcl_Token *lTokenPtr;
     L_ast_node *ast;
 
-    L_trace("Entering L compiler via LCompilePragmaCmd");
+    L_trace("Entering L compiler via TclCompileLCmd");
     if (parsePtr->numWords != 2) {
-        L_bomb("Assertion failed in LCompilePragmaCmd: we expected 2 "
+        L_bomb("Assertion failed in TclCompileLCmd: we expected 2 "
                "words but got %d.", parsePtr->numWords);
     }
     // advance to the second token
