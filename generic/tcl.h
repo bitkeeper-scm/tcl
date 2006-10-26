@@ -39,7 +39,7 @@ extern "C" {
  * When version numbers change here, must also go into the following files and
  * update the version numbers:
  *
- * library/init.tcl	(only if Major.minor changes, not patchlevel) 1 LOC
+ * library/init.tcl	(1 LOC patch)
  * unix/configure.in	(2 LOC Major, 2 LOC minor, 1 LOC patch)
  * win/configure.in	(as above)
  * win/tcl.m4		(not patchlevel)
@@ -63,10 +63,10 @@ extern "C" {
 #define TCL_MAJOR_VERSION   8
 #define TCL_MINOR_VERSION   5
 #define TCL_RELEASE_LEVEL   TCL_ALPHA_RELEASE
-#define TCL_RELEASE_SERIAL  5
+#define TCL_RELEASE_SERIAL  6
 
 #define TCL_VERSION	    "8.5"
-#define TCL_PATCH_LEVEL	    "8.5a5"
+#define TCL_PATCH_LEVEL	    "8.5a6"
 
 /*
  * The following definitions set up the proper options for Windows compilers.
@@ -1062,15 +1062,18 @@ typedef struct Tcl_DString {
  *	TCL_EVAL_GLOBAL:	Execute script in global namespace
  *	TCL_EVAL_DIRECT:	Do not compile this script
  *	TCL_EVAL_INVOKE:	Magical Tcl_EvalObjv mode for aliases/ensembles
- *				o Run in global namespace
+ *				o Run in iPtr->lookupNsPtr or global namespace
  *				o Cut out of error traces
  *				o Don't reset the flags controlling ensemble
  *				  error message rewriting.
+ *      TCL_EVAL_NOREWRITE      Do not update the interp's last call info;
+ *                              used by the ensemble rewrite machinery 
  */
 #define TCL_NO_EVAL		0x10000
 #define TCL_EVAL_GLOBAL		0x20000
 #define TCL_EVAL_DIRECT		0x40000
 #define TCL_EVAL_INVOKE		0x80000
+#define TCL_EVAL_NOREWRITE	0x100000
 
 /*
  * Special freeProc values that may be passed to Tcl_SetResult (see the man
@@ -1394,7 +1397,9 @@ typedef struct Tcl_HashSearch {
  * Macro to use new extended version of Tcl_InitHashTable.
  */
 #   define Tcl_InitHashTable(tablePtr, keyType) \
-	Tcl_InitHashTableEx(tablePtr, keyType, NULL)
+	Tcl_InitHashTableEx((tablePtr), (keyType), NULL)
+#   define Tcl_FindHashEntry(tablePtr, key) \
+        Tcl_CreateHashEntry((tablePtr), (key), NULL)
 #endif /* TCL_PRESERVE_BINARY_COMPATABILITY */
 
 /*

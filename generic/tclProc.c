@@ -29,7 +29,7 @@ static void		InitCompiledLocals(Tcl_Interp *interp,
 			    Var *varPtr, Namespace *nsPtr);
 static int		ObjInterpProcEx(ClientData clientData,
 			    register Tcl_Interp *interp, int objc,
-			    Tcl_Obj *CONST objv[], int skip);
+			    Tcl_Obj *CONST objv[], int isLambda);
 static void		ProcBodyDup(Tcl_Obj *srcPtr, Tcl_Obj *dupPtr);
 static void		ProcBodyFree(Tcl_Obj *objPtr);
 static int		ProcessProcResultCode(Tcl_Interp *interp,
@@ -604,7 +604,7 @@ TclGetFrame(
      */
 
     result = 1;
-    curLevel = (iPtr->varFramePtr == NULL) ? 0 : iPtr->varFramePtr->level;
+    curLevel = iPtr->varFramePtr->level;
     if (*name== '#') {
 	if (Tcl_GetInt(interp, name+1, &level) != TCL_OK || level < 0) {
 	    goto levelError;
@@ -623,19 +623,16 @@ TclGetFrame(
      * Figure out which frame to use, and return it to the caller.
      */
 
-    if (level == 0) {
-	framePtr = NULL;
-    } else {
-	for (framePtr = iPtr->varFramePtr; framePtr != NULL;
-		framePtr = framePtr->callerVarPtr) {
-	    if (framePtr->level == level) {
-		break;
-	    }
-	}
-	if (framePtr == NULL) {
-	    goto levelError;
+    for (framePtr = iPtr->varFramePtr; framePtr != NULL;
+	 framePtr = framePtr->callerVarPtr) {
+	if (framePtr->level == level) {
+	    break;
 	}
     }
+    if (framePtr == NULL) {
+	goto levelError;
+    }
+    
     *framePtrPtr = framePtr;
     return result;
 
@@ -687,7 +684,7 @@ TclObjGetFrame(
      */
 
     result = 1;
-    curLevel = (iPtr->varFramePtr == NULL) ? 0 : iPtr->varFramePtr->level;
+    curLevel = iPtr->varFramePtr->level;
     if (objPtr->typePtr == &levelReferenceType) {
 	if ((int) objPtr->internalRep.twoPtrValue.ptr1) {
 	    level = curLevel - (int) objPtr->internalRep.twoPtrValue.ptr2;
@@ -753,18 +750,14 @@ TclObjGetFrame(
      * Figure out which frame to use, and return it to the caller.
      */
 
-    if (level == 0) {
-	framePtr = NULL;
-    } else {
-	for (framePtr = iPtr->varFramePtr; framePtr != NULL;
-		framePtr = framePtr->callerVarPtr) {
-	    if (framePtr->level == level) {
-		break;
-	    }
+    for (framePtr = iPtr->varFramePtr; framePtr != NULL;
+	 framePtr = framePtr->callerVarPtr) {
+	if (framePtr->level == level) {
+	    break;
 	}
-	if (framePtr == NULL) {
-	    goto levelError;
-	}
+    }
+    if (framePtr == NULL) {
+	goto levelError;
     }
     *framePtrPtr = framePtr;
     return result;
@@ -1143,7 +1136,7 @@ TclObjInterpProc(
     Tcl_Obj *CONST objv[])	/* Argument value objects. */
 {
 
-    return ObjInterpProcEx(clientData, interp, objc, objv, /*skip*/ 1);
+    return ObjInterpProcEx(clientData, interp, objc, objv, /*isLambda*/ 0);
 }
 	
 static int
@@ -1155,8 +1148,8 @@ ObjInterpProcEx(
     int objc,			/* Count of number of arguments to this
 				 * procedure. */
     Tcl_Obj *CONST objv[],	/* Argument value objects. */
-    int skip)			/* Number of initial arguments to be skipped,
-				 * ie, words in the "command name" */ 
+    int isLambda)		/* 1 if this is a call by ApplyObjCmd: it
+				 * needs special rules for error msg */ 
 {
     Proc *procPtr = (Proc *) clientData;
     Namespace *nsPtr = procPtr->cmdPtr->nsPtr;
@@ -1205,9 +1198,6 @@ ObjInterpProcEx(
 	return result;
     }
 
-
-    framePtr->objc = objc;
-    framePtr->objv = objv;	/* ref counts for args are incremented below */
     framePtr->procPtr = procPtr;
 
     /*
@@ -1229,8 +1219,8 @@ ObjInterpProcEx(
      */
 
     numArgs = procPtr->numArgs;
-    argCt = objc-skip; /* set it to the number of args to the proc */
-    argObjs = &objv[skip];
+    argCt = objc-1; /* set it to the number of args to the proc */
+    argObjs = &objv[1];
     varPtr = framePtr->compiledLocals;
     localPtr = procPtr->firstLocalPtr;
     if (numArgs == 0) {
@@ -1326,7 +1316,7 @@ ObjInterpProcEx(
 #ifdef AVOID_HACKS_FOR_ITCL
 	desiredObjs[0] = objv[0];
 #else
-	desiredObjs[0] = Tcl_NewListObj(skip, objv);
+	desiredObjs[0] = (isLambda? objv[0]: Tcl_NewListObj(1, objv));
 #endif /* AVOID_HACKS_FOR_ITCL */
 
 	localPtr = procPtr->firstLocalPtr;
@@ -1347,15 +1337,15 @@ ObjInterpProcEx(
 	Tcl_WrongNumArgs(interp, numArgs+1, desiredObjs, NULL);
 	result = TCL_ERROR;
 
-#ifdef AVOID_HACKS_FOR_ITCL
+#ifndef AVOID_HACKS_FOR_ITCL
+	if (!isLambda) {
+	    TclDecrRefCount(desiredObjs[0]);
+	}
+#endif /* AVOID_HACKS_FOR_ITCL */
+
 	for (i=1 ; i<=numArgs ; i++) {
 	    TclDecrRefCount(desiredObjs[i]);
 	}
-#else
-	for (i=0 ; i<=numArgs ; i++) {
-	    TclDecrRefCount(desiredObjs[i]);
-	}
-#endif /* AVOID_HACKS_FOR_ITCL */
 	ckfree((char *) desiredObjs);
 	goto procDone;
     }
@@ -1407,21 +1397,25 @@ ObjInterpProcEx(
     }
 
     if (result != TCL_OK) {
-	if (skip == 1) {
-	    result = ProcessProcResultCode(interp, procName, nameLen, result);
-	} else {
+	if (isLambda) {
 	    /*
 	     * Use a 'procName' that contains the first skip elements of objv
 	     * for error reporting. This insures that we do not see just
 	     * 'apply', but also the lambda expression that caused the error.
+	     *
+	     * NASTY HACK: looks one object back in objv - it was skipped by
+	     * ApplyObjCmd. Temporary solution, the whole thing needs
+	     * refactoring. 
 	     */
 	     
 	    Tcl_Obj *namePtr;
 
-	    namePtr = Tcl_NewListObj(skip, objv);
+	    namePtr = Tcl_NewListObj(2, objv-1);
 	    procName = Tcl_GetStringFromObj(namePtr, &nameLen);
 	    result = ProcessProcResultCode(interp, procName, nameLen, result);
 	    TclDecrRefCount(namePtr);
+	} else {
+	    result = ProcessProcResultCode(interp, procName, nameLen, result);	    
 	}
     }
 
@@ -2089,6 +2083,7 @@ Tcl_ApplyObjCmd(
     int result;
     Command cmd;
     Tcl_Namespace *nsPtr;
+    int isRootEnsemble;
 
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "lambdaExpr ?arg1 arg2 ...?");
@@ -2154,7 +2149,23 @@ Tcl_ApplyObjCmd(
     
     cmd.nsPtr = (Namespace *) nsPtr;
 
-    return ObjInterpProcEx((ClientData) procPtr, interp, objc, objv, 2);
+    isRootEnsemble = (iPtr->ensembleRewrite.sourceObjs == NULL);
+    if (isRootEnsemble) {
+	iPtr->ensembleRewrite.sourceObjs = objv;
+	iPtr->ensembleRewrite.numRemovedObjs = 1;
+	iPtr->ensembleRewrite.numInsertedObjs = 0;
+    } else {
+	iPtr->ensembleRewrite.numInsertedObjs -= 1;
+    }
+
+    result = ObjInterpProcEx((ClientData) procPtr, interp, objc-1, objv+1,1);
+
+    if (isRootEnsemble) {
+	iPtr->ensembleRewrite.sourceObjs = NULL;
+	iPtr->ensembleRewrite.numRemovedObjs = 0;
+	iPtr->ensembleRewrite.numInsertedObjs = 0;
+    }
+    return result;    
 }
 
 /*

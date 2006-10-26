@@ -1,6 +1,100 @@
-2006-10-18  Don Porter  <dgp@users.sourceforge.net>
+2006-10-26  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclInterp.c (ApplyObjCmd):a
+	* generic/tclNamesp.c (EnsembleImplementationCmd): replaced
+	ckalloc (heap) with TclStackAlloc (execution stack).
+
+2006-10-24  Miguel Sofer  <msofer@users.sf.net>
+
+	* tests/info.test (info-9.11-12): tests for [Bug 1577492]
+	* tests/apply.test (apply-4.3-5): tests for [Bug 1574835]
+
+	* generic/tclProc.c (ObjInterpProcEx): disable itcl hacks for
+	calls from ApplyObjCmd (islambda==1), as they mess apply's error
+	messages [Bug 1583266]
+
+2006-10-23  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclProc.c (ApplyObjCmd): fix wrong#args for apply by
+	using the ensemble rewrite engine, [Bug 1574835].
+	* generic/tclInterp.c (AliasObjCmd): previous commit missed usage
+	of TCL_EVAL_NOREWRITE for aliases.
+
+	* generic/tclBasic.c (TclEvalObjvInternal): removed redundant
+	check for ensembles [Bug 1577628].
+	
+	* library/clock.tcl (format, scan): corrected wrong # args
+	* tests/clock.test (3.1, 34.1):     messages to make use of the
+	new rewrite capabilities of [info level]
+
+	* generic/tcl.h:           Lets TEOV update the iPtr->objc/objv
+	* generic/tclBasic.c:      fields, except when the (new) flag bit 
+	* generic/tclInt.h:        TCL_EVAL_NOREWRITE is present. This 
+	* generic/tclNamesp.c:     causes [info level] to know and use  
+	* generic/tclProc.c:       ensemble rewrites [Bug 1577492]
+	* tests/namespace.test:
+
+	***POTENTIAL INCOMPATIBILITY*** 
+	The return value from [info level 0] on interp alias calls is
+	changed: previously returned the target command (including curried
+	values), now returns the source - what was actually called. 
+
+2006-10-23  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tcl.h:           Modified the Tcl call stack so 
+	* generic/tclBasic.c:      there is always a valid CallFrame, even 
+	* generic/tclCmdIL.c:      at level 0 [Patch 1577278]. Most of the 
+	* generic/tclInt.h:        changes involve removing tests for
+	* generic/tclNamesp.c:     iPtr->(var)framePtr==NULL. There is now a
+	* generic/tclObj.c:        CallFrame pushed at interp creation
+	* generic/tclProc.c:       with a pointer to it stored in 
+	* generic/tclTrace.c:      iPtr->rootFramePtr. A second unused
+	* generic/tclVar.c:        field in Interp is hijacked to enable
+	further functionality, currently unused (but with several FRQs
+	depending on it).
+
+	***POTENTIAL INCOMPATIBILITY*** 
+	Any user that includes tclInt.h and needs to determine if it is
+	running at level 0 should change (iPtr->varFramePtr==NULL) to 
+	(iPtr->varFramePtr==iPtr->rootFramePtr). 
+
+2006-10-23  Don Porter  <dgp@users.sourceforge.net>
+
+	* README:		Bump version number to 8.5a6
+	* generic/tcl.h:
+	* library init.tcl:
+	* tools/tcl.wse.in:
+	* unix/configure.in:
+	* unix/tcl.spec:
+	* win/README.binary:
+	* win/configure.in:
+
+	* unix/configure:	autoconf-2.59
+	* win/configure:
+
+2006-10-21  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tcl.h:
+	* generic/tclHash.c: Tcl_FindHashEntry() now calls
+	Tcl_CreateHashEntry() with a newPtr set to NULL: this would have
+	caused a segfault previously and eliminates duplicated code. A
+	macro has been added to tcl.h (only used when 
+	TCL_PRESERVE_BINARY_COMPATABALITY is not set - ie, not by default).
+	
+2006-10-20  Reinhard Max  <max@tclers.tk>
+
+	* unix/configure.in: Added autodetection for OS-supplied timezone
+	* unix/Makefile.in:  files and configure switches to override the
+	* unix/configure:    detected default.
+	
+2006-10-20  Daniel Steffen  <das@users.sourceforge.net>
 
 	*** 8.5a5 TAGGED FOR RELEASE ***
+
+	* tools/tcltk-man2html.tcl: add support for alpha & beta versions to
+	useversion glob pattern. [Bug 1579941]
+
+2006-10-18  Don Porter  <dgp@users.sourceforge.net>
 
 	* changes: 		8.5a5 release date set
 

@@ -333,11 +333,7 @@ Tcl_GetCurrentNamespace(
     register Interp *iPtr = (Interp *) interp;
     register Namespace *nsPtr;
 
-    if (iPtr->varFramePtr != NULL) {
-	nsPtr = iPtr->varFramePtr->nsPtr;
-    } else {
-	nsPtr = iPtr->globalNsPtr;
-    }
+    nsPtr = iPtr->varFramePtr->nsPtr;
     return (Tcl_Namespace *) nsPtr;
 }
 
@@ -429,14 +425,14 @@ Tcl_PushCallFrame(
     nsPtr->activationCount++;
     framePtr->nsPtr = nsPtr;
     framePtr->isProcCallFrame = isProcCallFrame;
-    framePtr->objc = 0;
-    framePtr->objv = NULL;
+    framePtr->objc = iPtr->callObjc;
+    framePtr->objv = iPtr->callObjv;
     framePtr->callerPtr = iPtr->framePtr;
     framePtr->callerVarPtr = iPtr->varFramePtr;
     if (iPtr->varFramePtr != NULL) {
 	framePtr->level = (iPtr->varFramePtr->level + 1);
     } else {
-	framePtr->level = 1;
+	framePtr->level = 0;
     }
     framePtr->procPtr = NULL;		/* no called procedure */
     framePtr->varTablePtr = NULL;	/* and no local variables */
@@ -486,8 +482,12 @@ Tcl_PopCallFrame(
      * the variable deletion don't see the partially-deleted frame.
      */
 
-    iPtr->framePtr = framePtr->callerPtr;
-    iPtr->varFramePtr = framePtr->callerVarPtr;
+    if (framePtr->callerPtr) {
+	iPtr->framePtr = framePtr->callerPtr;    
+	iPtr->varFramePtr = framePtr->callerVarPtr;
+    } else {
+	/* Tcl_PopCallFrame: trying to pop rootCallFrame! */
+    }
 
     if (framePtr->varTablePtr != NULL) {
 	TclDeleteVars(iPtr, framePtr->varTablePtr);
@@ -968,7 +968,8 @@ Tcl_DeleteNamespace(
      * refCount reaches 0.
      */
 
-    if (nsPtr->activationCount > 0) {
+    if ((nsPtr->activationCount > 0)
+	    && !((nsPtr == globalNsPtr) && (nsPtr->activationCount == 1))) {
 	nsPtr->flags |= NS_DYING;
 	if (nsPtr->parentPtr != NULL) {
 	    entryPtr = Tcl_FindHashEntry(&nsPtr->parentPtr->childTable,
@@ -2082,11 +2083,7 @@ TclGetNamespaceForQualName(
     if (flags & TCL_GLOBAL_ONLY) {
 	nsPtr = globalNsPtr;
     } else if (nsPtr == NULL) {
-	if (iPtr->varFramePtr != NULL) {
-	    nsPtr = iPtr->varFramePtr->nsPtr;
-	} else {
-	    nsPtr = iPtr->globalNsPtr;
-	}
+	nsPtr = iPtr->varFramePtr->nsPtr;
     }
 
     start = qualName;		/* Pts to start of qualifying namespace. */
@@ -2830,7 +2827,7 @@ TclGetNamespaceFromObj(
     savedFramePtr = iPtr->varFramePtr;
     name = TclGetString(objPtr);
     if ((*name++ == ':') && (*name == ':')) {
-	iPtr->varFramePtr = NULL;
+	iPtr->varFramePtr = iPtr->rootFramePtr;
     }
 
     currNsPtr = (Namespace *) Tcl_GetCurrentNamespace(interp);
@@ -3436,9 +3433,6 @@ NamespaceEvalCmd(
     if (result != TCL_OK) {
 	return TCL_ERROR;
     }
-    framePtr->objc = objc;
-    framePtr->objv = objv;	/* Reference counts do not need to be
-				 * incremented here. */
 
     if (objc == 4) {
 	result = Tcl_EvalObjEx(interp, objv[3], 0);
@@ -3837,8 +3831,6 @@ NamespaceInscopeCmd(
     if (result != TCL_OK) {
 	return result;
     }
-    framePtr->objc = objc;
-    framePtr->objv = objv;
 
     /*
      * Execute the command. If there is just one argument, just treat it as a
@@ -4585,11 +4577,11 @@ NamespaceUpvarCmd(
     int objc,			/* Number of arguments. */
     Tcl_Obj *const objv[])	/* Argument objects. */
 {
-    Tcl_Namespace *nsPtr;
+    Interp *iPtr = (Interp *) interp;
+    Tcl_Namespace *nsPtr, *savedNsPtr;
     int result;
     Var *otherPtr, *arrayPtr;
     char *myName;
-    CallFrame frame, *framePtr = &frame;
 
     if (objc < 5 || !(objc & 1)) {
 	Tcl_WrongNumArgs(interp, 2, objv,
@@ -4622,11 +4614,12 @@ NamespaceUpvarCmd(
 	 * Locate the other variable
 	 */
 
-	Tcl_PushCallFrame(interp, (Tcl_CallFrame *) framePtr, nsPtr, 0);
+	savedNsPtr = (Tcl_Namespace *) iPtr->varFramePtr->nsPtr;
+	iPtr->varFramePtr->nsPtr = (Namespace *) nsPtr;
 	otherPtr = TclObjLookupVar(interp, objv[0], NULL,
 		(TCL_NAMESPACE_ONLY | TCL_LEAVE_ERR_MSG), "access",
 		/*createPart1*/ 1, /*createPart2*/ 1, &arrayPtr);
-	Tcl_PopCallFrame(interp);
+	iPtr->varFramePtr->nsPtr = (Namespace *) savedNsPtr;
 	if (otherPtr == NULL) {
 	    return TCL_ERROR;
 	}
@@ -6279,13 +6272,13 @@ NsEnsembleImplementationCmd(
 		iPtr->ensembleRewrite.numInsertedObjs += prefixObjc - 2;
 	    }
 	}
-	tempObjv = (Tcl_Obj **) ckalloc(sizeof(Tcl_Obj *)*(objc-2+prefixObjc));
+	tempObjv = (Tcl_Obj **) TclStackAlloc(interp, sizeof(Tcl_Obj *)*(objc-2+prefixObjc));
 	memcpy(tempObjv, prefixObjv, sizeof(Tcl_Obj *) * prefixObjc);
 	memcpy(tempObjv+prefixObjc, objv+2, sizeof(Tcl_Obj *) * (objc-2));
 	result = Tcl_EvalObjv(interp, objc-2+prefixObjc, tempObjv,
-		TCL_EVAL_INVOKE);
+		TCL_EVAL_INVOKE|TCL_EVAL_NOREWRITE);
 	Tcl_DecrRefCount(prefixObj);
-	ckfree((char *) tempObjv);
+	TclStackFree(interp);
 	if (isRootEnsemble) {
 	    iPtr->ensembleRewrite.sourceObjs = NULL;
 	    iPtr->ensembleRewrite.numRemovedObjs = 0;
@@ -6303,10 +6296,11 @@ NsEnsembleImplementationCmd(
      */
 
     if (ensemblePtr->unknownHandler != NULL && reparseCount++ < 1) {
+	Interp *iPtr = (Interp *) interp;
 	int paramc, i;
 	Tcl_Obj **paramv, *unknownCmd, *ensObj;
 
-	unknownCmd = Tcl_DuplicateObj(ensemblePtr->unknownHandler);
+	unknownCmd = Tcl_NewListObj(1, &ensemblePtr->unknownHandler);
 	TclNewObj(ensObj);
 	Tcl_GetCommandFullName(interp, ensemblePtr->token, ensObj);
 	Tcl_ListObjAppendElement(NULL, unknownCmd, ensObj);
@@ -6347,6 +6341,14 @@ NsEnsembleImplementationCmd(
 		goto runResultingSubcommand;
 	    }
 
+	    /*
+	     * Restore the interp's call data, which may have been wiped out
+	     * while processing the unknown handler. 
+	     */
+
+	    iPtr->callObjc = objc;
+	    iPtr->callObjv = objv;
+	    
 	    /*
 	     * Namespace alive & empty result => reparse.
 	     */

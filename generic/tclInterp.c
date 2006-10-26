@@ -1710,7 +1710,8 @@ AliasObjCmd(
     if (cmdc <= ALIAS_CMDV_PREALLOC) {
 	cmdv = cmdArr;
     } else {
-	cmdv = (Tcl_Obj **) ckalloc((unsigned) (cmdc * sizeof(Tcl_Obj *)));
+	cmdv = (Tcl_Obj **) TclStackAlloc(interp,
+		(unsigned) (cmdc * sizeof(Tcl_Obj *)));
     }
 
     prefv = &aliasPtr->objPtr;
@@ -1740,10 +1741,12 @@ AliasObjCmd(
     
     if (targetInterp != interp) {
 	Tcl_Preserve((ClientData) targetInterp);
-	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv, TCL_EVAL_INVOKE);
+	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv,
+		TCL_EVAL_INVOKE|TCL_EVAL_NOREWRITE);
 	TclTransferResult(targetInterp, result, interp);
     } else {
-	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv, TCL_EVAL_INVOKE);
+	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv,
+		TCL_EVAL_INVOKE|TCL_EVAL_NOREWRITE);
     }
 
     if (isRootEnsemble) {
@@ -1761,7 +1764,7 @@ AliasObjCmd(
     }
 
     if (cmdv != cmdArr) {
-	ckfree((char *) cmdv);
+	TclStackFree(interp);
     }
     return result;
 #undef ALIAS_CMDV_PREALLOC
