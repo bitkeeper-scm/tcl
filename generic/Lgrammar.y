@@ -301,7 +301,7 @@ expr:
         }
  	| T_BITAND lvalue %prec ADDRESS
         {
-                REVERSE(L_expression, indices, $1);
+                REVERSE(L_expression, indices, $2);
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_BITAND, $2, NULL, NULL, NULL, NULL);
         }
  	| T_MINUS expr %prec UMINUS

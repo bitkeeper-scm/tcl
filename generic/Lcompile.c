@@ -838,8 +838,8 @@ push_parameters(L_expression *parameters)
         {
             L_trace("making an L pointer for %s\n", p->a->a->u.string);
             /* L_walk_ast(p, L_WALK_PRE, LDumpAstNodes, NULL); */
-            //L_push_pointer(p->a);
-            L_PUSH_STR("asdf");
+            L_push_pointer(p->a);
+/*             L_PUSH_STR("asdf"); */
         } else if (var && type_passed_by_name_p(var->type)) {
             /* the parameter needs to be passed by name */
             L_PUSH_STR(var->name);
