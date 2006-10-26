@@ -284,8 +284,8 @@ ParseLang(
     wordIndex = parsePtr->numTokens;
     tokenPtr = &parsePtr->tokenPtr[wordIndex];
     tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
-    tokenPtr->start = parsePtr->commandStart;
-    tokenPtr->size  = strlen("#lang(L)");
+    tokenPtr->start = parsePtr->commandStart + 6; /* point to the L */
+    tokenPtr->size  = 1; /* strlen("L") */
     tokenPtr->numComponents = 1;
     parsePtr->numTokens++;
     parsePtr->numWords++;
@@ -296,8 +296,8 @@ ParseLang(
     wordIndex = parsePtr->numTokens;
     tokenPtr = &parsePtr->tokenPtr[wordIndex];
     tokenPtr->type = TCL_TOKEN_TEXT;
-    tokenPtr->start = parsePtr->commandStart;
-    tokenPtr->size  = strlen("#lang(L)");
+    tokenPtr->start = parsePtr->commandStart + 6;
+    tokenPtr->size  = 1; /* strlen("L") */
     tokenPtr->numComponents = 0;
     parsePtr->numTokens++;
     /* 3. add a new word for the L code itself */

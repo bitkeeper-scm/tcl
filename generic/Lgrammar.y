@@ -379,7 +379,7 @@ expr:
         | T_DOT T_ID "(" argument_expression_list ")"
         {
                 L_expression *name = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
-                name->u.string = ckalloc(strlen(((L_expression *)$2)->u.string + 2));
+                name->u.string = ckalloc(strlen(((L_expression *)$2)->u.string) + 2);
                 *name->u.string = '.';
                 strcpy(name->u.string + 1, ((L_expression *)$2)->u.string);
                 REVERSE(L_expression, next, $4);
