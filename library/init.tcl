@@ -846,3 +846,5 @@ proc tcl::CopyDirectory {action src dest} {
     }
     return
 }
+
+source [file join $::tcl_library libl.tcl]

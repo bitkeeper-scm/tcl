@@ -1888,12 +1888,8 @@ Tcl_FSEvalFileEx(
 	enable_secure_bk_calls = 0;
     }
 #endif
-
-    /*
-     * Let the compiler/engine subsystem do the evaluation
-     */
-    string = NULL; /* lint */
-    result = Tcl_EvalObjEx(interp, objPtr, 0);
+    string = Tcl_GetString(objPtr);
+    result = Tcl_EvalEx(interp, string, strlen(string), 0);
 
 #ifdef	BK
     enable_secure_bk_calls = oldbk;
