@@ -14,11 +14,6 @@ int L_line_number = 0;
 void *L_current_ast = NULL;
 int L_interactive = 0;
 
-#define CALL_MAIN 1             /* call main automatically */
-#define CALL_MAIN_WITH_ARGS 2   /* call main and pass argc and argv */
-static int post_compile_action = 0; /* what's left to do after compiling an L
-                                       script successfully */
-
 /* static int gensym_counter = 0;  /\* used to create unique names *\/ */
 
 /* The table we store typedef information in.  Use L_typedef_table() to access
@@ -35,7 +30,6 @@ static int global_symbol_p(L_symbol *symbol);
 static void fixup_struct_type(L_type *type);
 static int array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
-static void emit_call_to_main(CompileEnv *envPtr, int with_args_p);
 
 static L_type *L_write_hash_index_chunk(int varIndex, L_expression *index,
                                         L_expression *expr, int leave_lval_p);
@@ -114,7 +108,6 @@ TclCompileLCmd(
     Tcl_Parse *parsePtr,
     CompileEnv *envPtr)
 {
-    int retval;
     Tcl_Token *lTokenPtr;
     L_ast_node *ast;
 
@@ -139,22 +132,8 @@ TclCompileLCmd(
         L_frame_push(interp, envPtr);
 	return TCL_OK;
     }
-    post_compile_action = 0;
-    retval = LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
-                            envPtr, ast);
-    if (post_compile_action && (retval == TCL_OK)) {
-        switch (post_compile_action) {
-        case CALL_MAIN_WITH_ARGS:
-            emit_call_to_main(envPtr, TRUE);
-            break;
-        case CALL_MAIN:
-            emit_call_to_main(envPtr, FALSE);
-            break;
-        default:
-            L_bomb("unsupported post compile action %d", post_compile_action);
-        }
-    }
-    return retval;
+    return LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
+	      envPtr, ast);
 }
 
 /* Parse an L script into an AST.  Parsing and compiling are broken into two
@@ -298,20 +277,6 @@ L_compile_function_decl(L_function_declaration *fun)
     cmd = Tcl_CreateObjCommand(lframe->interp, fun->name->u.string,
         TclObjInterpProc, (ClientData) procPtr, TclProcDeleteProc);
     procPtr->cmdPtr = (Command *) cmd;
-
-    /* Check if we're compiling main() or main(int argc, string argv[]) */
-    if (!strncmp("main", fun->name->u.string, strlen("main"))) {
-        if (!fun->params) {
-            post_compile_action = CALL_MAIN;
-        } else {
-            if (!fun->params->next) {
-                /* XXX we don't bother to check the parameter types */
-                L_errorf(fun->params, "main() takes only zero or two "
-                         "arguments");
-            }
-            post_compile_action = CALL_MAIN_WITH_ARGS;
-        }
-    }
 
     TclFreeCompileEnv(lframe->envPtr);
     ckfree((char *)lframe->envPtr);
@@ -1744,48 +1709,6 @@ L_compile_incdec(L_expression *expr)
             TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
             TclEmitOpcode(INST_POP, lframe->envPtr);
         }
-    }
-}
-
-/* Output bytecode to invoke main() or main(int argc, string argv[]). */
-void
-emit_call_to_main(CompileEnv *envPtr, int with_args_p)
-{
-    /* ugly: mock up lframe->envPtr for the L_PUSH_* macros */
-    L_compile_frame dummy_frame, *lframe;
-    lframe = &dummy_frame;
-    lframe->envPtr = envPtr;
-
-    L_PUSH_STR("main");
-    if (!with_args_p) {
-        TclEmitInstInt4(INST_INVOKE_STK4, 1, envPtr);
-    } else {
-        /* XXX if we use a gensym the number on the front confuses upvar */
-        char *argvName = "L_argv";
-        /* TCL's argv is missing argv[0], which they've placed in argv0.  We
-           stick the two together and pass that to L.  So, first push argc and
-           add one to it: */
-        L_PUSH_STR("argc");
-        TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        L_PUSH_STR("1");
-        TclEmitOpcode(INST_ADD, envPtr);
-        /* Use append to stick argv0 and argv together and store them in a new
-           variable. */
-        L_PUSH_STR("append");
-        L_PUSH_STR(argvName);
-        L_PUSH_STR("argv0");
-        TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        L_PUSH_STR(" ");
-        L_PUSH_STR("argv");
-        TclEmitOpcode(INST_LOAD_SCALAR_STK, envPtr);
-        /* invoke append */
-        TclEmitInstInt4(INST_INVOKE_STK4, 5, envPtr);
-        /* pop argv off the stack and push its name, since arrays are passed
-           by reference  */
-        TclEmitOpcode(INST_POP, envPtr);
-        L_PUSH_STR(argvName);
-        /* invoke main */
-        TclEmitInstInt4(INST_INVOKE_STK4, 3, envPtr);
     }
 }
 

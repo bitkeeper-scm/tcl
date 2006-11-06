@@ -1928,7 +1928,8 @@ Tcl_FSEvalFileEx(
 }
 
 /* If the path ends in .l assume it's meant to contain L code, in which case
-   ensure that the file contents are wrapped in #lang(L).  Return a Tcl_Obj
+   ensure that the file contents are preceded by #lang(L), and followed by a
+   %%call_main_if_defined to ensure that main gets called.  Return a Tcl_Obj
    containing the potentially wrapped string. */
 static Tcl_Obj *
 FsMaybeWrapInLLang(
@@ -1945,7 +1946,7 @@ FsMaybeWrapInLLang(
 	Tcl_Obj *newContents = Tcl_NewObj();
 	Tcl_IncrRefCount(newContents);
 	TclObjPrintf(interp, newContents,
-	      "#lang(L)\n%s",
+	      "#lang(L)\n%s\n#lang(tcl)\n%%%%call_main_if_defined",
 	  Tcl_GetString(fileContents));
 	Tcl_DecrRefCount(fileContents);
 	fileContents = newContents;

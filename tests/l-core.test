@@ -1087,6 +1087,23 @@ defined_1_0
 0
 "
 
+test main-1.0 {test that main gets called} -body {
+#lang(L)
+main_1_0() {
+	string filename =
+		file("join", temporaryDirectory(), "l-core-main-1.0.l");
+	string f = open(filename, "w");
+ 	puts(f, "main(int argc, string argv[]) {");
+	puts(f, "printf(\"main got called\\n\");");
+	puts(f, "}");
+	close(f);
+	source(filename);
+	file("delete", filename);
+}
+#lang(tcl)
+main_1_0
+} -output "main got called\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return
