@@ -5,7 +5,7 @@
 %x str_float
 %x str_single
 %x interpol
-ID	[a-zA-Z_:][0-9a-zA-Z_:]*
+ID	[a-zA-Z_][0-9a-zA-Z_]*
 %{
 #include <string.h>
 #include "Lcompile.h"
@@ -118,6 +118,11 @@ tally_newlines(
         ">="		return T_GREATEREQ;
         "<"		return T_LESSTHAN;
         "<="		return T_LESSTHANEQ;
+        :{ID}		{
+                                MK_STRING_NODE(L_lval, yytext);
+				((L_expression *)L_lval)->u.string[0] = '-';
+				return T_KEYWORD;
+                        }
         {ID}		{
                                 MK_STRING_NODE(L_lval, yytext);
                                 if (L_lookup_typedef(L_lval, FALSE)) {

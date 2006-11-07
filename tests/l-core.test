@@ -442,6 +442,14 @@ syntax_1_2() {
 syntax_1_2
 } -output "syntax_1_2.\nfoo bar ASDF baz zot\n"
 
+test syntax-1.3 {keywords} -body {
+#lang(L)
+syntax_1_3() {
+	printf("%s, %s, %s\n", :foo, :bar, :baz);
+}
+#lang(tcl)
+syntax_1_3
+} -output "-foo, -bar, -baz\n"
 
 test op-1.0 {increment and decrement operators} -body {
 #lang(L)

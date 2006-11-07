@@ -56,7 +56,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 
 %right T_EQUALS "="
 
-%token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL
+%token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
@@ -367,6 +367,7 @@ expr:
 	| expr T_BITAND expr    { MK_BINOP_NODE($$, T_BITAND, $1, $3); }
 	| expr T_BITXOR expr    { MK_BINOP_NODE($$, T_BITXOR, $1, $3); }
         | string_literal        { REVERSE(L_expression, c, $1); $$ = $1; }
+	| T_KEYWORD
         | T_INT_LITERAL
         | T_FLOAT_LITERAL
 	| lvalue                { REVERSE(L_expression, indices, $1); $$ = $1; }
