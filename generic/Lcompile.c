@@ -2068,9 +2068,9 @@ L_type *L_lookup_typedef(L_expression *name, int error_p) {
    L_lookup_typedef of name. */
 void L_store_typedef(L_expression *name, L_type *type) {
     int new;
+    Tcl_HashEntry *hPtr;
     type->typedef_p = TRUE;
-    Tcl_HashEntry *hPtr =
-        Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
+    hPtr = Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
     if (!new) {
         // XXX: emit a redefinition warning?
     }
