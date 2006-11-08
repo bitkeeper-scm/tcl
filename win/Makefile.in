@@ -110,7 +110,7 @@ BK_INCLUDES		= @BK_INCLUDES@
 @BK_LIBS@
 @BK_OBJS@
 @BK_HDRS@
-ifndef BK_LIBS
+ifdef BK_DIR
 BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
 endif
 
@@ -361,7 +361,7 @@ TOMMATH_OBJS = \
 	bn_s_mp_sub.${OBJEXT}
 
 
-ifndef BK_HDRS
+ifdef BK_DIR
 BK_HDRS = \
 	$(BK_DIR)/tclkey.h \
 	$(BK_DIR)/tomcrypt/src/headers/tomcrypt.h \
