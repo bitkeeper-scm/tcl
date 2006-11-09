@@ -7,6 +7,11 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
+/* Grab the offset of the next instruction to be issued.  Stolen from
+   tclCompCmds.c. */
+#define CurrentOffset(envPtr) \
+    ((envPtr)->codeNext - (envPtr)->codeStart)
+
 static L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
 Tcl_Obj *L_errors = NULL;
@@ -628,8 +633,11 @@ L_compile_statements(L_statement *stmt)
         L_compile_if_unless(stmt->u.cond);
         break;
     case L_STATEMENT_LOOP:
-        L_compile_loop(stmt->u.loop);
+	L_compile_loop(stmt->u.loop);
         break;
+    case L_STATEMENT_FOREACH:
+	L_compile_foreach_loop(stmt->u.foreach);
+	break;
     case L_STATEMENT_RETURN:
         L_trace("compiling return statement");
         if (stmt->u.expr) {
@@ -1195,7 +1203,7 @@ L_compile_loop(L_loop *loop)
         L_compile_expressions(loop->pre);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
-    /* XXX: need optimiztion for null conditions and infinite loops
+    /* XXX: need optimization for null conditions and infinite loops
      * See TclCompileWhileComd() for the stuff Tcl does.
      *
      * Also need to handle the Exception Ranges so that continue and
@@ -1203,7 +1211,7 @@ L_compile_loop(L_loop *loop)
      */
     TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
     L_frame_push(lframe->interp, lframe->envPtr);
-    bodyCodeOffset = lframe->envPtr->codeNext - lframe->envPtr->codeStart;
+    bodyCodeOffset = CurrentOffset(lframe->envPtr);
     L_compile_statements(loop->body);
     L_frame_pop(lframe->interp, lframe->envPtr);
     if ((loop->kind == L_LOOP_FOR) && loop->post) {
@@ -1215,17 +1223,63 @@ L_compile_loop(L_loop *loop)
     }
     L_compile_expressions(loop->condition);
     L_PUSH_STR("0");
-    /*
-     * Why NEQ? Wouldn't == be better?
-     */
     TclEmitOpcode(INST_NEQ, lframe->envPtr);
-    jumpDist = lframe->envPtr->codeNext - lframe->envPtr->codeStart -
-        bodyCodeOffset;
+    jumpDist = CurrentOffset(lframe->envPtr) - bodyCodeOffset;
     if (jumpDist > 127) {
         TclEmitInstInt4(INST_JUMP_TRUE4, -jumpDist, lframe->envPtr);
     } else {
         TclEmitInstInt1(INST_JUMP_TRUE1, -jumpDist, lframe->envPtr);
     }
+}
+
+void
+L_compile_foreach_loop(L_foreach_loop *loop)
+{
+    L_symbol *keyVar, *valueVar;
+    int jumpWhenEmptyOffset, bodyTargetOffset, iteratorIndex, jumpDisplacement;
+
+    if (!(keyVar = L_get_local_symbol(loop->key, TRUE))) return;
+    if (loop->value) {
+	if (!(valueVar = L_get_local_symbol(loop->value, TRUE))) return;
+    }
+    L_compile_expressions(loop->hash);
+    /* A temporary variable to hold the iterator state.*/
+    iteratorIndex = TclFindCompiledLocal(NULL, 0, 1, VAR_SCALAR,
+					 lframe->envPtr->procPtr);
+    /* Both DICT_FIRST and DICT_NEXT leave value, key, and done-p on the
+       stack.  Check done-p and jump out of the loop if it's true. (We fixup
+       the jump target once we know the size of the loop body.) */
+    TclEmitInstInt4(INST_DICT_FIRST, iteratorIndex, lframe->envPtr);
+    jumpWhenEmptyOffset = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP_TRUE4, 0, lframe->envPtr);
+    /* Update the key and value variables. We save the offset of this code so
+       we can jump back to it after DICT_NEXT. */
+    bodyTargetOffset = CurrentOffset(lframe->envPtr);
+    L_STORE_SCALAR(keyVar->localIndex);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    if (loop->value) {
+	L_STORE_SCALAR(valueVar->localIndex);
+    }
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_compile_statements(loop->body);
+    TclEmitInstInt4(INST_DICT_NEXT, iteratorIndex, lframe->envPtr);
+    /* If there's another entry in the hash, go around the loop again. */
+    jumpDisplacement = bodyTargetOffset - CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP_FALSE4, jumpDisplacement, lframe->envPtr);
+    /* This is the end of the loop.  Point the jump after the DICT_FIRST to
+       here. */
+    jumpDisplacement = CurrentOffset(lframe->envPtr) - jumpWhenEmptyOffset;
+    TclUpdateInstInt4AtPc(INST_JUMP_TRUE4, jumpDisplacement,
+			  lframe->envPtr->codeStart + jumpWhenEmptyOffset);
+    /* All done.  Cleanup the bogus values that DICT_FIRST/DICT_NEXT pushed
+       and emit DICT_DONE. */
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    /* XXX We need to ensure that DICT_DONE happens in the face of exceptions,
+       so that the refcount on the dict will be decremented, and the iterator
+       freed.  See the implementation of "dict for" in tclCompCmds.c.
+       --timjr 2006.11.3 */
+    TclEmitInstInt4(INST_DICT_DONE, iteratorIndex, lframe->envPtr);
 }
 
 void

@@ -774,6 +774,38 @@ loop_1_1() {
 loop_1_1
 } -output "1\n2\n3\n4\n5\n6\n-*-\n7\n6\n5\n4\n3\n2\n1\n"
 
+test loop-1.2 {foreach loops} -body {
+#lang(L)
+loop_1_2() {
+	hash h, empty;
+	string k, v;
+
+	h{"a"} = 1;
+	h{"b"} = 2;
+	h{"c"} = 3;
+	foreach (h as k => v) {
+		printf("key is %s, value is %s\n", k, v);
+	}
+	foreach (empty as k => v) {
+		printf("key is %s, value is %s\n", k, v);
+	}
+	foreach (k in h) {
+		printf("key is %s\n", k);
+	}
+	foreach (k in empty) {
+		printf("key is %s\n", k);
+	}
+}
+#lang(tcl)
+loop_1_2
+} -output "key is a, value is 1
+key is b, value is 2
+key is c, value is 3
+key is a
+key is b
+key is c
+"
+
 test struct-1.0 {structs} -body {
 #lang(L)
 struct struct_1_0_point {

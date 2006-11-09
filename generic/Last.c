@@ -23,18 +23,18 @@ char *L_expression_tostr[14] = {
 	"L_EXPRESSION_VARIABLE"
 };
 
-char *L_loop_tostr[4] = {
+char *L_loop_tostr[3] = {
 	"L_LOOP_DO",
 	"L_LOOP_FOR",
-	"L_LOOP_FOREACH",
 	"L_LOOP_WHILE"
 };
 
-char *L_statement_tostr[6] = {
+char *L_statement_tostr[7] = {
 	"L_STATEMENT_BLOCK",
 	"L_STATEMENT_COND",
 	"L_STATEMENT_DECL",
 	"L_STATEMENT_EXPR",
+	"L_STATEMENT_FOREACH",
 	"L_STATEMENT_LOOP",
 	"L_STATEMENT_RETURN"
 };
@@ -58,9 +58,10 @@ char *L_type_tostr[9] = {
 	"L_TYPE_VOID"
 };
 
-char *L_node_type_tostr[10] = {
+char *L_node_type_tostr[11] = {
 	"L_NODE_BLOCK",
 	"L_NODE_EXPRESSION",
+	"L_NODE_FOREACH_LOOP",
 	"L_NODE_FUNCTION_DECLARATION",
 	"L_NODE_IF_UNLESS",
 	"L_NODE_INITIALIZER",
@@ -104,6 +105,22 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	((L_ast_node *)expression)->line_no = L_line_number;
 	((L_ast_node *)expression)->type = L_NODE_EXPRESSION;
 	return expression;
+}
+
+L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expression *value,L_statement *body) 
+{
+	L_foreach_loop *foreach_loop;
+
+	foreach_loop = (L_foreach_loop *)ckalloc(sizeof(L_foreach_loop));
+	foreach_loop->hash = hash;
+	foreach_loop->key = key;
+	foreach_loop->value = value;
+	foreach_loop->body = body;
+	((L_ast_node *)foreach_loop)->_trace = ast_trace_root;
+	ast_trace_root = (void *)foreach_loop;
+	((L_ast_node *)foreach_loop)->line_no = L_line_number;
+	((L_ast_node *)foreach_loop)->type = L_NODE_FOREACH_LOOP;
+	return foreach_loop;
 }
 
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body) 

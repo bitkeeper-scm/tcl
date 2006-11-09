@@ -64,6 +64,7 @@ void L_compile_incdec(L_expression *expr);
 void L_compile_unop(L_expression *expr);
 void L_compile_short_circuit_op(L_expression *expr);
 void L_compile_loop(L_loop *loop);
+void L_compile_foreach_loop(L_foreach_loop *loop);
 L_type *L_compile_index(L_type *index_type, L_expression *index);
 void L_compile_twiddle(L_expression *expr);
 void L_compile_interpolated_string(L_expression *expr);

@@ -60,6 +60,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
+%token T_FOREACH T_AS T_IN
 
 %left T_OROR
 %left T_ANDAND
@@ -144,6 +145,11 @@ single_statement:
                 $$ = mk_statement(L_STATEMENT_LOOP, NULL);
                 ((L_statement *)$$)->u.loop = $1;
         }
+        | foreach_statement
+        {
+                $$ = mk_statement(L_STATEMENT_FOREACH, NULL);
+                ((L_statement *)$$)->u.foreach = $1;
+        }
 	| expr ";"              
         { 
                 $$ = mk_statement(L_STATEMENT_EXPR, NULL);
@@ -214,6 +220,17 @@ iteration_statement:
         {
                 $$ = mk_loop(L_LOOP_FOR, $3, $4, $5, $7);
         }
+	;
+
+foreach_statement:
+	  T_FOREACH "(" expr T_AS T_ID T_ARROW T_ID ")" stmt
+	{
+		$$ = mk_foreach_loop($3, $5, $7, $9);
+	}
+	| T_FOREACH "(" T_ID T_IN expr ")" stmt
+	{
+		$$ = mk_foreach_loop($5, $3, NULL, $7);
+	}
 	;
 
 
