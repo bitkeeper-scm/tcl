@@ -70,3 +70,41 @@ AC_DEFUN(SC_PATH_BK, [
 		fi
 	fi
 ])
+
+#------------------------------------------------------------------------
+# SC_ENABLE_INFO_BODY --
+#
+#	Allows the [info body] proc to get at the source of a proc
+#
+# Arguments:
+#	none
+#	
+# Results:
+#
+#	Adds the following arguments to configure:
+#		--enable-info-body=yes|no
+#
+#	Defines INFO_BODY_ENABLED
+#------------------------------------------------------------------------
+
+AC_DEFUN([SC_ENABLE_INFO_BODY], [
+    AC_MSG_CHECKING([should info body be allowed])
+    AC_ARG_ENABLE(infobody,
+	AC_HELP_STRING([--enable-info-body],
+	    [enable the info body command (default: on)]),
+	[tcl_ok=$enableval], [tcl_ok=yes])
+
+    if test "${enable_info_body+set}" = set; then
+	enableval="$enable_info_body"
+	tcl_ok=$enableval
+    else
+	tcl_ok=no
+    fi
+
+    if test "$tcl_ok" = "yes" ; then
+	AC_MSG_RESULT([yes])
+	AC_DEFINE(INFO_BODY_ENABLED)
+    else
+	AC_MSG_RESULT([no])
+    fi
+])

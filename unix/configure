@@ -848,6 +848,7 @@ Optional Features:
                           use STRING as a suffix to manpage file names
                           (default: no, tcl if enabled without
                           specifying STRING)
+  --enable-info-body      enable the info body command (default: on)
   --enable-threads        build with threads (default: off)
   --enable-shared         build and link with shared libraries (default: on)
   --enable-64bit          enable 64bit support (default: off)
@@ -1485,6 +1486,37 @@ _ACEOF
 echo "${ECHO_T}found $BK_DIR" >&6
 		fi
 	fi
+
+
+
+    echo "$as_me:$LINENO: checking should info body be allowed" >&5
+echo $ECHO_N "checking should info body be allowed... $ECHO_C" >&6
+    # Check whether --enable-infobody or --disable-infobody was given.
+if test "${enable_infobody+set}" = set; then
+  enableval="$enable_infobody"
+  tcl_ok=$enableval
+else
+  tcl_ok=yes
+fi;
+
+    if test "${enable_info_body+set}" = set; then
+	enableval="$enable_info_body"
+	tcl_ok=$enableval
+    else
+	tcl_ok=no
+    fi
+
+    if test "$tcl_ok" = "yes" ; then
+	echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+	cat >>confdefs.h <<\_ACEOF
+#define INFO_BODY_ENABLED 1
+_ACEOF
+
+    else
+	echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+    fi
 
 
 #------------------------------------------------------------------------

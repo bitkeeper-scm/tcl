@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="../generic/tcl.h"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT AR RANLIB RC SET_MAKE CPP EGREP TCL_THREADS ac_ct_RANLIB LIBOBJS TCL_LIBS DL_LIBS DL_OBJS PLAT_OBJS PLAT_SRCS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING LDFLAGS_DEBUG LDFLAGS_OPTIMIZE CC_SEARCH_FLAGS LD_SEARCH_FLAGS STLIB_LD SHLIB_LD TCL_SHLIB_LD_EXTRAS TK_SHLIB_LD_EXTRAS SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX MAKE_LIB MAKE_STUB_LIB INSTALL_LIB INSTALL_STUB_LIB CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS CYGPATH DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_CONSOLE LDFLAGS_WINDOW TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -729,6 +729,10 @@ ac_env_CPPFLAGS_set=${CPPFLAGS+set}
 ac_env_CPPFLAGS_value=$CPPFLAGS
 ac_cv_env_CPPFLAGS_set=${CPPFLAGS+set}
 ac_cv_env_CPPFLAGS_value=$CPPFLAGS
+ac_env_CPP_set=${CPP+set}
+ac_env_CPP_value=$CPP
+ac_cv_env_CPP_set=${CPP+set}
+ac_cv_env_CPP_value=$CPP
 
 #
 # Report the --help message.
@@ -799,18 +803,22 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-threads        build with threads
-  --enable-shared         build and link with shared libraries --enable-shared
-  --enable-64bit          enable 64bit support (where applicable)
-  --enable-wince          enable Win/CE support (where applicable)
-  --enable-symbols        build with debugging symbols --disable-symbols
+  --enable-info-body      enable the info body command (default: on)
+  --enable-threads        build with threads (default: off)
+  --enable-shared         build and link with shared libraries (default: on)
+  --enable-64bit          enable 64bit support (default: off)
+  --enable-64bit-vis      enable 64bit Sparc VIS support (default: off)
+  --enable-corefoundation use CoreFoundation API on MacOSX (default: on)
+  --enable-load           allow dynamic loading and "load" command (default:
+                          on)
+  --enable-symbols        build with debugging symbols (default: off)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-bk              directory containing BK source
-  --with-encoding              encoding for configuration values
-  --with-celib=DIR        use Windows/CE support library from DIR
+  --with-encoding         encoding for configuration values (default:
+                          iso8859-1)
 
 Some influential environment variables:
   CC          C compiler command
@@ -819,6 +827,7 @@ Some influential environment variables:
               nonstandard directory <lib dir>
   CPPFLAGS    C/C++ preprocessor flags, e.g. -I<include dir> if you have
               headers in a nonstandard directory <include dir>
+  CPP         C preprocessor
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -1365,6 +1374,37 @@ _ACEOF
 echo "${ECHO_T}found $BK_DIR" >&6
 		fi
 	fi
+
+
+
+    echo "$as_me:$LINENO: checking should info body be allowed" >&5
+echo $ECHO_N "checking should info body be allowed... $ECHO_C" >&6
+    # Check whether --enable-infobody or --disable-infobody was given.
+if test "${enable_infobody+set}" = set; then
+  enableval="$enable_infobody"
+  tcl_ok=$enableval
+else
+  tcl_ok=yes
+fi;
+
+    if test "${enable_info_body+set}" = set; then
+	enableval="$enable_info_body"
+	tcl_ok=$enableval
+    else
+	tcl_ok=no
+    fi
+
+    if test "$tcl_ok" = "yes" ; then
+	echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+	cat >>confdefs.h <<\_ACEOF
+#define INFO_BODY_ENABLED 1
+_ACEOF
+
+    else
+	echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+    fi
 
 
 #------------------------------------------------------------------------
@@ -3140,9 +3180,257 @@ fi
 # Check whether --enable-threads or --disable-threads was given.
 #--------------------------------------------------------------------
 
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+echo "$as_me:$LINENO: checking how to run the C preprocessor" >&5
+echo $ECHO_N "checking how to run the C preprocessor... $ECHO_C" >&6
+# On Suns, sometimes $CPP names a directory.
+if test -n "$CPP" && test -d "$CPP"; then
+  CPP=
+fi
+if test -z "$CPP"; then
+  if test "${ac_cv_prog_CPP+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+      # Double quotes because CPP needs to be expanded
+    for CPP in "$CC -E" "$CC -E -traditional-cpp" "/lib/cpp"
+    do
+      ac_preproc_ok=false
+for ac_c_preproc_warn_flag in '' yes
+do
+  # Use a header file that comes with gcc, so configuring glibc
+  # with a fresh cross-compiler works.
+  # Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+  # <limits.h> exists even on freestanding compilers.
+  # On the NeXT, cc -E runs the code through the compiler's parser,
+  # not just through cpp. "Syntax error" is here to catch this case.
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+		     Syntax error
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  :
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
 
-    echo "$as_me:$LINENO: checking for building with threads" >&5
-echo $ECHO_N "checking for building with threads... $ECHO_C" >&6
+  # Broken: fails on valid input.
+continue
+fi
+rm -f conftest.err conftest.$ac_ext
+
+  # OK, works on sane cases.  Now check whether non-existent headers
+  # can be detected and how.
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <ac_nonexistent.h>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  # Broken: success on invalid input.
+continue
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  # Passes both tests.
+ac_preproc_ok=:
+break
+fi
+rm -f conftest.err conftest.$ac_ext
+
+done
+# Because of `break', _AC_PREPROC_IFELSE's cleaning code was skipped.
+rm -f conftest.err conftest.$ac_ext
+if $ac_preproc_ok; then
+  break
+fi
+
+    done
+    ac_cv_prog_CPP=$CPP
+
+fi
+  CPP=$ac_cv_prog_CPP
+else
+  ac_cv_prog_CPP=$CPP
+fi
+echo "$as_me:$LINENO: result: $CPP" >&5
+echo "${ECHO_T}$CPP" >&6
+ac_preproc_ok=false
+for ac_c_preproc_warn_flag in '' yes
+do
+  # Use a header file that comes with gcc, so configuring glibc
+  # with a fresh cross-compiler works.
+  # Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+  # <limits.h> exists even on freestanding compilers.
+  # On the NeXT, cc -E runs the code through the compiler's parser,
+  # not just through cpp. "Syntax error" is here to catch this case.
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+		     Syntax error
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  :
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  # Broken: fails on valid input.
+continue
+fi
+rm -f conftest.err conftest.$ac_ext
+
+  # OK, works on sane cases.  Now check whether non-existent headers
+  # can be detected and how.
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <ac_nonexistent.h>
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+  # Broken: success on invalid input.
+continue
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  # Passes both tests.
+ac_preproc_ok=:
+break
+fi
+rm -f conftest.err conftest.$ac_ext
+
+done
+# Because of `break', _AC_PREPROC_IFELSE's cleaning code was skipped.
+rm -f conftest.err conftest.$ac_ext
+if $ac_preproc_ok; then
+  :
+else
+  { { echo "$as_me:$LINENO: error: C preprocessor \"$CPP\" fails sanity check
+See \`config.log' for more details." >&5
+echo "$as_me: error: C preprocessor \"$CPP\" fails sanity check
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+echo "$as_me:$LINENO: checking for egrep" >&5
+echo $ECHO_N "checking for egrep... $ECHO_C" >&6
+if test "${ac_cv_prog_egrep+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if echo a | (grep -E '(a|b)') >/dev/null 2>&1
+    then ac_cv_prog_egrep='grep -E'
+    else ac_cv_prog_egrep='egrep'
+    fi
+fi
+echo "$as_me:$LINENO: result: $ac_cv_prog_egrep" >&5
+echo "${ECHO_T}$ac_cv_prog_egrep" >&6
+ EGREP=$ac_cv_prog_egrep
+
+
+
     # Check whether --enable-threads or --disable-threads was given.
 if test "${enable_threads+set}" = set; then
   enableval="$enable_threads"
@@ -3151,25 +3439,925 @@ else
   tcl_ok=no
 fi;
 
-    if test "$tcl_ok" = "yes"; then
-	echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6
-	TCL_THREADS=1
-	cat >>confdefs.h <<\_ACEOF
-#define TCL_THREADS 1
-_ACEOF
+    if test "${TCL_THREADS}" = 1; then
+	tcl_threaded_core=1;
+    fi
 
+    if test "$tcl_ok" = "yes" -o "${TCL_THREADS}" = 1; then
+	TCL_THREADS=1
 	# USE_THREAD_ALLOC tells us to try the special thread-based
 	# allocator that significantly reduces lock contention
-	cat >>confdefs.h <<\_ACEOF
+
+cat >>confdefs.h <<\_ACEOF
 #define USE_THREAD_ALLOC 1
 _ACEOF
 
+
+cat >>confdefs.h <<\_ACEOF
+#define _REENTRANT 1
+_ACEOF
+
+	if test "`uname -s`" = "SunOS" ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define _POSIX_PTHREAD_SEMANTICS 1
+_ACEOF
+
+	fi
+
+cat >>confdefs.h <<\_ACEOF
+#define _THREAD_SAFE 1
+_ACEOF
+
+	echo "$as_me:$LINENO: checking for pthread_mutex_init in -lpthread" >&5
+echo $ECHO_N "checking for pthread_mutex_init in -lpthread... $ECHO_C" >&6
+if test "${ac_cv_lib_pthread_pthread_mutex_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpthread  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_mutex_init ();
+int
+main ()
+{
+pthread_mutex_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_pthread_pthread_mutex_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_pthread_pthread_mutex_init=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_pthread_pthread_mutex_init" >&5
+echo "${ECHO_T}$ac_cv_lib_pthread_pthread_mutex_init" >&6
+if test $ac_cv_lib_pthread_pthread_mutex_init = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	if test "$tcl_ok" = "no"; then
+	    # Check a little harder for __pthread_mutex_init in the same
+	    # library, as some systems hide it there until pthread.h is
+	    # defined.  We could alternatively do an AC_TRY_COMPILE with
+	    # pthread.h, but that will work with libpthread really doesn't
+	    # exist, like AIX 4.2.  [Bug: 4359]
+	    echo "$as_me:$LINENO: checking for __pthread_mutex_init in -lpthread" >&5
+echo $ECHO_N "checking for __pthread_mutex_init in -lpthread... $ECHO_C" >&6
+if test "${ac_cv_lib_pthread___pthread_mutex_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpthread  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char __pthread_mutex_init ();
+int
+main ()
+{
+__pthread_mutex_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_pthread___pthread_mutex_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_pthread___pthread_mutex_init=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_pthread___pthread_mutex_init" >&5
+echo "${ECHO_T}$ac_cv_lib_pthread___pthread_mutex_init" >&6
+if test $ac_cv_lib_pthread___pthread_mutex_init = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	fi
+
+	if test "$tcl_ok" = "yes"; then
+	    # The space is needed
+	    THREADS_LIBS=" -lpthread"
+	else
+	    echo "$as_me:$LINENO: checking for pthread_mutex_init in -lpthreads" >&5
+echo $ECHO_N "checking for pthread_mutex_init in -lpthreads... $ECHO_C" >&6
+if test "${ac_cv_lib_pthreads_pthread_mutex_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpthreads  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_mutex_init ();
+int
+main ()
+{
+pthread_mutex_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_pthreads_pthread_mutex_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_pthreads_pthread_mutex_init=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_pthreads_pthread_mutex_init" >&5
+echo "${ECHO_T}$ac_cv_lib_pthreads_pthread_mutex_init" >&6
+if test $ac_cv_lib_pthreads_pthread_mutex_init = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	    if test "$tcl_ok" = "yes"; then
+		# The space is needed
+		THREADS_LIBS=" -lpthreads"
+	    else
+		echo "$as_me:$LINENO: checking for pthread_mutex_init in -lc" >&5
+echo $ECHO_N "checking for pthread_mutex_init in -lc... $ECHO_C" >&6
+if test "${ac_cv_lib_c_pthread_mutex_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lc  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_mutex_init ();
+int
+main ()
+{
+pthread_mutex_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_c_pthread_mutex_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_c_pthread_mutex_init=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_c_pthread_mutex_init" >&5
+echo "${ECHO_T}$ac_cv_lib_c_pthread_mutex_init" >&6
+if test $ac_cv_lib_c_pthread_mutex_init = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+		if test "$tcl_ok" = "no"; then
+		    echo "$as_me:$LINENO: checking for pthread_mutex_init in -lc_r" >&5
+echo $ECHO_N "checking for pthread_mutex_init in -lc_r... $ECHO_C" >&6
+if test "${ac_cv_lib_c_r_pthread_mutex_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lc_r  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_mutex_init ();
+int
+main ()
+{
+pthread_mutex_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_c_r_pthread_mutex_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_c_r_pthread_mutex_init=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_c_r_pthread_mutex_init" >&5
+echo "${ECHO_T}$ac_cv_lib_c_r_pthread_mutex_init" >&6
+if test $ac_cv_lib_c_r_pthread_mutex_init = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+		    if test "$tcl_ok" = "yes"; then
+			# The space is needed
+			THREADS_LIBS=" -pthread"
+		    else
+			TCL_THREADS=0
+			{ echo "$as_me:$LINENO: WARNING: Don't know how to find pthread lib on your system - you must disable thread support or edit the LIBS in the Makefile..." >&5
+echo "$as_me: WARNING: Don't know how to find pthread lib on your system - you must disable thread support or edit the LIBS in the Makefile..." >&2;}
+		    fi
+		fi
+	    fi
+	fi
+
+	# Does the pthread-implementation provide
+	# 'pthread_attr_setstacksize' ?
+
+	ac_saved_libs=$LIBS
+	LIBS="$LIBS $THREADS_LIBS"
+
+for ac_func in pthread_attr_setstacksize
+do
+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $ac_func" >&5
+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6
+if eval "test \"\${$as_ac_var+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define $ac_func innocuous_$ac_func
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $ac_func (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef $ac_func
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char $ac_func ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
+choke me
+#else
+char (*f) () = $ac_func;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != $ac_func;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_var=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+eval "$as_ac_var=no"
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_var'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_var'}'`" >&6
+if test `eval echo '${'$as_ac_var'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+	echo "$as_me:$LINENO: checking for pthread_attr_get_np" >&5
+echo $ECHO_N "checking for pthread_attr_get_np... $ECHO_C" >&6
+if test "${ac_cv_func_pthread_attr_get_np+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define pthread_attr_get_np to an innocuous variant, in case <limits.h> declares pthread_attr_get_np.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define pthread_attr_get_np innocuous_pthread_attr_get_np
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char pthread_attr_get_np (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef pthread_attr_get_np
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_attr_get_np ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_pthread_attr_get_np) || defined (__stub___pthread_attr_get_np)
+choke me
+#else
+char (*f) () = pthread_attr_get_np;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != pthread_attr_get_np;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_pthread_attr_get_np=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_pthread_attr_get_np=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_pthread_attr_get_np" >&5
+echo "${ECHO_T}$ac_cv_func_pthread_attr_get_np" >&6
+if test $ac_cv_func_pthread_attr_get_np = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	if test $tcl_ok = yes ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_PTHREAD_ATTR_GET_NP 1
+_ACEOF
+
+	    echo "$as_me:$LINENO: checking for pthread_attr_get_np declaration" >&5
+echo $ECHO_N "checking for pthread_attr_get_np declaration... $ECHO_C" >&6
+if test "${tcl_cv_grep_pthread_attr_get_np+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "pthread_attr_get_np" >/dev/null 2>&1; then
+  tcl_cv_grep_pthread_attr_get_np=present
+else
+  tcl_cv_grep_pthread_attr_get_np=missing
+fi
+rm -f conftest*
+
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_grep_pthread_attr_get_np" >&5
+echo "${ECHO_T}$tcl_cv_grep_pthread_attr_get_np" >&6
+	    if test $tcl_cv_grep_pthread_attr_get_np = missing ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define ATTRGETNP_NOT_DECLARED 1
+_ACEOF
+
+	    fi
+	else
+	    echo "$as_me:$LINENO: checking for pthread_getattr_np" >&5
+echo $ECHO_N "checking for pthread_getattr_np... $ECHO_C" >&6
+if test "${ac_cv_func_pthread_getattr_np+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define pthread_getattr_np to an innocuous variant, in case <limits.h> declares pthread_getattr_np.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define pthread_getattr_np innocuous_pthread_getattr_np
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char pthread_getattr_np (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef pthread_getattr_np
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char pthread_getattr_np ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_pthread_getattr_np) || defined (__stub___pthread_getattr_np)
+choke me
+#else
+char (*f) () = pthread_getattr_np;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != pthread_getattr_np;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_func_pthread_getattr_np=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_func_pthread_getattr_np=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_func_pthread_getattr_np" >&5
+echo "${ECHO_T}$ac_cv_func_pthread_getattr_np" >&6
+if test $ac_cv_func_pthread_getattr_np = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	    if test $tcl_ok = yes ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_PTHREAD_GETATTR_NP 1
+_ACEOF
+
+		echo "$as_me:$LINENO: checking for pthread_getattr_np declaration" >&5
+echo $ECHO_N "checking for pthread_getattr_np declaration... $ECHO_C" >&6
+if test "${tcl_cv_grep_pthread_getattr_np+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <pthread.h>
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "pthread_getattr_np" >/dev/null 2>&1; then
+  tcl_cv_grep_pthread_getattr_np=present
+else
+  tcl_cv_grep_pthread_getattr_np=missing
+fi
+rm -f conftest*
+
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_grep_pthread_getattr_np" >&5
+echo "${ECHO_T}$tcl_cv_grep_pthread_getattr_np" >&6
+		if test $tcl_cv_grep_pthread_getattr_np = missing ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define GETATTRNP_NOT_DECLARED 1
+_ACEOF
+
+		fi
+	    fi
+	fi
+	if test $tcl_ok = no; then
+	    # Darwin thread stacksize API
+
+for ac_func in pthread_get_stacksize_np
+do
+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $ac_func" >&5
+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6
+if eval "test \"\${$as_ac_var+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
+#define $ac_func innocuous_$ac_func
+
+/* System header to define __stub macros and hopefully few prototypes,
+    which can conflict with char $ac_func (); below.
+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
+    <limits.h> exists even on freestanding compilers.  */
+
+#ifdef __STDC__
+# include <limits.h>
+#else
+# include <assert.h>
+#endif
+
+#undef $ac_func
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char $ac_func ();
+/* The GNU C library defines this for functions which it implements
+    to always fail with ENOSYS.  Some functions are actually named
+    something starting with __ and the normal name is an alias.  */
+#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
+choke me
+#else
+char (*f) () = $ac_func;
+#endif
+#ifdef __cplusplus
+}
+#endif
+
+int
+main ()
+{
+return f != $ac_func;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_var=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+eval "$as_ac_var=no"
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_var'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_var'}'`" >&6
+if test `eval echo '${'$as_ac_var'}'` = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+	fi
+	LIBS=$ac_saved_libs
     else
 	TCL_THREADS=0
+    fi
+    # Do checking message here to not mess up interleaved configure output
+    echo "$as_me:$LINENO: checking for building with threads" >&5
+echo $ECHO_N "checking for building with threads... $ECHO_C" >&6
+    if test "${TCL_THREADS}" = 1; then
+
+cat >>confdefs.h <<\_ACEOF
+#define TCL_THREADS 1
+_ACEOF
+
+	if test "${tcl_threaded_core}" = 1; then
+	    echo "$as_me:$LINENO: result: yes (threaded core)" >&5
+echo "${ECHO_T}yes (threaded core)" >&6
+	else
+	    echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+	fi
+    else
 	echo "$as_me:$LINENO: result: no (default)" >&5
 echo "${ECHO_T}no (default)" >&6
     fi
+
 
 
 
@@ -3186,14 +4374,15 @@ if test "${with_encoding+set}" = set; then
 fi;
 
     if test x"${with_tcencoding}" != x ; then
-	cat >>confdefs.h <<_ACEOF
+
+cat >>confdefs.h <<_ACEOF
 #define TCL_CFGVAL_ENCODING "${with_tcencoding}"
 _ACEOF
 
     else
-	# Default encoding on windows is not "iso8859-1"
-	cat >>confdefs.h <<\_ACEOF
-#define TCL_CFGVAL_ENCODING "cp1252"
+
+cat >>confdefs.h <<\_ACEOF
+#define TCL_CFGVAL_ENCODING "iso8859-1"
 _ACEOF
 
     fi
@@ -3230,7 +4419,8 @@ echo "${ECHO_T}shared" >&6
 	echo "$as_me:$LINENO: result: static" >&5
 echo "${ECHO_T}static" >&6
 	SHARED_BUILD=0
-	cat >>confdefs.h <<\_ACEOF
+
+cat >>confdefs.h <<\_ACEOF
 #define STATIC_BUILD 1
 _ACEOF
 
@@ -3243,9 +4433,89 @@ _ACEOF
 # after SC_ENABLE_SHARED checks the configure switches.
 #--------------------------------------------------------------------
 
+if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
+set dummy ${ac_tool_prefix}ranlib; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_RANLIB+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$RANLIB"; then
+  ac_cv_prog_RANLIB="$RANLIB" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_RANLIB="${ac_tool_prefix}ranlib"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+fi
+fi
+RANLIB=$ac_cv_prog_RANLIB
+if test -n "$RANLIB"; then
+  echo "$as_me:$LINENO: result: $RANLIB" >&5
+echo "${ECHO_T}$RANLIB" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+fi
+if test -z "$ac_cv_prog_RANLIB"; then
+  ac_ct_RANLIB=$RANLIB
+  # Extract the first word of "ranlib", so it can be a program name with args.
+set dummy ranlib; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_ac_ct_RANLIB+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$ac_ct_RANLIB"; then
+  ac_cv_prog_ac_ct_RANLIB="$ac_ct_RANLIB" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_ac_ct_RANLIB="ranlib"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_ac_ct_RANLIB" && ac_cv_prog_ac_ct_RANLIB=":"
+fi
+fi
+ac_ct_RANLIB=$ac_cv_prog_ac_ct_RANLIB
+if test -n "$ac_ct_RANLIB"; then
+  echo "$as_me:$LINENO: result: $ac_ct_RANLIB" >&5
+echo "${ECHO_T}$ac_ct_RANLIB" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+  RANLIB=$ac_ct_RANLIB
+else
+  RANLIB="$ac_cv_prog_RANLIB"
+fi
 
 
-    # Step 0: Enable 64 bit support?
+
+    # Step 0.a: Enable 64 bit support?
 
     echo "$as_me:$LINENO: checking if 64bit support is requested" >&5
 echo $ECHO_N "checking if 64bit support is requested... $ECHO_C" >&6
@@ -3259,45 +4529,172 @@ fi;
     echo "$as_me:$LINENO: result: $do64bit" >&5
 echo "${ECHO_T}$do64bit" >&6
 
-    # Cross-compiling options for Windows/CE builds
+    # Step 0.b: Enable Solaris 64 bit VIS support?
 
-    echo "$as_me:$LINENO: checking if Windows/CE build is requested" >&5
-echo $ECHO_N "checking if Windows/CE build is requested... $ECHO_C" >&6
-    # Check whether --enable-wince or --disable-wince was given.
-if test "${enable_wince+set}" = set; then
-  enableval="$enable_wince"
-  doWince=$enableval
+    echo "$as_me:$LINENO: checking if 64bit Sparc VIS support is requested" >&5
+echo $ECHO_N "checking if 64bit Sparc VIS support is requested... $ECHO_C" >&6
+    # Check whether --enable-64bit-vis or --disable-64bit-vis was given.
+if test "${enable_64bit_vis+set}" = set; then
+  enableval="$enable_64bit_vis"
+  do64bitVIS=$enableval
 else
-  doWince=no
+  do64bitVIS=no
 fi;
-    echo "$as_me:$LINENO: result: $doWince" >&5
-echo "${ECHO_T}$doWince" >&6
+    echo "$as_me:$LINENO: result: $do64bitVIS" >&5
+echo "${ECHO_T}$do64bitVIS" >&6
 
-    echo "$as_me:$LINENO: checking for Windows/CE celib directory" >&5
-echo $ECHO_N "checking for Windows/CE celib directory... $ECHO_C" >&6
+    if test "$do64bitVIS" = "yes"; then
+	# Force 64bit on with VIS
+	do64bit=yes
+    fi
 
-# Check whether --with-celib or --without-celib was given.
-if test "${with_celib+set}" = set; then
-  withval="$with_celib"
-  CELIB_DIR=$withval
-else
-  CELIB_DIR=NO_CELIB
-fi;
-    echo "$as_me:$LINENO: result: $CELIB_DIR" >&5
-echo "${ECHO_T}$CELIB_DIR" >&6
+    # Step 1: set the variable "system" to hold the name and version number
+    # for the system.
 
-    # Set some defaults (may get changed below)
-    EXTRA_CFLAGS=""
 
-    # Extract the first word of "cygpath", so it can be a program name with args.
-set dummy cygpath; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_CYGPATH+set}" = set; then
+    echo "$as_me:$LINENO: checking system version" >&5
+echo $ECHO_N "checking system version... $ECHO_C" >&6
+if test "${tcl_cv_sys_version+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  if test -n "$CYGPATH"; then
-  ac_cv_prog_CYGPATH="$CYGPATH" # Let the user override the test.
+
+	if test -f /usr/lib/NextStep/software_version; then
+	    tcl_cv_sys_version=NEXTSTEP-`awk '/3/,/3/' /usr/lib/NextStep/software_version`
+	else
+	    tcl_cv_sys_version=`uname -s`-`uname -r`
+	    if test "$?" -ne 0 ; then
+		{ echo "$as_me:$LINENO: WARNING: can't find uname command" >&5
+echo "$as_me: WARNING: can't find uname command" >&2;}
+		tcl_cv_sys_version=unknown
+	    else
+		# Special check for weird MP-RAS system (uname returns weird
+		# results, and the version is kept in special file).
+
+		if test -r /etc/.relid -a "X`uname -n`" = "X`uname -s`" ; then
+		    tcl_cv_sys_version=MP-RAS-`awk '{print $3}' /etc/.relid`
+		fi
+		if test "`uname -s`" = "AIX" ; then
+		    tcl_cv_sys_version=AIX-`uname -v`.`uname -r`
+		fi
+	    fi
+	fi
+
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_sys_version" >&5
+echo "${ECHO_T}$tcl_cv_sys_version" >&6
+    system=$tcl_cv_sys_version
+
+
+    # Step 2: check for existence of -ldl library.  This is needed because
+    # Linux can use either -ldl or -ldld for dynamic loading.
+
+    echo "$as_me:$LINENO: checking for dlopen in -ldl" >&5
+echo $ECHO_N "checking for dlopen in -ldl... $ECHO_C" >&6
+if test "${ac_cv_lib_dl_dlopen+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldl  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char dlopen ();
+int
+main ()
+{
+dlopen ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_dl_dlopen=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_dl_dlopen=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_dl_dlopen" >&5
+echo "${ECHO_T}$ac_cv_lib_dl_dlopen" >&6
+if test $ac_cv_lib_dl_dlopen = yes; then
+  have_dl=yes
+else
+  have_dl=no
+fi
+
+
+    # Require ranlib early so we can override it in special cases below.
+
+
+
+    # Step 3: set configuration options based on system name and version.
+
+    do64bit_ok=no
+    LDFLAGS_ORIG="$LDFLAGS"
+    # When ld needs options to work in 64-bit mode, put them in
+    # LDFLAGS_ARCH so they eventually end up in LDFLAGS even if [load]
+    # is disabled by the user. [Bug 1016796]
+    LDFLAGS_ARCH=""
+    TCL_EXPORT_FILE_SUFFIX=""
+    UNSHARED_LIB_SUFFIX=""
+    TCL_TRIM_DOTS='`echo ${VERSION} | tr -d .`'
+    ECHO_VERSION='`echo ${VERSION}`'
+    TCL_LIB_VERSIONS_OK=ok
+    CFLAGS_DEBUG=-g
+    CFLAGS_OPTIMIZE=-O
+    if test "$GCC" = "yes" ; then
+	CFLAGS_WARNING="-Wall -Wno-implicit-int"
+    else
+	CFLAGS_WARNING=""
+    fi
+    TCL_NEEDS_EXP_FILE=0
+    TCL_BUILD_EXP_FILE=""
+    TCL_EXP_FILE=""
+    # Extract the first word of "ar", so it can be a program name with args.
+set dummy ar; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_AR+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$AR"; then
+  ac_cv_prog_AR="$AR" # Let the user override the test.
 else
 as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
 for as_dir in $PATH
@@ -3306,429 +4703,1610 @@ do
   test -z "$as_dir" && as_dir=.
   for ac_exec_ext in '' $ac_executable_extensions; do
   if $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_CYGPATH="cygpath -w"
+    ac_cv_prog_AR="ar"
     echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
     break 2
   fi
 done
 done
 
-  test -z "$ac_cv_prog_CYGPATH" && ac_cv_prog_CYGPATH="echo"
 fi
 fi
-CYGPATH=$ac_cv_prog_CYGPATH
-if test -n "$CYGPATH"; then
-  echo "$as_me:$LINENO: result: $CYGPATH" >&5
-echo "${ECHO_T}$CYGPATH" >&6
+AR=$ac_cv_prog_AR
+if test -n "$AR"; then
+  echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
 else
   echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6
 fi
 
+    if test "${AR}" = "" ; then
+	{ { echo "$as_me:$LINENO: error: Required archive tool 'ar' not found on PATH." >&5
+echo "$as_me: error: Required archive tool 'ar' not found on PATH." >&2;}
+   { (exit 1); exit 1; }; }
+    fi
+    STLIB_LD='${AR} cr'
+    LD_LIBRARY_PATH_VAR="LD_LIBRARY_PATH"
+    PLAT_OBJS=""
+    PLAT_SRCS=""
+    case $system in
+	AIX-*)
+	    if test "${TCL_THREADS}" = "1" -a "$GCC" != "yes" ; then
+		# AIX requires the _r compiler when gcc isn't being used
+		case "${CC}" in
+		    *_r)
+			# ok ...
+			;;
+		    *)
+			CC=${CC}_r
+			;;
+		esac
+		echo "$as_me:$LINENO: result: Using $CC for compiling with threads" >&5
+echo "${ECHO_T}Using $CC for compiling with threads" >&6
+	    fi
+	    LIBS="$LIBS -lc"
+	    SHLIB_CFLAGS=""
+	    # Note: need the LIBS below, otherwise Tk won't find Tcl's
+	    # symbols when dynamically loaded into tclsh.
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
 
-    SHLIB_SUFFIX=".dll"
+	    DL_OBJS="tclLoadDl.o"
+	    LD_LIBRARY_PATH_VAR="LIBPATH"
 
-    # Check for a bug in gcc's windres that causes the
-    # compile to fail when a Windows native path is
-    # passed into windres. The mingw toolchain requires
-    # Windows native paths while Cygwin should work
-    # with both. Avoid the bug by passing a POSIX
-    # path when using the Cygwin toolchain.
+	    # Check to enable 64-bit flags for compiler/linker on AIX 4+
+	    if test "$do64bit" = "yes" -a "`uname -v`" -gt "3" ; then
+		if test "$GCC" = "yes" ; then
+		    { echo "$as_me:$LINENO: WARNING: 64bit mode not supported with GCC on $system" >&5
+echo "$as_me: WARNING: 64bit mode not supported with GCC on $system" >&2;}
+		else
+		    do64bit_ok=yes
+		    CFLAGS="$CFLAGS -q64"
+		    LDFLAGS_ARCH="-q64"
+		    RANLIB="${RANLIB} -X64"
+		    AR="${AR} -X64"
+		    SHLIB_LD_FLAGS="-b64"
+		fi
+	    fi
 
-    if test "$GCC" = "yes" && test "$CYGPATH" != "echo" ; then
-	conftest=/tmp/conftest.rc
-	echo "STRINGTABLE BEGIN" > $conftest
-	echo "101 \"name\"" >> $conftest
-	echo "END" >> $conftest
+	    if test "`uname -m`" = "ia64" ; then
+		# AIX-5 uses ELF style dynamic libraries on IA-64, but not PPC
+		SHLIB_LD="/usr/ccs/bin/ld -G -z text"
+		# AIX-5 has dl* in libc.so
+		DL_LIBS=""
+		if test "$GCC" = "yes" ; then
+		    CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
+		else
+		    CC_SEARCH_FLAGS='-R${LIB_RUNTIME_DIR}'
+		fi
+		LD_SEARCH_FLAGS='-R ${LIB_RUNTIME_DIR}'
+	    else
+		if test "$GCC" = "yes" ; then
+		    SHLIB_LD="gcc -shared"
+		else
+		    SHLIB_LD="/bin/ld -bhalt:4 -bM:SRE -bE:lib.exp -H512 -T512 -bnoentry"
+		fi
+		SHLIB_LD="${TCL_SRC_DIR}/unix/ldAix ${SHLIB_LD} ${SHLIB_LD_FLAGS}"
+		DL_LIBS="-ldl"
+		CC_SEARCH_FLAGS='-L${LIB_RUNTIME_DIR}'
+		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+		TCL_NEEDS_EXP_FILE=1
+		TCL_EXPORT_FILE_SUFFIX='${VERSION}.exp'
+	    fi
 
-	echo "$as_me:$LINENO: checking for Windows native path bug in windres" >&5
-echo $ECHO_N "checking for Windows native path bug in windres... $ECHO_C" >&6
-	cyg_conftest=`$CYGPATH $conftest`
-	if { ac_try='$RC -o conftest.res.o $cyg_conftest'
+	    # AIX v<=4.1 has some different flags than 4.2+
+	    if test "$system" = "AIX-4.1" -o "`uname -v`" -lt "4" ; then
+		case $LIBOBJS in
+    "tclLoadAix.$ac_objext"   | \
+  *" tclLoadAix.$ac_objext"   | \
+    "tclLoadAix.$ac_objext "* | \
+  *" tclLoadAix.$ac_objext "* ) ;;
+  *) LIBOBJS="$LIBOBJS tclLoadAix.$ac_objext" ;;
+esac
+
+		DL_LIBS="-lld"
+	    fi
+
+	    # On AIX <=v4 systems, libbsd.a has to be linked in to support
+	    # non-blocking file IO.  This library has to be linked in after
+	    # the MATH_LIBS or it breaks the pow() function.  The way to
+	    # insure proper sequencing, is to add it to the tail of MATH_LIBS.
+	    # This library also supplies gettimeofday.
+	    #
+	    # AIX does not have a timezone field in struct tm. When the AIX
+	    # bsd library is used, the timezone global and the gettimeofday
+	    # methods are to be avoided for timezone deduction instead, we
+	    # deduce the timezone by comparing the localtime result on a
+	    # known GMT value.
+
+	    echo "$as_me:$LINENO: checking for gettimeofday in -lbsd" >&5
+echo $ECHO_N "checking for gettimeofday in -lbsd... $ECHO_C" >&6
+if test "${ac_cv_lib_bsd_gettimeofday+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lbsd  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char gettimeofday ();
+int
+main ()
+{
+gettimeofday ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } ; then
-	    echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-	else
-	    echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6
-	    CYGPATH=echo
-	fi
-	conftest=
-	cyg_conftest=
-    fi
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_bsd_gettimeofday=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
 
-    if test "$CYGPATH" = "echo" || test "$ac_cv_cygwin" = "yes"; then
-        DEPARG='"$<"'
-    else
-        DEPARG='"$(shell $(CYGPATH) $<)"'
-    fi
+ac_cv_lib_bsd_gettimeofday=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_bsd_gettimeofday" >&5
+echo "${ECHO_T}$ac_cv_lib_bsd_gettimeofday" >&6
+if test $ac_cv_lib_bsd_gettimeofday = yes; then
+  libbsd=yes
+else
+  libbsd=no
+fi
 
-    # set various compiler flags depending on whether we are using gcc or cl
+	    if test $libbsd = yes; then
+	    	MATH_LIBS="$MATH_LIBS -lbsd"
 
-    echo "$as_me:$LINENO: checking compiler flags" >&5
-echo $ECHO_N "checking compiler flags... $ECHO_C" >&6
-    if test "${GCC}" = "yes" ; then
-	if test "$do64bit" != "no" ; then
-	    { echo "$as_me:$LINENO: WARNING: 64bit mode not supported with GCC on Windows" >&5
-echo "$as_me: WARNING: 64bit mode not supported with GCC on Windows" >&2;}
-	fi
-	SHLIB_LD=""
-	SHLIB_LD_LIBS=""
-	LIBS=""
-	LIBS_GUI="-lgdi32 -lcomdlg32 -limm32 -lcomctl32 -lshell32 -lole32 -loleaut32 -luuid"
-	STLIB_LD='${AR} cr'
-	RC_OUT=-o
-	RC_TYPE=
-	RC_INCLUDE=--include
-	RC_DEFINE=--define
-	RES=res.o
-	MAKE_LIB="\${STLIB_LD} \$@"
-	POST_MAKE_LIB="\${RANLIB} \$@"
-	MAKE_EXE="\${CC} -o \$@"
-	LIBPREFIX="lib"
+cat >>confdefs.h <<\_ACEOF
+#define USE_DELTA_FOR_TZ 1
+_ACEOF
 
-	#if test "$ac_cv_cygwin" = "yes"; then
-	#    extra_cflags="-mno-cygwin"
-	#    extra_ldflags="-mno-cygwin"
-	#else
-	#    extra_cflags=""
-	#    extra_ldflags=""
-	#fi
-
-	if test "$ac_cv_cygwin" = "yes"; then
-	  touch ac$$.c
-	  if ${CC} -c -mwin32 ac$$.c >/dev/null 2>&1; then
-	    case "$extra_cflags" in
-	      *-mwin32*) ;;
-	      *) extra_cflags="-mwin32 $extra_cflags" ;;
-	    esac
-	    case "$extra_ldflags" in
-	      *-mwin32*) ;;
-	      *) extra_ldflags="-mwin32 $extra_ldflags" ;;
-	    esac
-	  fi
-	  rm -f ac$$.o ac$$.c
-	else
-	  extra_cflags=''
-	  extra_ldflags=''
-	fi
-
-	if test "${SHARED_BUILD}" = "0" ; then
-	    # static
-            echo "$as_me:$LINENO: result: using static flags" >&5
-echo "${ECHO_T}using static flags" >&6
-	    runtime=
-	    MAKE_DLL="echo "
-	    LIBSUFFIX="s\${DBGX}.a"
-	    LIBFLAGSUFFIX="s\${DBGX}"
-	    LIBRARIES="\${STATIC_LIBRARIES}"
-	    EXESUFFIX="s\${DBGX}.exe"
-	else
-	    # dynamic
-            echo "$as_me:$LINENO: result: using shared flags" >&5
-echo "${ECHO_T}using shared flags" >&6
-
-	    # ad-hoc check to see if CC supports -shared.
-	    if "${CC}" -shared 2>&1 | egrep ': -shared not supported' >/dev/null; then
-		{ { echo "$as_me:$LINENO: error: ${CC} does not support the -shared option.
-                You will need to upgrade to a newer version of the toolchain." >&5
-echo "$as_me: error: ${CC} does not support the -shared option.
-                You will need to upgrade to a newer version of the toolchain." >&2;}
-   { (exit 1); exit 1; }; }
 	    fi
-
-	    runtime=
-	    # Link with gcc since ld does not link to default libs like
-	    # -luser32 and -lmsvcrt by default. Make sure CFLAGS is
-	    # included so -mno-cygwin passed the correct libs to the linker.
-	    SHLIB_LD='${CC} -shared ${CFLAGS}'
+	    ;;
+	BeOS*)
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD="${CC} -nostart"
 	    SHLIB_LD_LIBS='${LIBS}'
-	    # Add SHLIB_LD_LIBS to the Make rule, not here.
-	    MAKE_DLL="\${SHLIB_LD} \$(LDFLAGS) -o \$@ ${extra_ldflags} \
-	        -Wl,--out-implib,\$(patsubst %.dll,lib%.a,\$@)"
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
 
-	    LIBSUFFIX="\${DBGX}.a"
-	    LIBFLAGSUFFIX="\${DBGX}"
-	    EXESUFFIX="\${DBGX}.exe"
-	    LIBRARIES="\${SHARED_LIBRARIES}"
-	fi
-	# DLLSUFFIX is separate because it is the building block for
-	# users of tclConfig.sh that may build shared or static.
-	DLLSUFFIX="\${DBGX}.dll"
-	SHLIB_SUFFIX=.dll
+	    #-----------------------------------------------------------
+	    # Check for inet_ntoa in -lbind, for BeOS (which also needs
+	    # -lsocket, even if the network functions are in -lnet which
+	    # is always linked to, for compatibility.
+	    #-----------------------------------------------------------
+	    echo "$as_me:$LINENO: checking for inet_ntoa in -lbind" >&5
+echo $ECHO_N "checking for inet_ntoa in -lbind... $ECHO_C" >&6
+if test "${ac_cv_lib_bind_inet_ntoa+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lbind  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
 
-	EXTRA_CFLAGS="${extra_cflags}"
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char inet_ntoa ();
+int
+main ()
+{
+inet_ntoa ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_bind_inet_ntoa=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
 
-	CFLAGS_DEBUG=-g
-	CFLAGS_OPTIMIZE="-O2 -fomit-frame-pointer"
-	CFLAGS_WARNING="-Wall -Wconversion"
-	LDFLAGS_DEBUG=
-	LDFLAGS_OPTIMIZE=
+ac_cv_lib_bind_inet_ntoa=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_bind_inet_ntoa" >&5
+echo "${ECHO_T}$ac_cv_lib_bind_inet_ntoa" >&6
+if test $ac_cv_lib_bind_inet_ntoa = yes; then
+  LIBS="$LIBS -lbind -lsocket"
+fi
 
-	# Specify the CC output file names based on the target name
-	CC_OBJNAME="-o \$@"
-	CC_EXENAME="-o \$@"
-
-	# Specify linker flags depending on the type of app being
-	# built -- Console vs. Window.
-	#
-	# ORIGINAL COMMENT:
-	# We need to pass -e _WinMain@16 so that ld will use
-	# WinMain() instead of main() as the entry point. We can't
-	# use autoconf to check for this case since it would need
-	# to run an executable and that does not work when
-	# cross compiling. Remove this -e workaround once we
-	# require a gcc that does not have this bug.
-	#
-	# MK NOTE: Tk should use a different mechanism. This causes
-	# interesting problems, such as wish dying at startup.
-	#LDFLAGS_WINDOW="-mwindows -e _WinMain@16 ${extra_ldflags}"
-	LDFLAGS_CONSOLE="-mconsole ${extra_ldflags}"
-	LDFLAGS_WINDOW="-mwindows ${extra_ldflags}"
-
-	# gcc under Windows supports only 32bit builds
-	MACHINE="X86"
-    else
-	if test "${SHARED_BUILD}" = "0" ; then
-	    # static
-            echo "$as_me:$LINENO: result: using static flags" >&5
-echo "${ECHO_T}using static flags" >&6
-	    runtime=-MT
-	    MAKE_DLL="echo "
-	    LIBSUFFIX="s\${DBGX}.lib"
-	    LIBFLAGSUFFIX="s\${DBGX}"
-	    LIBRARIES="\${STATIC_LIBRARIES}"
-	    EXESUFFIX="s\${DBGX}.exe"
+	    ;;
+	BSD/OS-2.1*|BSD/OS-3*)
+	    SHLIB_CFLAGS=""
+	    SHLIB_LD="shlicc -r"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	BSD/OS-4.*)
+	    SHLIB_CFLAGS="-export-dynamic -fPIC"
+	    SHLIB_LD="cc -shared"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    LDFLAGS="$LDFLAGS -export-dynamic"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	dgux*)
+	    SHLIB_CFLAGS="-K PIC"
+	    SHLIB_LD="cc -G"
 	    SHLIB_LD_LIBS=""
-	else
-	    # dynamic
-            echo "$as_me:$LINENO: result: using shared flags" >&5
-echo "${ECHO_T}using shared flags" >&6
-	    runtime=-MD
-	    # Add SHLIB_LD_LIBS to the Make rule, not here.
-	    MAKE_DLL="\${SHLIB_LD} \$(LDFLAGS) -out:\$@"
-	    LIBSUFFIX="\${DBGX}.lib"
-	    LIBFLAGSUFFIX="\${DBGX}"
-	    EXESUFFIX="\${DBGX}.exe"
-	    LIBRARIES="\${SHARED_LIBRARIES}"
-	    SHLIB_LD_LIBS='${LIBS}'
-	fi
-	# DLLSUFFIX is separate because it is the building block for
-	# users of tclConfig.sh that may build shared or static.
-	DLLSUFFIX="\${DBGX}.dll"
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	HP-UX-*.11.*)
+	    # Use updated header definitions where possible
 
- 	# This is a 2-stage check to make sure we have the 64-bit SDK
- 	# We have to know where the SDK is installed.
-	# This magic is based on MS Platform SDK for Win2003 SP1 - hobbs
-	# MACHINE is IX86 for LINK, but this is used by the manifest,
-	# which requires x86|amd64|ia64.
-	MACHINE="X86"
-	if test "$do64bit" != "no" ; then
-	    if test "x${MSSDK}x" = "xx" ; then
-		MSSDK="C:/Progra~1/Microsoft Platform SDK"
+cat >>confdefs.h <<\_ACEOF
+#define _XOPEN_SOURCE 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _XOPEN_SOURCE_EXTENDED 1
+_ACEOF
+
+	    LIBS="$LIBS -lxnet"               # Use the XOPEN network library
+
+	    SHLIB_SUFFIX=".sl"
+	    echo "$as_me:$LINENO: checking for shl_load in -ldld" >&5
+echo $ECHO_N "checking for shl_load in -ldld... $ECHO_C" >&6
+if test "${ac_cv_lib_dld_shl_load+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldld  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char shl_load ();
+int
+main ()
+{
+shl_load ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_dld_shl_load=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_dld_shl_load=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_dld_shl_load" >&5
+echo "${ECHO_T}$ac_cv_lib_dld_shl_load" >&6
+if test $ac_cv_lib_dld_shl_load = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	    if test "$tcl_ok" = yes; then
+		SHLIB_CFLAGS="+z"
+		SHLIB_LD="ld -b"
+		SHLIB_LD_LIBS='${LIBS}'
+		DL_OBJS="tclLoadShl.o"
+		DL_LIBS="-ldld"
+		LDFLAGS="$LDFLAGS -Wl,-E"
+		CC_SEARCH_FLAGS='-Wl,+s,+b,${LIB_RUNTIME_DIR}:.'
+		LD_SEARCH_FLAGS='+s +b ${LIB_RUNTIME_DIR}:.'
+		LD_LIBRARY_PATH_VAR="SHLIB_PATH"
 	    fi
-	    MSSDK=`echo "$MSSDK" | sed -e 's!\\\!/!g'`
-	    PATH64=""
-	    case "$do64bit" in
-	      amd64|x64|yes)
-		MACHINE="AMD64" ; # assume AMD64 as default 64-bit build
-		PATH64="${MSSDK}/Bin/Win64/x86/AMD64"
-		;;
-	      ia64)
-		MACHINE="IA64"
-		PATH64="${MSSDK}/Bin/Win64"
+	    if test "$GCC" = "yes" ; then
+		SHLIB_LD="gcc -shared"
+		SHLIB_LD_LIBS='${LIBS}'
+		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+	    fi
+
+	    # Users may want PA-RISC 1.1/2.0 portable code - needs HP cc
+	    #CFLAGS="$CFLAGS +DAportable"
+
+	    # Check to enable 64-bit flags for compiler/linker
+	    if test "$do64bit" = "yes" ; then
+		if test "$GCC" = "yes" ; then
+		    hpux_arch=`${CC} -dumpmachine`
+		    case $hpux_arch in
+			hppa64*)
+			    # 64-bit gcc in use.  Fix flags for GNU ld.
+			    do64bit_ok=yes
+			    SHLIB_LD="${CC} -shared"
+			    SHLIB_LD_LIBS='${LIBS}'
+			    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+			    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+			    ;;
+			*)
+			    { echo "$as_me:$LINENO: WARNING: 64bit mode not supported with GCC on $system" >&5
+echo "$as_me: WARNING: 64bit mode not supported with GCC on $system" >&2;}
+			    ;;
+		    esac
+		else
+		    do64bit_ok=yes
+		    CFLAGS="$CFLAGS +DD64"
+		    LDFLAGS_ARCH="+DD64"
+		fi
+	    fi
+	    ;;
+	HP-UX-*.08.*|HP-UX-*.09.*|HP-UX-*.10.*)
+	    SHLIB_SUFFIX=".sl"
+	    echo "$as_me:$LINENO: checking for shl_load in -ldld" >&5
+echo $ECHO_N "checking for shl_load in -ldld... $ECHO_C" >&6
+if test "${ac_cv_lib_dld_shl_load+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldld  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char shl_load ();
+int
+main ()
+{
+shl_load ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_dld_shl_load=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_dld_shl_load=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_dld_shl_load" >&5
+echo "${ECHO_T}$ac_cv_lib_dld_shl_load" >&6
+if test $ac_cv_lib_dld_shl_load = yes; then
+  tcl_ok=yes
+else
+  tcl_ok=no
+fi
+
+	    if test "$tcl_ok" = yes; then
+		SHLIB_CFLAGS="+z"
+		SHLIB_LD="ld -b"
+		SHLIB_LD_LIBS=""
+		DL_OBJS="tclLoadShl.o"
+		DL_LIBS="-ldld"
+		LDFLAGS="$LDFLAGS -Wl,-E"
+		CC_SEARCH_FLAGS='-Wl,+s,+b,${LIB_RUNTIME_DIR}:.'
+		LD_SEARCH_FLAGS='+s +b ${LIB_RUNTIME_DIR}:.'
+		LD_LIBRARY_PATH_VAR="SHLIB_PATH"
+	    fi
+	    ;;
+	IRIX-5.*)
+	    SHLIB_CFLAGS=""
+	    SHLIB_LD="ld -shared -rdata_shared"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    ;;
+	IRIX-6.*)
+	    SHLIB_CFLAGS=""
+	    SHLIB_LD="ld -n32 -shared -rdata_shared"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    if test "$GCC" = "yes" ; then
+		CFLAGS="$CFLAGS -mabi=n32"
+		LDFLAGS="$LDFLAGS -mabi=n32"
+	    else
+		case $system in
+		    IRIX-6.3)
+			# Use to build 6.2 compatible binaries on 6.3.
+			CFLAGS="$CFLAGS -n32 -D_OLD_TERMIOS"
+			;;
+		    *)
+			CFLAGS="$CFLAGS -n32"
+			;;
+		esac
+		LDFLAGS="$LDFLAGS -n32"
+	    fi
+	    ;;
+	IRIX64-6.*)
+	    SHLIB_CFLAGS=""
+	    SHLIB_LD="ld -n32 -shared -rdata_shared"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+
+	    # Check to enable 64-bit flags for compiler/linker
+
+	    if test "$do64bit" = "yes" ; then
+	        if test "$GCC" = "yes" ; then
+	            { echo "$as_me:$LINENO: WARNING: 64bit mode not supported by gcc" >&5
+echo "$as_me: WARNING: 64bit mode not supported by gcc" >&2;}
+	        else
+	            do64bit_ok=yes
+	            SHLIB_LD="ld -64 -shared -rdata_shared"
+	            CFLAGS="$CFLAGS -64"
+	            LDFLAGS_ARCH="-64"
+	        fi
+	    fi
+	    ;;
+	Linux*)
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+
+	    CFLAGS_OPTIMIZE=-O2
+	    # egcs-2.91.66 on Redhat Linux 6.0 generates lots of warnings
+	    # when you inline the string and math operations.  Turn this off to
+	    # get rid of the warnings.
+	    #CFLAGS_OPTIMIZE="${CFLAGS_OPTIMIZE} -D__NO_STRING_INLINES -D__NO_MATH_INLINES"
+
+	    SHLIB_LD="${CC} -shared"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    LDFLAGS="$LDFLAGS -Wl,--export-dynamic"
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+	    if test "`uname -m`" = "alpha" ; then
+		CFLAGS="$CFLAGS -mieee"
+	    fi
+
+	    # The combo of gcc + glibc has a bug related
+	    # to inlining of functions like strtod(). The
+	    # -fno-builtin flag should address this problem
+	    # but it does not work. The -fno-inline flag
+	    # is kind of overkill but it works.
+	    # Disable inlining only when one of the
+	    # files in compat/*.c is being linked in.
+	    if test x"${USE_COMPAT}" != x ; then
+	        CFLAGS="$CFLAGS -fno-inline"
+	    fi
+
+	    # XIM peeking works under XFree86.
+
+cat >>confdefs.h <<\_ACEOF
+#define PEEK_XCLOSEIM 1
+_ACEOF
+
+
+	    ;;
+	GNU*)
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+
+	    SHLIB_LD="${CC} -shared"
+	    DL_OBJS=""
+	    DL_LIBS="-ldl"
+	    LDFLAGS="$LDFLAGS -Wl,--export-dynamic"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    if test "`uname -m`" = "alpha" ; then
+		CFLAGS="$CFLAGS -mieee"
+	    fi
+	    ;;
+	Lynx*)
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    CFLAGS_OPTIMIZE=-02
+	    SHLIB_LD="${CC} -shared "
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-mshared -ldl"
+	    LD_FLAGS="-Wl,--export-dynamic"
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    ;;
+	MP-RAS-02*)
+	    SHLIB_CFLAGS="-K PIC"
+	    SHLIB_LD="cc -G"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	MP-RAS-*)
+	    SHLIB_CFLAGS="-K PIC"
+	    SHLIB_LD="cc -G"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    LDFLAGS="$LDFLAGS -Wl,-Bexport"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	NetBSD-*|FreeBSD-[1-2].*)
+	    # NetBSD/SPARC needs -fPIC, -fpic will not do.
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD="ld -Bshareable -x"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    echo "$as_me:$LINENO: checking for ELF" >&5
+echo $ECHO_N "checking for ELF... $ECHO_C" >&6
+if test "${tcl_cv_ld_elf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef __ELF__
+	yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "yes" >/dev/null 2>&1; then
+  tcl_cv_ld_elf=yes
+else
+  tcl_cv_ld_elf=no
+fi
+rm -f conftest*
+
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_ld_elf" >&5
+echo "${ECHO_T}$tcl_cv_ld_elf" >&6
+	    if test $tcl_cv_ld_elf = yes; then
+		SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.so'
+	    else
+		SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.so.1.0'
+	    fi
+
+	    # Ancient FreeBSD doesn't handle version numbers with dots.
+
+	    UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
+	    TCL_LIB_VERSIONS_OK=nodots
+	    ;;
+	OpenBSD-*)
+	    # OpenBSD/SPARC[64] needs -fPIC, -fpic will not do.
+	    case `machine` in
+	    sparc|sparc64)
+		SHLIB_CFLAGS="-fPIC";;
+	    *)
+		SHLIB_CFLAGS="-fpic";;
+	    esac
+	    SHLIB_LD="${CC} -shared ${SHLIB_CFLAGS}"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+	    SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.so.1.0'
+	    echo "$as_me:$LINENO: checking for ELF" >&5
+echo $ECHO_N "checking for ELF... $ECHO_C" >&6
+if test "${tcl_cv_ld_elf+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef __ELF__
+	yes
+#endif
+
+_ACEOF
+if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
+  $EGREP "yes" >/dev/null 2>&1; then
+  tcl_cv_ld_elf=yes
+else
+  tcl_cv_ld_elf=no
+fi
+rm -f conftest*
+
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_ld_elf" >&5
+echo "${ECHO_T}$tcl_cv_ld_elf" >&6
+	    if test $tcl_cv_ld_elf = yes; then
+		LDFLAGS=-Wl,-export-dynamic
+	    else
+		LDFLAGS=""
+	    fi
+
+	    # OpenBSD doesn't do version numbers with dots.
+	    UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
+	    TCL_LIB_VERSIONS_OK=nodots
+	    ;;
+	FreeBSD-*)
+	    # FreeBSD 3.* and greater have ELF.
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD="ld -Bshareable -x"
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    LDFLAGS="$LDFLAGS -export-dynamic"
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    if test "${TCL_THREADS}" = "1" ; then
+		# The -pthread needs to go in the CFLAGS, not LIBS
+		LIBS=`echo $LIBS | sed s/-pthread//`
+		CFLAGS="$CFLAGS -pthread"
+	    	LDFLAGS="$LDFLAGS -pthread"
+	    fi
+	    case $system in
+	    FreeBSD-3.*)
+	    	# FreeBSD-3 doesn't handle version numbers with dots.
+	    	UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
+	    	SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.so'
+	    	TCL_LIB_VERSIONS_OK=nodots
 		;;
 	    esac
-	    if test ! -d "${PATH64}" ; then
-		{ echo "$as_me:$LINENO: WARNING: Could not find 64-bit $MACHINE SDK to enable 64bit mode" >&5
-echo "$as_me: WARNING: Could not find 64-bit $MACHINE SDK to enable 64bit mode" >&2;}
-		{ echo "$as_me:$LINENO: WARNING: Ensure latest Platform SDK is installed" >&5
-echo "$as_me: WARNING: Ensure latest Platform SDK is installed" >&2;}
-		do64bit="no"
+	    ;;
+	Darwin-*)
+	    CFLAGS_OPTIMIZE="-Os"
+	    SHLIB_CFLAGS="-fno-common"
+	    if test $do64bit = yes; then
+		do64bit_ok=yes
+		case `arch` in
+		    ppc)
+			CFLAGS="$CFLAGS -arch ppc64 -mpowerpc64 -mcpu=G5";;
+		    i386)
+			CFLAGS="$CFLAGS -arch x86_64";;
+		    *)
+			{ echo "$as_me:$LINENO: WARNING: Don't know how enable 64-bit on architecture \`arch\`" >&5
+echo "$as_me: WARNING: Don't know how enable 64-bit on architecture \`arch\`" >&2;}
+			do64bit_ok=no;;
+		esac
 	    else
-		echo "$as_me:$LINENO: result:    Using 64-bit $MACHINE mode" >&5
-echo "${ECHO_T}   Using 64-bit $MACHINE mode" >&6
+		# Check for combined 32-bit and 64-bit fat build
+		echo "$CFLAGS " | grep -E -q -- '-arch (ppc64|x86_64) ' && \
+		    echo "$CFLAGS " | grep -E -q -- '-arch (ppc|i386) ' && \
+		    fat_32_64=yes
 	    fi
-	fi
+	    SHLIB_LD='${CC} -dynamiclib ${CFLAGS} ${LDFLAGS}'
+	    echo "$as_me:$LINENO: checking if ld accepts -single_module flag" >&5
+echo $ECHO_N "checking if ld accepts -single_module flag... $ECHO_C" >&6
+if test "${tcl_cv_ld_single_module+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
 
-	if test "$do64bit" != "no" ; then
-	    # The space-based-path will work for the Makefile, but will
-	    # not work if AC_TRY_COMPILE is called.  TEA has the
-	    # TEA_PATH_NOSPACE to avoid this issue.
-	    CC="\"${PATH64}/cl.exe\" -I\"${MSSDK}/Include\" \
-		-I\"${MSSDK}/Include/crt\" -I\"${MSSDK}/Include/crt/sys\""
-	    RC="\"${MSSDK}/bin/rc.exe\""
-	    CFLAGS_DEBUG="-nologo -Zi -Od ${runtime}d"
-	    # Do not use -O2 for Win64 - this has proved buggy in code gen.
-	    CFLAGS_OPTIMIZE="-nologo -O1 ${runtime}"
-	    lflags="-nologo -MACHINE:${MACHINE} -LIBPATH:\"${MSSDK}/Lib/${MACHINE}\""
-	    LINKBIN="\"${PATH64}/link.exe\""
-	    # Avoid 'unresolved external symbol __security_cookie' errors.
-	    # c.f. http://support.microsoft.com/?id=894573
-	    LIBS="user32.lib advapi32.lib bufferoverflowU.lib"
-	else
-	    RC="rc"
-	    # -Od - no optimization
-	    # -WX - warnings as errors
-	    CFLAGS_DEBUG="-nologo -Z7 -Od -WX ${runtime}d"
-	    # -O2 - create fast code (/Og /Oi /Ot /Oy /Ob2 /Gs /GF /Gy)
-	    CFLAGS_OPTIMIZE="-nologo -O2 ${runtime}"
-	    lflags="-nologo"
-	    LINKBIN="link"
-	    LIBS="user32.lib advapi32.lib"
-	fi
+		hold_ldflags=$LDFLAGS
+		LDFLAGS="$LDFLAGS -dynamiclib -Wl,-single_module"
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
 
-	if test "$doWince" != "no" ; then
-	    # Set defaults for common evc4/PPC2003 setup
-	    # Currently Tcl requires 300+, possibly 420+ for sockets
-	    CEVERSION=420; 		# could be 211 300 301 400 420 ...
-	    TARGETCPU=ARMV4;	# could be ARMV4 ARM MIPS SH3 X86 ...
-	    ARCH=ARM;		# could be ARM MIPS X86EM ...
-	    PLATFORM="Pocket PC 2003"; # or "Pocket PC 2002"
-	    if test "$doWince" != "yes"; then
-		# If !yes then the user specified something
-		# Reset ARCH to allow user to skip specifying it
-		ARCH=
-		eval `echo $doWince | awk -F "," '{ \
-	if (length($1)) { printf "CEVERSION=\"%s\"\n", $1; \
-	if ($1 < 400)	  { printf "PLATFORM=\"Pocket PC 2002\"\n" } }; \
-	if (length($2)) { printf "TARGETCPU=\"%s\"\n", toupper($2) }; \
-	if (length($3)) { printf "ARCH=\"%s\"\n", toupper($3) }; \
-	if (length($4)) { printf "PLATFORM=\"%s\"\n", $4 }; \
-		}'`
-		if test "x${ARCH}" = "x" ; then
-		    ARCH=$TARGETCPU;
-		fi
-	    fi
-	    OSVERSION=WCE$CEVERSION;
-	    if test "x${WCEROOT}" = "x" ; then
-		WCEROOT="C:/Program Files/Microsoft eMbedded C++ 4.0"
-		if test ! -d "${WCEROOT}" ; then
-		    WCEROOT="C:/Program Files/Microsoft eMbedded Tools"
-		fi
-	    fi
-	    if test "x${SDKROOT}" = "x" ; then
-		SDKROOT="C:/Program Files/Windows CE Tools"
-		if test ! -d "${SDKROOT}" ; then
-		    SDKROOT="C:/Windows CE Tools"
-		fi
-	    fi
-	    # The space-based-path will work for the Makefile, but will
-	    # not work if AC_TRY_COMPILE is called.
-	    WCEROOT=`echo "$WCEROOT" | sed -e 's!\\\!/!g'`
-	    SDKROOT=`echo "$SDKROOT" | sed -e 's!\\\!/!g'`
-	    CELIB_DIR=`echo "$CELIB_DIR" | sed -e 's!\\\!/!g'`
-	    if test ! -d "${CELIB_DIR}/inc"; then
-		{ { echo "$as_me:$LINENO: error: Invalid celib directory \"${CELIB_DIR}\"" >&5
-echo "$as_me: error: Invalid celib directory \"${CELIB_DIR}\"" >&2;}
-   { (exit 1); exit 1; }; }
-	    fi
-	    if test ! -d "${SDKROOT}/${OSVERSION}/${PLATFORM}/Lib/${TARGETCPU}"\
-		-o ! -d "${WCEROOT}/EVC/${OSVERSION}/bin"; then
-		{ { echo "$as_me:$LINENO: error: could not find PocketPC SDK or target compiler to enable WinCE mode $CEVERSION,$TARGETCPU,$ARCH,$PLATFORM" >&5
-echo "$as_me: error: could not find PocketPC SDK or target compiler to enable WinCE mode $CEVERSION,$TARGETCPU,$ARCH,$PLATFORM" >&2;}
-   { (exit 1); exit 1; }; }
-	    else
-		CEINCLUDE="${SDKROOT}/${OSVERSION}/${PLATFORM}/include"
-		if test -d "${CEINCLUDE}/${TARGETCPU}" ; then
-		    CEINCLUDE="${CEINCLUDE}/${TARGETCPU}"
-		fi
-		CELIBPATH="${SDKROOT}/${OSVERSION}/${PLATFORM}/Lib/${TARGETCPU}"
-	    fi
-	fi
+int
+main ()
+{
+int i;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_ld_single_module=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
 
-	if test "$doWince" != "no" ; then
-	    CEBINROOT="${WCEROOT}/EVC/${OSVERSION}/bin"
-	    if test "${TARGETCPU}" = "X86"; then
-		CC="${CEBINROOT}/cl.exe"
-	    else
-		CC="${CEBINROOT}/cl${ARCH}.exe"
+tcl_cv_ld_single_module=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		LDFLAGS=$hold_ldflags
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_ld_single_module" >&5
+echo "${ECHO_T}$tcl_cv_ld_single_module" >&6
+	    if test $tcl_cv_ld_single_module = yes; then
+		SHLIB_LD="${SHLIB_LD} -Wl,-single_module"
 	    fi
-	    CC="\"${CC}\" -I\"${CELIB_DIR}/inc\" -I\"${CEINCLUDE}\""
-	    RC="\"${WCEROOT}/Common/EVC/bin/rc.exe\""
-	    arch=`echo ${ARCH} | awk '{print tolower($0)}'`
-	    defs="${ARCH} _${ARCH}_ ${arch} PALM_SIZE _MT _DLL _WINDOWS"
-	    for i in $defs ; do
-		cat >>confdefs.h <<_ACEOF
-#define $i 1
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".dylib"
+	    DL_OBJS="tclLoadDyld.o"
+	    DL_LIBS=""
+	    # Don't use -prebind when building for Mac OS X 10.4 or later only:
+	    test "`echo "${MACOSX_DEPLOYMENT_TARGET}" | awk -F '10\\.' '{print int($2)}'`" -lt 4 -a \
+		"`echo "${CFLAGS}" | awk -F '-mmacosx-version-min=10\\.' '{print int($2)}'`" -lt 4 && \
+		LDFLAGS="$LDFLAGS -prebind"
+	    LDFLAGS="$LDFLAGS -headerpad_max_install_names"
+	    echo "$as_me:$LINENO: checking if ld accepts -search_paths_first flag" >&5
+echo $ECHO_N "checking if ld accepts -search_paths_first flag... $ECHO_C" >&6
+if test "${tcl_cv_ld_search_paths_first+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		hold_ldflags=$LDFLAGS
+		LDFLAGS="$LDFLAGS -Wl,-search_paths_first"
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+int i;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_ld_search_paths_first=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+tcl_cv_ld_search_paths_first=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		LDFLAGS=$hold_ldflags
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_ld_search_paths_first" >&5
+echo "${ECHO_T}$tcl_cv_ld_search_paths_first" >&6
+	    if test $tcl_cv_ld_search_paths_first = yes; then
+		LDFLAGS="$LDFLAGS -Wl,-search_paths_first"
+	    fi
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    LD_LIBRARY_PATH_VAR="DYLD_LIBRARY_PATH"
+	    PLAT_OBJS='${MAC_OSX_OBJS}'
+	    PLAT_SRCS='${MAC_OSX_SRCS}'
+	    echo "$as_me:$LINENO: checking whether to use CoreFoundation" >&5
+echo $ECHO_N "checking whether to use CoreFoundation... $ECHO_C" >&6
+	    # Check whether --enable-corefoundation or --disable-corefoundation was given.
+if test "${enable_corefoundation+set}" = set; then
+  enableval="$enable_corefoundation"
+  tcl_corefoundation=$enableval
+else
+  tcl_corefoundation=yes
+fi;
+	    echo "$as_me:$LINENO: result: $tcl_corefoundation" >&5
+echo "${ECHO_T}$tcl_corefoundation" >&6
+	    if test $tcl_corefoundation = yes; then
+		echo "$as_me:$LINENO: checking for CoreFoundation.framework" >&5
+echo $ECHO_N "checking for CoreFoundation.framework... $ECHO_C" >&6
+if test "${tcl_cv_lib_corefoundation+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		    hold_libs=$LIBS; hold_cflags=$CFLAGS
+		    if test "$fat_32_64" = yes; then
+			# On Tiger there is no 64-bit CF, so remove 64-bit archs
+			# from CFLAGS while testing for presence of CF.
+			# 64-bit CF is disabled in tclUnixPort.h if necessary.
+			CFLAGS="`echo "$CFLAGS " | sed -e 's/-arch ppc64 / /g' -e 's/-arch x86_64 / /g'`"
+		    fi
+		    LIBS="$LIBS -framework CoreFoundation"
+		    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <CoreFoundation/CoreFoundation.h>
+int
+main ()
+{
+CFBundleRef b = CFBundleGetMainBundle();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_lib_corefoundation=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+tcl_cv_lib_corefoundation=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		    LIBS=$hold_libs; CFLAGS=$hold_cflags
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_lib_corefoundation" >&5
+echo "${ECHO_T}$tcl_cv_lib_corefoundation" >&6
+		if test $tcl_cv_lib_corefoundation = yes; then
+		    LIBS="$LIBS -framework CoreFoundation"
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_COREFOUNDATION 1
 _ACEOF
 
-	    done
-#	    if test "${ARCH}" = "X86EM"; then
-#		AC_DEFINE_UNQUOTED(_WIN32_WCE_EMULATION)
-#	    fi
-	    cat >>confdefs.h <<_ACEOF
-#define _WIN32_WCE $CEVERSION
+		else
+		    tcl_corefoundation=no
+		fi
+		if test "$fat_32_64" = yes -a $tcl_corefoundation = yes; then
+		    echo "$as_me:$LINENO: checking for 64-bit CoreFoundation" >&5
+echo $ECHO_N "checking for 64-bit CoreFoundation... $ECHO_C" >&6
+if test "${tcl_cv_lib_corefoundation_64+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+			hold_cflags=$CFLAGS
+			CFLAGS="`echo "$CFLAGS " | sed -e 's/-arch ppc / /g' -e 's/-arch i386 / /g'`"
+			cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <CoreFoundation/CoreFoundation.h>
+int
+main ()
+{
+CFBundleRef b = CFBundleGetMainBundle();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_lib_corefoundation_64=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+tcl_cv_lib_corefoundation_64=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+			CFLAGS=$hold_cflags
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_lib_corefoundation_64" >&5
+echo "${ECHO_T}$tcl_cv_lib_corefoundation_64" >&6
+		    if test $tcl_cv_lib_corefoundation_64 = no; then
+
+cat >>confdefs.h <<\_ACEOF
+#define NO_COREFOUNDATION_64 1
 _ACEOF
 
-	    cat >>confdefs.h <<_ACEOF
-#define UNDER_CE $CEVERSION
-_ACEOF
-
-	    CFLAGS_DEBUG="-nologo -Zi -Od"
-	    CFLAGS_OPTIMIZE="-nologo -O2"
-	    lversion=`echo ${CEVERSION} | sed -e 's/\(.\)\(..\)/\1\.\2/'`
-	    lflags="-nodefaultlib -MACHINE:${ARCH} -LIBPATH:\"${CELIBPATH}\" -subsystem:windowsce,${lversion} -nologo"
-	    LINKBIN="\"${CEBINROOT}/link.exe\""
-
-	    if test "${CEVERSION}" -lt 400 ; then
-		LIBS="coredll.lib corelibc.lib winsock.lib"
-	    else
-		LIBS="coredll.lib corelibc.lib ws2.lib"
+		    fi
+		fi
 	    fi
-	    # celib currently stuck at wce300 status
-	    #LIBS="$LIBS \${CELIB_DIR}/wince-${ARCH}-pocket-${OSVERSION}-release/celib.lib"
-	    LIBS="$LIBS \"\${CELIB_DIR}/wince-${ARCH}-pocket-wce300-release/celib.lib\""
-	    LIBS_GUI="commctrl.lib commdlg.lib"
-	else
-	    LIBS_GUI="gdi32.lib comdlg32.lib imm32.lib comctl32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib"
-	fi
 
-	SHLIB_LD="${LINKBIN} -dll -incremental:no ${lflags}"
-	# link -lib only works when -lib is the first arg
-	STLIB_LD="${LINKBIN} -lib ${lflags}"
-	RC_OUT=-fo
-	RC_TYPE=-r
-	RC_INCLUDE=-i
-	RC_DEFINE=-d
-	RES=res
-	MAKE_LIB="\${STLIB_LD} -out:\$@"
-	POST_MAKE_LIB=
-	MAKE_EXE="\${CC} -Fe\$@"
-	LIBPREFIX=""
+cat >>confdefs.h <<\_ACEOF
+#define MAC_OSX_TCL 1
+_ACEOF
 
-	EXTRA_CFLAGS=""
-	CFLAGS_WARNING="-W3"
-	LDFLAGS_DEBUG="-debug:full"
-	LDFLAGS_OPTIMIZE="-release"
 
-	# Specify the CC output file names based on the target name
-	CC_OBJNAME="-Fo\$@"
-	CC_EXENAME="-Fe\"\$(shell \$(CYGPATH) '\$@')\""
+cat >>confdefs.h <<\_ACEOF
+#define MODULE_SCOPE __private_extern__
+_ACEOF
 
-	# Specify linker flags depending on the type of app being
-	# built -- Console vs. Window.
-	if test "$doWince" != "no" -a "${TARGETCPU}" != "X86"; then
-	    LDFLAGS_CONSOLE="-link ${lflags}"
-	    LDFLAGS_WINDOW=${LDFLAGS_CONSOLE}
-	else
-	    LDFLAGS_CONSOLE="-link -subsystem:console ${lflags}"
-	    LDFLAGS_WINDOW="-link -subsystem:windows ${lflags}"
-	fi
+	    ;;
+	NEXTSTEP-*)
+	    SHLIB_CFLAGS=""
+	    SHLIB_LD="cc -nostdlib -r"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadNext.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	OS/390-*)
+	    CFLAGS_OPTIMIZE=""		# Optimizer is buggy
+
+cat >>confdefs.h <<\_ACEOF
+#define _OE_SOCKETS 1
+_ACEOF
+
+	    ;;
+	OSF1-1.0|OSF1-1.1|OSF1-1.2)
+	    # OSF/1 1.[012] from OSF, and derivatives, including Paragon OSF/1
+	    SHLIB_CFLAGS=""
+	    # Hack: make package name same as library name
+	    SHLIB_LD='ld -R -export :'
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadOSF.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	OSF1-1.*)
+	    # OSF/1 1.3 from OSF using ELF, and derivatives, including AD2
+	    SHLIB_CFLAGS="-fPIC"
+	    if test "$SHARED_BUILD" = "1" ; then
+	        SHLIB_LD="ld -shared"
+	    else
+	        SHLIB_LD="ld -non_shared"
+	    fi
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	OSF1-V*)
+	    # Digital OSF/1
+	    SHLIB_CFLAGS=""
+	    if test "$SHARED_BUILD" = "1" ; then
+	        SHLIB_LD='ld -shared -expect_unresolved "*"'
+	    else
+	        SHLIB_LD='ld -non_shared -expect_unresolved "*"'
+	    fi
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    if test "$GCC" = "yes" ; then
+		CFLAGS="$CFLAGS -mieee"
+            else
+		CFLAGS="$CFLAGS -DHAVE_TZSET -std1 -ieee"
+	    fi
+	    # see pthread_intro(3) for pthread support on osf1, k.furukawa
+	    if test "${TCL_THREADS}" = "1" ; then
+		CFLAGS="$CFLAGS -DHAVE_PTHREAD_ATTR_SETSTACKSIZE"
+		CFLAGS="$CFLAGS -DTCL_THREAD_STACK_MIN=PTHREAD_STACK_MIN*64"
+		LIBS=`echo $LIBS | sed s/-lpthreads//`
+		if test "$GCC" = "yes" ; then
+		    LIBS="$LIBS -lpthread -lmach -lexc"
+		else
+		    CFLAGS="$CFLAGS -pthread"
+		    LDFLAGS="$LDFLAGS -pthread"
+		fi
+	    fi
+
+	    ;;
+	QNX-6*)
+	    # QNX RTP
+	    # This may work for all QNX, but it was only reported for v6.
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD="ld -Bshareable -x"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    # dlopen is in -lc on QNX
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	SCO_SV-3.2*)
+	    # Note, dlopen is available only on SCO 3.2.5 and greater. However,
+	    # this test works, since "uname -s" was non-standard in 3.2.4 and
+	    # below.
+	    if test "$GCC" = "yes" ; then
+	    	SHLIB_CFLAGS="-fPIC -melf"
+	    	LDFLAGS="$LDFLAGS -melf -Wl,-Bexport"
+	    else
+	    	SHLIB_CFLAGS="-Kpic -belf"
+	    	LDFLAGS="$LDFLAGS -belf -Wl,-Bexport"
+	    fi
+	    SHLIB_LD="ld -G"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS=""
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    CFLAGS="$CFLAGS -D_SVID3"
+	    ;;
+	SINIX*5.4*)
+	    SHLIB_CFLAGS="-K PIC"
+	    SHLIB_LD="cc -G"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+	SunOS-4*)
+	    SHLIB_CFLAGS="-PIC"
+	    SHLIB_LD="ld"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    CC_SEARCH_FLAGS='-L${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+
+	    # SunOS can't handle version numbers with dots in them in library
+	    # specs, like -ltcl7.5, so use -ltcl75 instead.  Also, it
+	    # requires an extra version number at the end of .so file names.
+	    # So, the library has to have a name like libtcl75.so.1.0
+
+	    SHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.so.1.0'
+	    UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
+	    TCL_LIB_VERSIONS_OK=nodots
+	    ;;
+	SunOS-5.[0-6])
+	    # Careful to not let 5.10+ fall into this case
+
+	    # Note: If _REENTRANT isn't defined, then Solaris
+	    # won't define thread-safe library routines.
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _REENTRANT 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _POSIX_PTHREAD_SEMANTICS 1
+_ACEOF
+
+
+	    SHLIB_CFLAGS="-KPIC"
+
+	    # Note: need the LIBS below, otherwise Tk won't find Tcl's
+	    # symbols when dynamically loaded into tclsh.
+
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    if test "$GCC" = "yes" ; then
+		SHLIB_LD="$CC -shared"
+		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
+		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+	    else
+		SHLIB_LD="/usr/ccs/bin/ld -G -z text"
+		CC_SEARCH_FLAGS='-R ${LIB_RUNTIME_DIR}'
+		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+	    fi
+	    ;;
+	SunOS-5*)
+	    # Note: If _REENTRANT isn't defined, then Solaris
+	    # won't define thread-safe library routines.
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _REENTRANT 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define _POSIX_PTHREAD_SEMANTICS 1
+_ACEOF
+
+
+	    SHLIB_CFLAGS="-KPIC"
+
+	    # Check to enable 64-bit flags for compiler/linker
+	    if test "$do64bit" = "yes" ; then
+		arch=`isainfo`
+		if test "$arch" = "sparcv9 sparc" ; then
+			if test "$GCC" = "yes" ; then
+			    if test "`gcc -dumpversion | awk -F. '{print $1}'`" -lt "3" ; then
+				{ echo "$as_me:$LINENO: WARNING: 64bit mode not supported with GCC < 3.2 on $system" >&5
+echo "$as_me: WARNING: 64bit mode not supported with GCC < 3.2 on $system" >&2;}
+			    else
+				do64bit_ok=yes
+				CFLAGS="$CFLAGS -m64 -mcpu=v9"
+				LDFLAGS="$LDFLAGS -m64 -mcpu=v9"
+				SHLIB_CFLAGS="-fPIC"
+			    fi
+			else
+			    do64bit_ok=yes
+			    if test "$do64bitVIS" = "yes" ; then
+				CFLAGS="$CFLAGS -xarch=v9a"
+			    	LDFLAGS_ARCH="-xarch=v9a"
+			    else
+				CFLAGS="$CFLAGS -xarch=v9"
+			    	LDFLAGS_ARCH="-xarch=v9"
+			    fi
+			    # Solaris 64 uses this as well
+			    #LD_LIBRARY_PATH_VAR="LD_LIBRARY_PATH_64"
+			fi
+		elif test "$arch" = "amd64 i386" ; then
+		    if test "$GCC" = "yes" ; then
+			{ echo "$as_me:$LINENO: WARNING: 64bit mode not supported with GCC on $system" >&5
+echo "$as_me: WARNING: 64bit mode not supported with GCC on $system" >&2;}
+		    else
+			do64bit_ok=yes
+			CFLAGS="$CFLAGS -xarch=amd64"
+			LDFLAGS="$LDFLAGS -xarch=amd64"
+		    fi
+		else
+		    { echo "$as_me:$LINENO: WARNING: 64bit mode not supported for $arch" >&5
+echo "$as_me: WARNING: 64bit mode not supported for $arch" >&2;}
+		fi
+	    fi
+
+	    # Note: need the LIBS below, otherwise Tk won't find Tcl's
+	    # symbols when dynamically loaded into tclsh.
+
+	    SHLIB_LD_LIBS='${LIBS}'
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    if test "$GCC" = "yes" ; then
+		SHLIB_LD="$CC -shared"
+		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
+		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
+		if test "$do64bit_ok" = "yes" ; then
+		    # We need to specify -static-libgcc or we need to
+		    # add the path to the sparv9 libgcc.
+		    SHLIB_LD="$SHLIB_LD -m64 -mcpu=v9 -static-libgcc"
+		    # for finding sparcv9 libgcc, get the regular libgcc
+		    # path, remove so name and append 'sparcv9'
+		    #v9gcclibdir="`gcc -print-file-name=libgcc_s.so` | ..."
+		    #CC_SEARCH_FLAGS="${CC_SEARCH_FLAGS},-R,$v9gcclibdir"
+		fi
+	    else
+		SHLIB_LD="/usr/ccs/bin/ld -G -z text"
+		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
+		LD_SEARCH_FLAGS='-R ${LIB_RUNTIME_DIR}'
+	    fi
+	    ;;
+	UNIX_SV* | UnixWare-5*)
+	    SHLIB_CFLAGS="-KPIC"
+	    SHLIB_LD="cc -G"
+	    SHLIB_LD_LIBS=""
+	    SHLIB_SUFFIX=".so"
+	    DL_OBJS="tclLoadDl.o"
+	    DL_LIBS="-ldl"
+	    # Some UNIX_SV* systems (unixware 1.1.2 for example) have linkers
+	    # that don't grok the -Bexport option.  Test that it does.
+	    echo "$as_me:$LINENO: checking for ld accepts -Bexport flag" >&5
+echo $ECHO_N "checking for ld accepts -Bexport flag... $ECHO_C" >&6
+if test "${tcl_cv_ld_Bexport+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+		hold_ldflags=$LDFLAGS
+		LDFLAGS="$LDFLAGS -Wl,-Bexport"
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+int i;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_ld_Bexport=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+tcl_cv_ld_Bexport=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+	        LDFLAGS=$hold_ldflags
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_ld_Bexport" >&5
+echo "${ECHO_T}$tcl_cv_ld_Bexport" >&6
+	    if test $tcl_cv_ld_Bexport = yes; then
+		LDFLAGS="$LDFLAGS -Wl,-Bexport"
+	    fi
+	    CC_SEARCH_FLAGS=""
+	    LD_SEARCH_FLAGS=""
+	    ;;
+    esac
+
+    if test "$do64bit" = "yes" -a "$do64bit_ok" = "no" ; then
+	{ echo "$as_me:$LINENO: WARNING: 64bit support being disabled -- don't know magic for this platform" >&5
+echo "$as_me: WARNING: 64bit support being disabled -- don't know magic for this platform" >&2;}
     fi
 
-    if test "$do64bit" != "no" ; then
-	cat >>confdefs.h <<\_ACEOF
+    if test "$do64bit" = "yes" -a "$do64bit_ok" = "yes" ; then
+
+cat >>confdefs.h <<\_ACEOF
 #define TCL_CFG_DO64BIT 1
 _ACEOF
 
     fi
 
-    # DL_LIBS is empty, but then we match the Unix version
+    # Step 4: disable dynamic loading if requested via a command-line switch.
+
+    # Check whether --enable-load or --disable-load was given.
+if test "${enable_load+set}" = set; then
+  enableval="$enable_load"
+  tcl_ok=$enableval
+else
+  tcl_ok=yes
+fi;
+    if test "$tcl_ok" = "no"; then
+	DL_OBJS=""
+    fi
+
+    if test "x$DL_OBJS" != "x" ; then
+	BUILD_DLTEST="\$(DLTEST_TARGETS)"
+    else
+	echo "Can't figure out how to do dynamic loading or shared libraries"
+	echo "on this system."
+	SHLIB_CFLAGS=""
+	SHLIB_LD=""
+	SHLIB_SUFFIX=""
+	DL_OBJS="tclLoadNone.o"
+	DL_LIBS=""
+	LDFLAGS="$LDFLAGS_ORIG"
+	CC_SEARCH_FLAGS=""
+	LD_SEARCH_FLAGS=""
+	BUILD_DLTEST=""
+    fi
+    LDFLAGS="$LDFLAGS $LDFLAGS_ARCH"
+
+    # If we're running gcc, then change the C flags for compiling shared
+    # libraries to the right flags for gcc, instead of those for the
+    # standard manufacturer compiler.
+
+    if test "$DL_OBJS" != "tclLoadNone.o" ; then
+	if test "$GCC" = "yes" ; then
+	    case $system in
+		AIX-*)
+		    ;;
+		BSD/OS*)
+		    ;;
+		IRIX*)
+		    ;;
+		NetBSD-*|FreeBSD-*)
+		    ;;
+		Darwin-*)
+		    ;;
+		SCO_SV-3.2*)
+		    ;;
+		*)
+		    SHLIB_CFLAGS="-fPIC"
+		    ;;
+	    esac
+	fi
+    fi
+
+    if test "$SHARED_LIB_SUFFIX" = "" ; then
+	SHARED_LIB_SUFFIX='${VERSION}${SHLIB_SUFFIX}'
+    fi
+    if test "$UNSHARED_LIB_SUFFIX" = "" ; then
+	UNSHARED_LIB_SUFFIX='${VERSION}.a'
+    fi
+
+    if test "${SHARED_BUILD}" = "1" && test "${SHLIB_SUFFIX}" != "" ; then
+        LIB_SUFFIX=${SHARED_LIB_SUFFIX}
+        MAKE_LIB='${SHLIB_LD} -o $@ ${OBJS} ${SHLIB_LD_LIBS} ${TCL_SHLIB_LD_EXTRAS} ${TK_SHLIB_LD_EXTRAS} ${LD_SEARCH_FLAGS}'
+        INSTALL_LIB='$(INSTALL_LIBRARY) $(LIB_FILE) $(LIB_INSTALL_DIR)/$(LIB_FILE)'
+    else
+        LIB_SUFFIX=${UNSHARED_LIB_SUFFIX}
+
+        if test "$RANLIB" = "" ; then
+            MAKE_LIB='$(STLIB_LD) $@ ${OBJS}'
+            INSTALL_LIB='$(INSTALL_LIBRARY) $(LIB_FILE) $(LIB_INSTALL_DIR)/$(LIB_FILE)'
+        else
+            MAKE_LIB='${STLIB_LD} $@ ${OBJS} ; ${RANLIB} $@'
+            INSTALL_LIB='$(INSTALL_LIBRARY) $(LIB_FILE) $(LIB_INSTALL_DIR)/$(LIB_FILE) ; (cd $(LIB_INSTALL_DIR) ; $(RANLIB) $(LIB_FILE))'
+        fi
+
+    fi
+
+
+    # Stub lib does not depend on shared/static configuration
+    if test "$RANLIB" = "" ; then
+        MAKE_STUB_LIB='${STLIB_LD} $@ ${STUB_LIB_OBJS}'
+        INSTALL_STUB_LIB='$(INSTALL_LIBRARY) $(STUB_LIB_FILE) $(LIB_INSTALL_DIR)/$(STUB_LIB_FILE)'
+    else
+        MAKE_STUB_LIB='${STLIB_LD} $@ ${STUB_LIB_OBJS} ; ${RANLIB} $@'
+        INSTALL_STUB_LIB='$(INSTALL_LIBRARY) $(STUB_LIB_FILE) $(LIB_INSTALL_DIR)/$(STUB_LIB_FILE) ; (cd $(LIB_INSTALL_DIR) ; $(RANLIB) $(STUB_LIB_FILE))'
+    fi
+
+    # Define TCL_LIBS now that we know what DL_LIBS is.
+    # The trick here is that we don't want to change
+    # the value of TCL_LIBS if it is already set when
+    # tclConfig.sh had been loaded by Tk.
+    if test "x${TCL_LIBS}" = "x"; then
+        TCL_LIBS="${DL_LIBS} ${LIBS} ${MATH_LIBS}"
+    fi
+
+
+    # FIXME: This subst was left in only because the TCL_DL_LIBS
+    # entry in tclConfig.sh uses it. It is not clear why someone
+    # would use TCL_DL_LIBS instead of TCL_LIBS.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+cat >>confdefs.h <<_ACEOF
+#define TCL_SHLIB_EXT "${SHLIB_SUFFIX}"
+_ACEOF
+
+
+
 
 
 
@@ -3752,21 +6330,20 @@ else
   tcl_ok=no
 fi;
 # FIXME: Currently, LDFLAGS_DEFAULT is not used, it should work like CFLAGS_DEFAULT.
+    DBGX=""
     if test "$tcl_ok" = "no"; then
 	CFLAGS_DEFAULT='$(CFLAGS_OPTIMIZE)'
 	LDFLAGS_DEFAULT='$(LDFLAGS_OPTIMIZE)'
-	DBGX=""
 	echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6
 
-	cat >>confdefs.h <<\_ACEOF
+cat >>confdefs.h <<\_ACEOF
 #define TCL_CFG_OPTIMIZED 1
 _ACEOF
 
     else
 	CFLAGS_DEFAULT='$(CFLAGS_DEBUG)'
 	LDFLAGS_DEFAULT='$(LDFLAGS_DEBUG)'
-	DBGX=g
 	if test "$tcl_ok" = "yes"; then
 	    echo "$as_me:$LINENO: result: yes (standard debugging)" >&5
 echo "${ECHO_T}yes (standard debugging)" >&6
@@ -3774,33 +6351,27 @@ echo "${ECHO_T}yes (standard debugging)" >&6
     fi
 
 
-    cat >>confdefs.h <<\_ACEOF
+    ### FIXME: Surely TCL_CFG_DEBUG should be set to whether we're debugging?
+
+cat >>confdefs.h <<\_ACEOF
 #define TCL_CFG_DEBUG 1
 _ACEOF
 
 
     if test "$tcl_ok" = "mem" -o "$tcl_ok" = "all"; then
-	cat >>confdefs.h <<\_ACEOF
+
+cat >>confdefs.h <<\_ACEOF
 #define TCL_MEM_DEBUG 1
 _ACEOF
 
     fi
 
-    if test "$tcl_ok" = "compile" -o "$tcl_ok" = "all"; then
-	cat >>confdefs.h <<\_ACEOF
-#define TCL_COMPILE_DEBUG 1
-_ACEOF
 
-	cat >>confdefs.h <<\_ACEOF
-#define TCL_COMPILE_STATS 1
-_ACEOF
-
-    fi
 
     if test "$tcl_ok" != "yes" -a "$tcl_ok" != "no"; then
 	if test "$tcl_ok" = "all"; then
-	    echo "$as_me:$LINENO: result: enabled symbols mem compile debugging" >&5
-echo "${ECHO_T}enabled symbols mem compile debugging" >&6
+	    echo "$as_me:$LINENO: result: enabled symbols mem debugging" >&5
+echo "${ECHO_T}enabled symbols mem debugging" >&6
 	else
 	    echo "$as_me:$LINENO: result: enabled $tcl_ok debugging" >&5
 echo "${ECHO_T}enabled $tcl_ok debugging" >&6
@@ -4629,13 +7200,34 @@ s,@AR@,$AR,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@RC@,$RC,;t t
 s,@SET_MAKE@,$SET_MAKE,;t t
+s,@CPP@,$CPP,;t t
+s,@EGREP@,$EGREP,;t t
 s,@TCL_THREADS@,$TCL_THREADS,;t t
-s,@CYGPATH@,$CYGPATH,;t t
-s,@CELIB_DIR@,$CELIB_DIR,;t t
+s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
+s,@LIBOBJS@,$LIBOBJS,;t t
+s,@TCL_LIBS@,$TCL_LIBS,;t t
 s,@DL_LIBS@,$DL_LIBS,;t t
+s,@DL_OBJS@,$DL_OBJS,;t t
+s,@PLAT_OBJS@,$PLAT_OBJS,;t t
+s,@PLAT_SRCS@,$PLAT_SRCS,;t t
 s,@CFLAGS_DEBUG@,$CFLAGS_DEBUG,;t t
 s,@CFLAGS_OPTIMIZE@,$CFLAGS_OPTIMIZE,;t t
 s,@CFLAGS_WARNING@,$CFLAGS_WARNING,;t t
+s,@LDFLAGS_DEBUG@,$LDFLAGS_DEBUG,;t t
+s,@LDFLAGS_OPTIMIZE@,$LDFLAGS_OPTIMIZE,;t t
+s,@CC_SEARCH_FLAGS@,$CC_SEARCH_FLAGS,;t t
+s,@LD_SEARCH_FLAGS@,$LD_SEARCH_FLAGS,;t t
+s,@STLIB_LD@,$STLIB_LD,;t t
+s,@SHLIB_LD@,$SHLIB_LD,;t t
+s,@TCL_SHLIB_LD_EXTRAS@,$TCL_SHLIB_LD_EXTRAS,;t t
+s,@TK_SHLIB_LD_EXTRAS@,$TK_SHLIB_LD_EXTRAS,;t t
+s,@SHLIB_LD_LIBS@,$SHLIB_LD_LIBS,;t t
+s,@SHLIB_CFLAGS@,$SHLIB_CFLAGS,;t t
+s,@SHLIB_SUFFIX@,$SHLIB_SUFFIX,;t t
+s,@MAKE_LIB@,$MAKE_LIB,;t t
+s,@MAKE_STUB_LIB@,$MAKE_STUB_LIB,;t t
+s,@INSTALL_LIB@,$INSTALL_LIB,;t t
+s,@INSTALL_STUB_LIB@,$INSTALL_STUB_LIB,;t t
 s,@CFLAGS_DEFAULT@,$CFLAGS_DEFAULT,;t t
 s,@LDFLAGS_DEFAULT@,$LDFLAGS_DEFAULT,;t t
 s,@TCL_VERSION@,$TCL_VERSION,;t t
@@ -4660,18 +7252,12 @@ s,@CFG_TCL_SHARED_LIB_SUFFIX@,$CFG_TCL_SHARED_LIB_SUFFIX,;t t
 s,@CFG_TCL_UNSHARED_LIB_SUFFIX@,$CFG_TCL_UNSHARED_LIB_SUFFIX,;t t
 s,@CFG_TCL_EXPORT_FILE_SUFFIX@,$CFG_TCL_EXPORT_FILE_SUFFIX,;t t
 s,@EXTRA_CFLAGS@,$EXTRA_CFLAGS,;t t
+s,@CYGPATH@,$CYGPATH,;t t
 s,@DEPARG@,$DEPARG,;t t
 s,@CC_OBJNAME@,$CC_OBJNAME,;t t
 s,@CC_EXENAME@,$CC_EXENAME,;t t
-s,@LDFLAGS_DEBUG@,$LDFLAGS_DEBUG,;t t
-s,@LDFLAGS_OPTIMIZE@,$LDFLAGS_OPTIMIZE,;t t
 s,@LDFLAGS_CONSOLE@,$LDFLAGS_CONSOLE,;t t
 s,@LDFLAGS_WINDOW@,$LDFLAGS_WINDOW,;t t
-s,@STLIB_LD@,$STLIB_LD,;t t
-s,@SHLIB_LD@,$SHLIB_LD,;t t
-s,@SHLIB_LD_LIBS@,$SHLIB_LD_LIBS,;t t
-s,@SHLIB_CFLAGS@,$SHLIB_CFLAGS,;t t
-s,@SHLIB_SUFFIX@,$SHLIB_SUFFIX,;t t
 s,@TCL_SHARED_BUILD@,$TCL_SHARED_BUILD,;t t
 s,@LIBS_GUI@,$LIBS_GUI,;t t
 s,@DLLSUFFIX@,$DLLSUFFIX,;t t
@@ -4679,7 +7265,6 @@ s,@LIBPREFIX@,$LIBPREFIX,;t t
 s,@LIBSUFFIX@,$LIBSUFFIX,;t t
 s,@EXESUFFIX@,$EXESUFFIX,;t t
 s,@LIBRARIES@,$LIBRARIES,;t t
-s,@MAKE_LIB@,$MAKE_LIB,;t t
 s,@POST_MAKE_LIB@,$POST_MAKE_LIB,;t t
 s,@MAKE_DLL@,$MAKE_DLL,;t t
 s,@MAKE_EXE@,$MAKE_EXE,;t t
@@ -4704,7 +7289,6 @@ s,@RC_INCLUDE@,$RC_INCLUDE,;t t
 s,@RC_DEFINE@,$RC_DEFINE,;t t
 s,@RC_DEFINES@,$RC_DEFINES,;t t
 s,@RES@,$RES,;t t
-s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
 

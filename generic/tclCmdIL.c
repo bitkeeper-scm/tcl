@@ -102,8 +102,10 @@ static void		AppendLocals(Tcl_Interp *interp, Tcl_Obj *listPtr,
 static int		DictionaryCompare(char *left, char *right);
 static int		InfoArgsCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *CONST objv[]);
+#ifdef	INFO_BODY_ENABLED
 static int		InfoBodyCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *CONST objv[]);
+#endif
 static int		InfoCmdCountCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *CONST objv[]);
 static int		InfoCommandsCmd(ClientData dummy, Tcl_Interp *interp,
@@ -357,14 +359,22 @@ Tcl_InfoObjCmd(clientData, interp, objc, objv)
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
     static CONST char *subCmds[] = {
-	    "args", "body", "cmdcount", "commands",
+	    "args",
+#ifdef	INFO_BODY_ENABLED
+	    "body",
+#endif
+	    "cmdcount", "commands",
 	    "complete", "default", "exists", "functions", "globals",
 	    "hostname", "level", "library", "loaded",
 	    "locals", "nameofexecutable", "patchlevel", "procs",
 	    "script", "sharedlibextension", "tclversion", "vars",
 	    (char *) NULL};
     enum ISubCmdIdx {
-	    IArgsIdx, IBodyIdx, ICmdCountIdx, ICommandsIdx,
+	    IArgsIdx,
+#ifdef	INFO_BODY_ENABLED
+	    IBodyIdx,
+#endif
+	    ICmdCountIdx, ICommandsIdx,
 	    ICompleteIdx, IDefaultIdx, IExistsIdx, IFunctionsIdx, IGlobalsIdx,
 	    IHostnameIdx, ILevelIdx, ILibraryIdx, ILoadedIdx,
 	    ILocalsIdx, INameOfExecutableIdx, IPatchLevelIdx, IProcsIdx,
@@ -387,9 +397,11 @@ Tcl_InfoObjCmd(clientData, interp, objc, objv)
 	case IArgsIdx:
 	    result = InfoArgsCmd(clientData, interp, objc, objv);
 	    break;
+#ifdef	INFO_BODY_ENABLED
 	case IBodyIdx:
 	    result = InfoBodyCmd(clientData, interp, objc, objv);
 	    break;
+#endif
 	case ICmdCountIdx:
 	    result = InfoCmdCountCmd(clientData, interp, objc, objv);
 	    break;
@@ -513,6 +525,7 @@ InfoArgsCmd(dummy, interp, objc, objv)
     return TCL_OK;
 }
 
+#ifdef	INFO_BODY_ENABLED
 /*
  *----------------------------------------------------------------------
  *
@@ -581,6 +594,7 @@ InfoBodyCmd(dummy, interp, objc, objv)
     Tcl_SetObjResult(interp, resultPtr);
     return TCL_OK;
 }
+#endif
 
 /*
  *----------------------------------------------------------------------
