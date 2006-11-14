@@ -7,10 +7,12 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
+
 /* Grab the offset of the next instruction to be issued.  Stolen from
    tclCompCmds.c. */
 #define CurrentOffset(envPtr) \
     ((envPtr)->codeNext - (envPtr)->codeStart)
+
 
 static L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
@@ -18,6 +20,8 @@ Tcl_Obj *L_errors = NULL;
 int L_line_number = 0;
 void *L_current_ast = NULL;
 int L_interactive = 0;
+
+
 
 /* static int gensym_counter = 0;  /\* used to create unique names *\/ */
 
@@ -68,6 +72,9 @@ static char *blank_initializer_code(L_type *type, int *needs_eval);
 static int LDumpAstNodes(L_ast_node *node, void *data, int order);
 static int push_parameters(L_expression *parameters);
 static void L_push_pointer(L_expression *lval);
+static L_compile_frame *enclosing_loop_frame();
+static void fixup_jumps(CompileEnv *envPtr, JumpOffsetList *jumps,
+			int targetOffset);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -132,9 +139,9 @@ TclCompileLCmd(
 	/* empty script, which is fine, but Tcl expects us to leave a value on
            the stack. */
         L_trace("empty script");
-        L_frame_push(interp, envPtr);
+        L_frame_push(interp, envPtr, NULL);
         L_PUSH_OBJ(Tcl_NewObj());
-        L_frame_push(interp, envPtr);
+        L_frame_pop();
 	return TCL_OK;
     }
     return LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
@@ -161,7 +168,11 @@ LParseScript(
     L_errors = NULL;
     L_parse();
     if (getenv("L_DUMP_AST") && L_current_ast) {
-        L_walk_ast(L_current_ast, L_WALK_PRE, LDumpAstNodes, NULL);
+        if (L_WALK_ERROR ==
+	    L_walk_ast(L_current_ast, L_WALK_PRE, LDumpAstNodes, NULL)) 
+	{
+	    L_trace("Error walking AST");
+	}    
         fprintf(stderr, "\n");
     }
     if (L_ast == NULL) {
@@ -191,7 +202,7 @@ LCompileScript(
 {
 /*     L_trace("Compiling: \n %.*s", numBytes, str); */
     L_trace("compiling");
-    L_frame_push(interp, envPtr);
+    L_frame_push(interp, envPtr, ast);
     if (envPtr)
         lframe->originalCodeNext = envPtr->codeNext;
 
@@ -250,7 +261,7 @@ L_compile_function_decl(L_function_declaration *fun)
 
     if (!fun) return;
     envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
-    L_frame_push(lframe->interp, envPtr);
+    L_frame_push(lframe->interp, envPtr, fun);
 
     procPtr = (Proc *)ckalloc(sizeof(Proc));
     procPtr->iPtr = (struct Interp *)lframe->interp;
@@ -658,6 +669,14 @@ L_compile_statements(L_statement *stmt)
     case L_STATEMENT_DECL:
 	    L_bomb("Found L_STATEMENT_DECL where it's not supposed to be");
 	    break;
+    case L_STATEMENT_BREAK:
+	L_compile_break(stmt);
+	break;
+    case L_STATEMENT_CONTINUE:
+	L_compile_continue(stmt);
+	break;
+    default:
+	L_bomb("Malformed AST in L_compile_statements");
     }
     L_compile_statements(stmt->next);
 }
@@ -1167,7 +1186,7 @@ L_compile_if_unless(L_if_unless *cond)
     /* emit a jump which will skip the consequent if the top value on the
        stack is false. */
     TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalse);
-    L_frame_push(lframe->interp, lframe->envPtr);
+    L_frame_push(lframe->interp, lframe->envPtr, cond);
     /* consequent */
     if (cond->if_body != NULL) {
         L_compile_statements(cond->if_body);
@@ -1177,7 +1196,7 @@ L_compile_if_unless(L_if_unless *cond)
         /* End the scope that was started for the consequent and start a new
            one, copying the jump fixup pointers. */
         L_frame_pop();
-        L_frame_push(lframe->interp, lframe->envPtr);
+        L_frame_push(lframe->interp, lframe->envPtr, cond);
         TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpEnd);
         if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127)) {
             /* The TCL_FALSE_JUMP that we emitted expanded, so the beginning
@@ -1197,6 +1216,7 @@ void
 L_compile_loop(L_loop *loop)
 {
     JumpFixup jumpToCond;
+    JumpOffsetList *break_jumps, *continue_jumps;
     int bodyCodeOffset, jumpDist;
 
     if ((loop->kind == L_LOOP_FOR) && loop->pre) {
@@ -1205,15 +1225,16 @@ L_compile_loop(L_loop *loop)
     }
     /* XXX: need optimization for null conditions and infinite loops
      * See TclCompileWhileComd() for the stuff Tcl does.
-     *
-     * Also need to handle the Exception Ranges so that continue and
-     * break work inside the loop body.
      */
     TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
-    L_frame_push(lframe->interp, lframe->envPtr);
+    L_frame_push(lframe->interp, lframe->envPtr, loop);
     bodyCodeOffset = CurrentOffset(lframe->envPtr);
     L_compile_statements(loop->body);
+    /* grab the jump offsets out of the frame before popping it */
+    break_jumps = lframe->break_jumps;
+    continue_jumps = lframe->continue_jumps;
     L_frame_pop(lframe->interp, lframe->envPtr);
+    fixup_jumps(lframe->envPtr, continue_jumps, CurrentOffset(lframe->envPtr));
     if ((loop->kind == L_LOOP_FOR) && loop->post) {
         L_compile_expressions(loop->post);
         TclEmitOpcode(INST_POP, lframe->envPtr);
@@ -1230,6 +1251,23 @@ L_compile_loop(L_loop *loop)
     } else {
         TclEmitInstInt1(INST_JUMP_TRUE1, -jumpDist, lframe->envPtr);
     }
+    fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
+}
+
+/* Fix the jump target for a list of INST_JUMP4 jumps and free the
+   JumpOffsetList entries. */
+static void
+fixup_jumps(
+    CompileEnv *envPtr,		/* The envPtr that the jump is in. */
+    JumpOffsetList *jumps,	/* The list of jumps to adjust. */
+    int targetOffset)		/* The target to jump to, relative to the
+				   beginning of the code array. */
+{
+    JumpOffsetList *j;
+    for (j = jumps; j; jumps = j->next, ckfree((char *)j), j = jumps) {
+	TclUpdateInstInt4AtPc(INST_JUMP4, targetOffset - j->offset,
+			      envPtr->codeStart + j->offset);
+    }
 }
 
 void
@@ -1237,6 +1275,7 @@ L_compile_foreach_loop(L_foreach_loop *loop)
 {
     L_symbol *keyVar, *valueVar;
     int jumpWhenEmptyOffset, bodyTargetOffset, iteratorIndex, jumpDisplacement;
+    JumpOffsetList *break_jumps, *continue_jumps;
 
     if (!(keyVar = L_get_local_symbol(loop->key, TRUE))) return;
     if (loop->value) {
@@ -1261,7 +1300,13 @@ L_compile_foreach_loop(L_foreach_loop *loop)
 	L_STORE_SCALAR(valueVar->localIndex);
     }
     TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_frame_push(lframe->interp, lframe->envPtr, loop);
     L_compile_statements(loop->body);
+    /* grab the jump offsets out of the frame before popping it */
+    break_jumps = lframe->break_jumps;
+    continue_jumps = lframe->continue_jumps;
+    L_frame_pop();
+    fixup_jumps(lframe->envPtr, continue_jumps, CurrentOffset(lframe->envPtr));
     TclEmitInstInt4(INST_DICT_NEXT, iteratorIndex, lframe->envPtr);
     /* If there's another entry in the hash, go around the loop again. */
     jumpDisplacement = bodyTargetOffset - CurrentOffset(lframe->envPtr);
@@ -1275,6 +1320,7 @@ L_compile_foreach_loop(L_foreach_loop *loop)
        and emit DICT_DONE. */
     TclEmitOpcode(INST_POP, lframe->envPtr);
     TclEmitOpcode(INST_POP, lframe->envPtr);
+    fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
     /* XXX We need to ensure that DICT_DONE happens in the face of exceptions,
        so that the refcount on the dict will be decremented, and the iterator
        freed.  See the implementation of "dict for" in tclCompCmds.c.
@@ -1766,6 +1812,64 @@ L_compile_incdec(L_expression *expr)
     }
 }
 
+void
+L_compile_continue(L_statement *stmt)
+{
+    JumpOffsetList *j = (JumpOffsetList *)ckalloc(sizeof(JumpOffsetList));
+    L_compile_frame *loop_frame = enclosing_loop_frame(TRUE);
+
+    if (!loop_frame) {
+	L_errorf(stmt,
+		 "Continue may only be used inside loops");
+
+	return;
+    }
+    j->offset = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP4, 0, lframe->envPtr);
+    j->next = loop_frame->continue_jumps;
+    loop_frame->continue_jumps = j;
+}
+
+void
+L_compile_break(L_statement *stmt)
+{
+    JumpOffsetList *j = (JumpOffsetList *)ckalloc(sizeof(JumpOffsetList));
+    L_compile_frame *loop_frame = enclosing_loop_frame(TRUE);
+
+    if (!loop_frame) {
+	L_errorf(stmt,
+		 "Break may only be used inside loops and switch statements");
+
+	return;
+    }
+    j->offset = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP4, 0, lframe->envPtr);
+    j->next = loop_frame->break_jumps;
+    loop_frame->break_jumps = j;
+}
+
+
+/* Walk up the compile_frame stack and return the first one that corresponds
+   to a loop.  If include_switch_p is true, match switch frames too.  Returns
+   NULL if no matching frames were found. */
+static L_compile_frame *
+enclosing_loop_frame(int include_switch_p)
+{
+    L_compile_frame *f = NULL;
+
+    /* XXX we're ignoring include_switch_p because there are no switch
+       statements yet... */
+    for (f = lframe; f; f = f->prevFrame) {
+	if (f->block &&
+	    ((((L_ast_node *)f->block)->type == L_NODE_LOOP) ||
+	     (((L_ast_node *)f->block)->type == L_NODE_FOREACH_LOOP)))
+	{
+	    break;
+	}
+    }
+    return f;
+}
+
 /* Create a new symbol and add it to the current symbol table */
 L_symbol *
 L_make_symbol(
@@ -1867,16 +1971,22 @@ maybeFixupEmptyCode(L_compile_frame *frame)
 
 
 /* Push and Pop the L_compile_frames. */
-
 void 
-L_frame_push(Tcl_Interp *interp, CompileEnv *envPtr) 
+L_frame_push(
+    Tcl_Interp *interp,
+    CompileEnv *envPtr,
+    void *block)		/* The AST node of the current block, or NULL
+				   if none. */
 {
     L_compile_frame *new_frame = 
         (L_compile_frame *)ckalloc(sizeof(L_compile_frame));
     new_frame->interp = interp;
     new_frame->envPtr = envPtr;
+    new_frame->block = block;
     new_frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
     Tcl_InitHashTable(new_frame->symtab, TCL_STRING_KEYS);
+    new_frame->continue_jumps = NULL;
+    new_frame->break_jumps = NULL;
     new_frame->prevFrame = lframe;
     lframe = new_frame;
 }

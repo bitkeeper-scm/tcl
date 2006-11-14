@@ -54,7 +54,9 @@ typedef enum L_loop_kind {
 extern char *L_loop_tostr[3];
 typedef enum L_statement_kind {
 	L_STATEMENT_BLOCK,
+	L_STATEMENT_BREAK,
 	L_STATEMENT_COND,
+	L_STATEMENT_CONTINUE,
 	L_STATEMENT_DECL,
 	L_STATEMENT_EXPR,
 	L_STATEMENT_FOREACH,
@@ -62,7 +64,7 @@ typedef enum L_statement_kind {
 	L_STATEMENT_RETURN
 } L_statement_kind;
 
-extern char *L_statement_tostr[7];
+extern char *L_statement_tostr[9];
 typedef enum L_toplevel_statement_kind {
 	L_TOPLEVEL_STATEMENT_FUN,
 	L_TOPLEVEL_STATEMENT_GLOBAL,

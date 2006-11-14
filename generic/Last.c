@@ -29,9 +29,11 @@ char *L_loop_tostr[3] = {
 	"L_LOOP_WHILE"
 };
 
-char *L_statement_tostr[7] = {
+char *L_statement_tostr[9] = {
 	"L_STATEMENT_BLOCK",
+	"L_STATEMENT_BREAK",
 	"L_STATEMENT_COND",
+	"L_STATEMENT_CONTINUE",
 	"L_STATEMENT_DECL",
 	"L_STATEMENT_EXPR",
 	"L_STATEMENT_FOREACH",

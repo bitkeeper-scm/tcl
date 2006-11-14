@@ -106,6 +106,8 @@ tally_newlines(
         "typedef"       return T_TYPEDEF;
         "defined"       return T_DEFINED;
 	"foreach"	return T_FOREACH;
+	"break"		return T_BREAK;
+	"continue"	return T_CONTINUE;
 	"as"		return T_AS;
 	"in"		return T_IN;
         "=>"		return T_ARROW;

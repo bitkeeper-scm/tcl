@@ -806,6 +806,99 @@ key is b
 key is c
 "
 
+test loop-1.3 {continue statements} -body {
+#lang(L)
+loop_1_3() {
+  loop_1_3_for_continue();
+  loop_1_3_foreach_continue();
+}
+
+loop_1_3_for_continue() {
+  int i;
+
+  for (i=0; i<5; i++) {
+    if (i == 2) {
+      continue;
+    }
+    puts(i);
+  }
+}
+
+loop_1_3_foreach_continue() {
+  hash h;
+  string k, v;
+
+  h{"a"} = "x";
+  h{"b"} = "y";
+  h{"c"} = "z";
+  foreach (h as k => v) {
+    if (k == "b") {
+      continue;
+    }
+    printf("%s => %s\n", k, v);
+  }
+}
+#lang(tcl)
+loop_1_3
+} -output {0
+1
+3
+4
+a => x
+c => z
+}
+
+test loop-1.4 {break statements} -body {
+#lang(L)
+loop_1_4() {
+  loop_1_4_foreach_break();
+  loop_1_4_for_break();
+}
+
+loop_1_4_foreach_break() {
+  hash h;
+  string k, v, l;
+
+  h{"a"} = "x";
+  h{"b"} = "y";
+  h{"c"} = "z";
+  foreach (l in h) {
+    foreach (h as k => v) {
+      if (k == "b") {
+        break;
+      }
+    }
+  }
+  printf("loop's over, k is %s, v is %s\n", k, v);
+}
+
+loop_1_4_for_break() {
+  int i;
+
+  for (i=0; i<10; i++) {
+    puts(i);
+    if (i == 5) {
+      puts("attempting to break");
+      break;
+    }
+  }
+  printf("at the end of the day, i is %d\n", i);
+}
+#lang(tcl)
+loop_1_4
+} -output {loop's over, k is b, v is y
+0
+1
+2
+3
+4
+5
+attempting to break
+at the end of the day, i is 5
+}
+
+
+
 test struct-1.0 {structs} -body {
 #lang(L)
 struct struct_1_0_point {
@@ -1143,6 +1236,7 @@ main_1_0() {
 #lang(tcl)
 main_1_0
 } -output "main got called\n"
+
 
 # cleanup
 ::tcltest::cleanupTests

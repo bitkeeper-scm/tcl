@@ -12,6 +12,12 @@
 #define FALSE 0
 #endif /* FALSE */
 
+/* A linked list of jump fixups. */
+typedef struct JumpOffsetList {
+    int offset;			/* the code offset of the jump instruction */
+    struct JumpOffsetList *next; /* the next offset in the list */
+} JumpOffsetList;
+
 /**
  * An L_compile_frame is just a stack that lets the semantic actions
  * track state as the parser does its thing.
@@ -20,10 +26,18 @@ typedef struct L_compile_frame {
     Tcl_Interp	*interp;
     CompileEnv	*envPtr;
     Tcl_HashTable *symtab;
+    /* When a compile frame corresponds to a block in the code, we store the
+       AST node of the block here. */
+    L_ast_node *block;
     /* The "original code next" is where we save the compEnv->codeNext
      * pointer so we can check if any code was emitted in this frame.
      * Yikk.  --timjr 2006.2.23 */
     unsigned char *originalCodeNext;
+    /* We collect JumpFixups for all of the jumps emitted for break and
+       continue statements, so that we can stuff in the correct jump targets
+       once we're done compiling the  */
+    JumpOffsetList *continue_jumps;
+    JumpOffsetList *break_jumps;
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 
@@ -42,7 +56,7 @@ int LParseScript(Tcl_Interp *interp, CONST char *str, int numBytes, L_ast_node *
 void L_push_variable(L_expression *name);
 void L_return(int value_on_stack_p);
 void maybeFixupEmptyCode(L_compile_frame *frame);
-void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv);
+void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv, void *block);
 void L_frame_pop();
 void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
@@ -72,6 +86,8 @@ void L_compile_global_decls(L_variable_declaration *decl);
 L_type *L_lookup_typedef(L_expression *name, int error_p);
 void L_store_typedef(L_expression *name, L_type *type);
 void L_compile_defined(L_expression *lval);
+void L_compile_break(L_statement *stmt);
+void L_compile_continue(L_statement *stmt);
 
 
 /* in LPointerObj.c */
@@ -137,7 +153,6 @@ void L_start_lexer();
     runner->ptr = b; \
 }
 
-
 /* Emit the load or store instruction with appropriate operand size. */
 #define L_STORE_SCALAR(index) {\
     int idx = index;\
@@ -169,7 +184,6 @@ void L_start_lexer();
     TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),\
                 lframe->envPtr);\
 }
-
 
 #endif /* L_COMPILE_H */
 
