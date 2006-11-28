@@ -1941,7 +1941,7 @@ FsMaybeWrapInLLang(
 
     if ((len >= 2) && (path[len-2] == '.') && (path[len-1] == 'l') &&
       !Tcl_RegExpMatch(interp, Tcl_GetString(fileContents),
-	"\\s*#lang\(L\)"))
+	"\\s*#lang\\(L\\)"))
     {
 	Tcl_Obj *newContents = Tcl_NewObj();
 	Tcl_IncrRefCount(newContents);

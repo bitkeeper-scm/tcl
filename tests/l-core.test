@@ -6,6 +6,47 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     testConstraint exec [llength [info commands exec]]
 }
 
+test lfile-1.0 {Test autowrapping of empty .l file} -setup {
+	set fname [makeFile {} lfile-1.0.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fname
+} -cleanup {
+	removeFile lfile-1.0.l
+} -result {}
+
+test lfile-1.1 {Test autowrapping of .l works} -setup {
+	set fname [makeFile {
+		main(int ac, string av[]) {
+			printf("hi mom\n");
+		}
+	} lfile-1.1.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fname
+} -cleanup {
+	removeFile lfile-1.1.l
+} -result {hi mom}
+
+# main shouldn't be automatically caled if within an .l file we find
+# the #lang(L) directive... right?
+test lfile-1.2 {Test autowrapping doesn't wrap twice} -setup {
+	set fname [makeFile {
+		#lang(L)
+		main(int ac, string av[]) {
+			printf("hi dad\n");
+		}
+	} lfile-1.2.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fname
+} -cleanup {
+	removeFile lfile-1.2.l
+} -result {}
+
 test parse-1.0 {Test parsing an empty L script} -body {
 #lang(L)
 }
@@ -1219,24 +1260,19 @@ defined_1_0
 1
 0
 "
-
-test main-1.0 {test that main gets called} -body {
-#lang(L)
-main_1_0() {
-	string filename =
-		file("join", temporaryDirectory(), "l-core-main-1.0.l");
-	string f = open(filename, "w");
- 	puts(f, "main(int argc, string argv[]) {");
-	puts(f, "printf(\"main got called\\n\");");
-	puts(f, "}");
-	close(f);
-	source(filename);
-	file("delete", filename);
-}
-#lang(tcl)
-main_1_0
-} -output "main got called\n"
-
+test main-1.0 {test that main gets called} -setup {
+	set fname [makeFile {
+		main(int argc, string argv[]) {
+			printf("main got called\n");
+		}
+	} test-1.0.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fname
+} -cleanup {
+	removeFile test-1.0.l
+} -result {main got called}
 
 # cleanup
 ::tcltest::cleanupTests

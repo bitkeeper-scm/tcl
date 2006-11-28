@@ -1273,7 +1273,7 @@ fixup_jumps(
 void
 L_compile_foreach_loop(L_foreach_loop *loop)
 {
-    L_symbol *keyVar, *valueVar;
+    L_symbol *keyVar, *valueVar = NULL;
     int jumpWhenEmptyOffset, bodyTargetOffset, iteratorIndex, jumpDisplacement;
     JumpOffsetList *break_jumps, *continue_jumps;
 
