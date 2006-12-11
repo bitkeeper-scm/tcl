@@ -1197,7 +1197,33 @@ reference_1_1
 } -output "0 0
 2 0
 "
+test reference-1.2 {widget pointer thingys} -body {
+#lang(L)
+int
+reference_1_2()
+{
+	int	a;
 
+	a = 5;
+	printf("%s %s\n", :variable, &a);
+	eval("puts [set ::Lptr::[list 1 a]]");
+}
+#lang(tcl)
+reference_1_2
+} -output "-variable ::Lptr::1 a\n5\n"
+
+test reference-1.3 {widget pointers via the Lptr namespace} -body {
+#lang(L)
+reference_1_3()
+{
+  int reference_1_3_foo = 0;
+  printf("%s, %s\n", :variable, &reference_1_3_foo);
+  eval("set {::Lptr::1 reference_1_3_foo} 93");
+  puts(reference_1_3_foo);
+}
+#lang(tcl)
+reference_1_3
+} -output "-variable, ::Lptr::1 reference_1_3_foo\n93\n"
 
 test typedef-1.0 {basic typedef support} -body {
 #lang(L)
@@ -1273,6 +1299,36 @@ test main-1.0 {test that main gets called} -setup {
 } -cleanup {
 	removeFile test-1.0.l
 } -result {main got called}
+
+
+test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
+#lang(L)
+lib_1_0() {
+	puts("don't overwrite");
+	setenv("PATH", "nil", 0);
+	if (getenv("PATH") != "nil") {
+		puts("worked");
+	}
+	puts("overwrite");
+	setenv("PATH", "nil", 1);
+	if (getenv("PATH") == "nil") {
+		puts("worked");
+	}
+	puts("unset");
+	unsetenv("PATH");
+	if (!getenv("PATH")) {
+		puts("worked");
+	}
+}
+#lang(tcl)
+lib_1_0
+} -output {don't overwrite
+worked
+overwrite
+worked
+unset
+worked
+}
 
 # cleanup
 ::tcltest::cleanupTests

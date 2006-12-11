@@ -5,7 +5,7 @@
 %x str_float
 %x str_single
 %x interpol
-ID	[a-zA-Z_][0-9a-zA-Z_]*
+ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
 #include <string.h>
 #include "Lcompile.h"

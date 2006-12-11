@@ -81,6 +81,7 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	L_block *block;
 
 	block = (L_block *)ckalloc(sizeof(L_block));
+	memset(block, 0, sizeof(L_block));
 	block->body = body;
 	block->decls = decls;
 	((L_ast_node *)block)->_trace = ast_trace_root;
@@ -95,6 +96,7 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	L_expression *expression;
 
 	expression = (L_expression *)ckalloc(sizeof(L_expression));
+	memset(expression, 0, sizeof(L_expression));
 	expression->a = a;
 	expression->b = b;
 	expression->c = c;
@@ -114,6 +116,7 @@ L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expressio
 	L_foreach_loop *foreach_loop;
 
 	foreach_loop = (L_foreach_loop *)ckalloc(sizeof(L_foreach_loop));
+	memset(foreach_loop, 0, sizeof(L_foreach_loop));
 	foreach_loop->hash = hash;
 	foreach_loop->key = key;
 	foreach_loop->value = value;
@@ -130,6 +133,7 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	L_function_declaration *function_declaration;
 
 	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
+	memset(function_declaration, 0, sizeof(L_function_declaration));
 	function_declaration->body = body;
 	function_declaration->name = name;
 	function_declaration->return_type = return_type;
@@ -146,6 +150,7 @@ L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_stateme
 	L_if_unless *if_unless;
 
 	if_unless = (L_if_unless *)ckalloc(sizeof(L_if_unless));
+	memset(if_unless, 0, sizeof(L_if_unless));
 	if_unless->condition = condition;
 	if_unless->else_body = else_body;
 	if_unless->if_body = if_body;
@@ -161,6 +166,7 @@ L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initialize
 	L_initializer *initializer;
 
 	initializer = (L_initializer *)ckalloc(sizeof(L_initializer));
+	memset(initializer, 0, sizeof(L_initializer));
 	initializer->key = key;
 	initializer->value = value;
 	initializer->next = next;
@@ -177,6 +183,7 @@ L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_exp
 	L_loop *loop;
 
 	loop = (L_loop *)ckalloc(sizeof(L_loop));
+	memset(loop, 0, sizeof(L_loop));
 	loop->condition = condition;
 	loop->post = post;
 	loop->pre = pre;
@@ -194,6 +201,7 @@ L_statement *mk_statement(L_statement_kind kind,L_statement *next)
 	L_statement *statement;
 
 	statement = (L_statement *)ckalloc(sizeof(L_statement));
+	memset(statement, 0, sizeof(L_statement));
 	statement->next = next;
 	statement->kind = kind;
 	((L_ast_node *)statement)->_trace = ast_trace_root;
@@ -208,6 +216,7 @@ L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_top
 	L_toplevel_statement *toplevel_statement;
 
 	toplevel_statement = (L_toplevel_statement *)ckalloc(sizeof(L_toplevel_statement));
+	memset(toplevel_statement, 0, sizeof(L_toplevel_statement));
 	toplevel_statement->next = next;
 	toplevel_statement->kind = kind;
 	((L_ast_node *)toplevel_statement)->_trace = ast_trace_root;
@@ -222,6 +231,7 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 	L_type *type;
 
 	type = (L_type *)ckalloc(sizeof(L_type));
+	memset(type, 0, sizeof(L_type));
 	type->array_dim = array_dim;
 	type->struct_tag = struct_tag;
 	type->next_dim = next_dim;
@@ -240,6 +250,7 @@ L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,
 	L_variable_declaration *variable_declaration;
 
 	variable_declaration = (L_variable_declaration *)ckalloc(sizeof(L_variable_declaration));
+	memset(variable_declaration, 0, sizeof(L_variable_declaration));
 	variable_declaration->name = name;
 	variable_declaration->initial_value = initial_value;
 	variable_declaration->type = type;

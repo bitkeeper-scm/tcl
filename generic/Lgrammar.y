@@ -10,6 +10,8 @@ int L_lex (void);
 extern int L_interactive;
 extern void *L_current_ast;
 
+Tcl_Obj *stringBuf;
+
 #define YYERROR_VERBOSE
 
 void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
@@ -400,15 +402,11 @@ expr:
                 REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
         }
-        /* this is a special case, to allow calling Tk widget functions */
-        | T_DOT T_ID "(" argument_expression_list ")"
+        /* this is to allow calling Tk widget functions */
+        | dotted_id "(" argument_expression_list ")"
         {
-                L_expression *name = mk_expression(L_EXPRESSION_STRING, -1, NULL, NULL, NULL, NULL, NULL);
-                name->u.string = ckalloc(strlen(((L_expression *)$2)->u.string) + 2);
-                *name->u.string = '.';
-                strcpy(name->u.string + 1, ((L_expression *)$2)->u.string);
-                REVERSE(L_expression, next, $4);
-                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, name, $4, NULL, NULL, NULL);
+                REVERSE(L_expression, next, $3);
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
         }
 	| lvalue T_EQUALS expr
         { 
@@ -648,6 +646,33 @@ regexp_literal_component:
                                    NULL, NULL, NULL);
         }
 
+dotted_id:
+	  T_DOT T_ID
+        {
+		L_expression *name = mk_expression(L_EXPRESSION_STRING, -1,
+						   NULL, NULL, NULL, NULL, NULL);
+		char *id = ((L_expression *)$2)->u.string;
+
+                name->u.string = ckalloc(strlen(id) + 2);
+                *name->u.string = '.';
+                strcpy(name->u.string + 1, id);
+                $$ = name;
+        }
+	| dotted_id T_DOT T_ID
+	{
+		char *id1 = ((L_expression *)$1)->u.string;
+		char *id2 = ((L_expression *)$3)->u.string;
+		int len1 = strlen(id1);
+		L_expression *name = mk_expression(L_EXPRESSION_STRING, -1,
+						   NULL, NULL, NULL, NULL, NULL);
+
+                name->u.string = ckalloc(len1 + 2 + strlen(id2));
+                strcpy(name->u.string, id1);
+                *(name->u.string + len1) = '.';
+                strcpy(name->u.string + len1 + 1, id2);
+                $$ = name;
+	}
+	;
 %%
 
 

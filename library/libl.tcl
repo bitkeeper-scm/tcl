@@ -33,4 +33,30 @@
 	    }
 	}
     }
+
+# Tcl uses a write trace on the $env array to set environment
+# variables.  We can't easily emulate that with a dict, so we provide
+# setenv, unsetenv, and getenv for L.
+
+    proc setenv {var val overwrite} {
+	global env
+	if {$overwrite || ![info exists env($var)]} {
+	    set env($var) $val
+	}
+    }
+
+    proc unsetenv {var} {
+	global env
+	unset env($var)
+    }
+
+    proc getenv {var} {
+	global env
+	if {[info exists env($var)]} {
+	    return $env($var);
+	} else {
+	    return 0;
+	}
+    }
+
 #}

@@ -821,7 +821,7 @@ push_parameters(L_expression *parameters)
         L_symbol *var = NULL;
 
         if ((p->kind == L_EXPRESSION_VARIABLE) && !p->indices) {
-            var = L_get_symbol(p->a, FALSE);
+            var = L_get_local_symbol(p->a, FALSE);
         }
         /* if the previous parameter was -foovariable and there's an &,
            then we need to make an L pointer */
@@ -829,9 +829,7 @@ push_parameters(L_expression *parameters)
             (p->op == T_BITAND))
         {
             L_trace("making an L pointer for %s\n", p->a->a->u.string);
-            /* L_walk_ast(p, L_WALK_PRE, LDumpAstNodes, NULL); */
             L_push_pointer(p->a);
-/*             L_PUSH_STR("asdf"); */
         } else if (var && type_passed_by_name_p(var->type)) {
             /* the parameter needs to be passed by name */
             L_PUSH_STR(var->name);
@@ -845,13 +843,17 @@ push_parameters(L_expression *parameters)
         /* if we see a parameter that looks like -foovariable, we set the
            widget flag to true so we know that the next parameter might be an
            L pointer. */
+	widget_flag = FALSE;
         if (p->kind == L_EXPRESSION_STRING) {
             widget_flag =
-                (strlen(p->u.string) >= sizeof("-variable")) &&
+		/* has at least the minimum length */
+                (strlen(p->u.string) >= strlen("-variable")) &&
+		/* starts with '-' */
                 (p->u.string[0] == '-') &&
+		/* ends with "variable" */
                 (0 == strcmp("variable",
-                             p->u.string + 1 +
-                             (strlen(p->u.string) - sizeof("variable"))));
+                             p->u.string +
+                             (strlen(p->u.string) - strlen("variable"))));
         }
     }
     return i;
@@ -873,7 +875,7 @@ L_push_pointer(L_expression *lval)
         if (lval->indices->kind== L_EXPRESSION_HASH_INDEX) {
             L_errorf(lval, "hash keys are not yet supported by pointers");
         }
-        if (!(var = L_get_symbol(lval->a, TRUE))) return;
+        if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
         L_compile_index(var->type, lval->indices);
         TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
     }
@@ -883,23 +885,23 @@ L_push_pointer(L_expression *lval)
    node. */
 Tcl_Obj *literal_to_TclObj(L_expression *expr)
 {
-    Tcl_Obj *obj = NULL;
+    Tcl_Obj *objPtr = NULL;
 
     switch (expr->kind) {
     case L_EXPRESSION_INTEGER:
-        obj = Tcl_NewIntObj(expr->u.integer);
+        objPtr = Tcl_NewIntObj(expr->u.integer);
         break;
     case L_EXPRESSION_STRING:
-        obj = Tcl_NewStringObj(expr->u.string, strlen(expr->u.string));
+        objPtr = Tcl_NewStringObj(expr->u.string, strlen(expr->u.string));
         break;
     case L_EXPRESSION_FLOTE:
-        obj = Tcl_NewDoubleObj(expr->u.flote);
+        objPtr = Tcl_NewDoubleObj(expr->u.flote);
         break;
     case L_EXPRESSION_UNARY:
         if (expr->op == T_PLUS) {
-            obj = Tcl_NewIntObj(expr->a->u.integer);
+            objPtr = Tcl_NewIntObj(expr->a->u.integer);
         } else if (expr->op == T_MINUS) {
-            obj = Tcl_NewIntObj(-expr->a->u.integer);
+            objPtr = Tcl_NewIntObj(-expr->a->u.integer);
         } else {
             L_errorf(expr, "Illegal initializer");
         }
@@ -909,7 +911,7 @@ Tcl_Obj *literal_to_TclObj(L_expression *expr)
 /*         L_bomb("literal_to_TclObj can't handle expressions of type %d\n", */
 /*                expr->kind); */
     }
-    return obj;
+    return objPtr;
 }
 
 void L_compile_unop(L_expression *expr)
