@@ -69,6 +69,16 @@ tally_newlines(
         "*"		return T_STAR;
         "/"		return T_SLASH;
         "%"		return T_PERC;
+	"+="		return T_EQPLUS;
+	"-="		return T_EQMINUS;
+	"*="		return T_EQSTAR;
+	"/="		return T_EQSLASH;
+	"%="		return T_EQPERC;
+	"&="		return T_EQBITAND;
+	"|="		return T_EQBITOR;
+	"^="		return T_EQBITXOR;
+	"<<="		return T_EQLSHIFT;
+	">>="		return T_EQRSHIFT;
         "++"		return T_PLUSPLUS;
         "--"		return T_MINUSMINUS;
         "&&"		return T_ANDAND;

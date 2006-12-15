@@ -56,7 +56,8 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 
 %token T_COMMA ","
 
-%right T_EQUALS "="
+%right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
+       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
@@ -450,6 +451,56 @@ expr:
         { 
                 REVERSE(L_expression, indices, $1);
                 $$ = mk_expression(L_EXPRESSION_BINARY, T_EQUALS, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQPLUS expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQPLUS, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQMINUS expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQMINUS, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQSTAR expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQSTAR, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQSLASH expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQSLASH, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQPERC expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQPERC, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQBITAND expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQBITAND, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQBITOR expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQBITOR, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQBITXOR expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQBITXOR, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQLSHIFT expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQLSHIFT, $1, $3, NULL, NULL, NULL);
+        }
+	| lvalue T_EQRSHIFT expr
+        {
+                REVERSE(L_expression, indices, $1);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQRSHIFT, $1, $3, NULL, NULL, NULL);
         }
         | T_DEFINED "(" lvalue ")"
         {

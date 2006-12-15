@@ -672,6 +672,69 @@ op_1_7(){
 op_1_7
 } -output "0\n2\n9\n3\n9\n1\n"
 
+test op-1.8 {compound assignment operators, simple lvalues} -body {
+#lang(L)
+op_1_8() {
+  int foo;
+
+  puts(foo += 2);
+  puts(foo);
+  puts(foo -= 3);
+  puts(foo);
+  puts(foo *= 4);
+  puts(foo);
+  puts(foo /= -2);
+  puts(foo);
+  foo = 17;
+  puts(foo %= 7);
+  puts(foo);
+  puts(foo |= 9);
+  puts(foo);
+  puts(foo &= 8);
+  puts(foo);
+  puts(foo ^= 9);
+  puts(foo);
+  puts(foo <<= 3);
+  puts(foo);
+  puts(foo >>= 2);
+  puts(foo);
+}
+#lang(tcl)
+op_1_8
+} -output "2\n2\n-1\n-1\n-4\n-4\n2\n2\n3\n3\n11\n11\n8\n8\n1\n1\n8\n8\n2\n2\n"
+
+test op-1.9 {compound assignment operators, array lvalues} -body {
+#lang(L)
+op_1_9() {
+  int foo[4];
+
+  puts(foo[2] += 2);
+  puts(foo[2]);
+  puts(foo[2] -= 3);
+  puts(foo[2]);
+  puts(foo[2] *= 4);
+  puts(foo[2]);
+  puts(foo[2] /= -2);
+  puts(foo[2]);
+  foo[2] = 17;
+  puts(foo[2] %= 7);
+  puts(foo[2]);
+  puts(foo[2] |= 9);
+  puts(foo[2]);
+  puts(foo[2] &= 8);
+  puts(foo[2]);
+  puts(foo[2] ^= 9);
+  puts(foo[2]);
+  puts(foo[2] <<= 3);
+  puts(foo[2]);
+  puts(foo[2] >>= 2);
+  puts(foo[2]);
+  puts((tcl)foo);
+}
+#lang(tcl)
+op_1_9
+} -output "2\n2\n-1\n-1\n-4\n-4\n2\n2\n3\n3\n11\n11\n8\n8\n1\n1\n8\n8\n2\n2\n0 0 2 0\n"
+
 test cast-1.0 { Casts to integer and float } -body {
 #lang(L)
 cast_1_0() {
@@ -734,7 +797,7 @@ array_1_0
 
 test array-1.2 {increment and decrement on array elements} -body {
 #lang(L)
-array_1_3() {
+array_1_2() {
   int foo[5];
   int i;
 
@@ -764,25 +827,8 @@ array_1_3() {
   puts((tcl)foo);
 }
 #lang(tcl)
-array_1_3
-} -output "0 0 0 5 0
-pre:
-5
-6
-7
-6
-5
-post:
-5
-6
-6
-7
-6
-6
-5
-0 0 0 5 0\n"
-
-
+array_1_2
+} -output "0 0 0 5 0\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\n0 0 0 5 0\n"
 
 test loop-1.0 {while loops} -body {
 #lang(L)
@@ -1108,6 +1154,56 @@ void hash_1_1() {
 #lang(tcl)
 hash_1_1
 } -output "value\n\n"
+
+test hash-1.2 {increment and decrement on hash elements} -body {
+#lang(L)
+hash_1_2() {
+  hash foo;
+
+  foo{"three"} = 0;
+  for (foo{"three"}=0; foo{"three"}<5; foo{"three"}++);
+  puts((tcl)foo);
+
+  puts("pre:");
+  puts(foo{"three"});
+  ++foo{"three"};
+  puts(foo{"three"});
+  puts(++foo{"three"});
+  --foo{"three"};
+  puts(foo{"three"});
+  puts(--foo{"three"});
+
+  puts("post:");
+  puts(foo{"three"});
+  foo{"three"}++;
+  puts(foo{"three"});
+  puts(foo{"three"}++);
+  puts(foo{"three"});
+  foo{"three"}--;
+  puts(foo{"three"});
+  puts(foo{"three"}--);
+  puts(foo{"three"});
+  puts((tcl)foo);
+}
+#lang(tcl)
+hash_1_2
+} -output "three 5\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\nthree 5\n"
+
+test hash-1.3 {a hash inside of an array inside a struct} -body {
+#lang(L)
+hash_1_3() {
+	struct { int foo; hash bar[4][5]; } baz;
+
+  	baz.foo = 2;
+	baz.bar[3][4]{"asdf"} = 9;
+	baz.bar[3][4]{"asdf"} *= 2;
+	puts(baz.bar[3][4]{"asdf"}--);
+	puts(baz);
+}
+#lang(tcl)
+hash_1_3
+} -output "18\n2 {{{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {asdf 17}}}\n"
+
 
 test regexp-1.0 {regular expression support} -body {
 #lang(L)
