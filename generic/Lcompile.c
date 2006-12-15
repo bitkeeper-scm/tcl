@@ -23,7 +23,7 @@ int L_interactive = 0;
 
 
 
-/* static int gensym_counter = 0;  /\* used to create unique names *\/ */
+static int gensym_counter = 0;  /* used to create unique names */
 
 /* The table we store typedef information in.  Use L_typedef_table() to access
    it. */
@@ -58,7 +58,7 @@ static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static void emit_upvar(L_symbol *var, char *upvarName);
-/* static char *gensym(char *name); */
+static char *gensym(char *name);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_type *type, L_expression *index,
                           L_expression *expr);
@@ -75,6 +75,11 @@ static void L_push_pointer(L_expression *lval);
 static L_compile_frame *enclosing_loop_frame();
 static void fixup_jumps(CompileEnv *envPtr, JumpOffsetList *jumps,
 			int targetOffset);
+static Proc *Begin_Proc();
+static void Finish_Proc(Proc *procPtr, char *name);
+
+
+
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -94,8 +99,8 @@ Tcl_LObjCmd(
 
     L_trace("Entering L compiler via Tcl_LObjCmd");
     if (objc != 2) {
-        L_bomb("Assertion failed in Tcl_LObjCmd: we expected 1 "
-               "argument but got %d.", objc - 1);
+	Tcl_WrongNumArgs(interp, 1, objv, "l-program");
+	return TCL_ERROR;
     }
     stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
     if (LParseScript(interp, stringPtr, stringLen, &ast) != TCL_OK) {
@@ -125,8 +130,11 @@ TclCompileLCmd(
 
     L_trace("Entering L compiler via TclCompileLCmd");
     if (parsePtr->numWords != 2) {
-        L_bomb("Assertion failed in TclCompileLCmd: we expected 2 "
-               "words but got %d.", parsePtr->numWords);
+
+/*         L_bomb("Assertion failed in TclCompileLCmd: we expected 2 " */
+/*                "words but got %d.", parsePtr->numWords); */
+
+	return TCL_ERROR;
     }
     // advance to the second token
     lTokenPtr = parsePtr->tokenPtr + parsePtr->tokenPtr->numComponents + 1;
@@ -231,37 +239,74 @@ LCompileScript(
 void
 L_compile_toplevel_statements(L_toplevel_statement *stmt)
 {
-    if (!stmt) return;
-    switch (stmt->kind) {
-    case L_TOPLEVEL_STATEMENT_FUN:
-        L_compile_function_decl(stmt->u.fun);
-        break;
-    case L_TOPLEVEL_STATEMENT_TYPE:
-        L_compile_struct_decl(stmt->u.type);
-        break;
-    case L_TOPLEVEL_STATEMENT_TYPEDEF:
-        /* ignore */
-        break;
-    case L_TOPLEVEL_STATEMENT_GLOBAL:
-        L_compile_global_decls(stmt->u.global);
-        break;
-    default:
-        L_bomb("Unexpected toplevel statement type %d", stmt->kind);
+    L_toplevel_statement *s;
+    char *name;
+    Proc *toplevelProcPtr;
+    int	 has_toplevel_stmt = 0;
+
+    /* first compile the declarations */
+    for (s = stmt; s; s = s->next) {
+	switch (s->kind) {
+	case L_TOPLEVEL_STATEMENT_FUN:
+	    L_compile_function_decl(s->u.fun);
+	    break;
+	case L_TOPLEVEL_STATEMENT_TYPE:
+	    L_compile_struct_decl(s->u.type);
+	    break;
+	case L_TOPLEVEL_STATEMENT_TYPEDEF:
+	    /* ignore */
+	    break;
+	case L_TOPLEVEL_STATEMENT_GLOBAL:
+	    L_compile_global_decls(s->u.global);
+	    break;
+	case L_TOPLEVEL_STATEMENT_STMT:
+	    has_toplevel_stmt = 1;
+	    break;
+	default:
+	    L_bomb("Unexpected toplevel statement type %d", s->kind);
+	}
     }
-    L_compile_toplevel_statements(stmt->next);
+    if (has_toplevel_stmt == 0) return;
+    /* Now compile the toplevel code.  This is separate from the rest of the
+       toplevel_statements because it lives in its own compile frame. */
+    name = gensym("%%l_toplevel");
+    toplevelProcPtr = Begin_Proc();
+    for (s = stmt; s; s = s->next) {
+	if (s->kind == L_TOPLEVEL_STATEMENT_STMT) {
+	    L_compile_statements(s->u.stmt);
+	}
+    }
+    L_return(FALSE);
+    Finish_Proc(toplevelProcPtr, name);
+    /* This actually invokes the toplevel code that we just compiled */
+    Tcl_Eval(lframe->interp, name);
 }
 
 void
 L_compile_function_decl(L_function_declaration *fun)
 {
     Proc *procPtr;
-    CompileEnv *envPtr;
-    Tcl_Obj *bodyObjPtr;
-    Tcl_Command cmd;
 
     if (!fun) return;
+    procPtr = Begin_Proc();
+    lframe->block = (L_ast_node *)fun;
+
+    L_compile_parameters(fun->params);
+    L_compile_block(fun->body);
+
+    /* This is the "fall off the end" implicit return. We return "". */
+    L_return(FALSE);
+    Finish_Proc(procPtr, fun->name->u.string);
+}
+
+static Proc *
+Begin_Proc()
+{
+    Proc *procPtr;
+    CompileEnv *envPtr;
+
     envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
-    L_frame_push(lframe->interp, envPtr, fun);
+    L_frame_push(lframe->interp, envPtr, NULL);
 
     procPtr = (Proc *)ckalloc(sizeof(Proc));
     procPtr->iPtr = (struct Interp *)lframe->interp;
@@ -276,12 +321,16 @@ L_compile_function_decl(L_function_declaration *fun)
                       strlen("L Compiler"));
     lframe->originalCodeNext = envPtr->codeNext;
     envPtr->procPtr = procPtr;
+    return procPtr;
+}
 
-    L_compile_parameters(fun->params);
-    L_compile_block(fun->body);
-    
-    /* This is the "fall off the end" implicit return. We return "". */
-    L_return(FALSE);
+static void
+Finish_Proc(
+    Proc *procPtr,
+    char *name)
+{
+    Tcl_Obj *bodyObjPtr;
+    Tcl_Command cmd;
 
     TclInitByteCodeObj(procPtr->bodyPtr, lframe->envPtr);
     bodyObjPtr = TclNewProcBodyObj(procPtr);
@@ -290,8 +339,8 @@ L_compile_function_decl(L_function_declaration *fun)
     }
     Tcl_IncrRefCount(bodyObjPtr);
 
-    cmd = Tcl_CreateObjCommand(lframe->interp, fun->name->u.string,
-        TclObjInterpProc, (ClientData) procPtr, TclProcDeleteProc);
+    cmd = Tcl_CreateObjCommand(lframe->interp, name, TclObjInterpProc,
+			       (ClientData) procPtr, TclProcDeleteProc);
     procPtr->cmdPtr = (Command *) cmd;
 
     TclFreeCompileEnv(lframe->envPtr);
@@ -1957,20 +2006,19 @@ maybeFixupEmptyCode(L_compile_frame *frame)
     }
 }
 
-/* /\* Make a new unique name.  It will be freed when the current AST is freed. *\/ */
-/* static char * */
-/* gensym(char *name) */
-/* { */
-/*     L_expression *node; */
-/*     char *gensym = ckalloc(strlen(name) + TCL_INTEGER_SPACE + 1); */
-/*     sprintf(gensym, "%d%s", gensym_counter++, name); */
-/*     /\* exploit the property of AST nodes that they'll free the string after */
-/*        compilation has finished. *\/ */
-/*     MK_STRING_NODE(node, gensym); */
-/*     ckfree(gensym); */
-/*     return node->u.string; */
-/* } */
-
+/* Make a new unique name.  It will be freed when the current AST is freed. */
+static char *
+gensym(char *name)
+{
+    L_expression *node;
+    char *gensym = ckalloc(strlen(name) + TCL_INTEGER_SPACE + 1);
+    sprintf(gensym, "%d%s", gensym_counter++, name);
+    /* exploit the property of AST nodes that they'll free the string after
+       compilation has finished. */
+    MK_STRING_NODE(node, gensym);
+    ckfree(gensym);
+    return node->u.string;
+}
 
 /* Push and Pop the L_compile_frames. */
 void 

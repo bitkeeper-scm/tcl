@@ -110,6 +110,12 @@ toplevel_code:
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_GLOBAL, $1);
                 ((L_toplevel_statement *)$$)->u.global = $2;
         }
+	| toplevel_code stmt
+	{
+		// regular code that does stuff instead of just declaring it
+		$$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_STMT, $1);
+		((L_toplevel_statement *)$$)->u.stmt = $2;
+	}
 	| /* epsilon */         { $$ = NULL; }
 	;
 
@@ -118,17 +124,41 @@ function_declaration:
         {
                 $$ = mk_function_declaration($2, $4, $1, ((L_statement *)$6)->u.block);
         }
-        | optional_void T_ID "(" parameter_list ")" compound_statement
+        | type_specifier T_ID "(" ")" compound_statement
+        {
+                $$ = mk_function_declaration($2, NULL, $1, ((L_statement *)$5)->u.block);
+        }
+        | T_VOID T_ID "(" parameter_list ")" compound_statement
+        {
+		L_type *t = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
+                $$ = mk_function_declaration($2, $4, t, ((L_statement *)$6)->u.block);
+        }
+        | T_VOID T_ID "(" ")" compound_statement
+        {
+		L_type *t = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
+                $$ = mk_function_declaration($2, NULL, t, ((L_statement *)$5)->u.block);
+        }
+        | T_ID "(" parameter_list ")" compound_statement
         {
                 L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
-                $$ = mk_function_declaration($2, $4, v, ((L_statement *)$6)->u.block);
+                $$ = mk_function_declaration($1, $3, v, ((L_statement *)$5)->u.block);
         }
+        | T_ID "(" ")" compound_statement
+        {
+                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
+                $$ = mk_function_declaration($1, NULL, v, ((L_statement *)$4)->u.block);
+        }
+/*         | optional_void T_ID "(" parameter_list ")" compound_statement */
+/*         { */
+/*                 L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); */
+/*                 $$ = mk_function_declaration($2, $4, v, ((L_statement *)$6)->u.block); */
+/*         } */
 	;
 
-optional_void:
-          T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); }
-        | /* epsilon */ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); }
-        ;
+/* optional_void: */
+/*           T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); } */
+/*         | /\* epsilon *\/ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); } */
+/*         ; */
 
 
 stmt:
@@ -261,7 +291,7 @@ parameter_list:
                 $$ = $1;
         }
         | T_VOID                        { $$ = NULL; }
-        | /* epsilon */                 { $$ = NULL; }
+/*         | /\* epsilon *\/                 { $$ = NULL; } */
         ;
 
 parameter_declaration_list:
@@ -292,7 +322,7 @@ argument_expression_list:
                 ((L_expression *)$3)->next = $1; 
                 $$ = $3;
         }
-	| /* epsilon */         { $$ = NULL }
+/* 	| /\* epsilon *\/         { $$ = NULL } */
         ;
 
 expr:
@@ -397,16 +427,24 @@ expr:
         | T_INT_LITERAL
         | T_FLOAT_LITERAL
 	| lvalue                { REVERSE(L_expression, indices, $1); $$ = $1; }
-        | T_ID "(" argument_expression_list ")"         
-        { 
-                REVERSE(L_expression, next, $3);
-                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
-        }
-        /* this is to allow calling Tk widget functions */
-        | dotted_id "(" argument_expression_list ")"
+        | T_ID "(" argument_expression_list ")"
         {
                 REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
+        }
+        | T_ID "(" ")"
+        {
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
+        }
+        /* this is to allow calling Tk widget functions */
+        | dotted_id "(" argument_expression_list ")"
+	{
+                REVERSE(L_expression, next, $3);
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
+        }
+        | dotted_id "(" ")"
+        {
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
         }
 	| lvalue T_EQUALS expr
         { 

@@ -35,7 +35,7 @@ typedef struct L_compile_frame {
     unsigned char *originalCodeNext;
     /* We collect JumpFixups for all of the jumps emitted for break and
        continue statements, so that we can stuff in the correct jump targets
-       once we're done compiling the  */
+       once we're done compiling the loops. */
     JumpOffsetList *continue_jumps;
     JumpOffsetList *break_jumps;
     struct L_compile_frame *prevFrame;

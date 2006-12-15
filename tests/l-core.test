@@ -1330,6 +1330,33 @@ unset
 worked
 }
 
+test toplevel-1.0 {Toplevel code in L} -body {
+#lang(L)
+int toplevel_1_0_i = 2;
+printf("at the toplevel, i is: %d\n", toplevel_1_0_i);
+
+toplevel_1_0(void) {
+  printf("in toplevel_1_0, i is: %d\n", toplevel_1_0_i);
+}
+#lang(tcl)
+toplevel_1_0
+} -output {at the toplevel, i is: 2
+in toplevel_1_0, i is: 2
+}
+
+test toplevel-1.1 {Toplevel code via the L command, sharing variables} -body {
+L { puts("Accent on helpful side of your nature.  Drain the moat."); }
+proc toplevel_1_1 {} {
+    L {
+        string v = "Sphenic numbers always have exactly eight divisors.";
+    }
+    puts $v
+}
+toplevel_1_1
+} -output {Accent on helpful side of your nature.  Drain the moat.
+Sphenic numbers always have exactly eight divisors.
+}
+
 # cleanup
 ::tcltest::cleanupTests
 return
