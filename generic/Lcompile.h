@@ -38,6 +38,7 @@ typedef struct L_compile_frame {
        once we're done compiling the loops. */
     JumpOffsetList *continue_jumps;
     JumpOffsetList *break_jumps;
+    int toplevel_p; 		/* FALSE unless frame is toplevel. */
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
 

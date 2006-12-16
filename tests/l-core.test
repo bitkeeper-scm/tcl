@@ -1443,6 +1443,7 @@ in toplevel_1_0, i is: 2
 test toplevel-1.1 {Toplevel code via the L command, sharing variables} -body {
 L { puts("Accent on helpful side of your nature.  Drain the moat."); }
 proc toplevel_1_1 {} {
+    set v 2
     L {
         string v = "Sphenic numbers always have exactly eight divisors.";
     }

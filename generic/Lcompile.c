@@ -246,32 +246,50 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	    L_compile_struct_decl(s->u.type);
 	    break;
 	case L_TOPLEVEL_STATEMENT_TYPEDEF:
-	    /* ignore */
+	    /* ignore -- handled at parse time */
 	    break;
 	case L_TOPLEVEL_STATEMENT_GLOBAL:
 	    L_compile_global_decls(s->u.global);
+	    /* The initalizers of the globals are toplevel code. */
+	    has_toplevel_stmt = 1;
 	    break;
 	case L_TOPLEVEL_STATEMENT_STMT:
 	    has_toplevel_stmt = 1;
+	    /* handled below */
 	    break;
 	default:
 	    L_bomb("Unexpected toplevel statement type %d", s->kind);
 	}
     }
     if (has_toplevel_stmt == 0) return;
-    /* Now compile the toplevel code.  This is separate from the rest of the
-       toplevel_statements because it lives in its own compile frame. */
+    /* Now compile the toplevel code.  It all goes into a Tcl proc that we
+       call as soon as we're done building it. */
     name = gensym("%%l_toplevel");
     toplevelProcPtr = Begin_Proc();
+    /* Mark the frame so that we can treat things specially */
+    lframe->toplevel_p = TRUE;
     for (s = stmt; s; s = s->next) {
-	if (s->kind == L_TOPLEVEL_STATEMENT_STMT) {
+	switch (s->kind) {
+	case L_TOPLEVEL_STATEMENT_STMT:
 	    L_compile_statements(s->u.stmt);
+	    break;
+	case L_TOPLEVEL_STATEMENT_GLOBAL:
+	    L_compile_variable_decls(s->u.global);
+	    break;
+	default:
+	    break;
 	}
     }
+
     L_return(FALSE);
     Finish_Proc(toplevelProcPtr, name);
     /* This actually invokes the toplevel code that we just compiled */
-    Tcl_Eval(lframe->interp, name);
+    if (lframe->envPtr) {
+	L_PUSH_STR(name);
+	TclEmitInstInt4(INST_INVOKE_STK4, 1, lframe->envPtr);
+    } else {
+	Tcl_Eval(lframe->interp, name);
+    }
 }
 
 void
@@ -280,6 +298,7 @@ L_compile_function_decl(L_function_declaration *fun)
     Proc *procPtr;
 
     if (!fun) return;
+    L_trace("compiling a function decl");
     procPtr = Begin_Proc();
     lframe->block = (L_ast_node *)fun;
 
@@ -367,58 +386,10 @@ L_compile_global_decls(L_variable_declaration *decl)
     L_symbol *symbol;
 
     if (!decl) return;
-    if (decl->type->kind == L_TYPE_STRUCT) {
-        fixup_struct_type(decl->type);
-    }
-    L_trace("Global variable named %s\n", decl->name->u.string);
-
+    /* just create the symbol, but don't initialize the Tcl variable.  The
+       toplevel code function will initialize it. */
     symbol = L_make_symbol(decl->name, decl->type, -1);
     symbol->global_p = TRUE;
-
-    if (lframe->envPtr) {
-        L_trace("went this way");
-        L_PUSH_STR(decl->name->u.string);
-        if (decl->initial_value) {
-            compile_initializer(decl->initial_value, decl->type);
-        } else {
-            compile_blank_initializer(decl->type);
-        }
-        TclEmitOpcode(INST_STORE_SCALAR_STK, lframe->envPtr);
-    } else {
-        /* interpreted case */
-        if (decl->initial_value) {
-            Tcl_Obj *initial_value =
-                literal_to_TclObj(decl->initial_value->value);
-            Tcl_IncrRefCount(initial_value);
-            L_trace("initial value is %s", Tcl_GetString(initial_value));
-            if (!initial_value) {
-                L_errorf(decl, "Unsupported initial value for a global");
-            } else {
-                Tcl_SetVar2Ex(lframe->interp, decl->name->u.string, NULL,
-                              initial_value,
-                              TCL_GLOBAL_ONLY | TCL_LEAVE_ERR_MSG);
-            }
-        } else {
-            char *partial_code;
-            Tcl_Obj *code = Tcl_NewObj();
-            int needs_eval = 0;
-
-            Tcl_IncrRefCount(code);
-            /* no initial value */
-            partial_code = blank_initializer_code(decl->type, &needs_eval);
-            if (needs_eval) {
-                TclObjPrintf(NULL, code, "set %s [%s]", decl->name->u.string,
-                             partial_code, -1);
-            } else {
-                TclObjPrintf(NULL, code, "set %s %s", decl->name->u.string,
-                             partial_code, -1);
-            }
-            L_trace("init code is %s", Tcl_GetString(code));
-            /* Tcl_EvalEx(lframe->interp, Tcl_GetString(code), -1, 0); */
-            Tcl_Eval(lframe->interp, Tcl_GetString(code));
-            Tcl_DecrRefCount(code);
-        }
-    }
     L_compile_global_decls(decl->next);
 }
 
@@ -446,30 +417,39 @@ void
 L_compile_variable_decls(L_variable_declaration *var)
 {
     L_symbol *symbol;
-    int localIndex;
 
     if (!var) return;
     L_trace("declaring variable %s", var->name->u.string);
+
     if (var->type->kind == L_TYPE_STRUCT) {
         fixup_struct_type(var->type);
     }
-    localIndex = TclFindCompiledLocal(var->name->u.string,
-                                      strlen(var->name->u.string),
-                                      1, 0, lframe->envPtr->procPtr);
+
     if ((symbol = L_get_symbol(var->name, FALSE)) &&
         !global_symbol_p(symbol))
     {
         L_errorf(var, "Illegal redeclaration of local variable %s",
                  var->name->u.string);
     }
-    symbol = L_make_symbol(var->name, var->type, localIndex);
+
+    if (lframe->toplevel_p) {
+	if (!(symbol = L_get_local_symbol(var->name, FALSE))) {
+	    L_bomb("assertion failed, global variable not declared");
+	}
+    } else {
+	int localIndex;
+	localIndex = TclFindCompiledLocal(var->name->u.string,
+					  strlen(var->name->u.string),
+					  1, 0, lframe->envPtr->procPtr);
+	symbol = L_make_symbol(var->name, var->type, localIndex);
+    }
 
     if (var->initial_value) {
         compile_initializer(var->initial_value, var->type);
     } else {
         compile_blank_initializer(var->type);
     }
-    L_STORE_SCALAR(localIndex);
+    L_STORE_SCALAR(symbol->localIndex);
     TclEmitOpcode(INST_POP, lframe->envPtr);
 
     L_compile_variable_decls(var->next);
@@ -810,6 +790,7 @@ L_compile_expressions(L_expression *expr)
     if (!expr) return;
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
+	L_trace("compiling a call to %s", expr->a->u.string);
         L_PUSH_STR(expr->a->u.string);
         param_count = push_parameters(expr->b);
         TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
@@ -1331,7 +1312,10 @@ L_push_variable(L_expression *expr)
     L_symbol *var;
     L_expression *name = expr->a;
 
-    if (!(var = L_get_local_symbol(name, TRUE))) return;
+    if (!(var = L_get_local_symbol(name, TRUE))) {
+	L_PUSH_STR("");
+	return;
+    }
     if (expr->indices) {
         L_expression *index = expr->indices;
         L_type *type = var->type;
@@ -1399,11 +1383,24 @@ import_global_symbol(L_symbol *var)
                                       1, 0, lframe->envPtr->procPtr);
     MK_STRING_NODE(name, var->name);
     local = L_make_symbol(name, var->type, localIndex);
-    /* link the global variable with our new local using tcl's
-       ``global'' command. */
-    L_PUSH_STR("global");
-    L_PUSH_STR(var->name);
-    TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+    /* XXX: This might be bogus.  We attempt to detect whether L global
+       variables should be true globals, or should be shared with the calling
+       proc, by checking if the current variable frame pointer in interp is
+       the same as the global frame pointer.  (Sharing variables with the
+       calling proc is useful if you want to use L as an expr replacement). */
+    if (((Interp *)lframe->interp)->rootFramePtr ==
+	((Interp *)lframe->interp)->varFramePtr)
+    {
+	L_PUSH_STR("global");
+	L_PUSH_STR(var->name);
+	TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+    } else {
+	L_PUSH_STR("upvar");
+	L_PUSH_STR("1");
+	L_PUSH_STR(var->name);
+	L_PUSH_STR(var->name);
+	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+    }
     TclEmitOpcode(INST_POP, lframe->envPtr);
     return local;
 }
@@ -1490,7 +1487,10 @@ L_compile_assignment(L_expression *expr)
     L_expression *lval = expr->a;
     L_expression *rval = expr->b;
 
-    if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
+    if (!(var = L_get_local_symbol(lval->a, TRUE))) {
+	L_PUSH_STR("");
+	return;
+    }
     L_trace("COMPILING ASSIGNMENT: %s", L_expression_tostr[lval->a->kind],
             lval->a->u.string);
     if (lval->indices) {
@@ -1511,7 +1511,7 @@ static int
 instruction_for_l_op(
     int op)
 {
-    int instruction;
+    int instruction = 0;
     switch (op) {
     case T_EQ:
     case T_EQUALEQUAL:
@@ -1939,6 +1939,10 @@ L_get_symbol(L_expression *name, int error_p)
     if (hPtr) {
         return (L_symbol *)Tcl_GetHashValue(hPtr);
     } else {
+	L_trace("Unable to find symbol %s", name->u.string);
+/* 	if (Tcl_GetVar(lframe->interp, name->u.string, 0)) { */
+
+/* 	} */
         if (error_p) {
             L_errorf(name, "Undeclared variable: %s", name->u.string);
         }
@@ -2003,6 +2007,7 @@ L_frame_push(
     Tcl_InitHashTable(new_frame->symtab, TCL_STRING_KEYS);
     new_frame->continue_jumps = NULL;
     new_frame->break_jumps = NULL;
+    new_frame->toplevel_p = FALSE;
     new_frame->prevFrame = lframe;
     lframe = new_frame;
 }
