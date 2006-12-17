@@ -241,7 +241,8 @@ tally_newlines(
 
 }
         .		{       /* this is essentially an "else" */
-                                fprintf(stderr, "illegal character %c\n", *yytext);
+                                fprintf(stderr, "L error: illegal character %c on line %d\n",
+					*yytext, L_line_number);
                                 exit(1);
                         }
 
