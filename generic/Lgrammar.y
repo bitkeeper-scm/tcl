@@ -318,12 +318,28 @@ parameter_declaration:
 
 argument_expression_list:
           expr
+	| T_KEYWORD
+	| T_KEYWORD expr
+	{
+                ((L_expression *)$2)->next = $1;
+                $$ = $2;
+	}
         | argument_expression_list "," expr
         { 
                 ((L_expression *)$3)->next = $1; 
                 $$ = $3;
         }
-/* 	| /\* epsilon *\/         { $$ = NULL } */
+        | argument_expression_list "," T_KEYWORD
+        {
+                ((L_expression *)$3)->next = $1;
+                $$ = $3;
+        }
+        | argument_expression_list "," T_KEYWORD expr
+        {
+                ((L_expression *)$4)->next = $3;
+                ((L_expression *)$3)->next = $1;
+                $$ = $4;
+        }
         ;
 
 expr:
@@ -424,7 +440,6 @@ expr:
 	| expr T_BITAND expr    { MK_BINOP_NODE($$, T_BITAND, $1, $3); }
 	| expr T_BITXOR expr    { MK_BINOP_NODE($$, T_BITXOR, $1, $3); }
         | string_literal        { REVERSE(L_expression, c, $1); $$ = $1; }
-	| T_KEYWORD
         | T_INT_LITERAL
         | T_FLOAT_LITERAL
 	| lvalue                { REVERSE(L_expression, indices, $1); $$ = $1; }

@@ -126,11 +126,12 @@ references_1_0()
 	int	a, b, c;
 
 	a = 5;
-	printf("%s - %s - %s - %s", :variable, &a, &b, &c);
+	printf("%s - %s - %s - %s", variable: &a, &b, &c);
 }
 #lang(tcl)
 references_1_0
 } -output {-variable - ::Lptr::1 a - b - c}
+
 
 # cleanup
 ::tcltest::cleanupTests
