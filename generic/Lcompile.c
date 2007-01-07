@@ -38,6 +38,7 @@ static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
 static void fixup_struct_type(L_type *type);
 static int array_p(L_type *t);
+static int auto_extending_array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
 static L_expression *L_read_array_index_chunk(int varIndex, L_expression *i,
                                               L_type **type,
@@ -525,6 +526,10 @@ blank_initializer_code(
     L_expression *retval;
 
     *needs_eval = FALSE;
+    if (auto_extending_array_p(type)) {
+	MK_STRING_NODE(retval, "");
+	return retval->u.string;
+    }
     Tcl_IncrRefCount(code);
     while (array_type) {
         if (array_type->array_dim->kind != L_EXPRESSION_INTEGER) {
@@ -625,6 +630,15 @@ fixup_struct_type(L_type *type)
 /*         Tcl_ListObjAppendElement(NULL, val, el); */
 /*     } */
 /*     return val; */
+}
+
+static int
+auto_extending_array_p(L_type *t)
+{
+    return t->next_dim &&
+	(t->next_dim->kind == L_TYPE_ARRAY) &&
+	(t->next_dim->array_dim->kind == L_EXPRESSION_INTEGER) &&
+	(t->next_dim->array_dim->u.integer == 0);
 }
 
 int
@@ -1596,6 +1610,16 @@ L_write_index(
 {
     int rvalVar;
 
+    /* auto-extending array special case */
+    if (auto_extending_array_p(var->type) && (op == T_EQUALS)) {
+	L_PUSH_STR("extendingLset");
+	L_PUSH_STR(var->name);
+	L_compile_index(var->type, index);
+	L_compile_expressions(rval);
+	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	return;
+    }
+    /* regular case */
     L_compile_expressions(rval);
     rvalVar = store_in_tempvar(TRUE);
 

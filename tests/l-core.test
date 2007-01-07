@@ -830,6 +830,42 @@ array_1_2() {
 array_1_2
 } -output "0 0 0 5 0\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\n0 0 0 5 0\n"
 
+test array_1_3 {1d arrays with no length auto-extend by one at a time} -body {
+#lang(L)
+array_1_3() {
+  int foo[];
+
+  foo[0] = 4;
+  foo[1] = 5;
+  foo[2] = 6;
+  puts((tcl)foo);
+}
+#lang(tcl)
+array_1_3
+} -output "4 5 6\n"
+
+test array_1_4 {extend arrays using push and pop} -body {
+#lang(L)
+array_1_4() {
+  int foo[];
+
+  push(foo, 1);
+  push(foo, 2);
+  push(foo, 3);
+  puts((tcl)foo);
+  puts(pop(foo));
+  puts((tcl)foo);
+  puts(pop(foo));
+  puts((tcl)foo);
+  puts(pop(foo));
+  puts((tcl)foo);
+  puts(pop(foo));
+  puts((tcl)foo);
+} 
+#lang(tcl)
+array_1_4
+} -output "1 2 3\n3\n1 2\n2\n1\n1\n\n\n\n"
+
 test loop-1.0 {while loops} -body {
 #lang(L)
 loop_1_0() {
@@ -843,8 +879,6 @@ loop_1_0() {
 #lang(tcl)
 loop_1_0
 } -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
-
-
 test loop-1.1 {for loops} -body {
 #lang(L)
 loop_1_1() {

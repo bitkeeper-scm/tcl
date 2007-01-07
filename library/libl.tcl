@@ -59,4 +59,32 @@
 	}
     }
 
+# Extending lset is like lset except when the index is 1 past the end
+# of the list then it will lappend instead of lset.
+
+    proc extendingLset {listname index value} {
+	upvar 1 $listname list
+	if {[expr {[llength $list] == $index}]} {
+	    lappend list $value
+	} else {
+	    lset list $index $value
+	}
+    }
+
+
+# Push adds a new element to the end of an array. 
+    proc push {listname value} {
+	upvar 1 $listname list
+	extendingLset list [llength $list] $value
+    }
+
+
+# Pop removes an element from the end of an array and returns it.  If
+# the array is empty, pop returns the empty string.
+    proc pop {listname} {
+	upvar 1 $listname list
+	set last [lindex $list end]
+	set list [lrange $list 0 [expr {[llength $list] - 2}]]
+	return $last
+    }
 #}
