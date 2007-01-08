@@ -448,6 +448,13 @@ expr:
                 REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
         }
+        | T_STRING "(" argument_expression_list ")"
+        {
+		L_expression *id;
+		MK_STRING_NODE(id, "string")
+                REVERSE(L_expression, next, $3);
+                $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, id, $3, NULL, NULL, NULL);
+        }
         | T_ID "(" ")"
         {
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
@@ -759,6 +766,18 @@ regexp_literal_component:
         }
 
 dotted_id:
+	  T_DOT 
+	{
+		L_expression *id;
+		MK_STRING_NODE(id, ".")
+		$$ = id;
+	}
+
+	| dotted_id_1
+	;
+
+
+dotted_id_1:
 	  T_DOT T_ID
         {
 		L_expression *name = mk_expression(L_EXPRESSION_STRING, -1,
@@ -770,7 +789,7 @@ dotted_id:
                 strcpy(name->u.string + 1, id);
                 $$ = name;
         }
-	| dotted_id T_DOT T_ID
+	| dotted_id_1 T_DOT T_ID
 	{
 		char *id1 = ((L_expression *)$1)->u.string;
 		char *id2 = ((L_expression *)$3)->u.string;

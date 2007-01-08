@@ -844,12 +844,18 @@ void
 L_compile_expressions(L_expression *expr)
 {
     int param_count;
+    L_symbol *symbol;
 
     if (!expr) return;
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
 	L_trace("compiling a call to %s", expr->a->u.string);
-        L_PUSH_STR(expr->a->u.string);
+        if ((symbol = L_get_local_symbol(expr->a, FALSE))) {
+	    /* looks like the function name is in a variable */
+	    L_push_variable(expr);
+	} else {
+	    L_PUSH_STR(expr->a->u.string);
+	}
         param_count = push_parameters(expr->b);
         TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
         break;

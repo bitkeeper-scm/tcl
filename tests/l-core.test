@@ -168,6 +168,16 @@ var_1_2_aux()
 var_1_2
 } -output "3\n4\n5\n"
 
+test var-1.4 {Variable function names} -body {
+#lang(L)
+var_1_4() {
+  string printfvar = "printf";
+  printfvar("Earth calling printf\n");
+}
+#lang(tcl)
+var_1_4
+} -output "Earth calling printf\n"
+
 
 test var-1.3 {A global array of structs} -body {
 #lang(L)
