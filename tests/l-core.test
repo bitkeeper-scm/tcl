@@ -298,6 +298,21 @@ shadow
 } -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
 }
 
+test decl-1.4 {Single dimensional initializers actually initialize} -body {
+#lang(L)
+decl_1_4 () {
+  int foo[] = {4, 5, 6};
+  hash bar = {"foo" => 4, "bar" => 5, "baz" => 6};
+  struct { int x; int y; } point = { 1024, 768 };
+
+  printf("%s\n", (tcl)foo);
+  printf("%s\n", (tcl)bar);
+  printf("%s\n", point);
+}
+#lang(tcl)
+decl_1_4
+} -output "4 5 6\nfoo 4 bar 5 baz 6\n1024 768\n"
+
 test if-1.0 {If statements} -body {
 #lang(L)
 if_1_0() {

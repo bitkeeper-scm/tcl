@@ -462,13 +462,41 @@ compile_initializer(
     L_initializer *init,
     L_type *type)
 {
-    /* XXX: this is not finished.  arrays/structs and hashes need to be
-       implemented.  We just use blank values right now. */
+    L_initializer *i;
+    int count;
+
+    /* XXX: this is not finished.  We only handle a single dimension, and we
+       don't check the field count for structs. */
     if ((type->kind == L_TYPE_STRUCT) ||
-        (type->next_dim && (type->next_dim->kind == L_TYPE_ARRAY)) ||
-        (type->kind == L_TYPE_HASH))
+        (type->next_dim && (type->next_dim->kind == L_TYPE_ARRAY)))
     {
-        compile_blank_initializer(type);
+	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
+	    L_PUSH_STR("list");
+	    for (i = init->value, count = 0; i; i = i->next, count++) {
+		if (i->key) {
+		    L_errorf(i, "Keys are not allowed in array initializers.");
+		}
+		L_compile_expressions(i->value);
+	    }
+	    TclEmitInstInt4(INST_INVOKE_STK4, count + 1, lframe->envPtr);
+	} else {
+	    L_compile_expressions(init->value);
+	}
+    } else if (type->kind == L_TYPE_HASH) {
+	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
+	    L_PUSH_STR("list");
+	    for (i = init->value, count = 0; i; i = i->next, count++) {
+		if (!i->key) {
+		    L_errorf(i, "Keys are required for hash initializers.");
+		} else {
+		    L_compile_expressions(i->key);
+		}
+		L_compile_expressions(i->next_dim->value);
+	    }
+	    TclEmitInstInt4(INST_INVOKE_STK4, (count * 2) + 1, lframe->envPtr);
+	} else {
+	    L_compile_expressions(init->value);
+	}
     } else {
         /* atomic type */
         L_compile_expressions(init->value);

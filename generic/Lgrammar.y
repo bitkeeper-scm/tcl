@@ -693,7 +693,7 @@ initializer:
         | "{" initializer_list "}"
         {
                 REVERSE(L_initializer, next, $2);
-                $$ = $2;
+                $$ = mk_initializer(NULL, $2, NULL, NULL);
         }
         ;
 

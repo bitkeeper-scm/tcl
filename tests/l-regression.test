@@ -133,6 +133,24 @@ references_1_0
 } -output {-variable - ::Lptr::1 a - b - c}
 
 
+
+test initializers-1.0 {initialize a whole array at once} -body {
+#lang(L)
+initializers_1_1() {
+  string foo[] = initializers_1_1_returnarray();
+
+  printf("foo[0] is %s\n", foo[0]);
+  printf("foo[1] is %s\n", foo[1]);
+}
+
+poly initializers_1_1_returnarray() {
+  return "foo bar";
+}
+#lang(tcl)
+initializers_1_1
+} -output "foo\[0\] is foo\nfoo\[1\] is bar\n"
+
+
 # cleanup
 ::tcltest::cleanupTests
 return
