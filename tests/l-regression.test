@@ -150,6 +150,14 @@ poly initializers_1_1_returnarray() {
 initializers_1_1
 } -output "foo\[0\] is foo\nfoo\[1\] is bar\n"
 
+test cast-1.0 {don't segfault when casting to a string} -body {
+#lang(L)
+cast_1_0() {
+	puts((string)"asdf");
+}
+#lang(tcl)
+cast_1_0
+} -output "asdf\n"
 
 # cleanup
 ::tcltest::cleanupTests

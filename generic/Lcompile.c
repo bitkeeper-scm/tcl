@@ -1018,8 +1018,9 @@ void L_compile_unop(L_expression *expr)
         }
         break;
     case T_STRING_CAST:
-        /* do nothing: it's all a string. However, we might have to do
+        /* no conversion -- it's all a string. However, we might have to do
            something here to make the future type checker happy. */
+        L_compile_expressions(expr->a);
         break;
     case T_INT_CAST:
         L_PUSH_STR("::tcl::mathfunc::int");
