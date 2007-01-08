@@ -2280,6 +2280,7 @@ LDumpAstNodes(L_ast_node *node, void *data, int order)
 
 static void 
 L_free_ast(L_ast_node *ast) {
+    L_trace("Freeing L AST");
     while(ast_trace_root) {
         L_ast_node *node = ast_trace_root;
         ast_trace_root = ast_trace_root->_trace;
