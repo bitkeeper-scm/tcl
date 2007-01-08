@@ -102,7 +102,7 @@ toplevel_code:
         {
                 L_variable_declaration *typedecl = finish_declaration($3, $4);
                 L_store_typedef(typedecl->name, typedecl->type);
-                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPEDEF, NULL);
+                $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPEDEF, $1);
         }
         | toplevel_code declaration
         {
