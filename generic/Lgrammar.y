@@ -53,7 +53,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %token T_UNLESS "unless"
 %nonassoc T_ELSE "else"
 %token T_RETURN "return"
-
+%token T_EXTERN
 %token T_COMMA ","
 
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
@@ -583,6 +583,14 @@ declaration_list:
 
 declaration:
 	  init_declarator_list ";"
+	| T_EXTERN init_declarator_list ";"
+	{
+		L_variable_declaration *v;
+		for (v = $2; v; v = v->next) {
+			v->extern_p = TRUE;
+		}
+		$$ = $2;
+	}
 	;
 
 init_declarator_list:
@@ -609,7 +617,7 @@ init_declarator:
 declarator:
           T_ID
         {
-                $$ = mk_variable_declaration(NULL, $1, NULL, FALSE, NULL);
+                $$ = mk_variable_declaration(NULL, $1, NULL, FALSE, FALSE, NULL);
         }
 	| declarator "[" constant_expression "]"
         {

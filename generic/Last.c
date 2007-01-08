@@ -246,7 +246,7 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 	return type;
 }
 
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,L_variable_declaration *next) 
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,L_variable_declaration *next) 
 {
 	L_variable_declaration *variable_declaration;
 
@@ -257,6 +257,7 @@ L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,
 	variable_declaration->type = type;
 	variable_declaration->next = next;
 	variable_declaration->by_name = by_name;
+	variable_declaration->extern_p = extern_p;
 	((L_ast_node *)variable_declaration)->_trace = ast_trace_root;
 	ast_trace_root = (void *)variable_declaration;
 	((L_ast_node *)variable_declaration)->line_no = L_line_number;

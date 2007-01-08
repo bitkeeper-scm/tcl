@@ -433,25 +433,41 @@ L_compile_variable_decls(L_variable_declaration *var)
                  var->name->u.string);
     }
 
-    if (lframe->toplevel_p) {
+    if (var->extern_p) {
+	L_compile_frame *old_frame = lframe;
+	L_symbol *symbol;
+	L_trace("Extern var %s", var->name->u.string);
+	/* stuff the extern in the uppermost symbol table as if we'd seen a
+	   global declaration for it */
 	if (!(symbol = L_get_local_symbol(var->name, FALSE))) {
-	    L_bomb("assertion failed, global variable not declared");
+	    while (lframe->prevFrame) lframe = lframe->prevFrame;
+	    symbol = L_make_symbol(var->name, var->type, -1);
+	    symbol->global_p = TRUE;
+	    lframe = old_frame;
 	}
     } else {
-	int localIndex;
-	localIndex = TclFindCompiledLocal(var->name->u.string,
-					  strlen(var->name->u.string),
-					  1, 0, lframe->envPtr->procPtr);
-	symbol = L_make_symbol(var->name, var->type, localIndex);
-    }
+	/* if the variable isn't extern, then we must create it, so we emit
+	   code to initialize it */
+	if (lframe->toplevel_p) {
+	    if (!(symbol = L_get_local_symbol(var->name, FALSE))) {
+		L_bomb("assertion failed, global variable not declared");
+	    }
+	} else {
+	    int localIndex;
+	    localIndex = TclFindCompiledLocal(var->name->u.string,
+					      strlen(var->name->u.string),
+					      1, 0, lframe->envPtr->procPtr);
+	    symbol = L_make_symbol(var->name, var->type, localIndex);
+	}
 
-    if (var->initial_value) {
-        compile_initializer(var->initial_value, var->type);
-    } else {
-        compile_blank_initializer(var->type);
+	if (var->initial_value) {
+	    compile_initializer(var->initial_value, var->type);
+	} else {
+	    compile_blank_initializer(var->type);
+	}
+	L_STORE_SCALAR(symbol->localIndex);
+	TclEmitOpcode(INST_POP, lframe->envPtr);
     }
-    L_STORE_SCALAR(symbol->localIndex);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
 
     L_compile_variable_decls(var->next);
 }

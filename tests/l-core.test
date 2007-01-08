@@ -202,6 +202,17 @@ var_1_3
 {0 0} {10 20} {20 40} {105 135} {40 80}
 "
 
+test var-1.4 {Test extern variables} -body {
+set tclvar "this is an extern variable"
+#lang(L)
+var_1_4()
+{
+	extern string tclvar;
+	puts(tclvar);
+}
+#lang(tcl)
+var_1_4
+} -output "this is an extern variable\n"
 
 test lang-1.0 {Test lang parsing} -body {
 # These are some Tcl Comments

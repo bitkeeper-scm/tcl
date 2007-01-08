@@ -214,6 +214,7 @@ struct L_variable_declaration {
 	L_type *type;
 	L_variable_declaration *next;
 	int by_name;
+	int extern_p;
 };
 
 
@@ -239,7 +240,7 @@ L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_top
 int L_walk_toplevel_statement(L_toplevel_statement* node, int order, LWalkFunc func, void *data);
 L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p);
 int L_walk_type(L_type* node, int order, LWalkFunc func, void *data);
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,L_variable_declaration *next);
+L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,L_variable_declaration *next);
 int L_walk_variable_declaration(L_variable_declaration* node, int order, LWalkFunc func, void *data);
 int L_walk_ast(L_ast_node *node, int order, LWalkFunc func, void *data);
 
