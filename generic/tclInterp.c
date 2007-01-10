@@ -1691,12 +1691,12 @@ AliasObjCmd(
     Tcl_Obj *CONST objv[])	/* Argument vector. */
 {
 #define ALIAS_CMDV_PREALLOC 10
-    Alias *aliasPtr = (Alias *) clientData;
+    Alias *aliasPtr = clientData;
     Tcl_Interp *targetInterp = aliasPtr->targetInterp;
     int result, prefc, cmdc, i;
     Tcl_Obj **prefv, **cmdv;
     Tcl_Obj *cmdArr[ALIAS_CMDV_PREALLOC];
-    Interp *tPtr = (Interp *) targetInterp;	
+    Interp *tPtr = (Interp *) targetInterp;
     int isRootEnsemble = (tPtr->ensembleRewrite.sourceObjs == NULL);
 
     /*
@@ -1710,15 +1710,12 @@ AliasObjCmd(
     if (cmdc <= ALIAS_CMDV_PREALLOC) {
 	cmdv = cmdArr;
     } else {
-	cmdv = (Tcl_Obj **) TclStackAlloc(interp,
-		(unsigned) (cmdc * sizeof(Tcl_Obj *)));
+	cmdv = (Tcl_Obj **) TclStackAlloc(interp, cmdc*(int)sizeof(Tcl_Obj*));
     }
 
     prefv = &aliasPtr->objPtr;
-    memcpy((VOID *) cmdv, (VOID *) prefv,
-	    (size_t) (prefc * sizeof(Tcl_Obj *)));
-    memcpy((VOID *) (cmdv+prefc), (VOID *) (objv+1),
-	    (size_t) ((objc-1) * sizeof(Tcl_Obj *)));
+    memcpy(cmdv, prefv, (size_t) (prefc * sizeof(Tcl_Obj *)));
+    memcpy(cmdv+prefc, objv+1, (size_t) ((objc-1) * sizeof(Tcl_Obj *)));
 
     Tcl_ResetResult(targetInterp);
 
@@ -1727,10 +1724,10 @@ AliasObjCmd(
     }
 
     /*
-     * Use the ensemble rewriting machinery to insure correct error messages:
-     * only the source command should show, not the full target prefix. 
+     * Use the ensemble rewriting machinery to ensure correct error messages:
+     * only the source command should show, not the full target prefix.
      */
-    
+
     if (isRootEnsemble) {
 	tPtr->ensembleRewrite.sourceObjs = objv;
 	tPtr->ensembleRewrite.numRemovedObjs = 1;
@@ -1738,31 +1735,47 @@ AliasObjCmd(
     } else {
 	tPtr->ensembleRewrite.numInsertedObjs += prefc - 1;
     }
-    
+
+    /*
+     * Protect the target interpreter if it isn't the same as the source
+     * interpreter so that we can continue to work with it after the target
+     * command completes.
+     */
+
     if (targetInterp != interp) {
 	Tcl_Preserve((ClientData) targetInterp);
-	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv,
-		TCL_EVAL_INVOKE|TCL_EVAL_NOREWRITE);
-	TclTransferResult(targetInterp, result, interp);
-    } else {
-	result = Tcl_EvalObjv(targetInterp, cmdc, cmdv,
-		TCL_EVAL_INVOKE|TCL_EVAL_NOREWRITE);
     }
+
+    /*
+     * Execute the target command in the target interpreter.
+     */
+
+    result = Tcl_EvalObjv(targetInterp, cmdc, cmdv, TCL_EVAL_INVOKE);
+
+    /*
+     * Clean up the ensemble rewrite info if we set it in the first place.
+     */
 
     if (isRootEnsemble) {
 	tPtr->ensembleRewrite.sourceObjs = NULL;
 	tPtr->ensembleRewrite.numRemovedObjs = 0;
 	tPtr->ensembleRewrite.numInsertedObjs = 0;
     }
-    
+
+    /*
+     * If it was a cross-interpreter alias, we need to transfer the result
+     * back to the source interpreter and release the lock we previously set
+     * on the target interpreter.
+     */
+
     if (targetInterp != interp) {
+	TclTransferResult(targetInterp, result, interp);
 	Tcl_Release((ClientData) targetInterp);
     }
 
     for (i=0; i<cmdc; i++) {
 	Tcl_DecrRefCount(cmdv[i]);
     }
-
     if (cmdv != cmdArr) {
 	TclStackFree(interp);
     }
@@ -2471,7 +2484,9 @@ SlaveEval(
     Tcl_AllowExceptions(slaveInterp);
 
     if (objc == 1) {
-	result = Tcl_EvalObjEx(slaveInterp, objv[0], 0);
+        /* TIP #280 : Make invoker available to eval'd script */
+        Interp* iPtr = (Interp*) interp;
+	result = TclEvalObjEx(slaveInterp, objv[0], 0, iPtr->cmdFramePtr,0);
     } else {
 	objPtr = Tcl_ConcatObj(objc, objv);
 	Tcl_IncrRefCount(objPtr);

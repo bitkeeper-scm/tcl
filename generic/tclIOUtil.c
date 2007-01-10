@@ -1889,12 +1889,13 @@ Tcl_FSEvalFileEx(
     }
 #endif
     string = Tcl_GetString(objPtr);
+    /* TIP #280 Force the evaluator to open a frame for a sourced
+     * file. */
+    iPtr->evalFlags |= TCL_EVAL_FILE;
     result = Tcl_EvalEx(interp, string, strlen(string), 0);
-
 #ifdef	BK
     enable_secure_bk_calls = oldbk;
 #endif
-
     /*
      * Now we have to be careful; the script may have changed the
      * iPtr->scriptFile value, so we must reset it without assuming it still
@@ -1917,9 +1918,10 @@ Tcl_FSEvalFileEx(
 	int limit = 150;
 	int overflow = (length > limit);
 
-	TclFormatToErrorInfo(interp, "\n    (file \"%.*s%s\" line %d)",
+	Tcl_AppendObjToErrorInfo(interp, Tcl_ObjPrintf(
+		"\n    (file \"%.*s%s\" line %d)",
 		(overflow ? limit : length), pathString,
-		(overflow ? "..." : ""), interp->errorLine);
+		(overflow ? "..." : ""), interp->errorLine));
     }
 
   end:

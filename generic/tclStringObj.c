@@ -51,9 +51,7 @@ static void		AppendUtfToUnicodeRep(Tcl_Obj *objPtr,
 static void		AppendUtfToUtfRep(Tcl_Obj *objPtr,
 			    CONST char *bytes, int numBytes);
 static void		FillUnicodeRep(Tcl_Obj *objPtr);
-static int		FormatObjVA(Tcl_Interp *interp, Tcl_Obj *objPtr,
-			    CONST char *format, va_list argList);
-static int		ObjPrintfVA(Tcl_Interp *interp, Tcl_Obj *objPtr,
+static void		AppendPrintfToObjVA(Tcl_Obj *objPtr,
 			    CONST char *format, va_list argList);
 static void		FreeStringInternalRep(Tcl_Obj *objPtr);
 static void		DupStringInternalRep(Tcl_Obj *objPtr,
@@ -1023,7 +1021,7 @@ Tcl_SetUnicodeObj(
 /*
  *----------------------------------------------------------------------
  *
- * TclAppendLimitedToObj --
+ * Tcl_AppendLimitedToObj --
  *
  *	This function appends a limited number of bytes from a sequence of
  *	bytes to an object, marking any limitation with an ellipsis.
@@ -1039,7 +1037,7 @@ Tcl_SetUnicodeObj(
  */
 
 void
-TclAppendLimitedToObj(
+Tcl_AppendLimitedToObj(
     register Tcl_Obj *objPtr,	/* Points to the object to append to. */
     CONST char *bytes,		/* Points to the bytes to append to the
 				 * object. */
@@ -1056,7 +1054,7 @@ TclAppendLimitedToObj(
     int toCopy = 0;
 
     if (Tcl_IsShared(objPtr)) {
-	Tcl_Panic("%s called with shared object", "TclAppendLimitedToObj");
+	Tcl_Panic("%s called with shared object", "Tcl_AppendLimitedToObj");
     }
 
     SetStringFromAny(NULL, objPtr);
@@ -1128,7 +1126,7 @@ Tcl_AppendToObj(
 				 * If < 0, then append all bytes up to NUL
 				 * byte. */
 {
-    TclAppendLimitedToObj(objPtr, bytes, length, INT_MAX, NULL);
+    Tcl_AppendLimitedToObj(objPtr, bytes, length, INT_MAX, NULL);
 }
 
 /*
@@ -1678,7 +1676,7 @@ Tcl_AppendStringsToObj(
 /*
  *----------------------------------------------------------------------
  *
- * TclAppendFormattedObjs --
+ * Tcl_AppendFormatToObj --
  *
  *	This function appends a list of Tcl_Obj's to a Tcl_Obj according to
  *	the formatting instructions embedded in the format string. The
@@ -1696,7 +1694,7 @@ Tcl_AppendStringsToObj(
  */
 
 int
-TclAppendFormattedObjs(
+Tcl_AppendFormatToObj(
     Tcl_Interp *interp,
     Tcl_Obj *appendObj,
     CONST char *format,
@@ -1717,7 +1715,7 @@ TclAppendFormattedObjs(
     };
 
     if (Tcl_IsShared(appendObj)) {
-	Tcl_Panic("%s called with shared object", "TclAppendFormattedObjs");
+	Tcl_Panic("%s called with shared object", "Tcl_AppendFormatToObj");
     }
     Tcl_GetStringFromObj(appendObj, &originalLength);
 
@@ -2293,56 +2291,10 @@ TclAppendFormattedObjs(
 /*
  *---------------------------------------------------------------------------
  *
- * FormatObjVA --
- *
- *	Populate the Unicode internal rep with the Unicode form of its string
- *	rep. The object must alread have a "String" internal rep.
+ * Tcl_Format--
  *
  * Results:
- *	None.
- *
- * Side effects:
- *	Reallocates the String internal rep.
- *
- *---------------------------------------------------------------------------
- */
-
-static int
-FormatObjVA(
-    Tcl_Interp *interp,
-    Tcl_Obj *objPtr,
-    CONST char *format,
-    va_list argList)
-{
-    int code, objc;
-    Tcl_Obj **objv, *element, *list = Tcl_NewObj();
-    CONST char *p = format;
-
-    Tcl_IncrRefCount(list);
-    while (*p != '\0') {
-	if (*p++ != '%') {
-	    continue;
-	}
-	if (*p == '%') {
-	    continue;
-	}
-	p++;
-	element = va_arg(argList, Tcl_Obj *);
-	Tcl_ListObjAppendElement(NULL, list, element);
-    }
-    Tcl_ListObjGetElements(NULL, list, &objc, &objv);
-    code = TclAppendFormattedObjs(interp, objPtr, format, objc, objv);
-    Tcl_DecrRefCount(list);
-    return code;
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * TclFormatObj --
- *
- * Results:
- *	A standard Tcl result.
+ *	A refcount zero Tcl_Obj.
  *
  * Side effects:
  * 	None.
@@ -2350,26 +2302,27 @@ FormatObjVA(
  *---------------------------------------------------------------------------
  */
 
-int
-TclFormatObj(
+Tcl_Obj *
+Tcl_Format(
     Tcl_Interp *interp,
-    Tcl_Obj *objPtr,
     CONST char *format,
-    ...)
+    int objc,
+    Tcl_Obj *CONST objv[])
 {
-    va_list argList;
     int result;
-
-    va_start(argList, format);
-    result = FormatObjVA(interp, objPtr, format, argList);
-    va_end(argList);
-    return result;
+    Tcl_Obj *objPtr = Tcl_NewObj();
+    result = Tcl_AppendFormatToObj(interp, objPtr, format, objc, objv);
+    if (result != TCL_OK) {
+	Tcl_DecrRefCount(objPtr);
+	return NULL;
+    }
+    return objPtr;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * ObjPrintfVA --
+ * AppendPrintfToObjVA --
  *
  * Results:
  *
@@ -2378,9 +2331,8 @@ TclFormatObj(
  *---------------------------------------------------------------------------
  */
 
-static int
-ObjPrintfVA(
-    Tcl_Interp *interp,
+static void
+AppendPrintfToObjVA(
     Tcl_Obj *objPtr,
     CONST char *format,
     va_list argList)
@@ -2502,15 +2454,19 @@ ObjPrintfVA(
 	} while (seekingConversion);
     }
     Tcl_ListObjGetElements(NULL, list, &objc, &objv);
-    code = TclAppendFormattedObjs(interp, objPtr, format, objc, objv);
+    code = Tcl_AppendFormatToObj(NULL, objPtr, format, objc, objv);
+    if (code != TCL_OK) {
+	Tcl_AppendPrintfToObj(objPtr,
+		"Unable to format \"%s\" with supplied arguments: %s",
+		format, Tcl_GetString(list));
+    }
     Tcl_DecrRefCount(list);
-    return code;
 }
 
 /*
  *---------------------------------------------------------------------------
  *
- * TclObjPrintf --
+ * Tcl_AppendPrintfToObj --
  *
  * Results:
  *	A standard Tcl result.
@@ -2521,53 +2477,45 @@ ObjPrintfVA(
  *---------------------------------------------------------------------------
  */
 
-int
-TclObjPrintf(
-    Tcl_Interp *interp,
+void
+Tcl_AppendPrintfToObj(
     Tcl_Obj *objPtr,
     CONST char *format,
     ...)
 {
     va_list argList;
-    int result;
 
     va_start(argList, format);
-    result = ObjPrintfVA(interp, objPtr, format, argList);
+    AppendPrintfToObjVA(objPtr, format, argList);
     va_end(argList);
-    return result;
 }
 
 /*
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  *
- * TclFormatToErrorInfo --
+ * Tcl_ObjPrintf --
  *
  * Results:
+ *	A refcount zero Tcl_Obj.
  *
  * Side effects:
+ * 	None.
  *
- *----------------------------------------------------------------------
+ *---------------------------------------------------------------------------
  */
 
-int
-TclFormatToErrorInfo(
-    Tcl_Interp *interp,
+Tcl_Obj *
+Tcl_ObjPrintf(
     CONST char *format,
     ...)
 {
-    int code;
     va_list argList;
     Tcl_Obj *objPtr = Tcl_NewObj();
 
     va_start(argList, format);
-    code = ObjPrintfVA(interp, objPtr, format, argList);
+    AppendPrintfToObjVA(objPtr, format, argList);
     va_end(argList);
-    if (code != TCL_OK) {
-        return code;
-    }
-    TclAppendObjToErrorInfo(interp, objPtr);
-    Tcl_DecrRefCount(objPtr);
-    return TCL_OK;
+    return objPtr;
 }
 
 /*

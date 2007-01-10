@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		F90509300913A72400327603 /* tclAppInit.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D445508F272B9004A47F5 /* tclAppInit.c */; settings = {COMPILER_FLAGS = "-DTCL_TEST -DTCL_BUILDTIME_LIBRARY=\\\"${TCL_SRCROOT}/library\\\""; }; };
+		F9408AF30B195C08009F7CAC /* tclMathOp.c in Sources */ = {isa = PBXBuildFile; fileRef = F9408AF20B195C08009F7CAC /* tclMathOp.c */; };
 		F966C07508F2820D005CB29B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F966C07408F2820D005CB29B /* CoreFoundation.framework */; };
 		F96D456F08F272BB004A47F5 /* regcomp.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3ED008F272A7004A47F5 /* regcomp.c */; };
 		F96D457208F272BB004A47F5 /* regerror.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3ED308F272A7004A47F5 /* regerror.c */; };
@@ -55,7 +56,6 @@
 		F96D45AC08F272BC004A47F5 /* tclObj.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F0D08F272A7004A47F5 /* tclObj.c */; };
 		F96D45AD08F272BC004A47F5 /* tclPanic.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F0E08F272A7004A47F5 /* tclPanic.c */; };
 		F96D45AE08F272BC004A47F5 /* tclParse.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F0F08F272A7004A47F5 /* tclParse.c */; };
-		F96D45AF08F272BC004A47F5 /* tclParseExpr.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F1008F272A7004A47F5 /* tclParseExpr.c */; };
 		F96D45B008F272BC004A47F5 /* tclPathObj.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F1108F272A7004A47F5 /* tclPathObj.c */; };
 		F96D45B108F272BC004A47F5 /* tclPipe.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F1208F272A7004A47F5 /* tclPipe.c */; };
 		F96D45B208F272BC004A47F5 /* tclPkg.c in Sources */ = {isa = PBXBuildFile; fileRef = F96D3F1308F272A7004A47F5 /* tclPkg.c */; };
@@ -176,6 +176,8 @@
 
 /* Begin PBXFileReference section */
 		8DD76FB20486AB0100D96B5E /* tcltest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tcltest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9408AF20B195C08009F7CAC /* tclMathOp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclMathOp.c; sourceTree = "<group>"; };
+		F95FAFF90B34F1130072E431 /* macOSXLoad.test */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = macOSXLoad.test; sourceTree = "<group>"; };
 		F966C07408F2820D005CB29B /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		F96D3DFA08F272A4004A47F5 /* ChangeLog */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; path = ChangeLog; sourceTree = "<group>"; };
 		F96D3DFB08F272A4004A47F5 /* changes */ = {isa = PBXFileReference; explicitFileType = text; fileEncoding = 4; path = changes; sourceTree = "<group>"; };
@@ -453,7 +455,6 @@
 		F96D3F0D08F272A7004A47F5 /* tclObj.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclObj.c; sourceTree = "<group>"; };
 		F96D3F0E08F272A7004A47F5 /* tclPanic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclPanic.c; sourceTree = "<group>"; };
 		F96D3F0F08F272A7004A47F5 /* tclParse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclParse.c; sourceTree = "<group>"; };
-		F96D3F1008F272A7004A47F5 /* tclParseExpr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclParseExpr.c; sourceTree = "<group>"; };
 		F96D3F1108F272A7004A47F5 /* tclPathObj.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclPathObj.c; sourceTree = "<group>"; };
 		F96D3F1208F272A7004A47F5 /* tclPipe.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclPipe.c; sourceTree = "<group>"; };
 		F96D3F1308F272A7004A47F5 /* tclPkg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclPkg.c; sourceTree = "<group>"; };
@@ -790,7 +791,6 @@
 		F96D442208F272B8004A47F5 /* eolFix.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = eolFix.tcl; sourceTree = "<group>"; };
 		F96D442408F272B8004A47F5 /* fix_tommath_h.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = fix_tommath_h.tcl; sourceTree = "<group>"; };
 		F96D442508F272B8004A47F5 /* genStubs.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = genStubs.tcl; sourceTree = "<group>"; };
-		F96D442608F272B8004A47F5 /* genWinImage.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = genWinImage.tcl; sourceTree = "<group>"; };
 		F96D442708F272B8004A47F5 /* index.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = index.tcl; sourceTree = "<group>"; };
 		F96D442808F272B8004A47F5 /* installData.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = installData.tcl; sourceTree = "<group>"; };
 		F96D442908F272B8004A47F5 /* loadICU.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = loadICU.tcl; sourceTree = "<group>"; };
@@ -866,7 +866,6 @@
 		F96D447808F272BA004A47F5 /* makefile.vc */ = {isa = PBXFileReference; explicitFileType = sourcecode.make; fileEncoding = 4; path = makefile.vc; sourceTree = "<group>"; };
 		F96D447908F272BA004A47F5 /* nmakehlp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nmakehlp.c; sourceTree = "<group>"; };
 		F96D447A08F272BA004A47F5 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
-		F96D447B08F272BA004A47F5 /* README.binary */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README.binary; sourceTree = "<group>"; };
 		F96D447C08F272BA004A47F5 /* rules.vc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = rules.vc; sourceTree = "<group>"; };
 		F96D447D08F272BA004A47F5 /* stub16.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stub16.c; sourceTree = "<group>"; };
 		F96D447E08F272BA004A47F5 /* tcl.dsp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = tcl.dsp; sourceTree = "<group>"; };
@@ -901,6 +900,13 @@
 		F9903CB0094FAADA004613E9 /* tclTomMathDecls.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tclTomMathDecls.h; sourceTree = "<group>"; };
 		F9A3084B08F2D4CE00BAE1AB /* tclsh8.5 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; name = tclsh8.5; path = ../tclsh8.5; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9A3084E08F2D4F400BAE1AB /* Tcl.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Tcl.framework; path = ../Tcl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9ECB1120B26521500A28025 /* pkgIndex.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = pkgIndex.tcl; sourceTree = "<group>"; };
+		F9ECB1130B26521500A28025 /* platform.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = platform.tcl; sourceTree = "<group>"; };
+		F9ECB1140B26521500A28025 /* shell.tcl */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = shell.tcl; sourceTree = "<group>"; };
+		F9ECB1CA0B2652D300A28025 /* apply.test */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = apply.test; sourceTree = "<group>"; };
+		F9ECB1CB0B26534C00A28025 /* mathop.test */ = {isa = PBXFileReference; explicitFileType = text.script; fileEncoding = 4; path = mathop.test; sourceTree = "<group>"; };
+		F9ECB1E10B26543C00A28025 /* platform_shell.n */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = platform_shell.n; sourceTree = "<group>"; };
+		F9ECB1E20B26543C00A28025 /* platform.n */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; path = platform.n; sourceTree = "<group>"; };
 		F9FC77B70AB29E9100B7077D /* tclUnixCompat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tclUnixCompat.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1103,6 +1109,8 @@
 				F96D3E8008F272A6004A47F5 /* pid.n */,
 				F96D3E8108F272A6004A47F5 /* pkgMkIndex.n */,
 				F96D3E8208F272A6004A47F5 /* PkgRequire.3 */,
+				F9ECB1E10B26543C00A28025 /* platform_shell.n */,
+				F9ECB1E20B26543C00A28025 /* platform.n */,
 				F96D3E8308F272A6004A47F5 /* Preserve.3 */,
 				F96D3E8408F272A6004A47F5 /* PrintDbl.3 */,
 				F96D3E8508F272A6004A47F5 /* proc.n */,
@@ -1245,12 +1253,12 @@
 				F96D3F0808F272A7004A47F5 /* tclLoad.c */,
 				F96D3F0908F272A7004A47F5 /* tclLoadNone.c */,
 				F96D3F0A08F272A7004A47F5 /* tclMain.c */,
+				F9408AF20B195C08009F7CAC /* tclMathOp.c */,
 				F96D3F0B08F272A7004A47F5 /* tclNamesp.c */,
 				F96D3F0C08F272A7004A47F5 /* tclNotify.c */,
 				F96D3F0D08F272A7004A47F5 /* tclObj.c */,
 				F96D3F0E08F272A7004A47F5 /* tclPanic.c */,
 				F96D3F0F08F272A7004A47F5 /* tclParse.c */,
-				F96D3F1008F272A7004A47F5 /* tclParseExpr.c */,
 				F96D3F1108F272A7004A47F5 /* tclPathObj.c */,
 				F96D3F1208F272A7004A47F5 /* tclPipe.c */,
 				F96D3F1308F272A7004A47F5 /* tclPkg.c */,
@@ -1306,6 +1314,7 @@
 				F96D401708F272AA004A47F5 /* opt */,
 				F96D401A08F272AA004A47F5 /* package.tcl */,
 				F96D401B08F272AA004A47F5 /* parray.tcl */,
+				F9ECB1110B26521500A28025 /* platform */,
 				F96D401C08F272AA004A47F5 /* reg */,
 				F96D401E08F272AA004A47F5 /* safe.tcl */,
 				F96D401F08F272AA004A47F5 /* tclIndex */,
@@ -1531,6 +1540,7 @@
 				F96D434508F272B5004A47F5 /* all.tcl */,
 				F96D434608F272B5004A47F5 /* append.test */,
 				F96D434708F272B5004A47F5 /* appendComp.test */,
+				F9ECB1CA0B2652D300A28025 /* apply.test */,
 				F96D434808F272B5004A47F5 /* assocd.test */,
 				F96D434908F272B5004A47F5 /* async.test */,
 				F96D434A08F272B5004A47F5 /* autoMkindex.test */,
@@ -1599,7 +1609,9 @@
 				F96D438B08F272B6004A47F5 /* lset.test */,
 				F96D438C08F272B6004A47F5 /* lsetComp.test */,
 				F96D438D08F272B6004A47F5 /* macOSXFCmd.test */,
+				F95FAFF90B34F1130072E431 /* macOSXLoad.test */,
 				F96D438E08F272B6004A47F5 /* main.test */,
+				F9ECB1CB0B26534C00A28025 /* mathop.test */,
 				F96D438F08F272B6004A47F5 /* misc.test */,
 				F96D439008F272B6004A47F5 /* msgcat.test */,
 				F96D439108F272B6004A47F5 /* namespace-old.test */,
@@ -1678,7 +1690,6 @@
 				F96D442208F272B8004A47F5 /* eolFix.tcl */,
 				F96D442408F272B8004A47F5 /* fix_tommath_h.tcl */,
 				F96D442508F272B8004A47F5 /* genStubs.tcl */,
-				F96D442608F272B8004A47F5 /* genWinImage.tcl */,
 				F96D442708F272B8004A47F5 /* index.tcl */,
 				F96D442808F272B8004A47F5 /* installData.tcl */,
 				F96D442908F272B8004A47F5 /* loadICU.tcl */,
@@ -1777,7 +1788,6 @@
 				F96D447808F272BA004A47F5 /* makefile.vc */,
 				F96D447908F272BA004A47F5 /* nmakehlp.c */,
 				F96D447A08F272BA004A47F5 /* README */,
-				F96D447B08F272BA004A47F5 /* README.binary */,
 				F96D447C08F272BA004A47F5 /* rules.vc */,
 				F96D447D08F272BA004A47F5 /* stub16.c */,
 				F96D447E08F272BA004A47F5 /* tcl.dsp */,
@@ -1812,6 +1822,16 @@
 			path = win;
 			sourceTree = "<group>";
 		};
+		F9ECB1110B26521500A28025 /* platform */ = {
+			isa = PBXGroup;
+			children = (
+				F9ECB1120B26521500A28025 /* pkgIndex.tcl */,
+				F9ECB1130B26521500A28025 /* platform.tcl */,
+				F9ECB1140B26521500A28025 /* shell.tcl */,
+			);
+			path = platform;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXLegacyTarget section */
@@ -1839,6 +1859,7 @@
 				F9A5C5F508F651A2008AE941 /* ShellScript */,
 				8DD76FAB0486AB0100D96B5E /* Sources */,
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				F95FA74C0B32CE190072E431 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -1884,6 +1905,29 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		F95FA74C0B32CE190072E431 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${DERIVED_FILE_DIR}/tcl/tclConfig.sh",
+				"${TCL_SRCROOT}/generic/tclStubLib.c",
+				"${TCL_SRCROOT}/unix/dltest/pkga.c",
+				"${TCL_SRCROOT}/unix/dltest/pkgb.c",
+				"${TCL_SRCROOT}/unix/dltest/pkgc.c",
+				"${TCL_SRCROOT}/unix/dltest/pkgd.c",
+				"${TCL_SRCROOT}/unix/dltest/pkge.c",
+				"${TCL_SRCROOT}/unix/dltest/pkgf.c",
+				"${TCL_SRCROOT}/unix/dltest/pkgua.c",
+			);
+			outputPaths = (
+				"${DERIVED_FILE_DIR}/tcl/dltest.marker",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "## dltest build script phase\n\nrm -f \"${DERIVED_FILE_DIR}/tcl/dltest.marker\"\nmake -C \"${DERIVED_FILE_DIR}/tcl\" dltest.marker\nln -fsh \"${DERIVED_FILE_DIR}/tcl/dltest\" \"${CONFIGURATION_BUILD_DIR}\"\n";
+		};
 		F97258A40A86873C00096C78 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -1895,7 +1939,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "if [ \"${ACTION:-build}\" == \"build\" ]; then\ncd \"${TARGET_TEMP_DIR}\"; rm -rf \"${DERIVED_FILE_DIR}\"; mkdir -p \"${DERIVED_FILE_DIR}\"\nprintf '%s%s%s%s%s' '\npackage require tcltest 2.2\nnamespace import tcltest::*\nconfigure -testdir [file normalize {' \"${TCL_SRCROOT}\" '/tests}]\nconfigure -tmpdir [file normalize {' \"${DERIVED_FILE_DIR}\" '}]\nconfigure -verbose [concat [configure -verbose] line]\nrunAllTests\n' | \"${TEST_RIG}\"; TEST_RIG_RESULT=$?\n[ ${TEST_RIG_RESULT} -ne 0 ] && echo \"tcltest:0: error: tcltest exited abnormally with code ${TEST_RIG_RESULT}.\"\nexit ${TEST_RIG_RESULT}\nfi";
+			shellScript = "if [ \"${ACTION:-build}\" == \"build\" ]; then\ncd \"${TARGET_TEMP_DIR}\"; rm -rf \"${DERIVED_FILE_DIR}\"; mkdir -p \"${DERIVED_FILE_DIR}\"\nprintf '%s%s%s%s%s' '\npackage require tcltest 2.2\nnamespace import tcltest::*\nconfigure -testdir [file normalize {' \"${TCL_SRCROOT}\" '/tests}]\nconfigure -tmpdir [file normalize {' \"${DERIVED_FILE_DIR}\" '}]\nconfigure -verbose [concat [configure -verbose] line]\n# following test only fails when testsuite is run from inside Xcode, so skip it\nconfigure -skip [concat [configure -skip] stack-3.1]\nrunAllTests\n' | \"${TEST_RIG}\"; TEST_RIG_RESULT=$?\n[ ${TEST_RIG_RESULT} -ne 0 ] && echo \"tcltest:0: error: tcltest exited abnormally with code ${TEST_RIG_RESULT}.\"\nexit ${TEST_RIG_RESULT}\nfi";
 		};
 		F9A5C5F508F651A2008AE941 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1908,13 +1952,15 @@
 				"${TCL_SRCROOT}/unix/tcl.m4",
 				"${TCL_SRCROOT}/unix/aclocal.m4",
 				"${TCL_SRCROOT}/unix/tclConfig.sh.in",
+				"${TCL_SRCROOT}/unix/Makefile.in",
+				"${TCL_SRCROOT}/unix/dltest/Makefile.in",
 			);
 			outputPaths = (
 				"${DERIVED_FILE_DIR}/tcl/tclConfig.sh",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "## tcl configure shell script phase\n\ncd \"${TCL_SRCROOT}\"/macosx &&\nif [ configure.ac -nt configure -o ../unix/configure.in -nt configure -o ../unix/tcl.m4 -nt configure -o ../unix/aclocal.m4 -nt configure ]; then\n    echo \"Running autoconf & autoheader in tcl/macosx\"\n    rm -rf autom4te.cache\n    ${AUTOCONF:-/usr/bin/autoconf} && ${AUTOHEADER:-/usr/bin/autoheader}\n    rm -rf autom4te.cache\nfi\n\ncd \"${DERIVED_FILE_DIR}\" && mkdir -p tcl && cd tcl &&\nif [ \"${TCL_SRCROOT}\"/macosx/configure -nt config.status ]; then\n    echo \"Configuring Tcl\"\n    \"${TCL_SRCROOT}\"/macosx/configure --cache-file=../config.cache --prefix=${PREFIX} --bindir=${BINDIR} --libdir=${LIBDIR} --mandir=${MANDIR} --includedir=${INCLUDEDIR} --disable-shared ${CONFIGURE_ARGS}\nelse\n    ./config.status\nfi\n";
+			shellScript = "## tcl configure shell script phase\n\ncd \"${TCL_SRCROOT}\"/macosx &&\nif [ configure.ac -nt configure -o ../unix/configure.in -nt configure -o ../unix/tcl.m4 -nt configure -o ../unix/aclocal.m4 -nt configure ]; then\n    echo \"Running autoconf & autoheader in tcl/macosx\"\n    rm -rf autom4te.cache\n    ${AUTOCONF:-/usr/bin/autoconf} && ${AUTOHEADER:-/usr/bin/autoheader} || exit $?\n    rm -rf autom4te.cache\nfi\n\ncd \"${DERIVED_FILE_DIR}\" && mkdir -p tcl && cd tcl &&\nif [ \"${TCL_SRCROOT}\"/macosx/configure -nt config.status ]; then\n    echo \"Configuring Tcl\"\n    \"${TCL_SRCROOT}\"/macosx/configure --cache-file=../config.cache --prefix=${PREFIX} --bindir=${BINDIR} --libdir=${LIBDIR} --mandir=${MANDIR} --includedir=${INCLUDEDIR} --disable-shared ${CONFIGURE_ARGS}\nelse\n    ./config.status\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1964,12 +2010,12 @@
 				F96D45A608F272BC004A47F5 /* tclLiteral.c in Sources */,
 				F96D45A708F272BC004A47F5 /* tclLoad.c in Sources */,
 				F96D45A908F272BC004A47F5 /* tclMain.c in Sources */,
+				F9408AF30B195C08009F7CAC /* tclMathOp.c in Sources */,
 				F96D45AA08F272BC004A47F5 /* tclNamesp.c in Sources */,
 				F96D45AB08F272BC004A47F5 /* tclNotify.c in Sources */,
 				F96D45AC08F272BC004A47F5 /* tclObj.c in Sources */,
 				F96D45AD08F272BC004A47F5 /* tclPanic.c in Sources */,
 				F96D45AE08F272BC004A47F5 /* tclParse.c in Sources */,
-				F96D45AF08F272BC004A47F5 /* tclParseExpr.c in Sources */,
 				F96D45B008F272BC004A47F5 /* tclPathObj.c in Sources */,
 				F96D45B108F272BC004A47F5 /* tclPipe.c in Sources */,
 				F96D45B208F272BC004A47F5 /* tclPkg.c in Sources */,
@@ -2139,7 +2185,10 @@
 				INSTALL_PATH = "${BINDIR}";
 				LIBDIR = "${PREFIX}/lib";
 				MANDIR = "${PREFIX}/man";
-				OTHER_LDFLAGS = "-headerpad_max_install_names";
+				OTHER_LDFLAGS = (
+					"-headerpad_max_install_names",
+					"-Wl,-no_arch_warnings",
+				);
 				PER_ARCH_CFLAGS_ppc = "-mcpu=G3 -mtune=G4";
 				PER_ARCH_CFLAGS_ppc64 = "-mcpu=G5 -mpowerpc64";
 				PREBINDING = NO;

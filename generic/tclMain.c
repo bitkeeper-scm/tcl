@@ -645,7 +645,7 @@ Tcl_Main(
 	 * If everything has gone OK so far, call the main loop proc, if it
 	 * exists. Packages (like Tk) can set it to start processing events at
 	 * this point.
-		 */
+	 */
 
 		(*mainLoopProc)();
 		mainLoopProc = NULL;
@@ -662,8 +662,7 @@ Tcl_Main(
 
 	    if (!Tcl_InterpDeleted(interp)) {
 		if (!Tcl_LimitExceeded(interp)) {
-		    Tcl_Obj *cmd = Tcl_NewObj();
-		    TclObjPrintf(NULL, cmd, "exit %d", exitCode);
+		    Tcl_Obj *cmd = Tcl_ObjPrintf("exit %d", exitCode);
 		    Tcl_IncrRefCount(cmd);
 		    Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL);
 		    Tcl_DecrRefCount(cmd);
@@ -691,9 +690,9 @@ Tcl_Main(
 	    Tcl_Exit(exitCode);
 	}
 	
-	/*
-	 *---------------------------------------------------------------
-	 *
+/*
+ *---------------------------------------------------------------
+ *
  * Tcl_SetMainLoop --
  *
  *	Sets an alternative main loop function.

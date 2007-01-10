@@ -291,12 +291,12 @@ TCLOBJS = \
 	$(TMP_DIR)\tclLiteral.obj \
 	$(TMP_DIR)\tclLoad.obj \
 	$(TMP_DIR)\tclMain.obj \
+	$(TMP_DIR)\tclMathOp.obj \
 	$(TMP_DIR)\tclNamesp.obj \
 	$(TMP_DIR)\tclNotify.obj \
 	$(TMP_DIR)\tclObj.obj \
 	$(TMP_DIR)\tclPanic.obj \
 	$(TMP_DIR)\tclParse.obj \
-	$(TMP_DIR)\tclParseExpr.obj \
 	$(TMP_DIR)\tclPathObj.obj \
 	$(TMP_DIR)\tclPipe.obj \
 	$(TMP_DIR)\tclPkg.obj \
@@ -511,9 +511,9 @@ baselibs   = $(baselibs) bufferoverflowU.lib
 # TclTest flags
 #---------------------------------------------------------------------
 
-!IF "$(TESTPAT)" != ""
-TESTFLAGS = -file $(TESTPAT)
-!ENDIF
+!if "$(TESTPAT)" != ""
+TESTFLAGS = $(TESTFLAGS) -file $(TESTPAT)
+!endif
 
 
 #---------------------------------------------------------------------
@@ -986,6 +986,8 @@ install-libraries: tclConfig install-msgs install-tzdata
 		$(MKDIR) "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.3"
 	@if not exist "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4" \
 		$(MKDIR) "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4"
+	@if not exist "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\platform" \
+		$(MKDIR) "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\platform"
 	@if not exist "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.5" \
 		$(MKDIR) "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.5"
 	@echo Installing header files
@@ -1011,9 +1013,9 @@ install-libraries: tclConfig install-msgs install-tzdata
 	@echo Installing library http1.0 directory
 	@$(CPY) "$(ROOT)\library\http1.0\*.tcl" \
 		"$(SCRIPT_INSTALL_DIR)\http1.0\"
-	@echo Installing package http 2.5.2 as a Tcl Module
+	@echo Installing package http 2.5.3 as a Tcl Module
 	@$(COPY) "$(ROOT)\library\http\http.tcl" \
-		"$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\http-2.5.2.tm"
+		"$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\http-2.5.3.tm"
 	@echo Installing library opt0.4 directory
 	@$(CPY) "$(ROOT)\library\opt\*.tcl" \
 		"$(SCRIPT_INSTALL_DIR)\opt0.4\"
@@ -1023,6 +1025,12 @@ install-libraries: tclConfig install-msgs install-tzdata
 	@echo Installing package tcltest 2.3a1 as a Tcl Module
 	@$(COPY) "$(ROOT)\library\tcltest\tcltest.tcl" \
 	    "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.5\tcltest-2.3a1.tm"
+	@echo Installing package platform 1.0.2 as a Tcl Module
+	@$(COPY) "$(ROOT)\library\platform\platform.tcl" \
+	    "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\platform-1.0.2.tm"
+	@echo Installing package platform::shell 1.1.1 as a Tcl Module
+	@$(COPY) "$(ROOT)\library\platform\shell.tcl" \
+	    "$(SCRIPT_INSTALL_DIR)\..\tcl8\8.4\platform\shell-1.1.1.tm"
 	@echo Installing $(TCLDDELIBNAME)
 !if $(STATIC_BUILD)
 	@$(CPY) "$(TCLDDELIB)" "$(LIB_INSTALL_DIR)\"
