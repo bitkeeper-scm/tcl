@@ -1468,6 +1468,26 @@ defined_1_0
 1
 0
 "
+
+test defined-1.1 {defined works on hashes} -body {
+#lang(L)
+defined_1_1() {
+	hash foo[5];
+
+	foo[2]{"a"} = 1;
+	foo[3]{"b"} = 2;
+	
+	if (defined(foo[2]{"a"})) {
+		puts("defined works");
+	}
+	if (!defined(foo[2]{"b"})) {
+		puts("defined works even better");
+	}
+}
+#lang(tcl)
+defined_1_1
+} -output "defined works\ndefined works even better\n"
+
 test main-1.0 {test that main gets called} -setup {
 	set fname [makeFile {
 		main(int argc, string argv[]) {
