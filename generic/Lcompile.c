@@ -1599,6 +1599,10 @@ L_write_index(
 
     /* auto-extending array special case */
     if (auto_extending_array_p(var->type) && (expr->op == T_EQUALS)) {
+	if (index->indices) {
+	    L_errorf(index->indices,
+	      "Autoextending in multiple dimensions is not implemented yet");
+	}
 	L_PUSH_STR("extendingLset");
 	L_PUSH_STR(var->name);
 	L_compile_index(var->type, index);
