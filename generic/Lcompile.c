@@ -330,7 +330,7 @@ Begin_Proc()
     procPtr->lastLocalPtr = NULL;
 
     TclInitCompileEnv(lframe->interp, envPtr, "L Compiler",
-                      strlen("L Compiler"));
+	      strlen("L Compiler"), NULL, 0);
     lframe->originalCodeNext = envPtr->codeNext;
     envPtr->procPtr = procPtr;
     return procPtr;
@@ -585,11 +585,11 @@ blank_initializer_code(
             *needs_eval = TRUE;
             /* skip the outermost set of brackets  */
             if (brackets > 0) {
-                TclObjPrintf(NULL, code, "[");
+		Tcl_AppendStringsToObj(code, "[", NULL);
             }
             brackets++;
-            TclObjPrintf(NULL, code, "lrepeat %d ",
-                         array_type->array_dim->u.integer);
+	    Tcl_AppendObjToObj(code,
+	      Tcl_ObjPrintf("lrepeat %d ",array_type->array_dim->u.integer));
             array_type = array_type->next_dim;
         } else {
             break;
@@ -598,40 +598,40 @@ blank_initializer_code(
     /* the base type */
     if (type->kind != L_TYPE_STRUCT) {
         if (type->next_dim) {
-            TclObjPrintf(NULL, code, "{%s}",
-                         Tcl_GetString(atomic_initial_value(type)));
+	    Tcl_AppendObjToObj(code, Tcl_ObjPrintf("{%s}",
+		Tcl_GetString(atomic_initial_value(type))));
         } else {
-            TclObjPrintf(NULL, code, "%s",
-                         Tcl_GetString(atomic_initial_value(type)));
+	    Tcl_AppendObjToObj(code, Tcl_ObjPrintf("%s",
+		Tcl_GetString(atomic_initial_value(type))));
         }
     } else {
         L_variable_declaration *mem;
 
         *needs_eval = TRUE;
         if (brackets > 0) {
-            TclObjPrintf(NULL, code, "[");
+	    Tcl_AppendStringsToObj(code, "[", NULL);
         }
-        TclObjPrintf(NULL, code, "list ");
+	Tcl_AppendObjToObj(code, Tcl_ObjPrintf("list "));
         for (mem = type->members; mem; mem = mem->next) {
             if (array_p(mem->type)) {
                 int needs_eval1;
                 char *code1 = blank_initializer_code(mem->type, &needs_eval1);
                 if (needs_eval1) {
-                    TclObjPrintf(NULL, code, "[%s] ", code1);
+		    Tcl_AppendObjToObj(code, Tcl_ObjPrintf("[%s] ", code1));
                 } else {
-                    TclObjPrintf(NULL, code, "%s ", code1);
+		    Tcl_AppendObjToObj(code, Tcl_ObjPrintf("%s ", code1));
                 }
             } else {
-                TclObjPrintf(NULL, code, " {%s} ",
-                             Tcl_GetString(atomic_initial_value(mem->type)));
+		Tcl_AppendObjToObj(code, Tcl_ObjPrintf(" {%s} ",
+		    Tcl_GetString(atomic_initial_value(mem->type))));
             }
         }
         if (brackets > 0) {
-            TclObjPrintf(NULL, code, "]");
+	    Tcl_AppendStringsToObj(code, "]", NULL);
         }
     }
     for (i = 1; i < brackets; i++) {
-        TclObjPrintf(NULL, code, "]");
+	Tcl_AppendStringsToObj(code, "]", NULL);
     }
     MK_STRING_NODE(retval, Tcl_GetString(code));
     Tcl_DecrRefCount(code);
@@ -2143,7 +2143,8 @@ L_error(char *s)
     if (!L_errors) {
         L_errors = Tcl_NewObj();
     }
-    TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", s, L_line_number);
+    Tcl_AppendObjToObj(L_errors,
+      Tcl_ObjPrintf("L Error: %s on line %d\n", s, L_line_number));
 }
 
 /* Sometimes you feel like a char*, sometimes you don't. */
@@ -2169,8 +2170,8 @@ L_errorf(void *node, const char *format, ...)
     if (!L_errors) {
         L_errors = Tcl_NewObj();
     }
-    TclObjPrintf(NULL, L_errors, "L Error: %s on line %d\n", buf,
-                 node ? ((L_ast_node *)node)->line_no : -1);
+    Tcl_AppendObjToObj(L_errors, Tcl_ObjPrintf("L Error: %s on line %d\n", buf,
+	node ? ((L_ast_node *)node)->line_no : -1));
     ckfree(buf);
 }
 
