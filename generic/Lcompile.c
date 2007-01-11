@@ -53,9 +53,9 @@ static void emit_upvar(L_symbol *var, char *upvarName);
 static char *gensym(char *name);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_expression *index,
-			  int op, L_expression *rval, int post_incr_p);
-static void L_write_index_aux(L_expression *index, L_type *type, int op,
-			      int rvalVar, int post_incr_p);
+  L_expression *expr, L_expression *rval, int post_incr_p);
+static void L_write_index_aux(L_expression *index, L_type *type,
+  L_expression *expr, int rvalVar, int post_incr_p);
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int type_passed_by_name_p(L_type *type);
@@ -72,6 +72,9 @@ static void fixup_jumps(CompileEnv *envPtr, JumpOffsetList *jumps,
 static Proc *Begin_Proc();
 static void Finish_Proc(Proc *procPtr, char *name);
 static int instruction_for_l_op(int op);
+static void regsub_for_assignment(int lvalIndex, int rvalIndex,
+  int compile_rval_p, L_expression *expr);
+
 
 
 /* we keep track of each AST node we allocate and free them all at once */
@@ -488,7 +491,9 @@ compile_initializer(
     {
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
-	    for (i = init->value, count = 0; i; i = i->next, count++) {
+	    for (i = (L_initializer *)init->value, count = 0; i;
+		 i = i->next, count++)
+	    {
 		if (i->key) {
 		    L_errorf(i, "Keys are not allowed in array initializers.");
 		}
@@ -501,7 +506,9 @@ compile_initializer(
     } else if (type->kind == L_TYPE_HASH) {
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
-	    for (i = init->value, count = 0; i; i = i->next, count++) {
+	    for (i = (L_initializer *)init->value, count = 0; i;
+		 i = i->next, count++)
+	    {
 		if (!i->key) {
 		    L_errorf(i, "Keys are required for hash initializers.");
 		} else {
@@ -1081,7 +1088,6 @@ void L_compile_binop(L_expression *expr)
         L_compile_short_circuit_op(expr);
 	break;
     case T_EQTWID:
-    case T_BANGTWID:
         L_compile_twiddle(expr);
 	break;
     default:
@@ -1127,6 +1133,12 @@ L_compile_twiddle(L_expression *expr)
     int submatchCount = 0, i;
     L_expression *runner;
 
+    if (expr->c) {
+	/* it's a substitution, so let L_compile_assignment do the hard
+	 * stuff */
+	L_compile_assignment(expr);
+	return;
+    }
     /* put together the parts of the regexp that we know at compile time */
     Tcl_IncrRefCount(const_regexp);
     for (runner = expr->b; runner; runner = runner->c) {
@@ -1183,16 +1195,14 @@ L_compile_twiddle(L_expression *expr)
     L_compile_expressions(expr->b);
     /* the target string */
     L_compile_expressions(expr->a);
-    /* match/submatch vars */
+    /* match/submatch vars. NB: this loop always goes around at least once. */
     for (i = 0; i <= submatchCount; i++) {
-        char buf[128];
-        snprintf(buf, 128, "$%d", i);
-        L_PUSH_STR(buf);
+	char buf[128];
+	snprintf(buf, 128, "$%d", i);
+	L_PUSH_STR(buf);
     }
+    L_trace("submatch count is %d\n", submatchCount);
     TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount, lframe->envPtr);
-    if (expr->op == T_BANGTWID) {
-        TclEmitOpcode(INST_LNOT, lframe->envPtr);
-    }
 }
 
 void
@@ -1559,7 +1569,9 @@ L_compile_assignment(L_expression *expr)
     L_trace("COMPILING ASSIGNMENT: %s", L_expression_tostr[lval->a->kind],
             lval->a->u.string);
     if (lval->indices) {
-        L_write_index(var, lval->indices, expr->op, rval, FALSE);
+        L_write_index(var, lval->indices, expr, rval, FALSE);
+    } else if (expr->op == T_EQTWID) {
+	regsub_for_assignment(var->localIndex, -1, TRUE, expr);
     } else {
 	if (expr->op != T_EQUALS) {
 	    L_LOAD_SCALAR(var->localIndex);
@@ -1570,6 +1582,160 @@ L_compile_assignment(L_expression *expr)
 	}
         L_STORE_SCALAR(var->localIndex);
     }
+}
+
+/* Compile an expression like ``baz.bar[3][4]{"asdf"} *= 2''.
+   L_write_index_aux() does all the work; here we just do a little setup and
+   cleanup. */
+static void
+L_write_index(
+    L_symbol *var,              /* the lvalue */
+    L_expression *index,	/* the indices into the lvalue */
+    L_expression *expr,		/* the whole assignment expression */
+    L_expression *rval,		/* the rvalue to use. */
+    int post_incr_p)		/* whether we're doing a post-increment */
+{
+    int rvalVar;
+
+    /* auto-extending array special case */
+    if (auto_extending_array_p(var->type) && (expr->op == T_EQUALS)) {
+	L_PUSH_STR("extendingLset");
+	L_PUSH_STR(var->name);
+	L_compile_index(var->type, index);
+	L_compile_expressions(rval);
+	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	return;
+    }
+    /* regular case */
+    L_compile_expressions(rval);
+    rvalVar = store_in_tempvar(TRUE);
+
+    L_LOAD_SCALAR(var->localIndex);
+    L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p);
+    L_STORE_SCALAR(var->localIndex);
+
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_LOAD_SCALAR(rvalVar);
+}
+
+static void
+L_write_index_aux(
+    L_expression *index,	/* the indices */
+    L_type *type,		/* the type of the lvalue (used to lookup
+				   struct indices) */
+    L_expression *expr,		/* the whole expression */
+    int rvalVar,		/* a local variable that holds the rval.  When
+				   we're done, this variable will hold the
+				   value of the expression as a whole.  */
+    int post_incr_p)		/* whether we're doing a post-increment */
+{
+    L_expression *idx = index;
+    int idx_count = 0, hash_idx_p, i, tempVar, twiddleVar = -1;
+
+    /* Push a contiguous sequence of hash or non-hash indices. */
+    hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
+    while (idx && (hash_idx_p == (idx->kind == L_EXPRESSION_HASH_INDEX))) {
+	type = L_compile_index(type, idx);
+	idx_count++;
+	idx = idx->indices;
+    }
+    /* In case we need to read value before writing it, (either because it's
+       further indexed, or because we're going to do some arithmetic with it),
+       copy the relevant portion of the stack and read the value. */
+    if (idx || (expr->op != T_EQUALS)) {
+	for (i = 0; i < idx_count + 1; i++) {
+	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
+	}
+	if (hash_idx_p) {
+	    TclEmitInstInt4(INST_DICT_GET, idx_count, lframe->envPtr);
+	} else {
+	    TclEmitInstInt4(INST_LIST_INDEX_MULTI, idx_count + 1,
+			    lframe->envPtr);
+	}
+    }
+    /* Leave the value to store on top of the stack.  The value is either a
+       sub-list/dict or, in the base case, the rval.  This section also takes
+       care to store the value of the expression as a whole in rvalVar, so it
+       can be left atop the stack. */
+    if (idx) {
+	/* There are more indices, so leave a sub-list or sub-dict on the
+	   stack. */
+	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p);
+    } else if (post_incr_p) {
+	/* We're doing a post-increment, so take care to store the prior value
+	   in rvalVar. */
+	tempVar = store_in_tempvar(FALSE);
+	L_LOAD_SCALAR(rvalVar);
+	if (expr->op != T_EQUALS) {
+	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	}
+	L_LOAD_SCALAR(tempVar);
+	L_STORE_SCALAR(rvalVar);
+	TclEmitOpcode(INST_POP, lframe->envPtr);
+    } else if (expr->op == T_EQTWID) {
+	/* regexp substitution */
+	tempVar = store_in_tempvar(TRUE);
+	regsub_for_assignment(tempVar, rvalVar, FALSE, expr);
+	L_STORE_SCALAR(rvalVar);
+	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_LOAD_SCALAR(tempVar);
+    } else {
+	/* Put the rval on the stack.  If we're doing a compound assignment,
+	   calculate the actual rval and save it back into rvalVar. */
+	L_LOAD_SCALAR(rvalVar);
+	if (expr->op != T_EQUALS) {
+	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	    L_STORE_SCALAR(rvalVar);
+	}
+    }
+    /* Copy the dict/list up to the top of the stack and do the set. */
+    TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
+    if (hash_idx_p) {
+	int dictVar = store_in_tempvar(TRUE);
+	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
+	TclEmitInt4(dictVar, lframe->envPtr);
+    } else {
+	TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
+    }
+    /* We want to leave the new dict/list atop the stack, but we need to get
+       the old one out from under it.  So we juggle a bit. */
+    tempVar = store_in_tempvar(TRUE);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_LOAD_SCALAR(tempVar);
+}
+
+/* Do a regexp substitution on lvalIndex and store the result back into
+ * it. Leave a boolean indicating match success/failure on the stack top. */
+static void
+regsub_for_assignment(
+    int lvalIndex,		/* the subject string */
+    int rvalIndex,		/* the regexp (perhaps) */
+    int compile_rval_p,		/* whether to push the rval ourselves, or use
+				 * rvalIndex */
+    L_expression *expr)		/* the operator, the replacement, etc. */
+{
+    char *tempVarName = gensym("%%matchedp");
+
+    L_PUSH_STR("regsub");
+    L_PUSH_STR("-line");
+    /* the regexp */
+    if (compile_rval_p) {
+	L_compile_expressions(expr->b);
+    } else {
+	L_LOAD_SCALAR(rvalIndex);
+    }
+    /* the target string */
+    L_LOAD_SCALAR(lvalIndex);
+    /* the substitution */
+    L_compile_expressions(expr->c);
+    L_PUSH_STR(tempVarName);
+    TclEmitInstInt1(INST_INVOKE_STK1, 6, lframe->envPtr);
+    /* move the result of substitution into lvalIndex and leave the matched_p
+     * value on stack top */
+    L_PUSH_STR(tempVarName);
+    TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
+    L_STORE_SCALAR(lvalIndex);
+    TclEmitOpcode(INST_POP, lframe->envPtr);
 }
 
 static int
@@ -1603,10 +1769,12 @@ instruction_for_l_op(
 	instruction = INST_LE;
 	break;
     case T_PLUS:
+    case T_PLUSPLUS:
     case T_EQPLUS:
 	instruction = INST_ADD;
 	break;
     case T_MINUS:
+    case T_MINUSMINUS:
     case T_EQMINUS:
 	instruction = INST_SUB;
 	break;
@@ -1646,119 +1814,6 @@ instruction_for_l_op(
 	L_bomb("Unable to map operator %d to an instruction", op);
     }
     return instruction;
-}
-
-/* Compile an expression like ``baz.bar[3][4]{"asdf"} *= 2''.
-   L_write_index_aux() does all the work; here we just do a little setup and
-   cleanup. */
-static void
-L_write_index(
-    L_symbol *var,              /* the lvalue */
-    L_expression *index,	/* the indices into the lvalue */
-    int op,			/* the assignment operator that was used */
-    L_expression *rval,		/* the rvalue to use. */
-    int post_incr_p)		/* whether we're doing a post-increment */
-{
-    int rvalVar;
-
-    /* auto-extending array special case */
-    if (auto_extending_array_p(var->type) && (op == T_EQUALS)) {
-	L_PUSH_STR("extendingLset");
-	L_PUSH_STR(var->name);
-	L_compile_index(var->type, index);
-	L_compile_expressions(rval);
-	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
-	return;
-    }
-    /* regular case */
-    L_compile_expressions(rval);
-    rvalVar = store_in_tempvar(TRUE);
-
-    L_LOAD_SCALAR(var->localIndex);
-    L_write_index_aux(index, var->type, op, rvalVar, post_incr_p);
-    L_STORE_SCALAR(var->localIndex);
-
-    TclEmitOpcode(INST_POP, lframe->envPtr);
-    L_LOAD_SCALAR(rvalVar);
-}
-
-static void
-L_write_index_aux(
-    L_expression *index,	/* the indices */
-    L_type *type,		/* the type of the lvalue (used to lookup
-				   struct indices) */
-    int op,			/* the assignment operator that was used */
-    int rvalVar,		/* a local variable that holds the rval.  When
-				   we're done, this variable will hold the
-				   value of the expression as a whole.  */
-    int post_incr_p)		/* whether we're doing a post-increment */
-{
-    L_expression *idx = index;
-    int idx_count = 0, hash_idx_p, i, tempVar;
-
-    /* Push a contiguous sequence of hash or non-hash indices. */
-    hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
-    while (idx && (hash_idx_p == (idx->kind == L_EXPRESSION_HASH_INDEX))) {
-	type = L_compile_index(type, idx);
-	idx_count++;
-	idx = idx->indices;
-    }
-    /* In case we need to read value before writing it, (either because it's
-       further indexed, or because we're going to do some arithmetic with it),
-       copy the relevant portion of the stack and read the value. */
-    if (idx || (op != T_EQUALS)) {
-	for (i = 0; i < idx_count + 1; i++) {
-	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
-	}
-	if (hash_idx_p) {
-	    TclEmitInstInt4(INST_DICT_GET, idx_count, lframe->envPtr);
-	} else {
-	    TclEmitInstInt4(INST_LIST_INDEX_MULTI, idx_count + 1,
-			    lframe->envPtr);
-	}
-    }
-    /* Leave the value to store on top of the stack.  The value is either a
-       sub-list/dict or, in the base case, the rval.  This section also takes
-       care to store the value of the expression as a whole in rvalVar, so it
-       can be left atop the stack. */
-    if (idx) {
-	/* There are more indices, so leave a sub-list or sub-dict on the
-	   stack. */
-	L_write_index_aux(idx, type, op, rvalVar, post_incr_p);
-    } else if (post_incr_p) {
-	/* We're doing a post-increment, so take care to store the prior value
-	   in rvalVar. */
-	tempVar = store_in_tempvar(FALSE);
-	L_LOAD_SCALAR(rvalVar);
-	if (op != T_EQUALS) {
-	    TclEmitOpcode(instruction_for_l_op(op), lframe->envPtr);
-	}
-	L_LOAD_SCALAR(tempVar);
-	L_STORE_SCALAR(rvalVar);
-	TclEmitOpcode(INST_POP, lframe->envPtr);
-    } else {
-	/* Put the rval on the stack.  If we're doing a compound assignment,
-	   calculate the actual rval and save it back into rvalVar. */
-	L_LOAD_SCALAR(rvalVar);
-	if (op != T_EQUALS) {
-	    TclEmitOpcode(instruction_for_l_op(op), lframe->envPtr);
-	    L_STORE_SCALAR(rvalVar);
-	}
-    }
-    /* Copy the dict/list up to the top of the stack and do the set. */
-    TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
-    if (hash_idx_p) {
-	int dictVar = store_in_tempvar(TRUE);
-	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
-	TclEmitInt4(dictVar, lframe->envPtr);
-    } else {
-	TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
-    }
-    /* We want to leave the new dict/list atop the stack, but we need to get
-       the old one out from under it.  So we juggle a bit. */
-    tempVar = store_in_tempvar(TRUE);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
-    L_LOAD_SCALAR(tempVar);
 }
 
 static L_expression *
@@ -1884,8 +1939,8 @@ L_compile_incdec(L_expression *expr)
 
     if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
     if (lval->indices) {
-	MK_INT_NODE(rval, (expr->op == T_PLUSPLUS) ? 1 : -1);
-        L_write_index(var, lval->indices, T_PLUS, rval,
+	MK_INT_NODE(rval, 1);
+        L_write_index(var, lval->indices, expr, rval,
 		      (expr->kind == L_EXPRESSION_POST));
     } else {
         if (expr->kind == L_EXPRESSION_PRE) {

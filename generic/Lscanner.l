@@ -1,8 +1,9 @@
 %option	noyywrap
 %option stack
 %x glob_re
+%x subst_re
 %x comment
-%x str_float
+%x str_double
 %x str_single
 %x interpol
 ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
@@ -29,6 +30,14 @@ Tcl_Obj *str;
 }                               \
 
 extern int L_line_number;
+
+/* The character that began the current regexp, so in m|foo| this is
+ * '|'.
+ *
+ * XXX: since regexps are interpolated, they can nest, which
+ * will fail unless they all use the same quote char. */
+char re_quote_char;
+
 
 /* In case of errors, the start condition stack will be left in an
    unknown state.  This function gives us a way to reset it. */
@@ -176,11 +185,30 @@ tally_newlines(
                         }
         "//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
         [ \t\n\r]+      tally_newlines(yytext, yyleng);
-        \"		yy_push_state(str_float); STRBUF_START();
+        \"		yy_push_state(str_double); STRBUF_START();
         \'		yy_push_state(str_single); STRBUF_START();
         "/*"		yy_push_state(comment);
-        "!~"[ \t]*"/"	yy_push_state(glob_re); STRBUF_START(); return T_BANGTWID;
-        "=~"[ \t]*"/"	yy_push_state(glob_re); STRBUF_START(); return T_EQTWID;
+        "=~"[ \t\r\n]*"m".	{
+		yy_push_state(glob_re);
+		STRBUF_START();
+		re_quote_char = *(yytext + yyleng - 1);
+		return T_EQTWID;
+	}
+	/* if / is used to delimit the regexp, the m can be omitted */
+        "=~"[ \t\r\n]*"/"	{
+		yy_push_state(glob_re);
+		STRBUF_START();
+		re_quote_char = '/';
+		return T_EQTWID;
+	}
+	/* a substitution pattern */
+        "=~"[ \t\r\n]*"s".	{
+		yy_push_state(subst_re);
+		yy_push_state(glob_re);
+		STRBUF_START();
+		re_quote_char = *(yytext + yyleng - 1);
+		return T_EQTWID;
+	}
 }
 
 <INITIAL>{
@@ -189,14 +217,14 @@ tally_newlines(
 
 <interpol>{
         "}"             {
+				STRBUF_START();
                                 yy_pop_state();
-                                STRBUF_START();
                                 return T_RIGHT_INTERPOL;
                         }
         "\\}"           return T_RBRACE;
 }
 
-<str_float>{
+<str_double>{
 	\\n		STRBUF_ADD("\n", 1);
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
@@ -235,23 +263,35 @@ tally_newlines(
 	"*/"		yy_pop_state();
 }
 
-<glob_re>{
+<glob_re,subst_re>{
 	\\n		STRBUF_ADD("\n", 1);
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
         "$"             STRBUF_ADD("$", 1);
-	[^\\/\$]+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
         "${"            {
 				yy_push_state(interpol);
                                 MK_STRING_NODE(L_lval, STRBUF_STRING());
                                 STRBUF_STOP();
 				return T_LEFT_INTERPOL;
 			}
-	"/"		{
-                                yy_pop_state();
-                                MK_STRING_NODE(L_lval, STRBUF_STRING());
-                                STRBUF_STOP();
-				return T_RE;
+	.		{
+				if (*(yytext) == re_quote_char) {
+	                                MK_STRING_NODE(L_lval, STRBUF_STRING());
+					STRBUF_STOP();
+					if (YYSTATE == subst_re) {
+		                                yy_pop_state();
+						return T_SUBST;
+					} else {
+		                                yy_pop_state();
+						if (YYSTATE == subst_re) {
+							STRBUF_START();
+						}
+						return T_RE;
+					}
+				} else {
+					tally_newlines(yytext, yyleng);
+					STRBUF_ADD(yytext, yyleng);
+				}
 			}
 
 }

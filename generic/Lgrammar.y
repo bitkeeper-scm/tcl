@@ -47,7 +47,6 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %token T_LBRACKET "["
 %token T_RBRACKET "]"
 %token T_SEMI ";"
-%token T_BANGTWID "!~"
 %token T_EQTWID "=~"
 %token T_IF "if"
 %token T_UNLESS "unless"
@@ -61,7 +60,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
-%token T_ID T_STR_LITERAL T_RE T_INT_LITERAL T_FLOAT_LITERAL
+%token T_ID T_STR_LITERAL T_RE T_SUBST T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE
 
@@ -70,7 +69,7 @@ void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
 %left T_BITOR
 %left T_BITXOR
 %left T_BITAND
-%left T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID T_BANGTWID
+%left T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID
 %left T_GT T_GE T_LT T_LE T_GREATER T_GREATEREQ T_LESSTHAN T_LESSTHANEQ
 %left T_LSHIFT T_RSHIFT
 %left T_PLUS T_MINUS
@@ -410,10 +409,10 @@ expr:
                 REVERSE(L_expression, c, $3);
                 MK_BINOP_NODE($$, T_EQTWID, $1, $3);
         }
-        | expr T_BANGTWID regexp_literal
+        | expr T_EQTWID regexp_literal subst_literal
         {
                 REVERSE(L_expression, c, $3);
-                MK_BINOP_NODE($$, T_BANGTWID, $1, $3);
+                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQTWID, $1, $3, $4, NULL, NULL);
         }
 	| expr T_STAR expr      { MK_BINOP_NODE($$, T_STAR, $1, $3); }
 	| expr T_SLASH expr     { MK_BINOP_NODE($$, T_SLASH, $1, $3); }
@@ -759,6 +758,22 @@ regexp_literal:
 
 regexp_literal_component:
           T_RE
+        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
+        {
+                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
+                                   NULL, NULL, NULL);
+        }
+
+subst_literal:
+          subst_literal_component
+        | subst_literal subst_literal_component
+        {
+                ((L_expression *)$2)->c = $1;
+                $$ = $2;
+        }
+
+subst_literal_component:
+          T_SUBST
         | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
         {
                 $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
