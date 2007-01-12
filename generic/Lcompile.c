@@ -1525,8 +1525,8 @@ L_compile_defined(L_expression *lval)
     int tempVar = 0;
 
     L_expression *idx, *last_index;
-    if ((lval->kind == L_EXPRESSION_VARIABLE) && !lval->indices) {
-        L_errorf(lval, "defined is only defined for array elements");
+    if ((lval->kind != L_EXPRESSION_VARIABLE) || !lval->indices) {
+        L_errorf(lval, "defined is only defined for array and hash entries");
         return;
     }
     /* walk idx down to the second-to-last index */
@@ -1534,23 +1534,26 @@ L_compile_defined(L_expression *lval)
     /* trim the last index off and save it in last_index */
     last_index = idx->indices;
     idx->indices = NULL;
-    /* read out the list and leave it on the stack */
-    L_compile_expressions(lval);
-    /* get the list's length */
-    TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
-    /* evaluate the last index and check if it's within bounds */
-    if (last_index) {
-        L_compile_expressions(last_index->a);
-        tempVar = store_in_tempvar(FALSE);
+    /* now check for the presence of the last index in the list or dict */
+    if (last_index->kind == L_EXPRESSION_HASH_INDEX) {
+	L_PUSH_STR("dict");
+	L_PUSH_STR("exists");
+	L_compile_expressions(lval);
+	L_compile_expressions(last_index->a);
+	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
     } else {
-        L_bomb("assertion failed: I was expecting at least one index");
+	/* grab the length of the list */
+	L_compile_expressions(lval);
+	TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
+	/* check if the index is within bounds */
+	L_compile_expressions(last_index->a);
+	tempVar = store_in_tempvar(FALSE);
+	TclEmitOpcode(INST_GT, lframe->envPtr);
+	L_PUSH_STR("0");
+	L_LOAD_SCALAR(tempVar);
+	TclEmitOpcode(INST_LE, lframe->envPtr);
+	TclEmitOpcode(INST_LAND, lframe->envPtr);
     }
-    TclEmitOpcode(INST_GT, lframe->envPtr);
-    L_PUSH_STR("0");
-    L_LOAD_SCALAR(tempVar);
-    TclEmitOpcode(INST_LE, lframe->envPtr);
-    TclEmitOpcode(INST_LAND, lframe->envPtr);
-
     /* put the AST back the way it was */
     idx->indices = last_index;
 }
