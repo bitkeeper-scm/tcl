@@ -528,6 +528,16 @@ syntax_1_3() {
 syntax_1_3
 } -output "-foo, bar, -baz\n"
 
+test syntax-1.4 {string appendation} -body {
+#lang(L)
+syntax_1_4() {
+	printf("these" "strings"
+	    "stick" "together.\n");
+}
+#lang(tcl)
+syntax_1_4
+} -output "thesestringssticktogether.\n"
+
 test op-1.0 {increment and decrement operators} -body {
 #lang(L)
 op_1_0() {
