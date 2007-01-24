@@ -733,51 +733,39 @@ constant_expression:
         ;
 
 string_literal:
-          string_literal_component
-        | string_literal string_literal_component
-        {
+	  T_STR_LITERAL
+	| interpolated_expr T_STR_LITERAL
+	{
                 ((L_expression *)$2)->c = $1;
-                $$ = $2;
-        }
-
-string_literal_component:
-          T_STR_LITERAL
-        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
-        {
-                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
-                                   NULL, NULL, NULL);
-        }
+		$$ = $2;
+	}
 
 regexp_literal:
-          regexp_literal_component
-        | regexp_literal regexp_literal_component
-        {
+	  T_RE
+	| interpolated_expr T_RE
+	{
                 ((L_expression *)$2)->c = $1;
-                $$ = $2;
-        }
-
-regexp_literal_component:
-          T_RE
-        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
-        {
-                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
-                                   NULL, NULL, NULL);
-        }
+		$$ = $2;
+	}
 
 subst_literal:
-          subst_literal_component
-        | subst_literal subst_literal_component
-        {
+	  T_SUBST
+	| interpolated_expr T_SUBST
+	{
                 ((L_expression *)$2)->c = $1;
-                $$ = $2;
-        }
+		$$ = $2;
+	}
 
-subst_literal_component:
-          T_SUBST
-        | T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
-        {
+interpolated_expr:
+          T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
+	{
                 $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $1, $2,
                                    NULL, NULL, NULL);
+	}
+        | interpolated_expr T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
+        {
+                $$ = mk_expression(L_EXPRESSION_INTERPOLATED_STRING, -1, $2, $3,
+                                   $1, NULL, NULL);
         }
 
 dotted_id:
