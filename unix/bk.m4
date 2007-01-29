@@ -89,7 +89,7 @@ AC_DEFUN(SC_PATH_BK, [
 
 AC_DEFUN([SC_ENABLE_INFO_BODY], [
     AC_MSG_CHECKING([should info body be allowed])
-    AC_ARG_ENABLE(infobody,
+    AC_ARG_ENABLE(info_body,
 	AC_HELP_STRING([--enable-info-body],
 	    [enable the info body command (default: on)]),
 	[tcl_ok=$enableval], [tcl_ok=yes])
@@ -98,7 +98,7 @@ AC_DEFUN([SC_ENABLE_INFO_BODY], [
 	enableval="$enable_info_body"
 	tcl_ok=$enableval
     else
-	tcl_ok=no
+	tcl_ok=yes
     fi
 
     if test "$tcl_ok" = "yes" ; then

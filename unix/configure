@@ -1491,9 +1491,9 @@ echo "${ECHO_T}found $BK_DIR" >&6
 
     echo "$as_me:$LINENO: checking should info body be allowed" >&5
 echo $ECHO_N "checking should info body be allowed... $ECHO_C" >&6
-    # Check whether --enable-infobody or --disable-infobody was given.
-if test "${enable_infobody+set}" = set; then
-  enableval="$enable_infobody"
+    # Check whether --enable-info_body or --disable-info_body was given.
+if test "${enable_info_body+set}" = set; then
+  enableval="$enable_info_body"
   tcl_ok=$enableval
 else
   tcl_ok=yes
@@ -1503,7 +1503,7 @@ fi;
 	enableval="$enable_info_body"
 	tcl_ok=$enableval
     else
-	tcl_ok=no
+	tcl_ok=yes
     fi
 
     if test "$tcl_ok" = "yes" ; then
