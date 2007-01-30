@@ -159,6 +159,20 @@ cast_1_0() {
 cast_1_0
 } -output "asdf\n"
 
+
+test autoextend-1.0 {autoextending arrays of hashes don't work} -body {
+#lang(L)
+autoextend_1_0() {
+	hash h[];
+
+	h[0]{"asdf"} = "foo";
+	puts((tcl)h);
+}
+#lang(tcl)
+autoextend_1_0
+} -returnCodes {error} -result \
+	"L Error: Autoextending in multiple dimensions is not implemented yet on line 4\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return

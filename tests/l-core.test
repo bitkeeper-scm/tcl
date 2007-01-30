@@ -528,6 +528,16 @@ syntax_1_3() {
 syntax_1_3
 } -output "-foo, bar, -baz\n"
 
+test syntax-1.4 {string appendation} -body {
+#lang(L)
+syntax_1_4() {
+	printf("these" "strings"
+	    "stick" "together.\n");
+}
+#lang(tcl)
+syntax_1_4
+} -output "thesestringssticktogether.\n"
+
 test op-1.0 {increment and decrement operators} -body {
 #lang(L)
 op_1_0() {
@@ -1297,12 +1307,10 @@ void regexp_1_0() {
         string s = "string";
         puts(s =~ /ring/);
         puts(s =~ /bob/);
-        puts(s !~ /ring/);
-        puts(s !~ /bob/);
 }
 #lang(tcl)
 regexp_1_0
-} -output "1\n0\n0\n1\n"
+} -output "1\n0\n"
 
 test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
 #lang(L)
@@ -1339,6 +1347,32 @@ void regexp_1_2() {
 regexp_1_2
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
+
+test regexp-1.3 {regexp substitution} -body {
+#lang(L)
+regexp_1_3() {
+        string s = "string";
+	string s1[] = {"a", "b", "coochie"};
+	hash h[2];
+
+        puts(s =~ m/ring/);
+        puts(s =~ m|bob|);
+	puts("--------");
+	puts(s =~ s/ring/ling/);
+	puts(s);
+	puts("--------");
+	puts(s1[2] =~ s/c/f/);
+	puts((tcl)s1);
+	puts("--------");
+	h[0]{"a"} = "string";
+	h[1]{"m"} = "not a string";
+	puts((tcl)h);
+	h[1]{"m"} =~ s/not a/probably a/;
+	puts((tcl)h);
+}
+#lang(tcl)
+regexp_1_3
+} -output "1\n0\n--------\n1\nstling\n--------\n1\na b foochie\n--------\n{a string} {m {not a string}}\n{a string} {m {probably a string}}\n"
 
 test reference-1.0 {L references} -body {
 #lang(L)
@@ -1468,6 +1502,26 @@ defined_1_0
 1
 0
 "
+
+test defined-1.1 {defined works on hashes} -body {
+#lang(L)
+defined_1_1() {
+	hash foo[5];
+
+	foo[2]{"a"} = 1;
+	foo[3]{"b"} = 2;
+	
+	if (defined(foo[2]{"a"})) {
+		puts("defined works");
+	}
+	if (!defined(foo[2]{"b"})) {
+		puts("defined works even better");
+	}
+}
+#lang(tcl)
+defined_1_1
+} -output "defined works\ndefined works even better\n"
+
 test main-1.0 {test that main gets called} -setup {
 	set fname [makeFile {
 		main(int argc, string argv[]) {
