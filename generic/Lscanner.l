@@ -30,6 +30,12 @@ Tcl_Obj *str;
 }                               \
 
 extern int L_line_number;
+extern int L_token_offset;
+extern int L_prev_token_len;
+
+/* Keep track of the current offset in the input string: */
+#define YY_USER_ACTION	L_token_offset += L_prev_token_len; \
+			L_prev_token_len = yyleng;
 
 /* The character that began the current regexp, so in m|foo| this is
  * '|'.
@@ -164,6 +170,7 @@ tally_newlines(
                         }
         {ID}		{
                                 MK_STRING_NODE(L_lval, yytext);
+
                                 if (L_lookup_typedef(L_lval, FALSE)) {
                                         return T_TYPE;
                                 } else {

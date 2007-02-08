@@ -1594,6 +1594,33 @@ toplevel_1_1
 Sphenic numbers always have exactly eight divisors.
 }
 
+test backtrace-1.0 {backtracing in L} -setup {
+	set fname [makeFile {
+foo()
+{
+	puts("foo", "bar");
+}
+
+bar()
+{
+	foo();
+}
+
+int
+main(int ac, string av[])
+{
+	bar();
+}
+
+	} backtrace-1.0.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $fname
+} -cleanup {
+	removeFile lfile-1.0.l
+} -returnCodes {error} -match regexp -result {.*line 4.*line 9.*line 15}
+
 # cleanup
 ::tcltest::cleanupTests
 return

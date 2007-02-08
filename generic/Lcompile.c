@@ -21,6 +21,15 @@ int L_line_number = 0;
 void *L_current_ast = NULL;
 int L_interactive = 0;
 
+/* The source of the script that we're compiling. */
+static char *L_script = NULL;
+static int L_scriptLen = 0;
+
+/* The token offset is the number of bytes between the beginning of the input
+ * string and the beginning of a token.  It's tracked by the lexer, but we
+ * declare it here so that it can be reset before lexing begins. */
+int L_token_offset = 0;
+int L_prev_token_len = 0;
 
 
 static int gensym_counter = 0;  /* used to create unique names */
@@ -74,8 +83,7 @@ static void Finish_Proc(Proc *procPtr, char *name);
 static int instruction_for_l_op(int op);
 static void regsub_for_assignment(int lvalIndex, int rvalIndex,
   int compile_rval_p, L_expression *expr);
-
-
+static void track_lineInfo(int codeOffset, int srcOffset, int len);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -164,11 +172,14 @@ LParseScript(
 ) {
     void    *lex_buffer;
 
+    L_line_number = 1;
+    L_token_offset = L_prev_token_len = 0;
+    L_script = (char *)str;
+    L_scriptLen = numBytes;
     L_start_lexer();
     lex_buffer = (void *)L__scan_bytes(str, numBytes);
     /* L_trace("Parsing: %.*s", numBytes, str); */
     L_trace("parsing");
-    L_line_number = 1;
     L_errors = NULL;
     L_parse();
     if (getenv("L_DUMP_AST") && L_current_ast) {
@@ -319,9 +330,14 @@ Begin_Proc()
 {
     Proc *procPtr;
     CompileEnv *envPtr;
+    char *scriptCopy;
 
     envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
     L_frame_push(lframe->interp, envPtr, NULL);
+
+    scriptCopy = ckalloc(L_scriptLen + 1);
+    strncpy(scriptCopy, L_script, L_scriptLen);
+    *(scriptCopy + L_scriptLen) = '\0';
 
     procPtr = (Proc *)ckalloc(sizeof(Proc));
     procPtr->iPtr = (struct Interp *)lframe->interp;
@@ -331,10 +347,11 @@ Begin_Proc()
     procPtr->numCompiledLocals = 0;
     procPtr->firstLocalPtr = NULL;
     procPtr->lastLocalPtr = NULL;
-    TclInitCompileEnv(lframe->interp, envPtr, "L Compiler",
-	strlen("L Compiler"), NULL, 0);
+    TclInitCompileEnv(lframe->interp, envPtr, scriptCopy, L_scriptLen,
+	NULL, 0);
     lframe->originalCodeNext = envPtr->codeNext;
     envPtr->procPtr = procPtr;
+
     return procPtr;
 }
 
@@ -490,7 +507,8 @@ compile_initializer(
     {
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
-	    for (i = (L_initializer *)init->value, count = 0; i;
+	    for (i = (L_initializer *)init->value, count = 0;
+		 i;
 		 i = i->next, count++)
 	    {
 		if (i->key) {
@@ -505,7 +523,8 @@ compile_initializer(
     } else if (type->kind == L_TYPE_HASH) {
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
-	    for (i = (L_initializer *)init->value, count = 0; i;
+	    for (i = (L_initializer *)init->value, count = 0;
+		 i;
 		 i = i->next, count++)
 	    {
 		if (!i->key) {
@@ -849,13 +868,14 @@ type_passed_by_name_p(L_type *type)
 void
 L_compile_expressions(L_expression *expr)
 {
-    int param_count;
+    int param_count, startOffset;
     L_symbol *symbol;
 
     if (!expr) return;
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
 	L_trace("compiling a call to %s", expr->a->u.string);
+	startOffset = CurrentOffset(lframe->envPtr);
         if ((symbol = L_get_local_symbol(expr->a, FALSE))) {
 	    /* looks like the function name is in a variable */
 	    L_push_variable(expr);
@@ -864,6 +884,13 @@ L_compile_expressions(L_expression *expr)
 	}
         param_count = push_parameters(expr->b);
         TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
+	L_trace("tracking lineinfo for call to %s", expr->a->u.string);
+	/* Since the function call node is created after all of its child
+	 * nodes have been created, its offset is at the end of the complete
+	 * expression. Hence subtracting the offset of the first child gives
+	 * you the length of the whole expression. */
+	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset) + 1);
         break;
     case L_EXPRESSION_PRE:
     case L_EXPRESSION_POST:
@@ -2399,6 +2426,75 @@ void L_store_typedef(L_expression *name, L_type *type) {
     }
     Tcl_SetHashValue(hPtr, type);
 
+}
+
+/* XXX this is basically a whacked version of EnterCmdStartData int
+ * tclCompile.c. */
+static void
+track_lineInfo(
+    int codeOffset,		/* Where this command's bytecode starts */
+    int srcOffset,		/* Where the source of the command starts (in
+				 * L_script) */
+    int len)			/* The length of the source of the command. */
+{
+    CmdLocation *cmdLocPtr;
+    CompileEnv *envPtr = lframe->envPtr;
+    int cmdIndex = lframe->envPtr->numCommands++;
+
+    if ((cmdIndex < 0) || (cmdIndex >= envPtr->numCommands)) {
+	Tcl_Panic("track_lineInfo: bad command index %d", cmdIndex);
+    }
+    
+    if (cmdIndex >= envPtr->cmdMapEnd) {
+	/*
+	 * Expand the command location array by allocating more storage from
+	 * the heap. The currently allocated CmdLocation entries are stored
+	 * from cmdMapPtr[0] up to cmdMapPtr[envPtr->cmdMapEnd] (inclusive).
+	 */
+
+	size_t currElems = envPtr->cmdMapEnd;
+	size_t newElems = 2*currElems;
+	size_t currBytes = currElems * sizeof(CmdLocation);
+	size_t newBytes = newElems * sizeof(CmdLocation);
+	CmdLocation *newPtr = (CmdLocation *) ckalloc((unsigned) newBytes);
+
+	/*
+	 * Copy from old command location array to new, free old command
+	 * location array if needed, and mark new array as malloced.
+	 */
+
+	memcpy(newPtr, envPtr->cmdMapPtr, currBytes);
+	if (envPtr->mallocedCmdMap) {
+	    ckfree((char *) envPtr->cmdMapPtr);
+	}
+	envPtr->cmdMapPtr = (CmdLocation *) newPtr;
+	envPtr->cmdMapEnd = newElems;
+	envPtr->mallocedCmdMap = 1;
+    }
+
+    cmdLocPtr = &(envPtr->cmdMapPtr[cmdIndex]);
+    cmdLocPtr->codeOffset = codeOffset;
+    cmdLocPtr->srcOffset = srcOffset;
+    cmdLocPtr->numSrcBytes = len;
+    cmdLocPtr->numCodeBytes = CurrentOffset(envPtr) - codeOffset;
+
+    /* The command locations have to be sorted in ascending order by
+     * codeOffset.  (Or Tcl panics in GetCmdLocEncodingSize(), if nothing
+     * else). However, when L compiles nested function calls, the outer one
+     * will get tracked second, even though it begins first.  So we walk the
+     * new CmdLocation entry back from the end until it lands where it
+     * belongs. */
+    while ((cmdIndex > 0) &&
+	(envPtr->cmdMapPtr[cmdIndex-1].codeOffset > 
+	    envPtr->cmdMapPtr[cmdIndex].codeOffset))
+    {
+	CmdLocation cmdLoc;
+
+	cmdLoc = envPtr->cmdMapPtr[cmdIndex];
+	envPtr->cmdMapPtr[cmdIndex] = envPtr->cmdMapPtr[cmdIndex-1];
+	envPtr->cmdMapPtr[cmdIndex-1] = cmdLoc;
+	cmdIndex--;
+    }
 }
 
 /*

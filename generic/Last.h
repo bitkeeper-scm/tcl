@@ -107,6 +107,7 @@ struct L_ast_node {
 	L_ast_node *_trace;
 	L_node_type type;
 	int line_no;
+	int offset;
 };
 
 struct L_block {
