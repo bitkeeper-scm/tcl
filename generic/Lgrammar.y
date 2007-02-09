@@ -14,27 +14,31 @@ Tcl_Obj *stringBuf;
 
 #define YYERROR_VERBOSE
 
-void *finish_declaration(L_type *type_specifier, L_variable_declaration *decl) {
-        /* Reverse the array type and copy the base type for a variable
-           declaration.  The base type gets copied because it can't be shared
-           in cases like ``int foo, bar[5];´´.  Returns the finished
-           declaration. */
-        L_type *array_type = decl->type;
+L_variable_declaration *
+finish_declaration(L_type *base_type, L_variable_declaration *decl) {
+    REVERSE(L_type, next_dim, decl->type);
 
-        REVERSE(L_type, next_dim, array_type);
-        if (type_specifier->typedef_p && type_specifier->next_dim) {
-          /* the type might already have array dimensions if it comes
-             from a typedef. */
-          if (array_type) {
-            APPEND(L_type, next_dim, array_type, type_specifier->next_dim);
-          } else {
-            array_type = type_specifier->next_dim;
-          }
-        }
-        decl->type = mk_type(type_specifier->kind, NULL,
-                             type_specifier->struct_tag, array_type,
-                             type_specifier->members, FALSE);
-        return decl;
+    /* In cases where there are multiple variables declared like so:
+     *
+     * 	int foo[2], bar;
+     *
+     * the parser gets the type of bar from foo.  So the "base type" of bar
+     * can have array dimensions, even though you would expect it to be just
+     * "int".  We step over the array dimensions to get to the true base type.
+     *
+     * (Note that we /do/ want to copy typedef dimensions.  This works because
+     * the typedef dimensions will always come after dimensions that don't
+     * come from a typedef).
+     */
+    while ((base_type->kind == L_TYPE_ARRAY) && !base_type->typedef_p) {
+	base_type = base_type->next_dim;
+    }
+    if (decl->type) {
+	APPEND(L_type, next_dim, decl->type, base_type);
+    } else {
+	decl->type = base_type;
+    }
+    return decl;
 }
 
 

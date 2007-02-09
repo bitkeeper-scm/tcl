@@ -1594,6 +1594,34 @@ toplevel_1_1
 Sphenic numbers always have exactly eight divisors.
 }
 
+test typecheck-1.0 {L typechecking} -body {
+#lang(L)
+typecheck_1_0() {
+	puts(typecheck_1_0_foo() + 22);
+}
+
+string typecheck_1_0_foo() {
+	return "string";
+}
+#lang(tcl)
+typecheck_1_0
+} -returnCodes {error} \
+-result "L Error: type error, want L_TYPE_NUMBER, got L_TYPE_STRING on line 2\n"
+
+test typecheck-1.1 {arity check} -body {
+#lang(L)
+typecheck_1_1() {
+	foo(1, 2, 3);
+	bar();
+}
+foo() {}
+bar(int a, int b) {}
+#lang(tcl)
+} -returnCodes {error} \
+-result "L Error: Not enough arguments for function bar on line 3
+L Error: Too many arguments for function foo on line 2\n"
+
+
 # cleanup
 ::tcltest::cleanupTests
 return

@@ -49,11 +49,12 @@ char *L_toplevel_statement_tostr[5] = {
 	"L_TOPLEVEL_STATEMENT_TYPEDEF"
 };
 
-char *L_type_tostr[9] = {
+char *L_type_tostr[10] = {
 	"L_TYPE_ARRAY",
 	"L_TYPE_FLOAT",
 	"L_TYPE_HASH",
 	"L_TYPE_INT",
+	"L_TYPE_NUMBER",
 	"L_TYPE_POLY",
 	"L_TYPE_STRING",
 	"L_TYPE_STRUCT",

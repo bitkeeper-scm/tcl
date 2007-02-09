@@ -173,6 +173,36 @@ autoextend_1_0
 } -returnCodes {error} -result \
 	"L Error: Autoextending in multiple dimensions is not implemented yet on line 4\n"
 
+
+test typecheck-1.0 {typechecker segfaults on unop check that must be queued} -body {
+#lang(L)
+typecheck_1_0() {
+	// note the -
+	foo(-bar());
+}
+int bar() {
+	return 22;
+}
+string foo(string foo) {
+	return foo;
+}
+#lang(tcl)
+typecheck_1_0
+} -returnCodes {error} -result \
+    "L Error: type error, want L_TYPE_STRING, got L_TYPE_INT on line 3\n"
+
+test decl-1.0 {don't drop array dimensions from typedef when declaring multiple variables} -body {
+#lang(L)
+typedef int atype[2];
+decl_1_0() {
+	atype foo[3], bar;
+	puts((tcl)foo);
+	puts((tcl)bar);
+}
+#lang(tcl)
+decl_1_0
+} -output "{0 0} {0 0} {0 0}\n0 0\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return
