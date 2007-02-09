@@ -46,7 +46,6 @@ void L__delete_buffer(void *buf);
 static void L_free_ast(L_ast_node *ast);
 static int global_symbol_p(L_symbol *symbol);
 static void fixup_struct_type(L_type *type);
-static int array_p(L_type *t);
 static int auto_extending_array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
 static L_expression *L_read_array_index_chunk(int varIndex, L_expression *i,
@@ -73,7 +72,7 @@ static void compile_initializer(L_initializer *init, L_type *type);
 static void compile_blank_initializer(L_type *type);
 static char *blank_initializer_code(L_type *type, int *needs_eval);
 static int LDumpAstNodes(L_ast_node *node, void *data, int order);
-static int push_parameters(L_expression *parameters);
+static int push_parameters(char *funcname, L_expression *parameters);
 static void L_push_pointer(L_expression *lval);
 static L_compile_frame *enclosing_loop_frame();
 static void fixup_jumps(CompileEnv *envPtr, JumpOffsetList *jumps,
@@ -232,7 +231,7 @@ LCompileScript(
     if (envPtr)
         maybeFixupEmptyCode(lframe);
     L_frame_pop();
-
+    L_finish_typechecks();
     L_free_ast(ast);
     if (L_errors) {
             Tcl_SetObjResult(interp, L_errors);
@@ -314,6 +313,9 @@ L_compile_function_decl(L_function_declaration *fun)
 
     if (!fun) return;
     L_trace("compiling a function decl");
+
+    L_store_fun_type(fun);
+
     procPtr = Begin_Proc();
     lframe->block = (L_ast_node *)fun;
 
@@ -441,10 +443,6 @@ L_compile_variable_decls(L_variable_declaration *var)
     if (!var) return;
     L_trace("declaring variable %s", var->name->u.string);
 
-    if (var->type->kind == L_TYPE_STRUCT) {
-        fixup_struct_type(var->type);
-    }
-
     if ((symbol = L_get_symbol(var->name, FALSE)) &&
         !global_symbol_p(symbol))
     {
@@ -502,9 +500,9 @@ compile_initializer(
 
     /* XXX: this is not finished.  We only handle a single dimension, and we
        don't check the field count for structs. */
-    if ((type->kind == L_TYPE_STRUCT) ||
-        (type->next_dim && (type->next_dim->kind == L_TYPE_ARRAY)))
-    {
+    switch (type->kind) {
+    case L_TYPE_STRUCT:
+    case L_TYPE_ARRAY:
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
 	    for (i = (L_initializer *)init->value, count = 0;
@@ -520,7 +518,8 @@ compile_initializer(
 	} else {
 	    L_compile_expressions(init->value);
 	}
-    } else if (type->kind == L_TYPE_HASH) {
+	break;
+    case L_TYPE_HASH:
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
 	    L_PUSH_STR("list");
 	    for (i = (L_initializer *)init->value, count = 0;
@@ -538,7 +537,8 @@ compile_initializer(
 	} else {
 	    L_compile_expressions(init->value);
 	}
-    } else {
+	break;
+    default:
         /* atomic type */
         L_compile_expressions(init->value);
     }
@@ -589,7 +589,6 @@ blank_initializer_code(
     L_type *type,
     int *needs_eval)
 {
-    L_type *array_type = type->next_dim;
     Tcl_Obj *code = Tcl_NewObj();
     int brackets = 0, i;
     L_expression *retval;
@@ -600,13 +599,13 @@ blank_initializer_code(
 	return retval->u.string;
     }
     Tcl_IncrRefCount(code);
-    while (array_type) {
-        if (array_type->array_dim->kind != L_EXPRESSION_INTEGER) {
-            L_errorf(array_type->array_dim,
+    while (type->kind == L_TYPE_ARRAY) {
+        if (type->array_dim->kind != L_EXPRESSION_INTEGER) {
+            L_errorf(type->array_dim,
                      "Bad dimension for an array: must be an int.");
             break;
         }
-        if (array_type->array_dim->u.integer > 0) {
+        if (type->array_dim->u.integer > 0) {
             *needs_eval = TRUE;
             /* skip the outermost set of brackets  */
             if (brackets > 0) {
@@ -614,15 +613,15 @@ blank_initializer_code(
             }
             brackets++;
 	    Tcl_AppendPrintfToObj(code, "lrepeat %d ",
-		array_type->array_dim->u.integer);
-            array_type = array_type->next_dim;
+		type->array_dim->u.integer);
+            type = type->next_dim;
         } else {
             break;
         }
     }
     /* the base type */
     if (type->kind != L_TYPE_STRUCT) {
-        if (type->next_dim) {
+	if (brackets > 0) {
 	    Tcl_AppendPrintfToObj(code, "{%s}",
 		Tcl_GetString(atomic_initial_value(type)));
         } else {
@@ -632,13 +631,14 @@ blank_initializer_code(
     } else {
         L_variable_declaration *mem;
 
+	fixup_struct_type(type);
         *needs_eval = TRUE;
         if (brackets > 0) {
 	    Tcl_AppendPrintfToObj(code, "[");
         }
 	Tcl_AppendPrintfToObj(code, "list ");
         for (mem = type->members; mem; mem = mem->next) {
-            if (array_p(mem->type)) {
+            if (mem->type->kind == L_TYPE_ARRAY) {
                 int needs_eval1;
                 char *code1 = blank_initializer_code(mem->type, &needs_eval1);
                 if (needs_eval1) {
@@ -704,24 +704,10 @@ fixup_struct_type(L_type *type)
 static int
 auto_extending_array_p(L_type *t)
 {
-    return t->next_dim &&
-	(t->next_dim->kind == L_TYPE_ARRAY) &&
-	(t->next_dim->array_dim->kind == L_EXPRESSION_INTEGER) &&
-	(t->next_dim->array_dim->u.integer == 0);
-}
 
-int
-array_p(L_type *t)
-{
-    if (t->next_dim) {
-        if (t->next_dim->kind == L_TYPE_ARRAY) {
-            return TRUE;
-        } else {
-            return array_p(t->next_dim);
-        }
-    } else {
-        return FALSE;
-    }
+    return (t->kind == L_TYPE_ARRAY) &&
+	(t->array_dim->kind == L_EXPRESSION_INTEGER) &&
+	(t->array_dim->u.integer == 0);
 }
 
 int
@@ -860,9 +846,7 @@ L_compile_parameters(L_variable_declaration *param)
 static int
 type_passed_by_name_p(L_type *type)
 {
-    return ((type->next_dim &&
-             type->next_dim->kind == L_TYPE_ARRAY) ||
-            type->kind == L_TYPE_HASH);
+    return (type->kind == L_TYPE_ARRAY || type->kind == L_TYPE_HASH);
 }
 
 void
@@ -882,8 +866,12 @@ L_compile_expressions(L_expression *expr)
 	} else {
 	    L_PUSH_STR(expr->a->u.string);
 	}
-        param_count = push_parameters(expr->b);
+        param_count =
+	    push_parameters(symbol ? NULL : expr->a->u.string, expr->b);
         TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
+	if (!symbol) {
+	    L_check_arg_count(expr->a->u.string, param_count, expr);
+	}
 	L_trace("tracking lineinfo for call to %s", expr->a->u.string);
 	/* Since the function call node is created after all of its child
 	 * nodes have been created, its offset is at the end of the complete
@@ -925,7 +913,9 @@ L_compile_expressions(L_expression *expr)
    make arrays and hashtables be implicit references, and check for
    "-foovariable, &foo", in which case we make an L pointer for foo. */
 static int
-push_parameters(L_expression *parameters)
+push_parameters(
+    char *funcname,		/* if non-null, used to check param types */
+    L_expression *parameters)
 {
     L_expression *p;
     int i = 0;
@@ -939,6 +929,9 @@ push_parameters(L_expression *parameters)
     {
         L_symbol *var = NULL;
 
+	if (funcname) {
+	    L_check_arg_type(funcname, i, p);
+	}
         if ((p->kind == L_EXPRESSION_VARIABLE) && !p->indices) {
             var = L_get_local_symbol(p->a, FALSE);
         }
@@ -1095,8 +1088,15 @@ void L_compile_unop(L_expression *expr)
 
 void L_compile_binop(L_expression *expr)
 {
+    L_type *type;
+
     switch (expr->op) {
     case T_EQUALS:
+	if ((type = L_expression_type(expr->a))) {
+	    L_check_type(type, expr->b);
+	}
+        L_compile_assignment(expr);
+	break;
     case T_EQPLUS:
     case T_EQMINUS:
     case T_EQSTAR:
@@ -1107,6 +1107,8 @@ void L_compile_binop(L_expression *expr)
     case T_EQBITXOR:
     case T_EQLSHIFT:
     case T_EQRSHIFT:
+	L_check_kind(L_TYPE_NUMBER, expr->a);
+	L_check_kind(L_TYPE_NUMBER, expr->b);
         L_compile_assignment(expr);
 	break;
     case T_ANDAND:
@@ -1114,12 +1116,49 @@ void L_compile_binop(L_expression *expr)
         L_compile_short_circuit_op(expr);
 	break;
     case T_EQTWID:
+	L_check_kind(L_TYPE_STRING, expr->a);
         L_compile_twiddle(expr);
 	break;
-    default:
+    case T_EQ:
+    case T_NE:
+    case T_GT:
+    case T_GE:
+    case T_LT:
+    case T_LE:
+	L_check_kind(L_TYPE_STRING, expr->a);
+	L_check_kind(L_TYPE_STRING, expr->b);
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
         TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	break;
+    case T_EQUALEQUAL:
+    case T_NOTEQUAL:
+        L_compile_expressions(expr->a);
+        L_compile_expressions(expr->b);
+        TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	break;
+    case T_GREATER:
+    case T_GREATEREQ:
+    case T_LESSTHAN:
+    case T_LESSTHANEQ:
+    case T_PLUS:
+    case T_MINUS:
+    case T_STAR:
+    case T_SLASH:
+    case T_PERC:
+    case T_BITAND:
+    case T_BITOR:
+    case T_BITXOR:
+    case T_LSHIFT:
+    case T_RSHIFT:
+	L_check_kind(L_TYPE_NUMBER, expr->a);
+	L_check_kind(L_TYPE_NUMBER, expr->b);
+        L_compile_expressions(expr->a);
+        L_compile_expressions(expr->b);
+        TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	break;
+    default:
+	L_bomb("L_compile_binop: malformed AST");
     }
 }
 
@@ -1663,7 +1702,7 @@ L_write_index_aux(
     int post_incr_p)		/* whether we're doing a post-increment */
 {
     L_expression *idx = index;
-    int idx_count = 0, hash_idx_p, i, tempVar, twiddleVar = -1;
+    int idx_count = 0, hash_idx_p, i, tempVar;
 
     /* Push a contiguous sequence of hash or non-hash indices. */
     hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
@@ -1916,52 +1955,71 @@ L_compile_index(
     L_type *t = index_type;
 
     switch (index->kind) {
-    case L_EXPRESSION_STRUCT_INDEX:
-        if (index->a->kind == L_EXPRESSION_STRING) {
-            /* structure member */
-            L_variable_declaration *member;
-            int memberOffset;
+    case L_EXPRESSION_STRUCT_INDEX: {
+	/* structure member */
+	L_variable_declaration *member;
+	int memberOffset;
 
-            if (!(t->kind == L_TYPE_STRUCT)) {
-                L_errorf(index, "Not a structure");
-                return t;
-            }
-            fixup_struct_type(t);
-            for (memberOffset = 0, member = t->members;
-                 member && strcmp(member->name->u.string, index->a->u.string);
-                 memberOffset++, member = member->next) {
-                L_trace("member is %s", member->name->u.string);
-            }
-            if (!member) {
-                L_errorf(index, "Structure field not found, %s", index->a->u.string);
-                return t;
-            }
-            L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
-            t = member->type;
-        } else {
-            L_bomb("Bad struct index");
-        }
+	member = L_get_struct_member(t, index, &memberOffset);
+
+	if (!member) {
+	    L_errorf(index, "Structure field not found, %s", index->a->u.string);
+	    return t;
+	}
+	L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
+	t = member->type;
         break;
+    }
     case L_EXPRESSION_ARRAY_INDEX:
         /* array index */
-/*         if (!(array_p(t) || pointer_p(t))) { */
-        if (!array_p(t)) {
+        if (t->kind != L_TYPE_ARRAY) {
             L_errorf(index, "Index into something that's not an array");
             return t;
         }
         L_compile_expressions(index->a);
-        if (array_p(t->next_dim)) {
-            t = t->next_dim;
-        }
+	t = t->next_dim ? t->next_dim :
+	    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
         break;
     case L_EXPRESSION_HASH_INDEX:
         L_trace("Spitting out a hash index\n");
         L_compile_expressions(index->a);
+/* 	XXX return L_EXPRESSION_HASH_INDEX again?!  strange decision.  let's
+ * 	fix this when we change around the hash declarations. */
+	t = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
         break;
     default:
         L_bomb("Invalid kind of index, %d", index->kind);
     }
     return t;
+}
+
+L_variable_declaration *
+L_get_struct_member(
+    L_type *t,
+    L_expression *index,
+    int *memberOffset)
+{
+    L_variable_declaration *member;
+    char *memberName;
+
+    if (index->a->kind == L_EXPRESSION_STRING) {
+	memberName = index->a->u.string;
+    } else {
+	L_bomb("Bad struct index");
+	return (L_variable_declaration *)NULL;
+    }
+    if (!(t->kind == L_TYPE_STRUCT)) {
+	L_errorf(index, "Not a structure: %s", L_type_tostr[t->kind]);
+	return (L_variable_declaration *)NULL;
+    }
+    fixup_struct_type(t);
+    L_trace("membername is %s", memberName);
+    for (*memberOffset = 0, member = t->members;
+	 member && strcmp(member->name->u.string, memberName);
+	 (*memberOffset)++, member = member->next) {
+	L_trace("member is %s", member->name->u.string);
+    }
+    return member;
 }
 
 void
@@ -2419,7 +2477,11 @@ L_type *L_lookup_typedef(L_expression *name, int error_p) {
 void L_store_typedef(L_expression *name, L_type *type) {
     int new;
     Tcl_HashEntry *hPtr;
-    type->typedef_p = TRUE;
+    L_type *t;
+
+    /* mark all dimensions of the type as belonging to a typedef */
+    for (t = type; t; t->typedef_p = TRUE, t = t->next_dim);
+
     hPtr = Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
     if (!new) {
         // XXX: emit a redefinition warning?

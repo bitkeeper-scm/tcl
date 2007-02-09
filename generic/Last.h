@@ -79,6 +79,7 @@ typedef enum L_type_kind {
 	L_TYPE_FLOAT,
 	L_TYPE_HASH,
 	L_TYPE_INT,
+	L_TYPE_NUMBER,
 	L_TYPE_POLY,
 	L_TYPE_STRING,
 	L_TYPE_STRUCT,
@@ -86,7 +87,7 @@ typedef enum L_type_kind {
 	L_TYPE_VOID
 } L_type_kind;
 
-extern char *L_type_tostr[9];
+extern char *L_type_tostr[10];
 typedef enum L_node_type {
 	L_NODE_BLOCK,
 	L_NODE_EXPRESSION,
