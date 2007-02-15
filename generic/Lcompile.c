@@ -1296,36 +1296,47 @@ L_compile_short_circuit_op(L_expression *expr)
 void
 L_compile_if_unless(L_if_unless *cond)
 {
-    JumpFixup jumpFalse, jumpEnd;
+    /* There are two jumps: one that skips the consequent, called jumpFalse,
+     * and one called jumpEnd that skips the alternate (else) part. */
+    int jumpFalseOffset, jumpEndOffset;
 
     L_compile_expressions(cond->condition);
     L_PUSH_STR("0");
     TclEmitOpcode(INST_NEQ, lframe->envPtr);
-    /* emit a jump which will skip the consequent if the top value on the
-       stack is false. */
-    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalse);
+
+    /* Emit jumpFalse.  We use fixed-size jumps to simplify the code. */
+    jumpFalseOffset = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP_FALSE4, 0, lframe->envPtr);
+
     L_frame_push(lframe->interp, lframe->envPtr, cond);
-    /* consequent */
+
     if (cond->if_body != NULL) {
         L_compile_statements(cond->if_body);
     }
-    /* alternate */
-    if (cond->else_body != NULL) {
-        /* End the scope that was started for the consequent and start a new
-           one, copying the jump fixup pointers. */
+
+    if (cond->else_body == NULL) {
+	TclUpdateInstInt4AtPc(INST_JUMP_FALSE4,
+	    CurrentOffset(lframe->envPtr) - jumpFalseOffset,
+	    lframe->envPtr->codeStart + jumpFalseOffset);
+    } else {
         L_frame_pop();
         L_frame_push(lframe->interp, lframe->envPtr, cond);
-        TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpEnd);
-        if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127)) {
-            /* The TCL_FALSE_JUMP that we emitted expanded, so the beginning
-               code offset saved in the jump fixup for the
-               TCL_UNCONDITIONAL_JUMP needs to be adjusted. */
-            jumpEnd.codeOffset += 3;
-        }
+
+	/* Emit jumpEnd. */
+	jumpEndOffset = CurrentOffset(lframe->envPtr);
+	TclEmitInstInt4(INST_JUMP4, 0, lframe->envPtr);
+
+	/* Set the target on jumpFalse to here, so it skips over jumpEnd. */
+	TclUpdateInstInt4AtPc(INST_JUMP_FALSE4,
+	    CurrentOffset(lframe->envPtr) - jumpFalseOffset,
+	    lframe->envPtr->codeStart + jumpFalseOffset);
+
         L_compile_statements(cond->else_body);
-        TclFixupForwardJumpToHere(lframe->envPtr, &jumpEnd, 127);
-    } else {
-        TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalse, 127);
+
+	/* Set the jumpEnd target to just after the body of the else part. */
+	TclUpdateInstInt4AtPc(INST_JUMP4,
+	    CurrentOffset(lframe->envPtr) - jumpEndOffset,
+	    lframe->envPtr->codeStart + jumpEndOffset);
     }
     L_frame_pop();
 }

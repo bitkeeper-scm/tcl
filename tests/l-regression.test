@@ -203,6 +203,40 @@ decl_1_0() {
 decl_1_0
 } -output "{0 0} {0 0} {0 0}\n0 0\n"
 
+test if-1.0 {jump target is wrong when else block gets too big} -body {
+#lang(L)
+if_1_0() {
+	string w = ".asdf";
+	string b = "${w}.b", btm = "${w}.btm"; /* XXX use properties */
+	string lbox = "${btm}.lbox", vs = "${btm}.vs", e = "${w}.e";
+	if (0) {
+		puts("wicky wicky2");
+		wm("withdraw", btm);
+		b("configure", relief: "raised");
+	} else {
+		string width, h, h1, x, y;
+		puts("wicky wicky3");
+		width = winfo("width", e);
+		h = winfo("reqheight", w);
+		h1 = winfo("reqheight", btm);
+		x = winfo("rootx", w);
+		y = winfo("rooty", w);
+		/* XXX, wtf? */
+		puts(width);
+		puts(h1);
+		puts(x);
+	}
+}
+
+string winfo(string a, string b) {return 42;}
+#lang(tcl)
+if_1_0
+} -output {wicky wicky3
+42
+42
+42
+}
+
 # cleanup
 ::tcltest::cleanupTests
 return
