@@ -107,6 +107,7 @@ tally_newlines(
         "="		return T_EQUALS;
         ";"		return T_SEMI;
         "."             return T_DOT;
+	"..."		return T_ELLIPSIS;
 	"extern"	return T_EXTERN;
         "return"        return T_RETURN;
         "void"          return T_VOID;

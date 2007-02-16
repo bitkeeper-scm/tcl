@@ -124,6 +124,39 @@ proc_1_2(string arg1, string arg2) {
 proc_1_2 "val1" "val2" 
 } -output "val1\nval2\n"
 
+test proc-1.3 {Test variable arity functions} -body {
+#lang(L)
+proc_1_3() {
+	foo("a", "b", "c", "d");
+	foo();
+	bar(1, 2, 3, 4);
+	bar(1);
+}
+string foo(...stuff) {
+	int i;
+	for (i=0; defined(stuff[i]); i++) {
+		printf("%s ", stuff[i]);
+	}
+	printf("\n");
+}
+string bar(int a, ...stuff) {
+	puts(a);
+	puts((tcl)stuff);
+}
+#lang(tcl)
+proc_1_3
+} -output "a b c d \n\n1\n2 3 4\n1\n\n"
+
+test proc-1.4 {Ensure rest parameter comes last} -body {
+#lang(L)
+proc_1_4(int a, ...b, int c) {
+	puts("oops");
+}
+#lang(tcl)
+proc_1_4
+} -returnCodes {error} -result "L Error: Rest parameter must be last on line 1\n"
+
+
 test var-1.0 {Test L variable assignment and reference} -body {
 #lang(L)
 var_1_0(void)

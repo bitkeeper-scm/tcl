@@ -66,7 +66,7 @@ finish_declaration(L_type *base_type, L_variable_declaration *decl) {
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_RE T_SUBST T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
-%token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE
+%token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS
 
 %left T_OROR
 %left T_ANDAND
@@ -317,6 +317,15 @@ parameter_declaration:
                 $$ = finish_declaration($1, $3);
                 ((L_variable_declaration *)$$)->by_name = TRUE;
         }
+	| T_ELLIPSIS T_ID
+	{
+                L_expression *zero;
+
+                MK_INT_NODE(zero, 0);
+		L_type *type = mk_type(L_TYPE_ARRAY, zero, NULL,
+		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE), NULL, FALSE);
+                $$ = mk_variable_declaration(type, $2, NULL, FALSE, FALSE, TRUE, NULL);
+	}
         ;
 
 argument_expression_list:
@@ -627,7 +636,7 @@ init_declarator:
 declarator:
           T_ID
         {
-                $$ = mk_variable_declaration(NULL, $1, NULL, FALSE, FALSE, NULL);
+                $$ = mk_variable_declaration(NULL, $1, NULL, FALSE, FALSE, FALSE, NULL);
         }
 	| declarator "[" constant_expression "]"
         {

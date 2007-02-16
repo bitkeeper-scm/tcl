@@ -31,6 +31,8 @@ typedef struct queued_check {
 typedef struct function_type {
     L_type *return_type;	/* The return type */
     int param_count;		/* How many parameters */
+    int variable_arity_p;	/* True if number of args can be >=
+				 * param_count - 1 */
     L_type **param_types;	/* An array of types, one for each
 				 * parameter. */
 } function_type;
@@ -157,10 +159,15 @@ L_store_fun_type(
     Tcl_HashEntry *hPtr;
 
     fun_type = (function_type *)ckalloc(sizeof(function_type));
+    memset(fun_type, 0, sizeof(function_type));
 
     fun_type->return_type = fun->return_type;
 
-    for (param_count = 0, p = fun->params; p; param_count++, p = p->next);
+    for (param_count = 0, p = fun->params; p; param_count++, p = p->next) {
+	if (p->rest_p) {
+	    fun_type->variable_arity_p = TRUE;
+	}
+    }
     fun_type->param_count = param_count;
 
     fun_type->param_types = 
@@ -194,9 +201,15 @@ L_finish_typechecks()
 	if (q->flags == CHECK_ARG_COUNT) {
 	    function_type *fun_type = get_function_type(q->name);
 	    if (fun_type) {
-		if (fun_type->param_count > q->pos) {
+		if ((!fun_type->variable_arity_p &&
+			fun_type->param_count > q->pos) ||
+		    (fun_type->variable_arity_p &&
+			!(q->pos >= (fun_type->param_count - 1))))
+		{
 		    L_errorf(q->expr, "Not enough arguments for function %s", q->name);
-		} else if (fun_type->param_count < q->pos) {
+		} else if (fun_type->param_count < q->pos &&
+		    !fun_type->variable_arity_p)
+		{
 		    L_errorf(q->expr, "Too many arguments for function %s", q->name);		    
 		}
 	    } else {
@@ -527,7 +540,10 @@ parameter_type(
 
     fun_type = get_function_type(name);
     if (!fun_type) return NULL;
-    if (pos < fun_type->param_count) {
+    if (fun_type->variable_arity_p && pos >= (fun_type->param_count - 1)) {
+	/* for rest parameters, return a type that always succeeds: */
+	return mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+    } else if (pos < fun_type->param_count) {
 	return fun_type->param_types[pos];
     } else {
 	L_trace("parameter %d out of range 0..%d for function %s", 

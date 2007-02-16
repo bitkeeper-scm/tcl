@@ -67,6 +67,7 @@ static void L_write_index_aux(L_expression *index, L_type *type,
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int type_passed_by_name_p(L_type *type);
+static int param_passed_by_name_p(L_variable_declaration *p);
 static L_symbol *L_get_local_symbol(L_expression *name, int error_p);
 static void compile_initializer(L_initializer *init, L_type *type);
 static void compile_blank_initializer(L_type *type);
@@ -787,8 +788,7 @@ L_compile_parameters(L_variable_declaration *param)
     L_variable_declaration *p;
 
     for (p = param, i = 0; p; p = p->next, i++) {
-        int by_name = (p->by_name || type_passed_by_name_p(p->type));
-        if (by_name) {
+        if (param_passed_by_name_p(p)) {
             /* if the parameter is pass by name, we use a mangled name for it
                so that we can define an upvar using the original name */
             name = reference_mangle(p->name->u.string);
@@ -812,6 +812,12 @@ L_compile_parameters(L_variable_declaration *param)
         localPtr->nameLength = strlen(name->u.string);
         localPtr->frameIndex = i;
         localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
+	if (p->rest_p) {
+	    localPtr->flags |= VAR_IS_ARGS;
+	    if (p->next) {
+		L_errorf(p, "Rest parameter must be last");
+	    }
+	}
         localPtr->resolveInfo = NULL;
         localPtr->defValuePtr = NULL;
         strcpy(localPtr->name, name->u.string);
@@ -822,8 +828,7 @@ L_compile_parameters(L_variable_declaration *param)
        a by-name arg will segfault.  I haven't 100% understood what's going
        on.  --timjr 2006.9.26*/
     for (p = param, i = 0; p; p = p->next, i++) {
-        int by_name = (p->by_name || type_passed_by_name_p(p->type));
-        if (by_name) {
+        if (param_passed_by_name_p(p)) {
             L_symbol *symbol;
             int localIndex;
 
@@ -847,6 +852,12 @@ static int
 type_passed_by_name_p(L_type *type)
 {
     return (type->kind == L_TYPE_ARRAY || type->kind == L_TYPE_HASH);
+}
+
+static int
+param_passed_by_name_p(L_variable_declaration *p)
+{
+    return (p->by_name || (type_passed_by_name_p(p->type) && !p->rest_p));
 }
 
 void
@@ -920,8 +931,6 @@ push_parameters(
     L_expression *p;
     int i = 0;
     int widget_flag = FALSE;
-
-    /* push the function's name */
 
     /* count the parameters stack them, checking for implicit references
        and L pointers. */
