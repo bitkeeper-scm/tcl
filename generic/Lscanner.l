@@ -244,7 +244,7 @@ tally_newlines(
                                 STRBUF_STOP();
 				return T_LEFT_INTERPOL;
 			}
-	\"[ \t\r\n]*\"		/* ignore */
+	\"[ \t\r\n]*\"	tally_newlines(yytext, yyleng);
 	\"		{
 				yy_pop_state();
                                 MK_STRING_NODE(L_lval, STRBUF_STRING());
