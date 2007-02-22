@@ -311,6 +311,9 @@ void
 L_compile_function_decl(L_function_declaration *fun)
 {
     Proc *procPtr;
+    Tcl_HashEntry *hPtr;
+    Tcl_HashSearch hSearch;
+    L_symbol *symbol;
 
     if (!fun) return;
     L_trace("compiling a function decl");
@@ -325,6 +328,18 @@ L_compile_function_decl(L_function_declaration *fun)
 
     /* This is the "fall off the end" implicit return. We return "". */
     L_return(FALSE);
+
+    /* Check for unused variables */
+    for (hPtr = Tcl_FirstHashEntry(lframe->symtab, &hSearch);
+	 hPtr != NULL;
+	 hPtr = Tcl_NextHashEntry(&hSearch))
+    {
+	symbol = (L_symbol *)Tcl_GetHashValue(hPtr);
+	if (!symbol->used_p) {
+	    L_warningf(symbol->node, "Unused variable %s", symbol->name);
+	}
+    }
+
     Finish_Proc(procPtr, fun->name->u.string);
 }
 
@@ -2145,9 +2160,10 @@ L_make_symbol(
     symbol->type = type;
     symbol->localIndex = localIndex;
     symbol->global_p = FALSE;
+    symbol->used_p = FALSE;
+    symbol->node = (L_ast_node *)name;
     Tcl_SetHashValue(hPtr, symbol);
     return symbol;
-    return (L_symbol*)0;
 }
 
 /* Look up a symbol in the current symbol table.  If the symbol is a global,
@@ -2173,17 +2189,17 @@ L_get_symbol(L_expression *name, int error_p)
 {
     Tcl_HashEntry *hPtr = NULL; 
     L_compile_frame *frame;
+    L_symbol *symbol;
 
     for (frame = lframe; !hPtr && frame; frame = frame->prevFrame) {
         hPtr = Tcl_FindHashEntry(frame->symtab, name->u.string);
     }
     if (hPtr) {
-        return (L_symbol *)Tcl_GetHashValue(hPtr);
+        symbol = (L_symbol *)Tcl_GetHashValue(hPtr);
+	symbol->used_p = TRUE;
+	return symbol;
     } else {
 	L_trace("Unable to find symbol %s", name->u.string);
-/* 	if (Tcl_GetVar(lframe->interp, name->u.string, 0)) { */
-
-/* 	} */
         if (error_p) {
             L_errorf(name, "Undeclared variable: %s", name->u.string);
         }
@@ -2300,6 +2316,26 @@ L_trace(const char *format, ...)
     }
     va_end(ap);
     fflush(stderr);
+}
+
+void
+L_warning(char *s)
+{
+    /* XXX there must be a better way to emit a warning */
+    fprintf(stderr, "L Warning: %s\n", s);
+}
+
+void
+L_warningf(void *node, const char *format, ...)
+{
+    va_list ap;
+
+    va_start(ap, format);
+    fprintf(stderr, "L Warning: ");
+    vfprintf(stderr, format, ap);
+    fprintf(stderr, " on line %d\n",
+	node ? ((L_ast_node *)node)->line_no : -1);
+    va_end(ap);
 }
 
 /* L_error is yyerror */

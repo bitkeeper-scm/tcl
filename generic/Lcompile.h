@@ -48,6 +48,8 @@ typedef struct L_symbol {
     L_type *type;
     int localIndex;
     int global_p;
+    int used_p;
+    L_ast_node *node;
 } L_symbol;
 
 
@@ -61,6 +63,9 @@ void L_frame_push(Tcl_Interp *interp, CompileEnv *compEnv, void *block);
 void L_frame_pop();
 void L_bomb(const char *format, ...);
 void L_trace(const char *format, ...);
+void L_warning(char *s);
+void L_warningf(void *node, const char *format, ...);
+void L_error(char *s);
 void L_errorf(void *node, const char *format, ...);
 L_symbol *L_get_symbol(L_expression *name, int error_p);
 L_symbol *L_make_symbol(L_expression *name, L_type *type, int localIndex);
