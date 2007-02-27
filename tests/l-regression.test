@@ -7,15 +7,15 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 
 
 test empty-1.0 {empty code blocks} -body {
-#lang(L)
+#lang L
 empty_1_0() {
 } 
-#lang(tcl)
+#lang tcl
 empty_1_0
 } 
 
 test empty-1.1 {empty code blocks with some control flow} -body {
-#lang(L)
+#lang L
 empty_1_1() {
         /* note that none of these conditions is true, 
            so no code is executed */
@@ -27,12 +27,12 @@ empty_1_1() {
                 puts("1 working");
         }
 } 
-#lang(tcl)
+#lang tcl
 empty_1_1
 } 
 
 test values-1.0 {the values of struct increment and assignment} -body {
-#lang(L)
+#lang L
 struct values_1_0 {
   int clicks;
   string value;
@@ -43,7 +43,7 @@ values_1_0() {
   puts(main_entry.clicks = 0);
   puts(++main_entry.clicks);
 }
-#lang(tcl)
+#lang tcl
 values_1_0
 } -output "0\n1\n"
 
@@ -51,7 +51,7 @@ values_1_0
 test multi-dimensional-1.0 {move[state][read_symbol] was being evaluated as
 move[state][state[read_symbol]][read_symbol], or thereabouts, because the AST
 was built in an ambiguous way.} -body {
-#lang(L)
+#lang L
 turing(int step, int state, int tape[], int pos) {
     int write_symbol[5][2], move[5][2], new_state[5][2], read_symbol;
 
@@ -96,7 +96,7 @@ multi_dimensional_1_0() {
     puts("- - - - - - - - - -");
     turing(1, 0, tape, 0);
 }
-#lang(tcl)
+#lang tcl
 multi_dimensional_1_0
 } -output {Step	State	Tape
 - - - - - - - - - -
@@ -119,7 +119,7 @@ multi_dimensional_1_0
 }
 
 test references-1.0 {magic -variable should only affect next pointer} -body {
-#lang(L)
+#lang L
 int
 references_1_0()
 {
@@ -128,14 +128,14 @@ references_1_0()
 	a = 5;
 	printf("%s - %s - %s - %s", variable: &a, &b, &c);
 }
-#lang(tcl)
+#lang tcl
 references_1_0
 } -output {-variable - ::Lptr::1 a - b - c}
 
 
 
 test initializers-1.0 {initialize a whole array at once} -body {
-#lang(L)
+#lang L
 initializers_1_1() {
   string foo[] = initializers_1_1_returnarray();
 
@@ -146,36 +146,36 @@ initializers_1_1() {
 poly initializers_1_1_returnarray() {
   return "foo bar";
 }
-#lang(tcl)
+#lang tcl
 initializers_1_1
 } -output "foo\[0\] is foo\nfoo\[1\] is bar\n"
 
 test cast-1.0 {don't segfault when casting to a string} -body {
-#lang(L)
+#lang L
 cast_1_0() {
 	puts((string)"asdf");
 }
-#lang(tcl)
+#lang tcl
 cast_1_0
 } -output "asdf\n"
 
 
 test autoextend-1.0 {autoextending arrays of hashes don't work} -body {
-#lang(L)
+#lang L
 autoextend_1_0() {
 	hash h[];
 
 	h[0]{"asdf"} = "foo";
 	puts((tcl)h);
 }
-#lang(tcl)
+#lang tcl
 autoextend_1_0
 } -returnCodes {error} -result \
 	"L Error: Autoextending in multiple dimensions is not implemented yet on line 4\n"
 
 
 test typecheck-1.0 {typechecker segfaults on unop check that must be queued} -body {
-#lang(L)
+#lang L
 typecheck_1_0() {
 	// note the -
 	foo(-bar());
@@ -186,25 +186,25 @@ int bar() {
 string foo(string foo) {
 	return foo;
 }
-#lang(tcl)
+#lang tcl
 typecheck_1_0
 } -returnCodes {error} -result \
     "L Error: type error, want L_TYPE_STRING, got L_TYPE_INT on line 3\n"
 
 test decl-1.0 {don't drop array dimensions from typedef when declaring multiple variables} -body {
-#lang(L)
+#lang L
 typedef int atype[2];
 decl_1_0() {
 	atype foo[3], bar;
 	puts((tcl)foo);
 	puts((tcl)bar);
 }
-#lang(tcl)
+#lang tcl
 decl_1_0
 } -output "{0 0} {0 0} {0 0}\n0 0\n"
 
 test if-1.0 {jump target is wrong when else block gets too big} -body {
-#lang(L)
+#lang L -nowarn
 if_1_0() {
 	string w = ".asdf";
 	string b = "${w}.b", btm = "${w}.btm"; /* XXX use properties */
@@ -229,7 +229,7 @@ if_1_0() {
 }
 
 string winfo(string a, string b) {return 42;}
-#lang(tcl)
+#lang tcl
 if_1_0
 } -output {wicky wicky3
 42

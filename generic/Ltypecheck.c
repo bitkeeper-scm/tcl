@@ -43,6 +43,8 @@ static queued_check *queued_checks = NULL;
 /* A table mapping function names to function types */
 static Tcl_HashTable *function_types = NULL;
 
+extern L_compile_frame *lframe;
+
 /* Return codes from subtype */
 typedef enum { NOT_SUBTYPE, UNKNOWN, IS_SUBTYPE } type_relation;
 
@@ -64,8 +66,9 @@ L_check_kind(
     L_expression *expr)		/* The expression from which we derive
 				 * the actual type */
 {
+    if (lframe->options & L_OPT_POLY) return;
     L_type *type = mk_type(want, NULL, NULL, NULL, NULL, FALSE);
-    return L_check_type(type, expr);
+    L_check_type(type, expr);
 }
 
 /* Ensure that the type of :expr is compatible with the :want type.
@@ -81,6 +84,7 @@ L_check_type(
     L_type *have;
     queued_check *new;
 
+    if (lframe->options & L_OPT_POLY) return;
     if (!want) L_bomb("typecheck: Missing want type");
     have = L_expression_type(expr);
     switch (subtype(have, want)) {
@@ -114,6 +118,7 @@ L_check_arg_type(
 				 * Starts at 1.  0 means no arguments. */
     L_expression *expr) 	/* The argument itself. */
 {
+    if (lframe->options & L_OPT_POLY) return;
     queued_check *new;
     new = (queued_check *)ckalloc(sizeof(queued_check));
     memset(new, 0, sizeof(queued_check));

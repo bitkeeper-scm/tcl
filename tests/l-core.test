@@ -18,7 +18,7 @@ test lfile-1.0 {Test autowrapping of empty .l file} -setup {
 
 test lfile-1.1 {Test autowrapping of .l works} -setup {
 	set fname [makeFile {
-		main(int ac, string av[]) {
+		main() {
 			printf("hi mom\n");
 		}
 	} lfile-1.1.l]
@@ -30,11 +30,11 @@ test lfile-1.1 {Test autowrapping of .l works} -setup {
 	removeFile lfile-1.1.l
 } -result {hi mom}
 
-# main shouldn't be automatically caled if within an .l file we find
-# the #lang(L) directive... right?
+# main shouldn't be automatically called if within an .l file we find
+# the #lang L directive... right?
 test lfile-1.2 {Test autowrapping doesn't wrap twice} -setup {
 	set fname [makeFile {
-		#lang(L)
+		#lang L -nowarn
 		main(int ac, string av[]) {
 			printf("hi dad\n");
 		}
@@ -48,11 +48,11 @@ test lfile-1.2 {Test autowrapping doesn't wrap twice} -setup {
 } -result {}
 
 test parse-1.0 {Test parsing an empty L script} -body {
-#lang(L)
+#lang L
 }
 
 test parse-1.1 {Test parsing an L script that's just white space} -body {
-#lang(L)
+#lang L
 	
 
 
@@ -83,17 +83,17 @@ test parse-1.3 {Test parsing an L file that just has whitespace} -setup {
 } -result {}
 
 test proc-1.0 {Test L function definition.} -body {
-#lang(L)
+#lang L
 main(void) {
         puts("foo");
 }
-#lang(tcl)
+#lang tcl
 main  
 } -output "foo\n"
 
 
 test proc-1.1 {Test L function returns.} -body {
-#lang(L)
+#lang L
 f1() {
         puts("whiz");
 }
@@ -110,22 +110,22 @@ main(void) {
         puts(f2());
         puts(f3());
 }
-#lang(tcl)
+#lang tcl
 main  
 } -output "whiz\n\nbang\nfoo\n\n"
 
 test proc-1.2 {Test L function parameters.} -body {
-#lang(L)
+#lang L
 proc_1_2(string arg1, string arg2) {
         puts(arg1);
         puts(arg2);
 } 
-#lang(tcl)
+#lang tcl
 proc_1_2 "val1" "val2" 
 } -output "val1\nval2\n"
 
 test proc-1.3 {Test variable arity functions} -body {
-#lang(L)
+#lang L
 proc_1_3() {
 	foo("a", "b", "c", "d");
 	foo();
@@ -143,46 +143,46 @@ string bar(int a, ...stuff) {
 	puts(a);
 	puts((tcl)stuff);
 }
-#lang(tcl)
+#lang tcl
 proc_1_3
 } -output "a b c d \n\n1\n2 3 4\n1\n\n"
 
 test proc-1.4 {Ensure rest parameter comes last} -body {
-#lang(L)
+#lang L -nowarn
 proc_1_4(int a, ...b, int c) {
 	puts("oops");
 }
-#lang(tcl)
+#lang tcl
 proc_1_4
 } -returnCodes {error} -result "L Error: Rest parameter must be last on line 1\n"
 
 
 test var-1.0 {Test L variable assignment and reference} -body {
-#lang(L)
+#lang L
 var_1_0(void)
 {
 	string s;
         s = "Hello";
 	puts(s);
 }
-#lang(tcl)
+#lang tcl
 var_1_0
 } -output "Hello\n"
 
 test var-1.1 {L global variables} -body {
-#lang(L)
+#lang L
 int lglobal1_1 = 1;
 var_1_1(void)
 {
         puts(lglobal1_1);
 }
-#lang(tcl)
+#lang tcl
 var_1_1
 } -output "1\n"
 
 
 test var-1.2 {L global variables, harder} -body {
-#lang(L)
+#lang L
 int lglobal1_2 = 3;
 var_1_2(void)
 {
@@ -197,23 +197,23 @@ var_1_2_aux()
         puts(lglobal1_2);
         lglobal1_2 = 5;
 }
-#lang(tcl)
+#lang tcl
 var_1_2
 } -output "3\n4\n5\n"
 
 test var-1.4 {Variable function names} -body {
-#lang(L)
+#lang L
 var_1_4() {
   string printfvar = "printf";
   printfvar("Earth calling printf\n");
 }
-#lang(tcl)
+#lang tcl
 var_1_4
 } -output "Earth calling printf\n"
 
 
 test var-1.3 {A global array of structs} -body {
-#lang(L)
+#lang L
 
 struct var_1_3_point { int x, y; };
 struct var_1_3_point lglobal1_3[5];
@@ -238,7 +238,7 @@ var_1_3_aux(int i)
         lglobal1_3[i].x = i * 35;
         lglobal1_3[i].y = i * 45;
 }
-#lang(tcl)
+#lang tcl
 var_1_3
 } -output "{0 0} {0 0} {0 0} {0 0} {0 0}
 {0 0} {10 20} {20 40} {30 60} {40 80}
@@ -247,25 +247,25 @@ var_1_3
 
 test var-1.4 {Test extern variables} -body {
 set tclvar "this is an extern variable"
-#lang(L)
+#lang L
 var_1_4()
 {
 	extern string tclvar;
 	puts(tclvar);
 }
-#lang(tcl)
+#lang tcl
 var_1_4
 } -output "this is an extern variable\n"
 
 test lang-1.0 {Test lang parsing} -body {
 # These are some Tcl Comments
-#lang(L)
+#lang L
 main(void)
 {
 	puts("worked");
 }
 
-#lang(tcl)
+#lang tcl
 # More comments
 main
 } -output "worked\n"
@@ -277,13 +277,13 @@ main(void)
 	puts("worked");
 }
 
-#lang(tcl)
+#lang tcl
 main
-} -returnCodes {error} -result {unknown language}
+} -returnCodes {error} -result {malformed pragma}
 
 # no output because we're not calling any functions
 test lang-3.0 {Test not switching back to Tcl} -body {
-#lang(L)
+#lang L
 main(void)
 {
 	puts("worked");
@@ -291,7 +291,7 @@ main(void)
 }
 
 test decl-1.0 {Variable and parameter declaration syntax} -body {
-#lang(L)
+#lang L -nowarn
 fun1() { }
 fun2(void) { }
 void fun3() { }
@@ -312,25 +312,25 @@ void fun8() {
                 }
         }
 }
-#lang(tcl)
+#lang tcl
 fun8
 } -output "om\n";
 
 test decl-1.1 {Hairy literal hash syntax in initializers} -body {
-#lang(L)
+#lang L -nowarn
 initmewoo() {
         hash h = { "key" => "val", "key2" => "val" };
 }
-#lang(tcl)
+#lang tcl
 }
 
 test decl-1.2 {Undeclared variable error} -body {
-#lang(L)
+#lang L
 undecl() {
         foo = "bar";
         puts(cheese);
 }
-#lang(tcl)
+#lang tcl
 undecl
 } -returnCodes error -result {L Error: Undeclared variable: foo on line 2
 L Error: Undeclared variable: cheese on line 3
@@ -338,7 +338,7 @@ L Error: Undeclared variable: cheese on line 3
 
 
 test decl-1.3 {Variable shadowing} -body {
-#lang(L)
+#lang L
 shadow() {
         int foo = 1;
         if (1) {
@@ -347,13 +347,13 @@ shadow() {
         } 
         puts(foo);
 }
-#lang(tcl)
+#lang tcl
 shadow
 } -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
 }
 
 test decl-1.4 {Single dimensional initializers actually initialize} -body {
-#lang(L)
+#lang L
 decl_1_4 () {
   int foo[] = {4, 5, 6};
   hash bar = {"foo" => 4, "bar" => 5, "baz" => 6};
@@ -363,12 +363,12 @@ decl_1_4 () {
   printf("%s\n", (tcl)bar);
   printf("%s\n", point);
 }
-#lang(tcl)
+#lang tcl
 decl_1_4
 } -output "4 5 6\nfoo 4 bar 5 baz 6\n1024 768\n"
 
 test if-1.0 {If statements} -body {
-#lang(L)
+#lang L
 if_1_0() {
         if (1) puts("0 working");
         if (0) {
@@ -379,13 +379,13 @@ if_1_0() {
                 puts("1 working");
         } 
 }
-#lang(tcl)
+#lang tcl
 if_1_0
 } -output "0 working\nbetween\n1 working\n"
 
 
 test if-1.1 {If statements with else clauses and multistatement bodies} -body {
-#lang(L)
+#lang L
 if_1_1() {
         if (1) {
                 puts("1 working");
@@ -405,13 +405,13 @@ if_1_1() {
                 puts(".");
         }
 }
-#lang(tcl)
+#lang tcl
 if_1_1
 } -output "1 working\n.\n2 working\n.\n.\n"
 
 
 test if-1.2 {"else if" clauses} -body {
-#lang(L)
+#lang L
 if_1_2() {
         if (0) {
                 puts("1 broken");
@@ -429,12 +429,12 @@ if_1_2() {
                 puts("2 working");
         }
 }
-#lang(tcl)
+#lang tcl
 if_1_2
 } -output "1 working\nbetween\n2 working\n"
 
 test if-1.3 {nested if statements} -body {
-#lang(L)
+#lang L
 if_1_3() {
         if (1) {
                 puts("1 before");
@@ -449,23 +449,23 @@ if_1_3() {
         }
         puts("1 done");
 }
-#lang(tcl)
+#lang tcl
 if_1_3
 } -output "1 before\n1 working\n1 after\n1 done\n"
 
 
 test if-1.4 {else is only allowed with curly braces} -body {
-#lang(L)
+#lang L
 main(void)
 {
 	if (0) puts("1 broken"); else puts("1 even more broken");
 }
-#lang(tcl)
+#lang tcl
 } -returnCodes error -match glob -result "L Error: *line 3\n"
 
 
 test unless-1.0 {unless statements} -body {
-#lang(L)
+#lang L
 unless_1_0() {
         unless(0) puts("0 working");
         unless(0) {
@@ -484,12 +484,12 @@ unless_1_0() {
                 puts("3 working");
         }
 } 
-#lang(tcl)
+#lang tcl
 unless_1_0
 } -output "0 working\n1 working\n2 working\n3 working\n"
 
 test unless-1.1 {unless and if statements mixed} -body {
-#lang(L)
+#lang L
 unless_1_1() {
         unless(1) {
                 puts("1 broken");
@@ -500,24 +500,24 @@ unless_1_1() {
         }
         puts("done");
 } 
-#lang(tcl)
+#lang tcl
 unless_1_1
 } -output "1 working\ndone\n"
 
 test syntax-1.0 {single-line comments a la C++} -body {
-#lang(L)
+#lang L
 syntax_1_0() {
         // single-line comments are 
         puts("working"); //see?
         //////cruftilioucious 
 }
-#lang(tcl)
+#lang tcl
 syntax_1_0
 } -output "working\n" 
 
 
 test syntax-1.1 {structure syntax} -body {
-#lang(L)
+#lang L -nowarn
 
 struct syntax_1_1_point {
         int x, y;
@@ -533,12 +533,12 @@ syntax_1_1() {
         puts("didn't crash");
 }
 
-#lang(tcl)
+#lang tcl
 syntax_1_1
 } -output "didn't crash\n"
 
 test syntax-1.2 {interpolated strings} -body {
-#lang(L)
+#lang L
 
 syntax_1_2() {
         int i = 1, j = 2;
@@ -548,31 +548,31 @@ syntax_1_2() {
         puts("foo ${"bar ${m} baz"} zot");
 }
 
-#lang(tcl)
+#lang tcl
 syntax_1_2
 } -output "syntax_1_2.\nfoo bar ASDF baz zot\n"
 
 test syntax-1.3 {keywords} -body {
-#lang(L)
+#lang L
 syntax_1_3() {
 	printf("%s, %s, %s\n", foo : "bar", baz:);
 }
-#lang(tcl)
+#lang tcl
 syntax_1_3
 } -output "-foo, bar, -baz\n"
 
 test syntax-1.4 {string appendation} -body {
-#lang(L)
+#lang L
 syntax_1_4() {
 	printf("these" "strings"
 	    "stick" "together.\n");
 }
-#lang(tcl)
+#lang tcl
 syntax_1_4
 } -output "thesestringssticktogether.\n"
 
 test op-1.0 {increment and decrement operators} -body {
-#lang(L)
+#lang L
 op_1_0() {
         int i = 1;
 
@@ -596,12 +596,12 @@ op_1_0() {
         puts(i--);
         puts(i);
 }
-#lang(tcl)
+#lang tcl
 op_1_0
 } -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
 
 test op-1.1 {plus, minus, multiply, divide, and modulus operators} -body {
-#lang(L)
+#lang L
 op_1_1() {
         int i = 2;
         puts(i + 5);
@@ -613,12 +613,12 @@ op_1_1() {
         // precedence
         puts(i + i / i - i * i % i);
 }
-#lang(tcl)
+#lang tcl
 op_1_1
 } -output "7\n-48\n1000\n1\n0.5\n1\n3\n"
 
 test op-1.2 {unary plus and minus} -body {
-#lang(L)
+#lang L
 op_1_2() {
         int i = -2;
         int j = +2;
@@ -635,12 +635,12 @@ op_1_2() {
         puts(j * +3);
         puts(+8 - +2);
 }
-#lang(tcl)
+#lang tcl
 op_1_2
 } -output "-2\n-102\n306\n-6\n2\n102\n306\n6\n"
 
 test op-1.3 {numeric comparison operators} -body {
-#lang(L)
+#lang L
 op_1_3() {
         if (-1 < 1) { puts("1okay"); } else { puts("1broken"); }
         if (1 > -1) { puts("2okay"); } else { puts("2broken"); }
@@ -660,13 +660,13 @@ op_1_3() {
         if (-1 >= 1) { puts("6broken"); } else { puts("6okay"); }
 
 }
-#lang(tcl)
+#lang tcl
 op_1_3
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
 --\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
 
 test op-1.4 {lexicographic comparison operators} -body {
-#lang(L)
+#lang L
 op_1_4() {
         if ("aa" lt "ab") { puts("1okay"); } else { puts("1broken"); }
         if ("ab" gt "aa") { puts("2okay"); } else { puts("2broken"); }
@@ -686,14 +686,14 @@ op_1_4() {
         if ("aa" ge "ab") { puts("6broken"); } else { puts("6okay"); }
 
 }
-#lang(tcl)
+#lang tcl
 op_1_4
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n7okay\n8okay
 --\n1okay\n2okay\n3okay\n4okay\n5okay\n6okay\n"
 
 
 test op-1.5 {boolean operators} -body {
-#lang(L)
+#lang L
 op_1_5() {
         int true = 1, false = 0;
         if (true && true)       { puts("1okay"); } else { puts("1broken"); }
@@ -709,13 +709,13 @@ op_1_5() {
         if (!true)              { puts("3broken"); } else { puts("3okay"); }
 
 }
-#lang(tcl)
+#lang tcl
 op_1_5
 } -output "1okay\n2okay\n3okay\n4okay\n5okay\n--\n1okay\n2okay\n3okay\n"
 
 
 test op-1.6 {bitwise operators} -body {
-#lang(L)
+#lang L
 op_1_6(){
         int bits = 715827882;
 
@@ -730,13 +730,13 @@ op_1_6(){
         puts(bits ^ (bits + 1));
 
 }
-#lang(tcl)
+#lang tcl
 op_1_6
 } -output "1431655764\n357913941\n1\n-1024\n-2\n-715827883\n0\n-1\n1\n"
 
 
 test op-1.7 {logical operator short-circuiting} -body {
-#lang(L)
+#lang L
 puts_int(string str) {
         puts(str);
         return 9;
@@ -747,12 +747,12 @@ op_1_7(){
         puts(0 || puts_int("3"));
         puts(1 || puts_int("4"));
 }
-#lang(tcl)
+#lang tcl
 op_1_7
 } -output "0\n2\n9\n3\n9\n1\n"
 
 test op-1.8 {compound assignment operators, simple lvalues} -body {
-#lang(L)
+#lang L
 op_1_8() {
   int foo;
 
@@ -778,12 +778,12 @@ op_1_8() {
   puts(foo >>= 2);
   puts(foo);
 }
-#lang(tcl)
+#lang tcl
 op_1_8
 } -output "2\n2\n-1\n-1\n-4\n-4\n2\n2\n3\n3\n11\n11\n8\n8\n1\n1\n8\n8\n2\n2\n"
 
 test op-1.9 {compound assignment operators, array lvalues} -body {
-#lang(L)
+#lang L
 op_1_9() {
   int foo[4];
 
@@ -810,40 +810,40 @@ op_1_9() {
   puts(foo[2]);
   puts((tcl)foo);
 }
-#lang(tcl)
+#lang tcl
 op_1_9
 } -output "2\n2\n-1\n-1\n-4\n-4\n2\n2\n3\n3\n11\n11\n8\n8\n1\n1\n8\n8\n2\n2\n0 0 2 0\n"
 
 test cast-1.0 { Casts to integer and float } -body {
-#lang(L)
+#lang L
 cast_1_0() {
     printf("%d\n", (int)1.9);
     printf("%f\n", (float)5);
 }
-#lang(tcl)
+#lang tcl
 cast_1_0
 } -output "1\n5.000000\n"
 
 test cast-1.1 { Invalid cast from string to int } -body {
-#lang(L)
+#lang L
 cast_1_1() {
     printf("%d\n", (int)"asdf");
 }
-#lang(tcl)
+#lang tcl
 cast_1_1
 } -returnCodes {error} -result {expected number but got "asdf"}
 
 test cast-1.2 { Invalid cast from string to float } -body {
-#lang(L)
+#lang L
 cast_1_2() {
     printf("%f\n", (float)"asdf");
 }
-#lang(tcl)
+#lang tcl
 cast_1_2
 } -returnCodes {error} -result {expected floating-point number but got "asdf"}
 
 test array-1.0 { Single-dimensional array creation and indexing } -body {
-#lang(L)
+#lang L
 array_1_0() {
     int array[3];
 
@@ -852,12 +852,12 @@ array_1_0() {
     array[2] = 3;
     puts(array[2]);
 }
-#lang(tcl)
+#lang tcl
 array_1_0
 } -output "3\n"
 
 test array-1.1 { Multi-dimensional array creation and indexing } -body {
-#lang(L)
+#lang L
 array_1_0() {
     int array[4][3][2];
 
@@ -868,17 +868,16 @@ array_1_0() {
     array[3][0][1] = 4;
     puts((tcl)array);
 }
-#lang(tcl)
+#lang tcl
 array_1_0
 } -output "{{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}}
 {{1 0} {0 0} {0 0}} {{0 0} {0 2} {0 0}} {{0 0} {0 0} {3 0}} {{0 4} {0 0} {0 0}}\n"
 
 
 test array-1.2 {increment and decrement on array elements} -body {
-#lang(L)
+#lang L
 array_1_2() {
   int foo[5];
-  int i;
 
   foo[3] = 0;
   for (foo[3]=0; foo[3]<5; foo[3]++);
@@ -905,12 +904,12 @@ array_1_2() {
   puts(foo[3]);
   puts((tcl)foo);
 }
-#lang(tcl)
+#lang tcl
 array_1_2
 } -output "0 0 0 5 0\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\n0 0 0 5 0\n"
 
 test array_1_3 {1d arrays with no length auto-extend by one at a time} -body {
-#lang(L)
+#lang L
 array_1_3() {
   int foo[];
 
@@ -919,12 +918,12 @@ array_1_3() {
   foo[2] = 6;
   puts((tcl)foo);
 }
-#lang(tcl)
+#lang tcl
 array_1_3
 } -output "4 5 6\n"
 
 test array_1_4 {extend arrays using push and pop} -body {
-#lang(L)
+#lang L
 array_1_4() {
   int foo[];
 
@@ -941,13 +940,13 @@ array_1_4() {
   puts(pop(foo));
   puts((tcl)foo);
 } 
-#lang(tcl)
+#lang tcl
 array_1_4
 } -output "1 2 3\n3\n1 2\n2\n1\n1\n\n\n\n"
 
 
 test array_1_3 {1d arrays with no length auto-extend by one at a time} -body {
-#lang(L)
+#lang L
 array_1_3() {
   int foo[];
 
@@ -956,13 +955,13 @@ array_1_3() {
   foo[2] = 6;
   puts((tcl)foo);
 }
-#lang(tcl)
+#lang tcl
 array_1_3
 } -output "4 5 6\n"
 
 
 test loop-1.0 {while loops} -body {
-#lang(L)
+#lang L
 loop_1_0() {
         int i = 0;
         while (i++ < 5) puts (i);
@@ -971,11 +970,11 @@ loop_1_0() {
                 puts(j);
         }
 }
-#lang(tcl)
+#lang tcl
 loop_1_0
 } -output "1\n2\n3\n4\n5\n6\n5\n4\n3\n2\n1\n"
 test loop-1.1 {for loops} -body {
-#lang(L)
+#lang L
 loop_1_1() {
         int i;
         for (i=1; i<7; i++) {
@@ -986,12 +985,12 @@ loop_1_1() {
                 puts(i);
         }
 }
-#lang(tcl)
+#lang tcl
 loop_1_1
 } -output "1\n2\n3\n4\n5\n6\n-*-\n7\n6\n5\n4\n3\n2\n1\n"
 
 test loop-1.2 {foreach loops} -body {
-#lang(L)
+#lang L
 loop_1_2() {
 	hash h, empty;
 	string k, v;
@@ -1012,7 +1011,7 @@ loop_1_2() {
 		printf("key is %s\n", k);
 	}
 }
-#lang(tcl)
+#lang tcl
 loop_1_2
 } -output "key is a, value is 1
 key is b, value is 2
@@ -1023,7 +1022,7 @@ key is c
 "
 
 test loop-1.3 {continue statements} -body {
-#lang(L)
+#lang L
 loop_1_3() {
   loop_1_3_for_continue();
   loop_1_3_foreach_continue();
@@ -1054,7 +1053,7 @@ loop_1_3_foreach_continue() {
     printf("%s => %s\n", k, v);
   }
 }
-#lang(tcl)
+#lang tcl
 loop_1_3
 } -output {0
 1
@@ -1065,7 +1064,7 @@ c => z
 }
 
 test loop-1.4 {break statements} -body {
-#lang(L)
+#lang L
 loop_1_4() {
   loop_1_4_foreach_break();
   loop_1_4_for_break();
@@ -1100,7 +1099,7 @@ loop_1_4_for_break() {
   }
   printf("at the end of the day, i is %d\n", i);
 }
-#lang(tcl)
+#lang tcl
 loop_1_4
 } -output {loop's over, k is b, v is y
 0
@@ -1116,7 +1115,7 @@ at the end of the day, i is 5
 
 
 test struct-1.0 {structs} -body {
-#lang(L)
+#lang L
 struct struct_1_0_point {
         int x, y;
         string label;
@@ -1138,7 +1137,7 @@ struct_1_0() {
         puts("p2 is:");
         puts(p2);
 }
-#lang(tcl)
+#lang tcl
 struct_1_0
 } -output "p1 is:
 1 2 {this is a label}
@@ -1150,7 +1149,7 @@ p2 is:
 "
 
 test struct-1.1 {struct allocation and arrays of structs} -body {
-#lang(L)
+#lang L
 struct struct_1_1_point {
         int x, y;
         string label;
@@ -1170,7 +1169,7 @@ struct_1_1() {
      puts(s[i]);
    }
 }
-#lang(tcl)
+#lang tcl
 struct_1_1
 } -output "42 0 {10 cows}
 43 1 {9 cows}
@@ -1185,7 +1184,7 @@ struct_1_1
 "
 
 test struct-1.2 {arrays of structs containing arrays} -body {
-#lang(L)
+#lang L
 struct struct_1_2_point {
         int x, y;
         string label;
@@ -1207,7 +1206,7 @@ struct_1_2() {
      puts(s[i]);
    }
 }
-#lang(tcl)
+#lang tcl
 struct_1_2
 } -output "42 0 {10 cows} {0 0 0 0}
 43 1 {9 cows} {0 1 0 0}
@@ -1222,14 +1221,13 @@ struct_1_2
 "
 
 test struct-1.3 {increment and decrement on struct fields} -body {
-#lang(L)
+#lang L
 struct foo {
   int i;
 };
 
 struct_1_3() {
   struct foo v;
-  int i;
 
   v.i = 0;
   for (v.i=0; v.i<5; v.i++);
@@ -1255,24 +1253,24 @@ struct_1_3() {
   puts(v.i--);
   puts(v.i);
 }
-#lang(tcl)
+#lang tcl
 struct_1_3
 } -output "5\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\n"
 
 
 test hash-1.0 {basic hashtable support} -body {
-#lang(L)
+#lang L
 void hash_1_0() {
   hash foo;
   foo{"key"} = "value";
   puts(foo{"key"});
 }
-#lang(tcl)
+#lang tcl
 hash_1_0
 } -output "value\n"
 
 test hash-1.1 {array of hashtables} -body {
-#lang(L)
+#lang L
 void hash_1_1() {
   hash foo[10];
   foo[5]{"key"} = "value";
@@ -1280,12 +1278,12 @@ void hash_1_1() {
   puts(foo[5]{"key"});
   puts(foo[4]{"key"});
 }
-#lang(tcl)
+#lang tcl
 hash_1_1
 } -output "value\n\n"
 
 test hash-1.2 {increment and decrement on hash elements} -body {
-#lang(L)
+#lang L -poly
 hash_1_2() {
   hash foo;
 
@@ -1314,12 +1312,12 @@ hash_1_2() {
   puts(foo{"three"});
   puts((tcl)foo);
 }
-#lang(tcl)
+#lang tcl
 hash_1_2
 } -output "three 5\npre:\n5\n6\n7\n6\n5\npost:\n5\n6\n6\n7\n6\n6\n5\nthree 5\n"
 
 test hash-1.3 {a hash inside of an array inside a struct} -body {
-#lang(L)
+#lang L -poly
 hash_1_3() {
 	struct { int foo; hash bar[4][5]; } baz;
 
@@ -1329,24 +1327,24 @@ hash_1_3() {
 	puts(baz.bar[3][4]{"asdf"}--);
 	puts(baz);
 }
-#lang(tcl)
+#lang tcl
 hash_1_3
 } -output "18\n2 {{{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {asdf 17}}}\n"
 
 
 test regexp-1.0 {regular expression support} -body {
-#lang(L)
+#lang L
 void regexp_1_0() {
         string s = "string";
         puts(s =~ /ring/);
         puts(s =~ /bob/);
 }
-#lang(tcl)
+#lang tcl
 regexp_1_0
 } -output "1\n0\n"
 
 test regexp-1.1 {magic submatch variables ($1, $2, ...)} -body {
-#lang(L)
+#lang L
 void regexp_1_1() {
         string s = "Go not to the elves for counsel, for they will say both yes and no.";
 
@@ -1357,14 +1355,14 @@ void regexp_1_1() {
                 puts($3);
         }
 }
-#lang(tcl)
+#lang tcl
 regexp_1_1
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
 
 test regexp-1.2 {magic submatch variables with interpolation} -body {
-#lang(L)
+#lang L
 void regexp_1_2() {
         string s = "Go not to the elves for counsel, for they will say both yes and no.";
         string interp = "elves";
@@ -1376,13 +1374,13 @@ void regexp_1_2() {
                 puts($3);
         }
 }
-#lang(tcl)
+#lang tcl
 regexp_1_2
 } -output "Go not to the elves for counsel, for they will say both yes and no.
 Go not to the elves\nGo\nelves\n"
 
 test regexp-1.3 {regexp substitution} -body {
-#lang(L)
+#lang L -poly
 regexp_1_3() {
         string s = "string";
 	string s1[] = {"a", "b", "coochie"};
@@ -1403,12 +1401,12 @@ regexp_1_3() {
 	h[1]{"m"} =~ s/not a/probably a/;
 	puts((tcl)h);
 }
-#lang(tcl)
+#lang tcl
 regexp_1_3
 } -output "1\n0\n--------\n1\nstling\n--------\n1\na b foochie\n--------\n{a string} {m {not a string}}\n{a string} {m {probably a string}}\n"
 
 test reference-1.0 {L references} -body {
-#lang(L)
+#lang L -nowarn
 reference_1_0() {
   string foo = "this is a string";
   printf("so far, so good: %s\n", foo);
@@ -1420,7 +1418,7 @@ reference_1_0_aux(string dummy, string &bob) {
   printf("foot: %s\n", bob);
   bob = "This was a string.";
 }
-#lang(tcl)
+#lang tcl
 reference_1_0
 } -output "so far, so good: this is a string
 foot: this is a string
@@ -1428,7 +1426,7 @@ This was a string.
 "
 
 test reference-1.1 {L references} -body {
-#lang(L)
+#lang L
 struct reference_1_1_point { int x, y; };
 
 reference_1_1() {
@@ -1441,13 +1439,13 @@ reference_1_1() {
 reference_1_1_tweak(struct reference_1_1_point &foo) {
   foo.x = 2;
 }
-#lang(tcl)
+#lang tcl
 reference_1_1
 } -output "0 0
 2 0
 "
 test reference-1.2 {widget pointer thingys} -body {
-#lang(L)
+#lang L
 int
 reference_1_2()
 {
@@ -1457,12 +1455,12 @@ reference_1_2()
 	printf("%s %s\n", variable: &a);
 	eval("puts [set ::Lptr::[list 1 a]]");
 }
-#lang(tcl)
+#lang tcl
 reference_1_2
 } -output "-variable ::Lptr::1 a\n5\n"
 
 test reference-1.3 {widget pointers via the Lptr namespace} -body {
-#lang(L)
+#lang L
 reference_1_3()
 {
   int reference_1_3_foo = 0;
@@ -1470,12 +1468,12 @@ reference_1_3()
   eval("set {::Lptr::1 reference_1_3_foo} 93");
   puts(reference_1_3_foo);
 }
-#lang(tcl)
+#lang tcl
 reference_1_3
 } -output "-variable, ::Lptr::1 reference_1_3_foo\n93\n"
 
 test typedef-1.0 {basic typedef support} -body {
-#lang(L)
+#lang L
 typedef int typedef_1_0_foot[5];
 typedef string typedef_1_0_nike;
 typedef struct typedef_1_0_point {
@@ -1502,12 +1500,12 @@ typedef_1_0_nike typedef_1_0_aux() {
   puts(shoe);
   return shoe;
 }
-#lang(tcl)
+#lang tcl
 typedef_1_0
 } -output "1 2\n2\npegasus\npegasus\n"
 
 test defined-1.0 {interesting defined form support} -body {
-#lang(L)
+#lang L
 defined_1_0() {
   int arr[5][2], i, j;
   for (i = 0; defined(arr[i]); i++) {
@@ -1519,7 +1517,7 @@ defined_1_0() {
   puts(defined(arr[3]));
   puts(defined(arr[-1]));
 }
-#lang(tcl)
+#lang tcl
 defined_1_0
 } -output "0, 0
 0, 1
@@ -1537,7 +1535,7 @@ defined_1_0
 "
 
 test defined-1.1 {defined works on hashes} -body {
-#lang(L)
+#lang L
 defined_1_1() {
 	hash foo[5];
 
@@ -1551,13 +1549,13 @@ defined_1_1() {
 		puts("defined works even better");
 	}
 }
-#lang(tcl)
+#lang tcl
 defined_1_1
 } -output "defined works\ndefined works even better\n"
 
 test main-1.0 {test that main gets called} -setup {
 	set fname [makeFile {
-		main(int argc, string argv[]) {
+		main() {
 			printf("main got called\n");
 		}
 	} test-1.0.l]
@@ -1571,7 +1569,7 @@ test main-1.0 {test that main gets called} -setup {
 
 
 test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
-#lang(L)
+#lang L
 lib_1_0() {
 	puts("don't overwrite");
 	setenv("PATH", "nil", 0);
@@ -1589,7 +1587,7 @@ lib_1_0() {
 		puts("worked");
 	}
 }
-#lang(tcl)
+#lang tcl
 lib_1_0
 } -output {don't overwrite
 worked
@@ -1600,14 +1598,14 @@ worked
 }
 
 test toplevel-1.0 {Toplevel code in L} -body {
-#lang(L)
+#lang L
 int toplevel_1_0_i = 2;
 printf("at the toplevel, i is: %d\n", toplevel_1_0_i);
 
 toplevel_1_0(void) {
   printf("in toplevel_1_0, i is: %d\n", toplevel_1_0_i);
 }
-#lang(tcl)
+#lang tcl
 toplevel_1_0
 } -output {at the toplevel, i is: 2
 in toplevel_1_0, i is: 2
@@ -1628,7 +1626,7 @@ Sphenic numbers always have exactly eight divisors.
 }
 
 test typecheck-1.0 {L typechecking} -body {
-#lang(L)
+#lang L
 typecheck_1_0() {
 	puts(typecheck_1_0_foo() + 22);
 }
@@ -1636,20 +1634,20 @@ typecheck_1_0() {
 string typecheck_1_0_foo() {
 	return "string";
 }
-#lang(tcl)
+#lang tcl
 typecheck_1_0
 } -returnCodes {error} \
 -result "L Error: type error, want L_TYPE_NUMBER, got L_TYPE_STRING on line 2\n"
 
 test typecheck-1.1 {arity check} -body {
-#lang(L)
+#lang L -nowarn
 typecheck_1_1() {
 	foo(1, 2, 3);
 	bar();
 }
 foo() {}
 bar(int a, int b) {}
-#lang(tcl)
+#lang tcl
 } -returnCodes {error} \
 -result "L Error: Not enough arguments for function bar on line 3
 L Error: Too many arguments for function foo on line 2\n"
