@@ -14,7 +14,7 @@
     ((envPtr)->codeNext - (envPtr)->codeStart)
 
 
-static L_compile_frame *lframe = NULL;
+L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
 Tcl_Obj *L_errors = NULL;
 int L_line_number = 0;
@@ -100,18 +100,45 @@ Tcl_LObjCmd(
     int stringLen;
     char *stringPtr;
     L_ast_node *ast;
+    static CONST char *options[] = { "-poly", "-nowarn", NULL };
+    enum options { L_POLY, L_NOWARN };
+    int index, i;
+    int opts = 0;
 
     L_trace("Entering L compiler via Tcl_LObjCmd");
-    if (objc != 2) {
-	Tcl_WrongNumArgs(interp, 1, objv, "l-program");
+
+    if (objc < 2) {
+	Tcl_WrongNumArgs(interp, 1, objv, "?options? l-program");
 	return TCL_ERROR;
     }
-    stringPtr = Tcl_GetStringFromObj(objv [1], &stringLen);
+
+    /* option parsing -- add flags to :opts */
+    for (i = 1; i < objc - 1; i++) {
+	if (Tcl_GetIndexFromObj(interp, objv[i], options, "option", 0, &index)
+	    != TCL_OK)
+	{
+	    return TCL_ERROR;
+	}
+	switch ((enum options)index) {
+	case L_POLY:
+	    L_trace("poly mode");
+	    opts |= L_OPT_POLY;
+	    break;
+	case L_NOWARN:
+	    L_trace("nowarn mode");
+	    opts |= L_OPT_NOWARN;
+	    break;
+	default:
+	    L_bomb("bad option that Tcl_GetIndexFromObj should've caught");
+	}
+    }
+
+    stringPtr = Tcl_GetStringFromObj(objv[objc - 1], &stringLen);
     if (LParseScript(interp, stringPtr, stringLen, &ast) != TCL_OK) {
         return TCL_ERROR;
     }
     if (ast == NULL) return TCL_OK;	/* empty script */
-    return LCompileScript(interp, stringPtr, stringLen, NULL, ast);
+    return LCompileScript(interp, NULL, ast, opts);
 }
 
 /* If TCL encounters an L pragma while compiling TCL code, for example when
@@ -156,8 +183,7 @@ TclCompileLCmd(
         L_frame_pop();
 	return TCL_OK;
     }
-    return LCompileScript(interp, lTokenPtr[1].start, lTokenPtr[1].size,
-	      envPtr, ast);
+    return LCompileScript(interp, envPtr, ast, 0);
 }
 
 /* Parse an L script into an AST.  Parsing and compiling are broken into two
@@ -210,14 +236,13 @@ LParseScript(
 int
 LCompileScript(
     Tcl_Interp *interp,
-    CONST char *str,
-    int numBytes,
     CompileEnv *envPtr,
-    void *ast)
+    void *ast,
+    int opts)
 {
-/*     L_trace("Compiling: \n %.*s", numBytes, str); */
     L_trace("compiling");
     L_frame_push(interp, envPtr, ast);
+    lframe->options = opts;
     if (envPtr)
         lframe->originalCodeNext = envPtr->codeNext;
 
@@ -2266,6 +2291,10 @@ L_frame_push(
     new_frame->break_jumps = NULL;
     new_frame->toplevel_p = FALSE;
     new_frame->prevFrame = lframe;
+    /* inherit options from the previous frame */
+    if (lframe != NULL) {
+	new_frame->options = lframe->options;
+    }
     lframe = new_frame;
 }
 
@@ -2321,8 +2350,10 @@ L_trace(const char *format, ...)
 void
 L_warning(char *s)
 {
-    /* XXX there must be a better way to emit a warning */
-    fprintf(stderr, "L Warning: %s\n", s);
+    if (!(lframe && lframe->options & L_OPT_NOWARN)) {
+	/* XXX there must be a better way to emit a warning */
+	fprintf(stderr, "L Warning: %s\n", s);
+    }
 }
 
 void
@@ -2330,12 +2361,14 @@ L_warningf(void *node, const char *format, ...)
 {
     va_list ap;
 
-    va_start(ap, format);
-    fprintf(stderr, "L Warning: ");
-    vfprintf(stderr, format, ap);
-    fprintf(stderr, " on line %d\n",
-	node ? ((L_ast_node *)node)->line_no : -1);
-    va_end(ap);
+    if (!(lframe && lframe->options & L_OPT_NOWARN)) {
+	va_start(ap, format);
+	fprintf(stderr, "L Warning: ");
+	vfprintf(stderr, format, ap);
+	fprintf(stderr, " on line %d\n",
+	    node ? ((L_ast_node *)node)->line_no : -1);
+	va_end(ap);
+    }
 }
 
 /* L_error is yyerror */

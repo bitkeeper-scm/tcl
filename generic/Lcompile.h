@@ -39,8 +39,14 @@ typedef struct L_compile_frame {
     JumpOffsetList *continue_jumps;
     JumpOffsetList *break_jumps;
     int toplevel_p; 		/* FALSE unless frame is toplevel. */
+    int options;		/* A combination of L_OPT_* flags, or 0 */
     struct L_compile_frame *prevFrame;
 } L_compile_frame;
+
+/* L options, stored in the options field of the L_compile_frame. */
+#define L_OPT_POLY	(1 << 0) /* Typecheck disabled, no need to declare
+				  * variables */
+#define L_OPT_NOWARN	(1 << 1) /* Warnings disabled. */
 
 /* L_symbols are used to represent variables. */
 typedef struct L_symbol {
@@ -53,8 +59,7 @@ typedef struct L_symbol {
 } L_symbol;
 
 
-int LCompileScript(Tcl_Interp *interp, CONST char *str, int numBytes, 
-                    CompileEnv *envPtr, void *ast);
+int LCompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts);
 int LParseScript(Tcl_Interp *interp, CONST char *str, int numBytes, L_ast_node **ast);
 void L_push_variable(L_expression *name);
 void L_return(int value_on_stack_p);

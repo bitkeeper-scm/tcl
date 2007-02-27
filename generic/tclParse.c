@@ -220,118 +220,74 @@ ParseLang(
     int *scanned)		/* How many bytes we used */
 {
     register CONST char *p = src;
-    char *end_of_first_line, *end;
-    Tcl_Token *tokenPtr;	/* Pointer to token being filled in. */
-    int wordIndex;		/* Index of word token for current word. */
+    char *eol, *end;
+    Tcl_Token *tokenPtr;
+    Tcl_Parse optsParse;
+    int wordIdx;
+    char *message = "malformed pragma";
 
-    if (strncmp(p, "#lang(tcl)", 10) == 0) {
-	/* don't do anything, but eat the lang directive, same as if it
-	 * were a Tcl comment
-	 */
-	end = strchr(p, '\n');
-	if (end == NULL) {
-	    *scanned = 10;
-	} else {
-	    *scanned = end - p;
+    p += 5;
+    eol = strchr(p, '\n') + 1;
+    /* in case there's no \n, use the end of the string instead */
+    if (eol == (char *)1) {
+        eol = (char *)src + numBytes;
+    }
+    if (Tcl_ParseCommand(interp, p, eol - p, 0, &optsParse) != TCL_OK) {
+	goto error;
+    }
+    if (optsParse.numWords < 1) goto error;
+    tokenPtr = optsParse.tokenPtr;
+    if (tokenPtr->type != TCL_TOKEN_SIMPLE_WORD) goto error;
+    tokenPtr++;
+    if (!strncasecmp("tcl", tokenPtr->start, tokenPtr->size)) {
+	/* treat #lang tcl as a comment */
+	if (!parsePtr->commentStart) {
+	    parsePtr->commentStart = src;
 	}
-	if (parsePtr->commentStart) {
-	    parsePtr->commentSize += *scanned;
-	} else {
-	    parsePtr->commentStart = p;
-	    parsePtr->commentSize = *scanned;
-	}
+	parsePtr->commentSize = eol - src;
 	parsePtr->commandStart = NULL;
 	parsePtr->commandSize = 0;
+	*scanned = eol - src;
 	return TCL_BREAK;
     }
-    if (strncmp(p, "#lang(", 6) != 0) {
-	if (interp)
-	    Tcl_SetResult(interp, "unknown lang directive", TCL_STATIC);
-	return TCL_ERROR;
-    }
-    end_of_first_line = strchr(p, '\n') + 1;
-    /* in case there's no \n, use the end of the string instead */
-    if (end_of_first_line == (char *)1) {
-        end_of_first_line = (char *)src + numBytes;
-    }
-    parsePtr->commandStart = p;
-    end = strstr(end_of_first_line, "#lang(");
-    if (end == NULL) {
-	end = (char *)src + numBytes;
-    }
-    parsePtr->commandSize = end - p;
-    parsePtr->term = parsePtr->commandStart + parsePtr->commandSize;
+    if (!strncmp("L", tokenPtr->start, tokenPtr->size)) {
+	/* it's L code, so do the parse again, but side-effect the parsePtr
+	 * this time */
+	Tcl_ParseCommand(interp, p, eol - p, 0, parsePtr);
+	/* now tack on one more word for the L code */
+	/* XXX strstr is not safe -- it expects a NULL on the end. */
+	end = strstr(eol, "\n#lang");
+	if (!end) {
+	    end = (char *)src + numBytes;
+	}
+	if (parsePtr->numTokens + 2 < parsePtr->tokensAvailable) {
+	    TclExpandTokenArray(parsePtr);
+	}
+	wordIdx = parsePtr->numTokens;
+	tokenPtr = &parsePtr->tokenPtr[wordIdx];
+	tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+	tokenPtr->start = eol;
+	tokenPtr->size = end - tokenPtr->start;
+	tokenPtr->numComponents = 1;
+	parsePtr->numTokens++;
+	parsePtr->numWords++;
 
-    if (strncmp(p, "#lang(L)", 8) != 0) {
-	if (interp)
-	    Tcl_SetResult(interp, "unknown language", TCL_STATIC);
-	Tcl_FreeParse(parsePtr);
-	return TCL_ERROR;
+	tokenPtr = &parsePtr->tokenPtr[wordIdx+1];
+	*tokenPtr = parsePtr->tokenPtr[wordIdx];
+	tokenPtr->type = TCL_TOKEN_TEXT;
+	tokenPtr->numComponents = 0;
+	parsePtr->numTokens++;
+	parsePtr->commandSize = end - p;
+	return TCL_OK;
     }
-
-    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
-	TclExpandTokenArray(parsePtr);
+ error:
+    parsePtr->commandStart = src;
+    parsePtr->commandSize = eol - src;
+    if (interp) {
+	Tcl_SetResult(interp, message, TCL_STATIC);
     }
-    wordIndex = parsePtr->numTokens;
-    tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    if (strncmp(p, "#lang(tcl)", 10) == 0) {
-	/* don't do anything, but eat the directive */
-	return TCL_ERROR;
-    }
-
-    /* A lang directive turns into two words, each with a single text
-     * component.  The first one contains "#lang(L)" and the next one
-     * contains the L code.  (That makes a total of 4 tokens.)
-     */
-
-    /* 1. add a word for the L compile command */
-    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
-	TclExpandTokenArray(parsePtr);
-    }
-    wordIndex = parsePtr->numTokens;
-    tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
-    tokenPtr->start = parsePtr->commandStart + 6; /* point to the L */
-    tokenPtr->size  = 1; /* strlen("L") */
-    tokenPtr->numComponents = 1;
-    parsePtr->numTokens++;
-    parsePtr->numWords++;
-    /* 2. add the text component token for the L compile command  */
-    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
-	TclExpandTokenArray(parsePtr);
-    }
-    wordIndex = parsePtr->numTokens;
-    tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    tokenPtr->type = TCL_TOKEN_TEXT;
-    tokenPtr->start = parsePtr->commandStart + 6;
-    tokenPtr->size  = 1; /* strlen("L") */
-    tokenPtr->numComponents = 0;
-    parsePtr->numTokens++;
-    /* 3. add a new word for the L code itself */
-    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
-	TclExpandTokenArray(parsePtr);
-    }
-    wordIndex = parsePtr->numTokens;
-    tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
-    tokenPtr->start = end_of_first_line;
-    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
-    tokenPtr->numComponents = 1;
-    parsePtr->numTokens++;
-    parsePtr->numWords++;
-    /* 4. add the text component token for the L code itself */
-    if (parsePtr->numTokens == parsePtr->tokensAvailable) {
-	TclExpandTokenArray(parsePtr);
-    }
-    wordIndex = parsePtr->numTokens;
-    tokenPtr = &parsePtr->tokenPtr[wordIndex];
-    tokenPtr->type = TCL_TOKEN_TEXT;
-    tokenPtr->start = end_of_first_line;
-    tokenPtr->size  = (p + parsePtr->commandSize) - end_of_first_line;
-    tokenPtr->numComponents = 0;
-    parsePtr->numTokens++;
-
-    return TCL_OK;
+    Tcl_FreeParse(parsePtr);
+    return TCL_ERROR;
 }
 
 /*
