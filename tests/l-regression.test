@@ -237,6 +237,20 @@ if_1_0
 42
 }
 
+test scope-1.0 {if a global is first used as a reference, it gets erroneously created twice} -body {
+#lang L
+string avar = "foo";
+scope_1_0() {
+	frob(&avar);
+	puts(avar);
+}
+frob(string &str) {
+	str = "bar";
+}
+#lang tcl
+scope_1_0
+} -output "bar\n";
+
 # cleanup
 ::tcltest::cleanupTests
 return

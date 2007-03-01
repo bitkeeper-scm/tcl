@@ -258,7 +258,7 @@ LCompileScript(
         maybeFixupEmptyCode(lframe);
     L_frame_pop();
     L_finish_typechecks();
-    L_free_ast(ast);
+/*     L_free_ast(ast); */
     if (L_errors) {
             Tcl_SetObjResult(interp, L_errors);
             L_trace("Failed to compile.");
@@ -1125,6 +1125,7 @@ void L_compile_unop(L_expression *expr)
         break;
     case T_BITAND:
         /* &, address-of operator */
+	L_get_local_symbol(expr->a->a, TRUE);
         L_compile_expressions(expr->a->a);
         break;
     case T_DEFINED:
@@ -1290,6 +1291,7 @@ L_compile_twiddle(L_expression *expr)
     for (i = 0; i <= submatchCount; i++) {
         char buf[128];
         L_expression *name;
+	L_symbol *s;
 
         snprintf(buf, 128, "$%d", i);
         MK_STRING_NODE(name, buf);
@@ -1297,10 +1299,9 @@ L_compile_twiddle(L_expression *expr)
             int localIndex =
                 TclFindCompiledLocal(name->u.string, strlen(name->u.string),
                                      1, 0, lframe->envPtr->procPtr);
-            L_make_symbol(name,
-                          mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL,
-                                  FALSE),
-                          localIndex);
+            s = L_make_symbol(name, mk_type(L_TYPE_STRING, NULL, NULL, NULL,
+				  NULL, FALSE), localIndex);
+	    s->used_p = TRUE;	/* suppress unused var warning */
         }
     }
     /* emit code to call the regexp object command */
@@ -1583,6 +1584,7 @@ import_global_symbol(L_symbol *var)
                                       1, 0, lframe->envPtr->procPtr);
     MK_STRING_NODE(name, var->name);
     local = L_make_symbol(name, var->type, localIndex);
+    local->used_p = TRUE;
     /* XXX: This might be bogus.  We attempt to detect whether L global
        variables should be true globals, or should be shared with the calling
        proc, by checking if the current variable frame pointer in interp is
