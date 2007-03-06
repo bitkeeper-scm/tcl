@@ -1405,6 +1405,31 @@ regexp_1_3() {
 regexp_1_3
 } -output "1\n0\n--------\n1\nstling\n--------\n1\na b foochie\n--------\n{a string} {m {not a string}}\n{a string} {m {probably a string}}\n"
 
+test regexp-1.4 {regexp modifiers i and g} -body {
+#lang L -poly
+regexp_1_4() {
+	string foo = "aaa";
+	foo =~ s/a/b/;
+	puts(foo);
+	foo =~ s/a/b/g;
+	puts(foo);
+	foo =~ s/B/a/;
+	puts(foo);
+	foo =~ s/B/a/i;
+	puts(foo);
+	foo =~ s/B/a/ig;
+	puts(foo);
+	if (foo =~ /A/) {
+		puts("busted");
+	}
+	if (foo =~ /A/i) {
+		puts("works");
+	}
+}
+#lang tcl
+regexp_1_4
+} -output "baa\nbbb\nbbb\nabb\naaa\nworks\n"
+
 test reference-1.0 {L references} -body {
 #lang L -nowarn
 reference_1_0() {

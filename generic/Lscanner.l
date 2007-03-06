@@ -1,5 +1,6 @@
 %option	noyywrap
 %option stack
+%x re_modifier
 %x glob_re
 %x subst_re
 %x comment
@@ -108,6 +109,7 @@ tally_newlines(
         ";"		return T_SEMI;
         "."             return T_DOT;
 	"..."		return T_ELLIPSIS;
+	"class"		return T_CLASS;
 	"extern"	return T_EXTERN;
         "return"        return T_RETURN;
         "void"          return T_VOID;
@@ -197,6 +199,7 @@ tally_newlines(
         \'		yy_push_state(str_single); STRBUF_START();
         "/*"		yy_push_state(comment);
         "=~"[ \t\r\n]*"m".	{
+		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START();
 		re_quote_char = *(yytext + yyleng - 1);
@@ -204,6 +207,7 @@ tally_newlines(
 	}
 	/* if / is used to delimit the regexp, the m can be omitted */
         "=~"[ \t\r\n]*"/"	{
+		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START();
 		re_quote_char = '/';
@@ -211,6 +215,7 @@ tally_newlines(
 	}
 	/* a substitution pattern */
         "=~"[ \t\r\n]*"s".	{
+		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
 		yy_push_state(glob_re);
 		STRBUF_START();
@@ -233,6 +238,7 @@ tally_newlines(
 }
 
 <str_double>{
+	\\r		STRBUF_ADD("\r", 1);
 	\\n		STRBUF_ADD("\n", 1);
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
@@ -303,6 +309,19 @@ tally_newlines(
 				}
 			}
 
+}
+<re_modifier>{
+	[ig]+		{
+				MK_STRING_NODE(L_lval, yytext);
+				yy_pop_state();
+				return T_RE_MODIFIER;
+			}
+	.		{
+				unput(yytext[0]);
+				yy_pop_state();
+				L_lval = NULL;
+				return T_RE_MODIFIER;
+			}
 }
         .		{       /* this is essentially an "else" */
                                 fprintf(stderr, "L error: illegal character %c on line %d\n",

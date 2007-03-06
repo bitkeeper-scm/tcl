@@ -82,8 +82,9 @@ static Proc *Begin_Proc();
 static void Finish_Proc(Proc *procPtr, char *name);
 static int instruction_for_l_op(int op);
 static void regsub_for_assignment(int lvalIndex, int rvalIndex,
-  int compile_rval_p, L_expression *expr);
+  int compile_rval_p, L_expression *regexp);
 static void track_lineInfo(int codeOffset, int srcOffset, int len);
+static int push_regexp_modifiers(L_expression *regexp);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -947,6 +948,10 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_FLOTE:
         L_PUSH_OBJ(literal_to_TclObj(expr));
         break;
+    case L_EXPRESSION_REGEXP:
+	/* for a regexp, just handle the match part */
+	L_compile_expressions(expr->a);
+        break;
     case L_EXPRESSION_INTERPOLATED_STRING:
         L_compile_interpolated_string(expr);
         break;
@@ -1245,10 +1250,10 @@ L_compile_twiddle(L_expression *expr)
 {
     Tcl_Obj *const_regexp = Tcl_NewObj();
     Tcl_RegExp compiled;
-    int submatchCount = 0, i;
-    L_expression *runner;
+    int submatchCount = 0, i, modCount;
+    L_expression *runner, *regexp = expr->b;
 
-    if (expr->c) {
+    if (regexp->b) {
 	/* it's a substitution, so let L_compile_assignment do the hard
 	 * stuff */
 	L_compile_assignment(expr);
@@ -1256,7 +1261,7 @@ L_compile_twiddle(L_expression *expr)
     }
     /* put together the parts of the regexp that we know at compile time */
     Tcl_IncrRefCount(const_regexp);
-    for (runner = expr->b; runner; runner = runner->c) {
+    for (runner = regexp->a; runner; runner = runner->c) {
         switch (runner->kind) {
         case L_EXPRESSION_INTERPOLATED_STRING:
             Tcl_AppendToObj(const_regexp, runner->a->u.string, -1);
@@ -1306,8 +1311,10 @@ L_compile_twiddle(L_expression *expr)
     }
     /* emit code to call the regexp object command */
     L_PUSH_STR("regexp");
+    /* modifiers */
+    modCount =push_regexp_modifiers(regexp);
     /* the regexp */
-    L_compile_expressions(expr->b);
+    L_compile_expressions(regexp);
     /* the target string */
     L_compile_expressions(expr->a);
     /* match/submatch vars. NB: this loop always goes around at least once. */
@@ -1317,7 +1324,8 @@ L_compile_twiddle(L_expression *expr)
 	L_PUSH_STR(buf);
     }
     L_trace("submatch count is %d\n", submatchCount);
-    TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount, lframe->envPtr);
+    TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount + modCount,
+	lframe->envPtr);
 }
 
 void
@@ -1701,7 +1709,7 @@ L_compile_assignment(L_expression *expr)
     if (lval->indices) {
         L_write_index(var, lval->indices, expr, rval, FALSE);
     } else if (expr->op == T_EQTWID) {
-	regsub_for_assignment(var->localIndex, -1, TRUE, expr);
+	regsub_for_assignment(var->localIndex, -1, TRUE, rval);
     } else {
 	if (expr->op != T_EQUALS) {
 	    L_LOAD_SCALAR(var->localIndex);
@@ -1809,7 +1817,7 @@ L_write_index_aux(
     } else if (expr->op == T_EQTWID) {
 	/* regexp substitution */
 	tempVar = store_in_tempvar(TRUE);
-	regsub_for_assignment(tempVar, rvalVar, FALSE, expr);
+	regsub_for_assignment(tempVar, rvalVar, FALSE, expr->b);
 	L_STORE_SCALAR(rvalVar);
 	TclEmitOpcode(INST_POP, lframe->envPtr);
 	L_LOAD_SCALAR(tempVar);
@@ -1846,30 +1854,51 @@ regsub_for_assignment(
     int rvalIndex,		/* the regexp (perhaps) */
     int compile_rval_p,		/* whether to push the rval ourselves, or use
 				 * rvalIndex */
-    L_expression *expr)		/* the operator, the replacement, etc. */
+    L_expression *regexp)	/* the regexp, substituion, and modifiers */
 {
     char *tempVarName = gensym("%%matchedp");
+    int modCount;
 
+    L_trace("regsub_for_assignment");
     L_PUSH_STR("regsub");
+    modCount = push_regexp_modifiers(regexp);
     L_PUSH_STR("-line");
     /* the regexp */
     if (compile_rval_p) {
-	L_compile_expressions(expr->b);
+	L_compile_expressions(regexp->a);
     } else {
 	L_LOAD_SCALAR(rvalIndex);
     }
     /* the target string */
     L_LOAD_SCALAR(lvalIndex);
     /* the substitution */
-    L_compile_expressions(expr->c);
+    L_compile_expressions(regexp->b);
     L_PUSH_STR(tempVarName);
-    TclEmitInstInt1(INST_INVOKE_STK1, 6, lframe->envPtr);
+    TclEmitInstInt1(INST_INVOKE_STK1, modCount + 6, lframe->envPtr);
     /* move the result of substitution into lvalIndex and leave the matched_p
      * value on stack top */
     L_PUSH_STR(tempVarName);
     TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
     L_STORE_SCALAR(lvalIndex);
     TclEmitOpcode(INST_POP, lframe->envPtr);
+}
+
+static int
+push_regexp_modifiers(L_expression *regexp)
+{
+    int modCount = 0;
+
+    if (regexp->c) {
+	if (strchr(regexp->c->u.string, 'i')) {
+	    L_PUSH_STR("-nocase");
+	    modCount++;
+	}
+	if (strchr(regexp->c->u.string, 'g')) {
+	    L_PUSH_STR("-all");
+	    modCount++;
+	}
+    }
+    return modCount;
 }
 
 static int

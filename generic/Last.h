@@ -37,6 +37,7 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_INTERPOLATED_STRING,
 	L_EXPRESSION_POST,
 	L_EXPRESSION_PRE,
+	L_EXPRESSION_REGEXP,
 	L_EXPRESSION_STRING,
 	L_EXPRESSION_STRUCT_INDEX,
 	L_EXPRESSION_TERTIARY,
@@ -44,7 +45,7 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_VARIABLE
 } L_expression_kind;
 
-extern char *L_expression_tostr[14];
+extern char *L_expression_tostr[15];
 typedef enum L_loop_kind {
 	L_LOOP_DO,
 	L_LOOP_FOR,

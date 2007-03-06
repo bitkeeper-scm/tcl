@@ -64,9 +64,11 @@ finish_declaration(L_type *base_type, L_variable_declaration *decl) {
 
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
-%token T_ID T_STR_LITERAL T_RE T_SUBST T_INT_LITERAL T_FLOAT_LITERAL
+%token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
-%token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS
+%token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
+
+%token T_RE T_SUBST T_RE_MODIFIER
 
 %left T_OROR
 %left T_ANDAND
@@ -92,6 +94,11 @@ start:	  toplevel_code
 	;
 
 toplevel_code:
+/*           toplevel_code class_declaration */
+/*         { */
+/*                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_CLASS, $1); */
+/*                 ((L_toplevel_statement *)$$)->u.class = $2; */
+/*         } */
           toplevel_code function_declaration
         { 
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_FUN, $1);
@@ -417,15 +424,21 @@ expr:
                 REVERSE(L_expression, indices, $1);
                 $$ = mk_expression(L_EXPRESSION_POST, T_MINUSMINUS, $1, NULL, NULL, NULL, NULL);
         }
-        | expr T_EQTWID regexp_literal
+        | expr T_EQTWID regexp_literal T_RE_MODIFIER
         {
+		L_expression *regexp;
+
                 REVERSE(L_expression, c, $3);
-                MK_BINOP_NODE($$, T_EQTWID, $1, $3);
+		regexp = mk_expression(L_EXPRESSION_REGEXP, -1, $3, NULL, $4, NULL, NULL);
+                MK_BINOP_NODE($$, T_EQTWID, $1, regexp);
         }
-        | expr T_EQTWID regexp_literal subst_literal
+        | expr T_EQTWID regexp_literal subst_literal T_RE_MODIFIER
         {
+		L_expression *regexp;
+
                 REVERSE(L_expression, c, $3);
-                $$ = mk_expression(L_EXPRESSION_BINARY, T_EQTWID, $1, $3, $4, NULL, NULL);
+		regexp = mk_expression(L_EXPRESSION_REGEXP, -1, $3, $4, $5, NULL, NULL);
+                MK_BINOP_NODE($$, T_EQTWID, $1, regexp);
         }
 	| expr T_STAR expr      { MK_BINOP_NODE($$, T_STAR, $1, $3); }
 	| expr T_SLASH expr     { MK_BINOP_NODE($$, T_SLASH, $1, $3); }
