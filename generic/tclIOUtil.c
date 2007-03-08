@@ -1943,7 +1943,7 @@ FsMaybeWrapInLLang(
 
     if ((len >= 2) && (path[len-2] == '.') && (path[len-1] == 'l') &&
       !Tcl_RegExpMatch(interp, Tcl_GetString(fileContents),
-	"\\s*#lang\\s+L"))
+	"^#lang\\s+L"))
     {
 	Tcl_Obj *newContents = Tcl_ObjPrintf(
 	      "#lang L\n%s\n#lang tcl\n%%%%call_main_if_defined",

@@ -33,8 +33,7 @@ test lfile-1.1 {Test autowrapping of .l works} -setup {
 # main shouldn't be automatically called if within an .l file we find
 # the #lang L directive... right?
 test lfile-1.2 {Test autowrapping doesn't wrap twice} -setup {
-	set fname [makeFile {
-		#lang L -nowarn
+	set fname [makeFile {#lang L -nowarn
 		main(int ac, string av[]) {
 			printf("hi dad\n");
 		}
