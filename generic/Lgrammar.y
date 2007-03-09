@@ -67,6 +67,7 @@ finish_declaration(L_type *base_type, L_variable_declaration *decl) {
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
+%token T_INCLUDE
 
 %token T_RE T_SUBST T_RE_MODIFIER
 
@@ -126,6 +127,13 @@ toplevel_code:
 		// regular code that does stuff instead of just declaring it
 		$$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_STMT, $1);
 		((L_toplevel_statement *)$$)->u.stmt = $2;
+	}
+	| toplevel_code T_INCLUDE "(" T_STR_LITERAL ")" ";"
+	{
+		REVERSE(L_expression, c, $4);
+		$$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_INC, $1);
+		((L_toplevel_statement *)$$)->u.inc = $4;
+		
 	}
 	| /* epsilon */         { $$ = NULL; }
 	;

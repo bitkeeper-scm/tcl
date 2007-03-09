@@ -69,12 +69,13 @@ extern char *L_statement_tostr[9];
 typedef enum L_toplevel_statement_kind {
 	L_TOPLEVEL_STATEMENT_FUN,
 	L_TOPLEVEL_STATEMENT_GLOBAL,
+	L_TOPLEVEL_STATEMENT_INC,
 	L_TOPLEVEL_STATEMENT_STMT,
 	L_TOPLEVEL_STATEMENT_TYPE,
 	L_TOPLEVEL_STATEMENT_TYPEDEF
 } L_toplevel_statement_kind;
 
-extern char *L_toplevel_statement_tostr[5];
+extern char *L_toplevel_statement_tostr[6];
 typedef enum L_type_kind {
 	L_TYPE_ARRAY,
 	L_TYPE_FLOAT,
@@ -193,6 +194,7 @@ struct L_toplevel_statement {
 	L_toplevel_statement *next;
 	L_toplevel_statement_kind kind;
 	union {
+		L_expression *inc;
 		L_function_declaration *fun;
 		L_statement *stmt;
 		L_type *type;

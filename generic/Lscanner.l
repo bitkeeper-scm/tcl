@@ -112,6 +112,7 @@ tally_newlines(
 	"class"		return T_CLASS;
 	"extern"	return T_EXTERN;
         "return"        return T_RETURN;
+	"include"	return T_INCLUDE;
         "void"          return T_VOID;
         "string"        return T_STRING;
         "int"           return T_INT;

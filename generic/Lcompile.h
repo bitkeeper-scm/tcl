@@ -99,6 +99,7 @@ void L_store_typedef(L_expression *name, L_type *type);
 void L_compile_defined(L_expression *lval);
 void L_compile_break(L_statement *stmt);
 void L_compile_continue(L_statement *stmt);
+int L_compile_include(L_expression *file);
 L_variable_declaration *L_get_struct_member(L_type *t, L_expression *index,
     int *memberOffset);
 

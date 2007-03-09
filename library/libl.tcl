@@ -10,22 +10,32 @@
 	puts -nonewline [format {expand}$args]
     }
 
+    set ::%%suppress_calling_main 0
+    
     proc %%call_main_if_defined {} {
-	if {[llength [info proc main]]} {
+	if {[llength [info proc main]] && !${::%%suppress_calling_main}} {
 	    append L_argv $::argv0 " " $::argv
 	    set L_envp [dict create {expand}[array get ::env]]
 	    switch [llength [info args main]] {
 		0 {
+		    set ::%%suppress_calling_main 1
 		    main
+		    set ::%%suppress_calling_main 0
 		}
 		1 {
+		    set ::%%suppress_calling_main 1
 		    main [expr {$::argc + 1}]
+		    set ::%%suppress_calling_main 0
 		}
 		2 {
+		    set ::%%suppress_calling_main 1
 		    main [expr {$::argc + 1}] L_argv
+		    set ::%%suppress_calling_main 0
 		}
 		3 {
+		    set ::%%suppress_calling_main 1
 		    main [expr {$::argc + 1}] L_argv L_envp
+		    set ::%%suppress_calling_main 0
 		}
 		default {
 		    error "Too many parameters for main()."

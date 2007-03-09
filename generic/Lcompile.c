@@ -278,6 +278,7 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
     char *name;
     Proc *toplevelProcPtr;
     int	 has_toplevel_stmt = 0;
+    int result;
 
     /* first compile the declarations */
     for (s = stmt; s; s = s->next) {
@@ -299,6 +300,13 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	case L_TOPLEVEL_STATEMENT_STMT:
 	    has_toplevel_stmt = 1;
 	    /* handled below */
+	    break;
+	case L_TOPLEVEL_STATEMENT_INC:
+	    if ((result = L_compile_include(s->u.inc) != TCL_OK)) {
+		/* XXX make this a delayed exit so we can gather more
+		 * errors */
+		return result;
+	    }
 	    break;
 	default:
 	    L_bomb("Unexpected toplevel statement type %d", s->kind);
@@ -334,6 +342,16 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	return Tcl_Eval(lframe->interp, name);
     }
     return TCL_OK;
+}
+
+int
+L_compile_include(L_expression *file)
+{
+    Tcl_Obj *o = Tcl_NewStringObj("/tmp/bar.l", strlen("/tmp/bar.l"));
+    L_trace("including %s\n", file->u.string);
+    Tcl_IncrRefCount(o);
+    return Tcl_FSEvalFile(lframe->interp, o);
+//			  Tcl_NewStringObj(file->u.string, strlen(file->u.string)));
 }
 
 void

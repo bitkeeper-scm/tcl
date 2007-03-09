@@ -43,9 +43,10 @@ char *L_statement_tostr[9] = {
 	"L_STATEMENT_RETURN"
 };
 
-char *L_toplevel_statement_tostr[5] = {
+char *L_toplevel_statement_tostr[6] = {
 	"L_TOPLEVEL_STATEMENT_FUN",
 	"L_TOPLEVEL_STATEMENT_GLOBAL",
+	"L_TOPLEVEL_STATEMENT_INC",
 	"L_TOPLEVEL_STATEMENT_STMT",
 	"L_TOPLEVEL_STATEMENT_TYPE",
 	"L_TOPLEVEL_STATEMENT_TYPEDEF"
