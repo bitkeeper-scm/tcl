@@ -130,7 +130,6 @@ toplevel_code:
 	}
 	| toplevel_code T_INCLUDE "(" T_STR_LITERAL ")" ";"
 	{
-		REVERSE(L_expression, c, $4);
 		$$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_INC, $1);
 		((L_toplevel_statement *)$$)->u.inc = $4;
 		
