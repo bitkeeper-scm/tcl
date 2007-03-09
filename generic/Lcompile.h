@@ -74,7 +74,7 @@ void L_error(char *s);
 void L_errorf(void *node, const char *format, ...);
 L_symbol *L_get_symbol(L_expression *name, int error_p);
 L_symbol *L_make_symbol(L_expression *name, L_type *type, int localIndex);
-void L_compile_toplevel_statements(L_toplevel_statement *stmt);
+int L_compile_toplevel_statements(L_toplevel_statement *stmt);
 void L_compile_function_decl(L_function_declaration *fun);
 void L_compile_struct_decl(L_type *decl);
 void L_compile_variable_decls(L_variable_declaration *var);

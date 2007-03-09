@@ -241,6 +241,8 @@ LCompileScript(
     void *ast,
     int opts)
 {
+    int result = TCL_OK;
+
     L_trace("compiling");
     L_frame_push(interp, envPtr, ast);
     lframe->options = opts;
@@ -249,7 +251,7 @@ LCompileScript(
 
     switch(((L_ast_node*)ast)->type) {
     case L_NODE_TOPLEVEL_STATEMENT:
-        L_compile_toplevel_statements(ast);
+        result = L_compile_toplevel_statements(ast);
         break;
     default:
         L_bomb("LCompileScript error, expecting a toplevel statement, "
@@ -266,10 +268,10 @@ LCompileScript(
             return TCL_ERROR;
     }
     L_trace("Done compiling");
-    return TCL_OK;
+    return result;
 }
 
-void
+int
 L_compile_toplevel_statements(L_toplevel_statement *stmt)
 {
     L_toplevel_statement *s;
@@ -302,7 +304,7 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	    L_bomb("Unexpected toplevel statement type %d", s->kind);
 	}
     }
-    if (has_toplevel_stmt == 0) return;
+    if (has_toplevel_stmt == 0) return TCL_OK;
     /* Now compile the toplevel code.  It all goes into a Tcl proc that we
        call as soon as we're done building it. */
     name = gensym("%%l_toplevel");
@@ -329,8 +331,9 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	L_PUSH_STR(name);
 	TclEmitInstInt4(INST_INVOKE_STK4, 1, lframe->envPtr);
     } else {
-	Tcl_Eval(lframe->interp, name);
+	return Tcl_Eval(lframe->interp, name);
     }
+    return TCL_OK;
 }
 
 void
