@@ -347,11 +347,33 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 int
 L_compile_include(L_expression *file)
 {
-    Tcl_Obj *o = Tcl_NewStringObj("/tmp/bar.l", strlen("/tmp/bar.l"));
+    L_compile_frame *_lframe = lframe;
+    Tcl_Obj *_L_errors = L_errors;
+    int _L_line_number = L_line_number;
+    void *_L_current_ast = L_current_ast;
+    char *_L_script = L_script;
+    int _L_scriptLen = L_scriptLen;
+    int _L_token_offset = L_token_offset;
+    int _L_prev_token_len = L_prev_token_len;
+
+    Tcl_Obj *o = Tcl_NewStringObj(file->u.string, strlen(file->u.string));
+    int retval;
+
     L_trace("including %s\n", file->u.string);
     Tcl_IncrRefCount(o);
-    return Tcl_FSEvalFile(lframe->interp, o);
+    retval = Tcl_FSEvalFile(lframe->interp, o);
 //			  Tcl_NewStringObj(file->u.string, strlen(file->u.string)));
+    Tcl_DecrRefCount(o);
+    lframe = _lframe;
+    L_errors = _L_errors;
+    L_line_number = _L_line_number;
+    L_current_ast = _L_current_ast;
+    L_script = _L_script;
+    L_scriptLen = _L_scriptLen;
+    L_token_offset = _L_token_offset;
+    L_prev_token_len = _L_prev_token_len;
+
+    return retval;
 }
 
 void
@@ -363,7 +385,7 @@ L_compile_function_decl(L_function_declaration *fun)
     L_symbol *symbol;
 
     if (!fun) return;
-    L_trace("compiling a function decl");
+    L_trace("compiling function %s", fun->name->u.string);
 
     L_store_fun_type(fun);
 
