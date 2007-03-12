@@ -251,6 +251,14 @@ frob(string &str) {
 scope_1_0
 } -output "bar\n";
 
+test regexp-1.0 {regexps might start with a dash, so call regex/regsub with -- before the regexp} -body {
+#lang L
+string v = "a-b-c";
+v =~ s/-/\\&ndash;/g;
+puts(v);
+#lang tcl
+} -output "a&ndash;b&ndash;c\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return

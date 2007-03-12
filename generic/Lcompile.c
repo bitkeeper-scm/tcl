@@ -1355,7 +1355,8 @@ L_compile_twiddle(L_expression *expr)
     /* emit code to call the regexp object command */
     L_PUSH_STR("regexp");
     /* modifiers */
-    modCount =push_regexp_modifiers(regexp);
+    modCount = push_regexp_modifiers(regexp);
+    L_PUSH_STR("--");
     /* the regexp */
     L_compile_expressions(regexp);
     /* the target string */
@@ -1367,7 +1368,7 @@ L_compile_twiddle(L_expression *expr)
 	L_PUSH_STR(buf);
     }
     L_trace("submatch count is %d\n", submatchCount);
-    TclEmitInstInt1(INST_INVOKE_STK1, 4 + submatchCount + modCount,
+    TclEmitInstInt1(INST_INVOKE_STK1, 5 + submatchCount + modCount,
 	lframe->envPtr);
 }
 
@@ -1906,6 +1907,7 @@ regsub_for_assignment(
     L_PUSH_STR("regsub");
     modCount = push_regexp_modifiers(regexp);
     L_PUSH_STR("-line");
+    L_PUSH_STR("--");
     /* the regexp */
     if (compile_rval_p) {
 	L_compile_expressions(regexp->a);
@@ -1917,7 +1919,7 @@ regsub_for_assignment(
     /* the substitution */
     L_compile_expressions(regexp->b);
     L_PUSH_STR(tempVarName);
-    TclEmitInstInt1(INST_INVOKE_STK1, modCount + 6, lframe->envPtr);
+    TclEmitInstInt1(INST_INVOKE_STK1, modCount + 7, lframe->envPtr);
     /* move the result of substitution into lvalIndex and leave the matched_p
      * value on stack top */
     L_PUSH_STR(tempVarName);
