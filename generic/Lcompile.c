@@ -334,12 +334,14 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 
     L_return(FALSE);
     Finish_Proc(toplevelProcPtr, name);
-    /* This actually invokes the toplevel code that we just compiled */
-    if (lframe->envPtr) {
-	L_PUSH_STR(name);
-	TclEmitInstInt4(INST_INVOKE_STK4, 1, lframe->envPtr);
-    } else {
-	return Tcl_Eval(lframe->interp, name);
+    if (L_errors == NULL) {
+	/* This actually invokes the toplevel code that we just compiled */
+	if (lframe->envPtr) {
+	    L_PUSH_STR(name);
+	    TclEmitInstInt4(INST_INVOKE_STK4, 1, lframe->envPtr);
+	} else {
+	    return	Tcl_Eval(lframe->interp, name);
+	}
     }
     return TCL_OK;
 }
@@ -453,14 +455,13 @@ Finish_Proc(
     TclInitByteCodeObj(procPtr->bodyPtr, lframe->envPtr);
     bodyObjPtr = TclNewProcBodyObj(procPtr);
     if (bodyObjPtr == NULL) {
-        L_bomb("failed to create a ProcBodyObj for some reason");
+	L_bomb("failed to create a ProcBodyObj for some reason");
     }
     Tcl_IncrRefCount(bodyObjPtr);
 
     cmd = Tcl_CreateObjCommand(lframe->interp, name, TclObjInterpProc,
-			       (ClientData) procPtr, TclProcDeleteProc);
+	(ClientData) procPtr, TclProcDeleteProc);
     procPtr->cmdPtr = (Command *) cmd;
-
     TclFreeCompileEnv(lframe->envPtr);
     ckfree((char *)lframe->envPtr);
     L_frame_pop();
@@ -2100,7 +2101,6 @@ L_compile_index(
 
 	if (!member) {
 	    L_errorf(index, "Structure field not found, %s", index->a->u.string);
-	    return t;
 	}
 	L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
 	t = member->type;
@@ -2108,9 +2108,10 @@ L_compile_index(
     }
     case L_EXPRESSION_ARRAY_INDEX:
         /* array index */
+	L_trace("Compiling an array index");
         if (t->kind != L_TYPE_ARRAY) {
+	    L_trace("Compiling an array index and it wasn't array");
             L_errorf(index, "Index into something that's not an array");
-            return t;
         }
         L_compile_expressions(index->a);
 	t = t->next_dim ? t->next_dim :
@@ -2119,8 +2120,6 @@ L_compile_index(
     case L_EXPRESSION_HASH_INDEX:
         L_trace("Spitting out a hash index\n");
         L_compile_expressions(index->a);
-/* 	XXX return L_EXPRESSION_HASH_INDEX again?!  strange decision.  let's
- * 	fix this when we change around the hash declarations. */
 	t = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
         break;
     default:

@@ -259,6 +259,19 @@ puts(v);
 #lang tcl
 } -output "a&ndash;b&ndash;c\n"
 
+test errors-1.0 {don't run L code if there were compilation errors} -body {
+#lang L
+foo() {
+	int argc;
+	// we want "this is text" to _not_ print
+	puts("this is text");
+	puts(argc[1]);
+}
+foo();
+#lang tcl
+} -returnCodes {error} -result "L Error: Index into something that's not an array on line 5\n" \
+-output {}
+
 # cleanup
 ::tcltest::cleanupTests
 return
