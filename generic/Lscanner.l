@@ -324,6 +324,7 @@ tally_newlines(
 				return T_RE_MODIFIER;
 			}
 }
+	\f		/* ignore page breaks */
         .		{       /* this is essentially an "else" */
                                 fprintf(stderr, "L error: illegal character %c on line %d\n",
 					*yytext, L_line_number);
