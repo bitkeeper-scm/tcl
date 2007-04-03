@@ -1,3 +1,16 @@
+2007-04-03  Don Porter  <dgp@users.sourceforge.net>
+
+	* generic/tclNamesp.c:	Revised ErrorCodeRead and ErrorInfoRead
+	trace routines so they guarantee the ::errorCode and ::errorInfo
+	variable always appear to exist.  [Bug 1693252].
+
+2007-04-03  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclInt.decls:  Moved TclGetNamespaceFromObj() to
+	* generic/tclInt.h:      the internal stubs table; regen.
+	* generic/tclIntDecls.h:
+	* generic/tclStubInit.c:
+
 2007-04-02  Miguel Sofer  <msofer@users.sf.net>
 
 	* generic/tclBasic.c:     Added bytecode compilers for the	 
