@@ -1,3 +1,8 @@
+2007-04-23  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclCompile.c (TclFreeCompileEnv): Tip 280's new field
+	extCmdMapPtr was not being freed [Bug 1705778, leak #1].
+
 2007-04-23  Kevin B. Kenny  <kennykb@acm.org>
 
 	* generic/tclEnv.c (ReplaceString): Clear memory correctly when
@@ -5,9 +10,12 @@
 	* generic/tclStrToD.c (AccumulateDecimalDigit): Fixed a mistake
 	where we'd run beyond the end of the 'pow10_wide' array if
 	a number begins with a string of more than 'maxpow10_wide' zeroes.
-	Both these issues reported under [Bug 1705778] - detected with
+	* generic/tclTest.c (Testregexpobjcmd): Removed an invalid access
+	beyond the end of 'objv' in 'testregexp -about'.
+	All three of these issues reported under [Bug 1705778] - detected with
 	the existing test suite, no new regression tests required.
 	
+>>>>>>> 1.3453
 2007-04-22  Miguel Sofer  <msofer@users.sf.net>
 
 	* generic/tclVar.c (TclDeleteNamespaceVars): fixed access to freed
