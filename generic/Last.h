@@ -149,6 +149,7 @@ struct L_function_declaration {
 	L_expression *name;
 	L_type *return_type;
 	L_variable_declaration *params;
+	int pattern_p;
 };
 
 struct L_if_unless {
@@ -232,7 +233,7 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 int L_walk_expression(L_expression* node, int order, LWalkFunc func, void *data);
 L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expression *value,L_statement *body);
 int L_walk_foreach_loop(L_foreach_loop* node, int order, LWalkFunc func, void *data);
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body);
+L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p);
 int L_walk_function_declaration(L_function_declaration* node, int order, LWalkFunc func, void *data);
 L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);
 int L_walk_if_unless(L_if_unless* node, int order, LWalkFunc func, void *data);

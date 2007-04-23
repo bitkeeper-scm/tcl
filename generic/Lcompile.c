@@ -793,7 +793,10 @@ auto_extending_array_p(L_type *t)
 
     return (t->kind == L_TYPE_ARRAY) &&
 	(t->array_dim->kind == L_EXPRESSION_INTEGER) &&
-	(t->array_dim->u.integer == 0);
+	(t->array_dim->u.integer == 0) &&
+	/* rule out struct arrays and n-dimensional arrays */
+	!(t->next_dim && t->next_dim->array_dim) &&
+	!(t->next_dim && t->next_dim->kind == L_TYPE_STRUCT);
 }
 
 int

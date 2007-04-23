@@ -81,6 +81,15 @@ test parse-1.3 {Test parsing an L file that just has whitespace} -setup {
 	removeFile LFileTest
 } -result {}
 
+test parse-1.3 {parse an L function named by a pattern} -body {
+#lang L
+poly pattern_*(int a, ...rest)
+{
+	puts("${a}${rest}");
+}
+#lang tcl
+} -result {}
+
 test proc-1.0 {Test L function definition.} -body {
 #lang L
 main(void) {

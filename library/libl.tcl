@@ -10,6 +10,10 @@
 	puts -nonewline [format {expand}$args]
     }
 
+    proc write {args} {
+	puts -nonewline {expand}$args
+    }
+
     set ::%%suppress_calling_main 0
     
     proc %%call_main_if_defined {} {

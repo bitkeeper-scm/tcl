@@ -136,7 +136,7 @@ L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expressio
 	return foreach_loop;
 }
 
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body) 
+L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p) 
 {
 	L_function_declaration *function_declaration;
 
@@ -146,6 +146,7 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	function_declaration->name = name;
 	function_declaration->return_type = return_type;
 	function_declaration->params = params;
+	function_declaration->pattern_p = pattern_p;
 	((L_ast_node *)function_declaration)->_trace = ast_trace_root;
 	ast_trace_root = (void *)function_declaration;
 	((L_ast_node *)function_declaration)->line_no = L_line_number;

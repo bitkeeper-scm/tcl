@@ -181,11 +181,16 @@ tally_newlines(
                                         return T_ID;
                                 }
                         }
+	([a-zA-Z_]|::)([0-9a-zA-Z_*]|::)* {
+                                MK_STRING_NODE(L_lval, yytext);
+				return T_PATTERN;
+			}
         $[0-9]+         {
                                 /* Regular expression submatches */
                                 MK_STRING_NODE(L_lval, yytext);
                                 return T_ID;
                         }
+	/* XXX no hex literals like 0xff, etc., yet */
         [0-9]*		{
                                 MK_INT_NODE(L_lval, atoi(yytext));
                                 return T_INT_LITERAL;

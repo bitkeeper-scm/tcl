@@ -67,7 +67,7 @@ finish_declaration(L_type *base_type, L_variable_declaration *decl) {
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_INCLUDE
+%token T_INCLUDE T_PATTERN
 
 %token T_RE T_SUBST T_RE_MODIFIER
 
@@ -95,11 +95,6 @@ start:	  toplevel_code
 	;
 
 toplevel_code:
-/*           toplevel_code class_declaration */
-/*         { */
-/*                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_CLASS, $1); */
-/*                 ((L_toplevel_statement *)$$)->u.class = $2; */
-/*         } */
           toplevel_code function_declaration
         { 
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_FUN, $1);
@@ -138,46 +133,46 @@ toplevel_code:
 	;
 
 function_declaration:
-          type_specifier T_ID "(" parameter_list ")" compound_statement
-        {
-                $$ = mk_function_declaration($2, $4, $1, ((L_statement *)$6)->u.block);
-        }
-        | type_specifier T_ID "(" ")" compound_statement
-        {
-                $$ = mk_function_declaration($2, NULL, $1, ((L_statement *)$5)->u.block);
-        }
-        | T_VOID T_ID "(" parameter_list ")" compound_statement
-        {
-		L_type *t = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
-                $$ = mk_function_declaration($2, $4, t, ((L_statement *)$6)->u.block);
-        }
-        | T_VOID T_ID "(" ")" compound_statement
-        {
-		L_type *t = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
-                $$ = mk_function_declaration($2, NULL, t, ((L_statement *)$5)->u.block);
-        }
-        | T_ID "(" parameter_list ")" compound_statement
-        {
-                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
-                $$ = mk_function_declaration($1, $3, v, ((L_statement *)$5)->u.block);
-        }
-        | T_ID "(" ")" compound_statement
-        {
-                L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
-                $$ = mk_function_declaration($1, NULL, v, ((L_statement *)$4)->u.block);
-        }
-/*         | optional_void T_ID "(" parameter_list ")" compound_statement */
-/*         { */
-/*                 L_type *v =  mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); */
-/*                 $$ = mk_function_declaration($2, $4, v, ((L_statement *)$6)->u.block); */
-/*         } */
-	;
+	  type_specifier fundecl_tail
+	{
+		((L_function_declaration *)$2)->return_type = $1;
+		$$ = $2;
+	}
+	| T_VOID fundecl_tail
+	{
+		((L_function_declaration *)$2)->return_type =
+		    mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
+		$$ = $2;
+	}
+	| fundecl_tail
+	{
+		((L_function_declaration *)$1)->return_type =
+		    mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
+		$$ = $1;
+	}
 
-/* optional_void: */
-/*           T_VOID        { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); } */
-/*         | /\* epsilon *\/ { $$ = mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE); } */
-/*         ; */
+fundecl_tail:
+	  T_ID fundecl_tail1
+	{
+		((L_function_declaration *)$2)->name = $1;
+		$$ = $2;
+	}
+	| T_PATTERN fundecl_tail1
+	{
+		((L_function_declaration *)$2)->pattern_p = TRUE;
+		((L_function_declaration *)$2)->name = $1;
+		$$ = $2;
+	}
 
+fundecl_tail1:
+	  "(" parameter_list ")" compound_statement
+	{
+		$$ = mk_function_declaration(NULL, $2, NULL, ((L_statement *)$4)->u.block, FALSE);
+	}
+	| "(" ")" compound_statement
+	{
+		$$ = mk_function_declaration(NULL, NULL, NULL, ((L_statement *)$3)->u.block, FALSE);
+	}
 
 stmt:
           single_statement      { $$ = $1; if (L_interactive) YYACCEPT; }
@@ -309,7 +304,6 @@ parameter_list:
                 $$ = $1;
         }
         | T_VOID                        { $$ = NULL; }
-/*         | /\* epsilon *\/                 { $$ = NULL; } */
         ;
 
 parameter_declaration_list:
@@ -714,8 +708,6 @@ struct_declaration_list:
         {
             APPEND(L_variable_declaration, next, $2, $1);
             $$ = $2;
-/*                 ((L_variable_declaration *)$2)->next = $1; */
-/*                 $$ = $2; */
         }
         ;
 

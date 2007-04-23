@@ -361,6 +361,12 @@ L_expression_type(
 	index = copy_index_expr(expr->indices);
         if ((symbol = L_get_symbol(expr->a, FALSE))) {
 	    type = symbol->type;
+	} else {
+	    L_trace("unable to find definition for symbol %s, "
+		    "giving up", expr->a->u.string);
+	    type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, 
+			   FALSE);
+	    break;
 	}
 	while (index) {
 	    switch (index->kind) {
@@ -368,7 +374,7 @@ L_expression_type(
             case L_EXPRESSION_HASH_INDEX:
 		L_trace(index->kind == L_EXPRESSION_HASH_INDEX ? 
 		    "hash index" : "array index");
-		if (type->next_dim) {
+		if (type && type->next_dim) {
 		    type = type->next_dim;
 		} else {
 		    L_trace("not enough dimensions in type for index, "
