@@ -251,6 +251,19 @@ frob(string &str) {
 scope_1_0
 } -output "bar\n";
 
+test scope-1.1 {a block introduces a new scope} -body {
+#lang L
+scope_1_1() {
+	{
+		int a;
+		a = 5;
+	}
+	puts(a);
+}
+#lang tcl
+scope_1_1
+} -returnCodes {error} -result "L Error: Undeclared variable: a on line 6\n"
+
 test regexp-1.0 {regexps might start with a dash, so call regex/regsub with -- before the regexp} -body {
 #lang L
 string v = "a-b-c";

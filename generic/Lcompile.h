@@ -96,6 +96,9 @@ void L_compile_interpolated_string(L_expression *expr);
 void L_compile_global_decls(L_variable_declaration *decl);
 L_type *L_lookup_typedef(L_expression *name, int error_p);
 void L_store_typedef(L_expression *name, L_type *type);
+int L_lookup_pattern_func(char *name, L_expression **newName,
+    L_expression **firstArg);
+void L_pattern_store_name(L_expression *name);
 void L_compile_defined(L_expression *lval);
 void L_compile_break(L_statement *stmt);
 void L_compile_continue(L_statement *stmt);

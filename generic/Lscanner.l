@@ -181,7 +181,7 @@ tally_newlines(
                                         return T_ID;
                                 }
                         }
-	([a-zA-Z_]|::)([0-9a-zA-Z_*]|::)* {
+	([A-Z]|::)([0-9a-zA-Z]|::)*_\*	{
                                 MK_STRING_NODE(L_lval, yytext);
 				return T_PATTERN;
 			}

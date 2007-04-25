@@ -41,6 +41,20 @@ finish_declaration(L_type *base_type, L_variable_declaration *decl) {
     return decl;
 }
 
+void
+pattern_funcall_rewrite(L_expression *funcall)
+{
+    L_expression *newName, *firstArg;
+
+    /* If the function call matches a pattern function, call the pattern
+     * function, passing the part of the function name after the underscore as
+     * the first parameter. */
+    if (L_lookup_pattern_func(funcall->a->u.string, &newName, &firstArg)) {
+	funcall->a = newName;
+	firstArg->next = funcall->b;
+	funcall->b = firstArg;
+    }
+}
 
 %}
 
@@ -155,13 +169,25 @@ fundecl_tail:
 	  T_ID fundecl_tail1
 	{
 		((L_function_declaration *)$2)->name = $1;
+		L_pattern_store_name($1);
 		$$ = $2;
 	}
 	| T_PATTERN fundecl_tail1
 	{
-		((L_function_declaration *)$2)->pattern_p = TRUE;
-		((L_function_declaration *)$2)->name = $1;
-		$$ = $2;
+		L_function_declaration *f = (L_function_declaration *)$2;
+		L_variable_declaration *param;
+		L_type *t = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE);
+		L_expression *param_name;
+
+		f->pattern_p = TRUE;
+		f->name = $1;
+		L_pattern_store_name($1);
+		$$ = f;
+		/* tack on the first parameter, named "$1", which will get the
+		 * value of the glob match */
+		MK_STRING_NODE(param_name, "$1");
+		param = mk_variable_declaration(t, param_name, NULL, FALSE, FALSE, FALSE, f->params);
+		f->params = param;
 	}
 
 fundecl_tail1:
@@ -471,8 +497,9 @@ expr:
 	| lvalue                { REVERSE(L_expression, indices, $1); $$ = $1; }
         | T_ID "(" argument_expression_list ")"
         {
-                REVERSE(L_expression, next, $3);
+		REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
+		pattern_funcall_rewrite($$);
         }
         | T_STRING "(" argument_expression_list ")"
         {
@@ -483,7 +510,9 @@ expr:
         }
         | T_ID "(" ")"
         {
+                REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
+		pattern_funcall_rewrite($$);
         }
         /* this is to allow calling Tk widget functions */
         | dotted_id "(" argument_expression_list ")"
