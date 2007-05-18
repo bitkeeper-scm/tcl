@@ -102,10 +102,11 @@ void L_pattern_store_name(L_expression *name);
 void L_compile_defined(L_expression *lval);
 void L_compile_break(L_statement *stmt);
 void L_compile_continue(L_statement *stmt);
-int L_compile_include(L_expression *file);
+int L_compile_include(Tcl_Interp *interp, const char *file);
 L_variable_declaration *L_get_struct_member(L_type *t, L_expression *index,
     int *memberOffset);
-
+char *ckstrdup(const char *str);
+char *ckstrndup(const char *str, int len);
 
 /* in LPointerObj.c */
 Tcl_Obj *L_NewPointerObj(int callFrame, CONST char *varName,

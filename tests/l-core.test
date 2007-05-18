@@ -1729,6 +1729,46 @@ Pattern_baz(5, 6);
 } -output "Pattern_foo special case 1 2\nPattern_* bar 3 4\nPattern_* baz 5 6\n"
 
 
+# this test case creates two files, foo.l and bar.l.  bar.l includes
+# foo.l several times, using different paths.  It tests that typedefs
+# and pattern functions can be included, and that an include file will
+# only be included once, despite superficial path variations.
+test include-1.0 {support for including other files} -setup {
+	set fooname [makeFile {typedef int froboz;
+
+int
+Foo_*(int b)
+{
+	puts("$1 is ${$1} and b is ${b}");
+	return b;
+}
+
+
+main() {
+	puts("included foo.l");
+}
+} foo.l]
+	set dir [file dirname $fooname]
+	set barname [makeFile "include(\"$dir/foo.l\");
+include (\"$dir/foo.l\");
+include ( \"./foo.l\" );
+include(\"foo.l\");
+include ( \"$dir/fake/../foo.l\" ) ;
+
+main() {
+	froboz yadda = 5;
+	puts(Foo_baz(yadda));
+}
+" bar.l]
+} -constraints {
+	exec
+} -body {
+	exec [interpreter] $barname
+} -cleanup {
+	removeFile foo.l
+	removeFile bar.l
+} -result "included foo.l\n\$1 is baz and b is 5\n5"
+
 # cleanup
 ::tcltest::cleanupTests
 return
