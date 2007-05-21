@@ -2829,7 +2829,8 @@ L_do_includes(
 	/* only include each file once */
 	if (fresh_include_p(interp, file)) {
 	    if (L_compile_include(interp, file) != TCL_OK) {
-		L_warningf(NULL, "Unable to include file %s", file);
+		L_warningf(NULL, "Unable to include file %s: \n%s", file,
+		    Tcl_GetStringResult(interp));
 	    }
 	}
 	ckfree(file);
