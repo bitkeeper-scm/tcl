@@ -357,6 +357,27 @@ struct NamespacePathEntry {
 #define TCL_FIND_ONLY_NS		0x1000
 
 /*
+ * The data cached in an ensemble subcommand's Tcl_Obj rep (reference in
+ * otherValuePtr field). This structure is not shared between Tcl_Objs
+ * referring to the same subcommand, even where one is a duplicate of another.
+ */
+
+typedef struct {
+    Namespace *nsPtr;		/* The namespace backing the ensemble which
+				 * this is a subcommand of. */
+    int epoch;			/* Used to confirm when the data in this
+				 * really structure matches up with the
+				 * ensemble. */
+    Tcl_Command token;		/* Reference to the comamnd for which this
+				 * structure is a cache of the resolution. */
+    char *fullSubcmdName;	/* The full (local) name of the subcommand,
+				 * allocated with ckalloc(). */
+    Tcl_Obj *realPrefixObj;	/* Object containing the prefix words of the
+				 * command that implements this ensemble
+				 * subcommand. */
+} EnsembleCmdRep;
+
+/*
  *----------------------------------------------------------------
  * Data structures related to variables. These are used primarily in tclVar.c
  *----------------------------------------------------------------
@@ -2195,6 +2216,7 @@ MODULE_SCOPE Tcl_ObjType tclProcBodyType;
 MODULE_SCOPE Tcl_ObjType tclStringType;
 MODULE_SCOPE Tcl_ObjType tclArraySearchType;
 MODULE_SCOPE Tcl_ObjType tclNsNameType;
+MODULE_SCOPE Tcl_ObjType tclEnsembleCmdType;
 #ifndef NO_WIDE_TYPE
 MODULE_SCOPE Tcl_ObjType tclWideIntType;
 #endif
@@ -2589,9 +2611,7 @@ MODULE_SCOPE int	Tcl_IfObjCmd(ClientData clientData,
 MODULE_SCOPE int	Tcl_IncrObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *CONST objv[]);
-MODULE_SCOPE int	Tcl_InfoObjCmd(ClientData clientData,
-			    Tcl_Interp *interp, int objc,
-			    Tcl_Obj *CONST objv[]);
+MODULE_SCOPE Tcl_Command TclInitInfoCmd(Tcl_Interp *interp);
 MODULE_SCOPE int	Tcl_InterpObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int argc,
 			    Tcl_Obj *CONST objv[]);
