@@ -166,7 +166,7 @@ autoextend_1_0() {
 	hash h[];
 
 	h[0]{"asdf"} = "foo";
-	puts((tcl)h);
+	puts(h);
 }
 #lang tcl
 autoextend_1_0
@@ -196,8 +196,8 @@ test decl-1.0 {don't drop array dimensions from typedef when declaring multiple 
 typedef int atype[2];
 decl_1_0() {
 	atype foo[3], bar;
-	puts((tcl)foo);
-	puts((tcl)bar);
+	puts(foo);
+	puts(bar);
 }
 #lang tcl
 decl_1_0

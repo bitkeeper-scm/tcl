@@ -75,7 +75,6 @@ static void L_write_index_aux(L_expression *index, L_type *type,
   L_expression *expr, int rvalVar, int post_incr_p);
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
-static int type_passed_by_name_p(L_type *type);
 static int param_passed_by_name_p(L_variable_declaration *p);
 static L_symbol *L_get_local_symbol(L_expression *name, int error_p);
 static void compile_initializer(L_initializer *init, L_type *type);
@@ -929,18 +928,10 @@ L_compile_parameters(L_variable_declaration *param)
     }
 }
 
-/* arrays, and hashes are all passed by name.  array_p() is too general to use
-   here. */
-static int
-type_passed_by_name_p(L_type *type)
-{
-    return (type->kind == L_TYPE_ARRAY || type->kind == L_TYPE_HASH);
-}
-
 static int
 param_passed_by_name_p(L_variable_declaration *p)
 {
-    return (p->by_name || (type_passed_by_name_p(p->type) && !p->rest_p));
+    return p->by_name;
 }
 
 void
@@ -1038,9 +1029,6 @@ push_parameters(
         {
             L_trace("making an L pointer for %s\n", p->a->a->u.string);
             L_push_pointer(p->a);
-        } else if (var && type_passed_by_name_p(var->type)) {
-            /* the parameter needs to be passed by name */
-            L_PUSH_STR(var->name);
         } else {
             /* compile just one parameter for its value */
             L_expression *next = p->next;

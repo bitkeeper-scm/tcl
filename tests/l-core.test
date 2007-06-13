@@ -149,7 +149,7 @@ string foo(...stuff) {
 }
 string bar(int a, ...stuff) {
 	puts(a);
-	puts((tcl)stuff);
+	puts(stuff);
 }
 #lang tcl
 proc_1_3
@@ -230,15 +230,15 @@ var_1_3(void)
 {
         int i = 0;
 
-        puts((tcl)lglobal1_3);
+        puts(lglobal1_3);
         while (i < 5) {
           lglobal1_3[i].x = i * 10;
           lglobal1_3[i].y = i * 20;
           i++;
         }
-        puts((tcl)lglobal1_3);
+        puts(lglobal1_3);
         var_1_3_aux(3);
-        puts((tcl)lglobal1_3);
+        puts(lglobal1_3);
 }
 
 var_1_3_aux(int i)
@@ -367,8 +367,8 @@ decl_1_4 () {
   hash bar = {"foo" => 4, "bar" => 5, "baz" => 6};
   struct { int x; int y; } point = { 1024, 768 };
 
-  printf("%s\n", (tcl)foo);
-  printf("%s\n", (tcl)bar);
+  printf("%s\n", foo);
+  printf("%s\n", bar);
   printf("%s\n", point);
 }
 #lang tcl
@@ -816,7 +816,7 @@ op_1_9() {
   puts(foo[2]);
   puts(foo[2] >>= 2);
   puts(foo[2]);
-  puts((tcl)foo);
+  puts(foo);
 }
 #lang tcl
 op_1_9
@@ -869,12 +869,12 @@ test array-1.1 { Multi-dimensional array creation and indexing } -body {
 array_1_0() {
     int array[4][3][2];
 
-    puts((tcl)array);
+    puts(array);
     array[0][0][0] = 1;
     array[1][1][1] = 2;
     array[2][2][0] = 3;
     array[3][0][1] = 4;
-    puts((tcl)array);
+    puts(array);
 }
 #lang tcl
 array_1_0
@@ -889,7 +889,7 @@ array_1_2() {
 
   foo[3] = 0;
   for (foo[3]=0; foo[3]<5; foo[3]++);
-  puts((tcl)foo);
+  puts(foo);
 
   puts("pre:");
   puts(foo[3]);
@@ -910,7 +910,7 @@ array_1_2() {
   puts(foo[3]);
   puts(foo[3]--);
   puts(foo[3]);
-  puts((tcl)foo);
+  puts(foo);
 }
 #lang tcl
 array_1_2
@@ -924,7 +924,7 @@ array_1_3() {
   foo[0] = 4;
   foo[1] = 5;
   foo[2] = 6;
-  puts((tcl)foo);
+  puts(foo);
 }
 #lang tcl
 array_1_3
@@ -935,18 +935,18 @@ test array_1_4 {extend arrays using push and pop} -body {
 array_1_4() {
   int foo[];
 
-  push(foo, 1);
-  push(foo, 2);
-  push(foo, 3);
-  puts((tcl)foo);
-  puts(pop(foo));
-  puts((tcl)foo);
-  puts(pop(foo));
-  puts((tcl)foo);
-  puts(pop(foo));
-  puts((tcl)foo);
-  puts(pop(foo));
-  puts((tcl)foo);
+  push(&foo, 1);
+  push(&foo, 2);
+  push(&foo, 3);
+  puts(foo);
+  puts(pop(&foo));
+  puts(foo);
+  puts(pop(&foo));
+  puts(foo);
+  puts(pop(&foo));
+  puts(foo);
+  puts(pop(&foo));
+  puts(foo);
 } 
 #lang tcl
 array_1_4
@@ -961,7 +961,7 @@ array_1_3() {
   foo[0] = 4;
   foo[1] = 5;
   foo[2] = 6;
-  puts((tcl)foo);
+  puts(foo);
 }
 #lang tcl
 array_1_3
@@ -1297,7 +1297,7 @@ hash_1_2() {
 
   foo{"three"} = 0;
   for (foo{"three"}=0; foo{"three"}<5; foo{"three"}++);
-  puts((tcl)foo);
+  puts(foo);
 
   puts("pre:");
   puts(foo{"three"});
@@ -1318,7 +1318,7 @@ hash_1_2() {
   puts(foo{"three"});
   puts(foo{"three"}--);
   puts(foo{"three"});
-  puts((tcl)foo);
+  puts(foo);
 }
 #lang tcl
 hash_1_2
@@ -1401,13 +1401,13 @@ regexp_1_3() {
 	puts(s);
 	puts("--------");
 	puts(s1[2] =~ s/c/f/);
-	puts((tcl)s1);
+	puts(s1);
 	puts("--------");
 	h[0]{"a"} = "string";
 	h[1]{"m"} = "not a string";
-	puts((tcl)h);
+	puts(h);
 	h[1]{"m"} =~ s/not a/probably a/;
-	puts((tcl)h);
+	puts(h);
 }
 #lang tcl
 regexp_1_3
