@@ -13,6 +13,8 @@
 #define CurrentOffset(envPtr) \
     ((envPtr)->codeNext - (envPtr)->codeStart)
 
+#define SourceOffset(node) \
+    ((L_ast_node *)node)->offset
 
 L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
@@ -72,7 +74,7 @@ static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_expression *index,
   L_expression *expr, L_expression *rval, int post_incr_p);
 static void L_write_index_aux(L_expression *index, L_type *type,
-  L_expression *expr, int rvalVar, int post_incr_p);
+  L_expression *expr, int rvalVar, int post_incr_p, L_symbol *var);
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int param_passed_by_name_p(L_variable_declaration *p);
@@ -450,7 +452,12 @@ Finish_Proc(
 	L_bomb("failed to create a ProcBodyObj for some reason");
     }
     Tcl_IncrRefCount(bodyObjPtr);
-
+#ifdef TCL_COMPILE_DEBUG
+   if (getenv("L_DISASSEMBLE")) {
+	printf("Bytecode for %s:\n", name);
+	TclPrintByteCodeObj(lframe->interp, procPtr->bodyPtr);
+   }
+#endif
     cmd = Tcl_CreateObjCommand(lframe->interp, name, TclObjInterpProc,
 	(ClientData) procPtr, TclProcDeleteProc);
     procPtr->cmdPtr = (Command *) cmd;
@@ -941,10 +948,10 @@ L_compile_expressions(L_expression *expr)
     L_symbol *symbol;
 
     if (!expr) return;
+    startOffset = CurrentOffset(lframe->envPtr);
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
 	L_trace("compiling a call to %s", expr->a->u.string);
-	startOffset = CurrentOffset(lframe->envPtr);
         if ((symbol = L_get_local_symbol(expr->a, FALSE))) {
 	    /* looks like the function name is in a variable */
 	    L_push_variable(expr);
@@ -968,13 +975,19 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_PRE:
     case L_EXPRESSION_POST:
         L_compile_incdec(expr);
+	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset));
         break;
     case L_EXPRESSION_UNARY:
         L_compile_unop(expr);
+	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset));
         break;
     case L_EXPRESSION_BINARY:
         L_trace("Binary expression");
         L_compile_binop(expr);
+	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset));
         break;
     case L_EXPRESSION_INTEGER:
     case L_EXPRESSION_STRING:
@@ -987,6 +1000,8 @@ L_compile_expressions(L_expression *expr)
         break;
     case L_EXPRESSION_INTERPOLATED_STRING:
         L_compile_interpolated_string(expr);
+	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset));
         break;
     case L_EXPRESSION_VARIABLE:
         L_push_variable(expr);
@@ -1141,6 +1156,9 @@ void L_compile_unop(L_expression *expr)
         L_PUSH_STR("::tcl::mathfunc::double");
         L_compile_expressions(expr->a);
         TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+        break;
+    case T_HASH_CAST:
+        L_compile_expressions(expr->a);
         break;
     case T_BANG:
         L_compile_expressions(expr->a);
@@ -1435,8 +1453,9 @@ L_compile_loop(L_loop *loop)
 {
     JumpFixup jumpToCond;
     JumpOffsetList *break_jumps, *continue_jumps;
-    int bodyCodeOffset, jumpDist;
+    int bodyCodeOffset, jumpDist, startOffset;
 
+    startOffset = CurrentOffset(lframe->envPtr);
     if ((loop->kind == L_LOOP_FOR) && loop->pre) {
         L_compile_expressions(loop->pre);
         TclEmitOpcode(INST_POP, lframe->envPtr);
@@ -1470,6 +1489,10 @@ L_compile_loop(L_loop *loop)
         TclEmitInstInt1(INST_JUMP_TRUE1, -jumpDist, lframe->envPtr);
     }
     fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
+    track_lineInfo(startOffset,
+	(loop->pre ? SourceOffset(loop->pre) : SourceOffset(loop->condition)) - 8,
+	SourceOffset(loop));
+
 }
 
 /* Fix the jump target for a list of INST_JUMP4 jumps and free the
@@ -1783,9 +1806,9 @@ L_write_index(
     L_compile_expressions(rval);
     rvalVar = store_in_tempvar(TRUE);
 
-    L_LOAD_SCALAR(var->localIndex);
-    L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p);
-    L_STORE_SCALAR(var->localIndex);
+/*     L_LOAD_SCALAR(var->localIndex); */
+    L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p, var);
+/*     L_STORE_SCALAR(var->localIndex); */
 
     TclEmitOpcode(INST_POP, lframe->envPtr);
     L_LOAD_SCALAR(rvalVar);
@@ -1800,7 +1823,8 @@ L_write_index_aux(
     int rvalVar,		/* a local variable that holds the rval.  When
 				   we're done, this variable will hold the
 				   value of the expression as a whole.  */
-    int post_incr_p)		/* whether we're doing a post-increment */
+    int post_incr_p,		/* whether we're doing a post-increment */
+    L_symbol *var)
 {
     L_expression *idx = index;
     int idx_count = 0, hash_idx_p, i, tempVar;
@@ -1816,7 +1840,15 @@ L_write_index_aux(
        further indexed, or because we're going to do some arithmetic with it),
        copy the relevant portion of the stack and read the value. */
     if (idx || (expr->op != T_EQUALS)) {
-	for (i = 0; i < idx_count + 1; i++) {
+
+	/* latest noise */
+	if (var) {
+	    L_LOAD_SCALAR(var->localIndex);
+	} else {
+	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
+	}
+
+	for (i = 0; i < idx_count/*  + 1 */; i++) {
 	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
 	}
 	if (hash_idx_p) {
@@ -1833,7 +1865,7 @@ L_write_index_aux(
     if (idx) {
 	/* There are more indices, so leave a sub-list or sub-dict on the
 	   stack. */
-	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p);
+	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p, 0);
     } else if (post_incr_p) {
 	/* We're doing a post-increment, so take care to store the prior value
 	   in rvalVar. */
@@ -1862,7 +1894,11 @@ L_write_index_aux(
 	}
     }
     /* Copy the dict/list up to the top of the stack and do the set. */
-    TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
+    if (var) {
+	L_LOAD_SCALAR(var->localIndex);
+    } else {
+	TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
+    }
     if (hash_idx_p) {
 	int dictVar = store_in_tempvar(TRUE);
 	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
@@ -1872,9 +1908,13 @@ L_write_index_aux(
     }
     /* We want to leave the new dict/list atop the stack, but we need to get
        the old one out from under it.  So we juggle a bit. */
-    tempVar = store_in_tempvar(TRUE);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
-    L_LOAD_SCALAR(tempVar);
+    if (var) {
+	L_STORE_SCALAR(var->localIndex);
+    } else {
+	tempVar = store_in_tempvar(TRUE);
+	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_LOAD_SCALAR(tempVar);
+    }
 }
 
 /* Do a regexp substitution on lvalIndex and store the result back into
@@ -2153,7 +2193,7 @@ L_compile_incdec(L_expression *expr)
     if (lval->indices) {
 	MK_INT_NODE(rval, 1);
         L_write_index(var, lval->indices, expr, rval,
-		      (expr->kind == L_EXPRESSION_POST));
+ 		      (expr->kind == L_EXPRESSION_POST));
     } else {
         if (expr->kind == L_EXPRESSION_PRE) {
             TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
@@ -2764,7 +2804,10 @@ track_lineInfo(
 
     cmdLocPtr = &(envPtr->cmdMapPtr[cmdIndex]);
     cmdLocPtr->codeOffset = codeOffset;
-    cmdLocPtr->srcOffset = srcOffset;
+    /* XXX there seems to be an off-by-one someplace in Tcl, to whit:
+     * fprintf(stderr, "KKK: %.*s\n", len, lframe->envPtr->source + srcOffset);
+     */
+    cmdLocPtr->srcOffset = srcOffset -1;
     cmdLocPtr->numSrcBytes = len;
     cmdLocPtr->numCodeBytes = CurrentOffset(envPtr) - codeOffset;
 

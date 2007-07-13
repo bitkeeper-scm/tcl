@@ -96,7 +96,7 @@ pattern_funcall_rewrite(L_expression *funcall)
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT ADDRESS
-%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST
+%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST T_HASH_CAST
 %left T_DOT
 
 %%
@@ -147,7 +147,16 @@ toplevel_code:
 	;
 
 function_declaration:
-	  type_specifier fundecl_tail
+	  type_specifier "[" "]" fundecl_tail
+	{
+		L_expression *zero;
+
+		MK_INT_NODE(zero, 0);
+		((L_function_declaration *)$4)->return_type =
+		    mk_type(L_TYPE_ARRAY, zero, NULL, $1, NULL, FALSE);
+		$$ = $4;
+	}
+	| type_specifier fundecl_tail
 	{
 		((L_function_declaration *)$2)->return_type = $1;
 		$$ = $2;
@@ -403,6 +412,11 @@ expr:
         | T_FLOAT_CAST expr
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_FLOAT_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
+        | T_HASH_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_HASH_CAST, $2,
                                    NULL, NULL, NULL, NULL);
         }
         | T_INT_CAST expr

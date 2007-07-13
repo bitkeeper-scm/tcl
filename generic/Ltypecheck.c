@@ -272,7 +272,7 @@ subtype(
 		/* Note that since we define struct subtyping by checking type
 		 * tags, untagged structs are pairwise disjoint... */
 		if (strcmp(want->struct_tag->u.string, 
-			   have->struct_tag->u.string)) 
+			have->struct_tag->u.string))
 		{
 		    return NOT_SUBTYPE;
 		}
@@ -280,15 +280,15 @@ subtype(
 		return NOT_SUBTYPE;
 	    }
 	}
-    }
-    /* We don't check if the dimensions of two array types are all the same.
-     * Since the size of arrays can change anyway, it seems pointless.  We
-     * don't check the number of dimensions, either, though that would be more
-     * pointful. */
-    if ((want->next_dim && !have->next_dim) ||
-	(!want->next_dim && have->next_dim))
-    {
-	return NOT_SUBTYPE;
+	/* We don't check if the dimensions of two array types are all the same.
+	 * Since the size of arrays can change anyway, it seems pointless.  We
+	 * don't check the number of dimensions, either, though that would be more
+	 * pointful. */
+	if ((want->next_dim && !have->next_dim) ||
+	    (!want->next_dim && have->next_dim))
+	{
+	    return NOT_SUBTYPE;
+	}
     }
     return IS_SUBTYPE;
 }
@@ -444,6 +444,9 @@ unop_expression_type(
 	break;
     case T_FLOAT_CAST:
 	type->kind = L_TYPE_FLOAT;
+        break;
+    case T_HASH_CAST:
+	type->kind = L_TYPE_HASH;
         break;
     case T_BANG:
     case T_BITNOT:
