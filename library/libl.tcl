@@ -33,12 +33,12 @@
 		}
 		2 {
 		    set ::%%suppress_calling_main 1
-		    main [expr {$::argc + 1}] L_argv
+		    main [expr {$::argc + 1}] $L_argv
 		    set ::%%suppress_calling_main 0
 		}
 		3 {
 		    set ::%%suppress_calling_main 1
-		    main [expr {$::argc + 1}] L_argv L_envp
+		    main [expr {$::argc + 1}] $L_argv $L_envp
 		    set ::%%suppress_calling_main 0
 		}
 		default {
