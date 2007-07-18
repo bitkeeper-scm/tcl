@@ -1380,24 +1380,24 @@ L_compile_twiddle(L_expression *expr)
 void
 L_compile_short_circuit_op(L_expression *expr)
 {
-    JumpFixup fixup;
+    int jumpOffset;
+    unsigned char op;
 
     L_compile_expressions(expr->a);
     /* In case the operator short-circuits, we need one value on the
        evaluation stack for the jump and one for the value of the
        expression. */
     TclEmitOpcode(INST_DUP, lframe->envPtr);
-    if (expr->op == T_ANDAND) {
-        TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &fixup);
-    } else {
-        TclEmitForwardJump(lframe->envPtr, TCL_TRUE_JUMP, &fixup);
-    }
+    op = (expr->op == T_ANDAND) ? INST_JUMP_FALSE4 : INST_JUMP_TRUE4;
+    jumpOffset = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(op, 0, lframe->envPtr);
     /* If the operator doesn't short-circuit, we want to leave the value of
        the second expression on the stack, so remove the value that we DUPed
        above. */
     TclEmitOpcode(INST_POP, lframe->envPtr);
     L_compile_expressions(expr->b);
-    TclFixupForwardJumpToHere(lframe->envPtr, &fixup, 127);
+    TclUpdateInstInt4AtPc(op, CurrentOffset(lframe->envPtr) - jumpOffset,
+			      lframe->envPtr->codeStart + jumpOffset);
 }
 
 void
@@ -1451,7 +1451,7 @@ L_compile_if_unless(L_if_unless *cond)
 void
 L_compile_loop(L_loop *loop)
 {
-    JumpFixup jumpToCond;
+    int jumpToCond;
     JumpOffsetList *break_jumps, *continue_jumps;
     int bodyCodeOffset, jumpDist, startOffset;
 
@@ -1463,7 +1463,8 @@ L_compile_loop(L_loop *loop)
     /* XXX: need optimization for null conditions and infinite loops
      * See TclCompileWhileComd() for the stuff Tcl does.
      */
-    TclEmitForwardJump(lframe->envPtr, TCL_UNCONDITIONAL_JUMP, &jumpToCond);
+    jumpToCond = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_JUMP4, 0, lframe->envPtr);
     L_frame_push(lframe->interp, lframe->envPtr, loop);
     bodyCodeOffset = CurrentOffset(lframe->envPtr);
     L_compile_statements(loop->body);
@@ -1476,9 +1477,9 @@ L_compile_loop(L_loop *loop)
         L_compile_expressions(loop->post);
         TclEmitOpcode(INST_POP, lframe->envPtr);
     }
-    if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpToCond, 127)) {
-        bodyCodeOffset += 3;
-    }
+    TclUpdateInstInt4AtPc(INST_JUMP4,
+	CurrentOffset(lframe->envPtr) - jumpToCond,
+	lframe->envPtr->codeStart + jumpToCond);
     L_compile_expressions(loop->condition);
     L_PUSH_STR("0");
     TclEmitOpcode(INST_NEQ, lframe->envPtr);

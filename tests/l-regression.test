@@ -285,6 +285,24 @@ foo();
 } -returnCodes {error} -result "L Error: Index into something that's not an array on line 5\n" \
 -output {}
 
+test break-1.0 {breaks break when loop jump instructions grow because the loop body is big} -body {
+#lang L
+foo() {
+        int     i;
+
+	for (i = 0; i<10; i++) {
+		printf("${i}");
+		printf("${i}");
+		printf("${i}");
+		printf("${i}");
+		printf("${i}");
+		break;
+	}
+}
+foo();
+#lang tcl
+} -output {00000}
+
 # cleanup
 ::tcltest::cleanupTests
 return
