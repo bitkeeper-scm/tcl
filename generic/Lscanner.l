@@ -31,6 +31,7 @@ Tcl_Obj *str;
 }                               \
 
 extern int L_line_number;
+extern char *L_source_file;
 extern int L_token_offset;
 extern int L_prev_token_len;
 
@@ -332,8 +333,8 @@ tally_newlines(
 }
 	\f		/* ignore page breaks */
         .		{       /* this is essentially an "else" */
-                                fprintf(stderr, "L error: illegal character %c on line %d\n",
-					*yytext, L_line_number);
+                                fprintf(stderr, "%s:%d: L error: illegal character %c",
+				    L_source_file, L_line_number, *yytext);
                                 exit(1);
                         }
 

@@ -162,7 +162,7 @@ proc_1_4(int a, ...b, int c) {
 }
 #lang tcl
 proc_1_4
-} -returnCodes {error} -result "L Error: Rest parameter must be last on line 1\n"
+} -returnCodes {error} -match glob -result "*:1: L Error: Rest parameter must be last\n"
 
 
 test var-1.0 {Test L variable assignment and reference} -body {
@@ -340,8 +340,8 @@ undecl() {
 }
 #lang tcl
 undecl
-} -returnCodes error -result {L Error: Undeclared variable: foo on line 2
-L Error: Undeclared variable: cheese on line 3
+} -returnCodes error -match glob -result {*L Error: Undeclared variable: foo
+*L Error: Undeclared variable: cheese
 }
 
 
@@ -357,7 +357,7 @@ shadow() {
 }
 #lang tcl
 shadow
-} -returnCodes error -result {L Error: Illegal redeclaration of local variable foo on line 4
+} -returnCodes error -match glob -result {*L Error: Illegal redeclaration of local variable foo
 }
 
 test decl-1.4 {Single dimensional initializers actually initialize} -body {
@@ -469,7 +469,7 @@ main(void)
 	if (0) puts("1 broken"); else puts("1 even more broken");
 }
 #lang tcl
-} -returnCodes error -match glob -result "L Error: *line 3\n"
+} -returnCodes error -match glob -result "*3: L Error: syntax error, unexpected T_ELSE\n"
 
 
 test unless-1.0 {unless statements} -body {
@@ -1669,8 +1669,8 @@ string typecheck_1_0_foo() {
 }
 #lang tcl
 typecheck_1_0
-} -returnCodes {error} \
--result "L Error: type error, want L_TYPE_NUMBER, got L_TYPE_STRING on line 2\n"
+} -returnCodes {error} -match glob \
+-result "*:2: L Error: type error, want L_TYPE_NUMBER, got L_TYPE_STRING\n"
 
 test typecheck-1.1 {arity check} -body {
 #lang L -nowarn
@@ -1681,9 +1681,9 @@ typecheck_1_1() {
 foo() {}
 bar(int a, int b) {}
 #lang tcl
-} -returnCodes {error} \
--result "L Error: Not enough arguments for function bar on line 3
-L Error: Too many arguments for function foo on line 2\n"
+} -returnCodes {error} -match glob \
+-result "*:3: L Error: Not enough arguments for function bar
+*:2: L Error: Too many arguments for function foo\n"
 
 test backtrace-1.0 {backtracing in L} -setup {
 	set fname [makeFile {

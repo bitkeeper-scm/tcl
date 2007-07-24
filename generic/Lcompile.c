@@ -20,6 +20,7 @@ L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
 Tcl_Obj *L_errors = NULL;
 int L_line_number = 0;
+char *L_source_file = "";
 void *L_current_ast = NULL;
 int L_interactive = 0;
 
@@ -213,6 +214,11 @@ LParseScript(
 ) {
     void    *lex_buffer;
 
+    if (((Interp *)interp)->scriptFile) {
+	L_source_file = Tcl_GetString(((Interp *)interp)->scriptFile);
+    } else {
+	L_source_file = "unknown";
+    }
     L_do_includes(interp, str, numBytes);
     L_line_number = 1;
     L_token_offset = L_prev_token_len = 0;
@@ -362,6 +368,7 @@ L_compile_include(Tcl_Interp *interp, const char *file)
     L_compile_frame *_lframe = lframe;
     Tcl_Obj *_L_errors = L_errors;
     int _L_line_number = L_line_number;
+    char *_L_source_file = L_source_file;
     void *_L_current_ast = L_current_ast;
     char *_L_script = L_script;
     int _L_scriptLen = L_scriptLen;
@@ -377,6 +384,7 @@ L_compile_include(Tcl_Interp *interp, const char *file)
     lframe = _lframe;
     L_errors = _L_errors;
     L_line_number = _L_line_number;
+    L_source_file = _L_source_file;
     L_current_ast = _L_current_ast;
     L_script = _L_script;
     L_scriptLen = _L_scriptLen;
@@ -2128,6 +2136,7 @@ L_compile_index(
 
 	if (!member) {
 	    L_errorf(index, "Structure field not found, %s", index->a->u.string);
+	    break;
 	}
 	L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
 	t = member->type;
@@ -2478,13 +2487,13 @@ L_warningf(void *node, const char *format, ...)
 
     if (!(lframe && lframe->options & L_OPT_NOWARN)) {
 	va_start(ap, format);
+	if (node) {
+	    fprintf(stderr, "%s:%d: ", L_source_file,
+		((L_ast_node *)node)->line_no);
+	}
 	fprintf(stderr, "L Warning: ");
 	vfprintf(stderr, format, ap);
-	if (node) {
-	    fprintf(stderr, " on line %d\n", ((L_ast_node *)node)->line_no);
-	} else {
-	    fprintf(stderr, "\n");
-	}
+	fprintf(stderr, "\n");
 	va_end(ap);
     }
 }
@@ -2496,8 +2505,8 @@ L_error(char *s)
     if (!L_errors) {
         L_errors = Tcl_NewObj();
     }
-    Tcl_AppendPrintfToObj(L_errors, "L Error: %s on line %d\n", s,
-	L_line_number);
+    Tcl_AppendPrintfToObj(L_errors, "%s:%d: L Error: %s\n",
+	L_source_file, L_line_number, s);
 }
 
 /* Sometimes you feel like a char*, sometimes you don't. */
@@ -2523,13 +2532,11 @@ L_errorf(void *node, const char *format, ...)
     if (!L_errors) {
         L_errors = Tcl_NewObj();
     }
-    Tcl_AppendPrintfToObj(L_errors, "L Error: %s", buf);
     if (node) {
-	Tcl_AppendPrintfToObj(L_errors, " on line %d\n",
-	    ((L_ast_node *)node)->line_no);
-    } else {
-	Tcl_AppendPrintfToObj(L_errors, "\n");
+	Tcl_AppendPrintfToObj(L_errors, "%s:%d: ",
+	    L_source_file, ((L_ast_node *)node)->line_no);
     }
+    Tcl_AppendPrintfToObj(L_errors, "L Error: %s\n", buf);
     ckfree(buf);
 }
 

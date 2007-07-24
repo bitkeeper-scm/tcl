@@ -170,8 +170,8 @@ autoextend_1_0() {
 }
 #lang tcl
 autoextend_1_0
-} -returnCodes {error} -result \
-	"L Error: Autoextending in multiple dimensions is not implemented yet on line 4\n"
+} -returnCodes {error} -match glob -result \
+	"*:4: L Error: Autoextending in multiple dimensions is not implemented yet\n"
 
 
 test typecheck-1.0 {typechecker segfaults on unop check that must be queued} -body {
@@ -188,8 +188,8 @@ string foo(string foo) {
 }
 #lang tcl
 typecheck_1_0
-} -returnCodes {error} -result \
-    "L Error: type error, want L_TYPE_STRING, got L_TYPE_INT on line 3\n"
+} -returnCodes {error} -match glob -result \
+    "*:3: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT\n"
 
 test decl-1.0 {don't drop array dimensions from typedef when declaring multiple variables} -body {
 #lang L
@@ -262,7 +262,7 @@ scope_1_1() {
 }
 #lang tcl
 scope_1_1
-} -returnCodes {error} -result "L Error: Undeclared variable: a on line 6\n"
+} -returnCodes {error} -match glob -result "*:6: L Error: Undeclared variable: a\n"
 
 test regexp-1.0 {regexps might start with a dash, so call regex/regsub with -- before the regexp} -body {
 #lang L
@@ -282,7 +282,7 @@ foo() {
 }
 foo();
 #lang tcl
-} -returnCodes {error} -result "L Error: Index into something that's not an array on line 5\n" \
+} -returnCodes {error} -match glob -result "*:5: L Error: Index into something that's not an array\n" \
 -output {}
 
 test break-1.0 {breaks break when loop jump instructions grow because the loop body is big} -body {
