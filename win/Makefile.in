@@ -287,7 +287,8 @@ L_OBJS	= Lscanner.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
 	LastWalker.$(OBJEXT) \
-	LPointerObj.$(OBJEXT)
+	LPointerObj.$(OBJEXT) \
+	Ltypecheck.$(OBJEXT)
 
 TOMMATH_OBJS = \
 	bncore.${OBJEXT} \
