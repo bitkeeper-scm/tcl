@@ -9,6 +9,7 @@
 ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
 #include <string.h>
+#define	_PWD_H			// Some solaris9 conflict, we don't need pwd.h
 #include "Lcompile.h"
 #include "Lgrammar.h"
 
