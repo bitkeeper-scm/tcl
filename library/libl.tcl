@@ -7,11 +7,11 @@
 
 #namespace eval ::L {
     proc printf {args} {
-	puts -nonewline [format {expand}$args]
+	puts -nonewline [format {*}$args]
     }
 
     proc write {args} {
-	puts -nonewline {expand}$args
+	puts -nonewline {*}$args
     }
 
     set ::%%suppress_calling_main 0
@@ -19,7 +19,7 @@
     proc %%call_main_if_defined {} {
 	if {[llength [info proc main]] && !${::%%suppress_calling_main}} {
 	    append L_argv $::argv0 " " $::argv
-	    set L_envp [dict create {expand}[array get ::env]]
+	    set L_envp [dict create {*}[array get ::env]]
 	    switch [llength [info args main]] {
 		0 {
 		    set ::%%suppress_calling_main 1
