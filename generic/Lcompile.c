@@ -566,7 +566,7 @@ L_compile_variable_decls(L_variable_declaration *var)
 	    int localIndex;
 	    localIndex = TclFindCompiledLocal(var->name->u.string,
 					      strlen(var->name->u.string),
-					      1, 0, lframe->envPtr->procPtr);
+					      1, lframe->envPtr->procPtr);
 	    symbol = L_make_symbol(var->name, var->type, localIndex);
 	}
 
@@ -908,7 +908,7 @@ L_compile_parameters(L_variable_declaration *param)
         localPtr->nextPtr = NULL;
         localPtr->nameLength = strlen(name->u.string);
         localPtr->frameIndex = i;
-        localPtr->flags = VAR_SCALAR | VAR_ARGUMENT;
+        localPtr->flags = VAR_ARGUMENT;
 	if (p->rest_p) {
 	    localPtr->flags |= VAR_IS_ARGS;
 	    if (p->next) {
@@ -936,7 +936,7 @@ L_compile_parameters(L_variable_declaration *param)
 
             localIndex =
                 TclFindCompiledLocal(p->name->u.string, strlen(p->name->u.string),
-                                     1, VAR_SCALAR, procPtr);
+                                     1, procPtr);
             L_make_symbol(p->name, p->type, localIndex);
             emit_upvar(symbol, p->name->u.string);
         }
@@ -1281,8 +1281,7 @@ L_compile_interpolated_string(L_expression *expr)
     /* XXX is there really no better way to concatenate 3 strings
        using TCL bytecode? */
     L_compile_expressions(expr->a);
-    tempVar = TclFindCompiledLocal(NULL, 0, 1, VAR_SCALAR,
-                                   lframe->envPtr->procPtr);
+    tempVar = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
     L_STORE_SCALAR(tempVar);
     L_compile_expressions(expr->b);
     TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
@@ -1359,7 +1358,7 @@ L_compile_twiddle(L_expression *expr)
         if (!L_get_symbol(name, FALSE)) {
             int localIndex =
                 TclFindCompiledLocal(name->u.string, strlen(name->u.string),
-                                     1, 0, lframe->envPtr->procPtr);
+                                     1, lframe->envPtr->procPtr);
             s = L_make_symbol(name, mk_type(L_TYPE_STRING, NULL, NULL, NULL,
 				  NULL, FALSE), localIndex);
 	    s->used_p = TRUE;	/* suppress unused var warning */
@@ -1533,8 +1532,7 @@ L_compile_foreach_loop(L_foreach_loop *loop)
     }
     L_compile_expressions(loop->hash);
     /* A temporary variable to hold the iterator state.*/
-    iteratorIndex = TclFindCompiledLocal(NULL, 0, 1, VAR_SCALAR,
-					 lframe->envPtr->procPtr);
+    iteratorIndex = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
     /* Both DICT_FIRST and DICT_NEXT leave value, key, and done-p on the
        stack.  Check done-p and jump out of the loop if it's true. (We fixup
        the jump target once we know the size of the loop body.) */
@@ -1652,7 +1650,7 @@ import_global_symbol(L_symbol *var)
     /* create a new local variable that shadows the global in our
        symbol table */
     localIndex = TclFindCompiledLocal(var->name, strlen(var->name),
-                                      1, 0, lframe->envPtr->procPtr);
+                                      1, lframe->envPtr->procPtr);
     MK_STRING_NODE(name, var->name);
     local = L_make_symbol(name, var->type, localIndex);
     local->used_p = TRUE;
@@ -1709,7 +1707,7 @@ static int
 store_in_tempvar(int pop_p)
 {
     int tempVar =
-        TclFindCompiledLocal(NULL, 0, 1, VAR_SCALAR, lframe->envPtr->procPtr);
+        TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
     L_STORE_SCALAR(tempVar);
     if (pop_p) {
         TclEmitOpcode(INST_POP, lframe->envPtr);
