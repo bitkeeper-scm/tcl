@@ -338,11 +338,11 @@ Tcl_Init(
      * will be set as the value of tcl_library.
      *
      * Note that this entire search mechanism can be bypassed by defining an
-     * alternate tclInit function before calling Tcl_Init().
+     * alternate tclInit command before calling Tcl_Init().
      */
 
     return Tcl_Eval(interp,
-"if {[info proc tclInit]==\"\"} {\n"
+"if {[namespace which -command tclInit] eq \"\"} {\n"
 "  proc tclInit {} {\n"
 "    global tcl_libPath tcl_library env tclDefaultLibrary\n"
 "    rename tclInit {}\n"
@@ -1085,7 +1085,8 @@ Tcl_CreateAlias(
     int i;
     int result;
 
-    objv = (Tcl_Obj **) ckalloc((unsigned) sizeof(Tcl_Obj *) * argc);
+    objv = (Tcl_Obj **)
+	    TclStackAlloc(slaveInterp, (unsigned) sizeof(Tcl_Obj *) * argc);
     for (i = 0; i < argc; i++) {
 	objv[i] = Tcl_NewStringObj(argv[i], -1);
 	Tcl_IncrRefCount(objv[i]);
@@ -1103,7 +1104,7 @@ Tcl_CreateAlias(
     for (i = 0; i < argc; i++) {
 	Tcl_DecrRefCount(objv[i]);
     }
-    ckfree((char *) objv);
+    TclStackFree(slaveInterp, objv);
     Tcl_DecrRefCount(targetObjPtr);
     Tcl_DecrRefCount(slaveObjPtr);
 
@@ -1408,7 +1409,7 @@ AliasCreate(
     Slave *slavePtr;
     Master *masterPtr;
     Tcl_Obj **prefv;
-    int new, i;
+    int isNew, i;
 
     aliasPtr = (Alias *) ckalloc((unsigned) (sizeof(Alias)
 	    + objc * sizeof(Tcl_Obj *)));
@@ -1477,8 +1478,8 @@ AliasCreate(
 	char *string;
 
 	string = Tcl_GetString(aliasPtr->token);
-	hPtr = Tcl_CreateHashEntry(&slavePtr->aliasTable, string, &new);
-	if (new != 0) {
+	hPtr = Tcl_CreateHashEntry(&slavePtr->aliasTable, string, &isNew);
+	if (isNew != 0) {
 	    break;
 	}
 
@@ -1494,7 +1495,7 @@ AliasCreate(
 	 * on the precise definition of these tokens.
 	 */
 
-	newToken = Tcl_NewStringObj("::",-1);
+	TclNewLiteralStringObj(newToken, "::");
 	Tcl_AppendObjToObj(newToken, aliasPtr->token);
 	Tcl_DecrRefCount(aliasPtr->token);
 	aliasPtr->token = newToken;
@@ -1777,7 +1778,7 @@ AliasObjCmd(
 	Tcl_DecrRefCount(cmdv[i]);
     }
     if (cmdv != cmdArr) {
-	TclStackFree(interp);
+	TclStackFree(interp, cmdv);
     }
     return result;
 #undef ALIAS_CMDV_PREALLOC
@@ -2110,7 +2111,7 @@ SlaveCreate(
     InterpInfo *masterInfoPtr;
     Tcl_HashEntry *hPtr;
     char *path;
-    int new, objc;
+    int isNew, objc;
     Tcl_Obj **objv;
 
     if (Tcl_ListObjGetElements(interp, pathPtr, &objc, &objv) != TCL_OK) {
@@ -2135,8 +2136,8 @@ SlaveCreate(
     }
 
     masterInfoPtr = (InterpInfo *) ((Interp *) masterInterp)->interpInfo;
-    hPtr = Tcl_CreateHashEntry(&masterInfoPtr->master.slaveTable, path, &new);
-    if (new == 0) {
+    hPtr = Tcl_CreateHashEntry(&masterInfoPtr->master.slaveTable, path, &isNew);
+    if (isNew == 0) {
 	Tcl_AppendResult(interp, "interpreter named \"", path,
 		"\" already exists, cannot create", (char *) NULL);
 	return NULL;
@@ -2190,9 +2191,10 @@ SlaveCreate(
      */
 
     if (safe) {
-	Tcl_Obj* clockObj = Tcl_NewStringObj("clock", -1);
+	Tcl_Obj *clockObj;
 	int status;
 
+	TclNewLiteralStringObj(clockObj, "clock");
 	Tcl_IncrRefCount(clockObj);
 	status = AliasCreate(interp, slaveInterp, masterInterp, clockObj,
 		clockObj, 0, (Tcl_Obj *CONST *) NULL);
@@ -2570,7 +2572,7 @@ SlaveRecursionLimit(
 
     if (objc) {
 	if (Tcl_IsSafe(interp)) {
-	    Tcl_AppendResult(interp, "permission denied: ",
+	    Tcl_AppendResult(interp, "permission denied: "
 		    "safe interpreters cannot change recursion limit",
 		    (char *) NULL);
 	    return TCL_ERROR;
@@ -2902,6 +2904,9 @@ Tcl_MakeSafe(
  * Side effects:
  *	None.
  *
+ * Notes:
+ *	If you change this function, you MUST also update TclLimitExceeded() in
+ *	tclInt.h.
  *----------------------------------------------------------------------
  */
 
@@ -2928,6 +2933,10 @@ Tcl_LimitExceeded(
  *
  * Side effects:
  *	Increments the limit granularity counter.
+ *
+ * Notes:
+ *	If you change this function, you MUST also update TclLimitReady() in
+ *	tclInt.h.
  *
  *----------------------------------------------------------------------
  */
@@ -3606,12 +3615,14 @@ TimeLimitCallback(
     ClientData clientData)
 {
     Tcl_Interp *interp = (Tcl_Interp *) clientData;
+    int code;
 
     Tcl_Preserve((ClientData) interp);
     ((Interp *)interp)->limit.timeEvent = NULL;
-    if (Tcl_LimitCheck(interp) != TCL_OK) {
+    code = Tcl_LimitCheck(interp);
+    if (code != TCL_OK) {
 	Tcl_AddErrorInfo(interp, "\n    (while waiting for event)");
-	Tcl_BackgroundError(interp);
+	TclBackgroundException(interp, code);
     }
     Tcl_Release((ClientData) interp);
 }
@@ -3779,7 +3790,7 @@ CallScriptLimitCallback(
     code = Tcl_EvalObjEx(limitCBPtr->interp, limitCBPtr->scriptObj,
 	    TCL_EVAL_GLOBAL);
     if (code != TCL_OK && !Tcl_InterpDeleted(limitCBPtr->interp)) {
-	Tcl_BackgroundError(limitCBPtr->interp);
+	TclBackgroundException(limitCBPtr->interp, code);
     }
     Tcl_Release(limitCBPtr->interp);
 }
@@ -4103,7 +4114,7 @@ SlaveCommandLimitCmd(
 		    return TCL_ERROR;
 		}
 		if (gran < 1) {
-		    Tcl_AppendResult(interp, "granularity must be at ",
+		    Tcl_AppendResult(interp, "granularity must be at "
 			    "least 1", NULL);
 		    return TCL_ERROR;
 		}
@@ -4118,7 +4129,7 @@ SlaveCommandLimitCmd(
 		    return TCL_ERROR;
 		}
 		if (limit < 0) {
-		    Tcl_AppendResult(interp, "command limit value must be at ",
+		    Tcl_AppendResult(interp, "command limit value must be at "
 			    "least 0", NULL);
 		    return TCL_ERROR;
 		}
@@ -4295,7 +4306,7 @@ SlaveTimeLimitCmd(
 		    return TCL_ERROR;
 		}
 		if (gran < 1) {
-		    Tcl_AppendResult(interp, "granularity must be at ",
+		    Tcl_AppendResult(interp, "granularity must be at "
 			    "least 1", NULL);
 		    return TCL_ERROR;
 		}
@@ -4342,12 +4353,12 @@ SlaveTimeLimitCmd(
 		 */
 
 		if (secObj != NULL && secLen == 0 && milliLen > 0) {
-		    Tcl_AppendResult(interp, "may only set -milliseconds ",
+		    Tcl_AppendResult(interp, "may only set -milliseconds "
 			    "if -seconds is not also being reset", NULL);
 		    return TCL_ERROR;
 		}
 		if (milliLen == 0 && (secObj == NULL || secLen > 0)) {
-		    Tcl_AppendResult(interp, "may only reset -milliseconds ",
+		    Tcl_AppendResult(interp, "may only reset -milliseconds "
 			    "if -seconds is also being reset", NULL);
 		    return TCL_ERROR;
 		}

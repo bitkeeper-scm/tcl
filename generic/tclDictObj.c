@@ -393,8 +393,8 @@ SetDictFromAny(
 	}
 	if (objc & 1) {
 	    if (interp != NULL) {
-		Tcl_SetObjResult(interp,
-			Tcl_NewStringObj("missing value to go with key", -1));
+		Tcl_SetResult(interp, "missing value to go with key",
+			TCL_STATIC);
 	    }
 	    return TCL_ERROR;
 	}
@@ -541,11 +541,11 @@ SetDictFromAny(
 
  missingKey:
     if (interp != NULL) {
-	Tcl_SetObjResult(interp,
-		Tcl_NewStringObj("missing value to go with key", -1));
+	Tcl_SetResult(interp, "missing value to go with key", TCL_STATIC);
     }
     TclDecrRefCount(keyPtr);
     result = TCL_ERROR;
+
  errorExit:
     for (hPtr=Tcl_FirstHashEntry(&dict->table,&search);
 	    hPtr!=NULL ; hPtr=Tcl_NextHashEntry(&search)) {
@@ -1635,9 +1635,7 @@ DictKeysCmd(
     int objc,
     Tcl_Obj *CONST *objv)
 {
-    Tcl_Obj *keyPtr, *listPtr;
-    Tcl_DictSearch search;
-    int result, done;
+    Tcl_Obj *listPtr;
     char *pattern = NULL;
 
     if (objc!=3 && objc!=4) {
@@ -1645,33 +1643,51 @@ DictKeysCmd(
 	return TCL_ERROR;
     }
 
-    result = Tcl_DictObjFirst(interp, objv[2], &search, &keyPtr, NULL, &done);
-    if (result != TCL_OK) {
-	return TCL_ERROR;
+    /*
+     * A direct check that we have a dictionary. We don't start the iteration
+     * yet because that might allocate memory or set locks that we do not
+     * need. [Bug 1705778, leak K04]
+     */
+
+    if (objv[2]->typePtr != &tclDictType) {
+	int result = SetDictFromAny(interp, objv[2]);
+
+	if (result != TCL_OK) {
+	    return result;
+	}
     }
+
     if (objc == 4) {
 	pattern = TclGetString(objv[3]);
     }
     listPtr = Tcl_NewListObj(0, NULL);
     if ((pattern != NULL) && TclMatchIsTrivial(pattern)) {
 	Tcl_Obj *valuePtr = NULL;
+
 	Tcl_DictObjGet(interp, objv[2], objv[3], &valuePtr);
 	if (valuePtr != NULL) {
-	    Tcl_ListObjAppendElement(interp, listPtr, objv[3]);
+	    Tcl_ListObjAppendElement(NULL, listPtr, objv[3]);
 	}
-	goto searchDone;
-    }
-    for (; !done ; Tcl_DictObjNext(&search, &keyPtr, NULL, &done)) {
-	if (pattern==NULL || Tcl_StringMatch(TclGetString(keyPtr), pattern)) {
-	    /*
-	     * Assume this operation always succeeds.
-	     */
+    } else {
+	Tcl_DictSearch search;
+	Tcl_Obj *keyPtr;
+	int done;
 
-	    Tcl_ListObjAppendElement(interp, listPtr, keyPtr);
+	/*
+	 * At this point, we know we have a dictionary (or at least something
+	 * that can be represented; it could theoretically have shimmered away
+	 * when the pattern was fetched, but that shouldn't be damaging) so we
+	 * can start the iteration process without checking for failures.
+	 */
+
+	Tcl_DictObjFirst(NULL, objv[2], &search, &keyPtr, NULL, &done);
+	for (; !done ; Tcl_DictObjNext(&search, &keyPtr, NULL, &done)) {
+	    if (!pattern || Tcl_StringMatch(TclGetString(keyPtr), pattern)) {
+		Tcl_ListObjAppendElement(NULL, listPtr, keyPtr);
+	    }
 	}
     }
 
-  searchDone:
     Tcl_SetObjResult(interp, listPtr);
     return TCL_OK;
 }
@@ -2175,8 +2191,8 @@ DictForCmd(
 	return TCL_ERROR;
     }
     if (varc != 2) {
-	Tcl_SetObjResult(interp, Tcl_NewStringObj(
-		"must have exactly two variable names", -1));
+	Tcl_SetResult(interp, "must have exactly two variable names",
+		TCL_STATIC);
 	return TCL_ERROR;
     }
     keyVarObj    = varv[0];
@@ -2437,6 +2453,12 @@ DictFilterCmd(
 	pattern = TclGetString(objv[4]);
 	resultObj = Tcl_NewDictObj();
 	if (TclMatchIsTrivial(pattern)) {
+	    /*
+	     * Must release the search lock here to prevent a memory leak
+	     * since we are not exhausing the search. [Bug 1705778, leak K05]
+	     */
+
+	    Tcl_DictObjDone(&search);
 	    Tcl_DictObjGet(interp, objv[2], objv[4], &valueObj);
 	    if (valueObj != NULL) {
 		Tcl_DictObjPut(interp, resultObj, objv[4], valueObj);
@@ -2494,8 +2516,8 @@ DictFilterCmd(
 	    return TCL_ERROR;
 	}
 	if (varc != 2) {
-	    Tcl_SetObjResult(interp, Tcl_NewStringObj(
-		    "must have exactly two variable names", -1));
+	    Tcl_SetResult(interp, "must have exactly two variable names",
+		    TCL_STATIC);
 	    return TCL_ERROR;
 	}
 	keyVarObj = varv[0];
@@ -2722,6 +2744,14 @@ DictUpdateCmd(
 	objPtr = Tcl_ObjGetVar2(interp, objv[i+1], NULL, 0);
 	if (objPtr == NULL) {
 	    Tcl_DictObjRemove(interp, dictPtr, objv[i]);
+	} else if (objPtr == dictPtr) {
+	    /*
+	     * Someone is messing us around, trying to build a recursive
+	     * structure. [Bug 1786481]
+	     */
+
+	    Tcl_DictObjPut(interp, dictPtr, objv[i],
+		    Tcl_DuplicateObj(objPtr));
 	} else {
 	    /* Shouldn't fail */
 	    Tcl_DictObjPut(interp, dictPtr, objv[i], objPtr);
@@ -2893,6 +2923,13 @@ DictWithCmd(
 	valPtr = Tcl_ObjGetVar2(interp, keyv[i], NULL, 0);
 	if (valPtr == NULL) {
 	    Tcl_DictObjRemove(NULL, leafPtr, keyv[i]);
+	} else if (leafPtr == valPtr) {
+	    /*
+	     * Someone is messing us around, trying to build a recursive
+	     * structure. [Bug 1786481]
+	     */
+
+	    Tcl_DictObjPut(NULL, leafPtr, keyv[i], Tcl_DuplicateObj(valPtr));
 	} else {
 	    Tcl_DictObjPut(NULL, leafPtr, keyv[i], valPtr);
 	}

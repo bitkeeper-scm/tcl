@@ -26,8 +26,14 @@ proc ::platform::shell::generic {shell} {
     LOCATE base out
 
     set     code {}
+    # Forget any pre-existing platform package, it might be in
+    # conflict with this one.
+    lappend code {package forget platform}
+    # Inject our platform package
     lappend code [list source $base]
+    # Query and print the architecture
     lappend code {puts [platform::generic]}
+    # And done
     lappend code {exit 0}
 
     set arch [RUN $shell [join $code \n]]
@@ -45,8 +51,14 @@ proc ::platform::shell::identify {shell} {
     LOCATE base out
 
     set     code {}
+    # Forget any pre-existing platform package, it might be in
+    # conflict with this one.
+    lappend code {package forget platform}
+    # Inject our platform package
     lappend code [list source $base]
+    # Query and print the architecture
     lappend code {puts [platform::identify]}
+    # And done
     lappend code {exit 0}
 
     set arch [RUN $shell [join $code \n]]
@@ -77,7 +89,7 @@ proc ::platform::shell::CHECK {shell} {
 	return -code error "Shell \"$shell\" does not exist"
     }
     if {![file executable $shell]} {
-	return -code error "Shell \"$shell\" is not executable"
+	return -code error "Shell \"$shell\" is not executable (permissions)"
     }
     return
 }
@@ -118,12 +130,14 @@ proc ::platform::shell::RUN {shell code} {
     } res]
 
     file delete $c
-    file delete $e
 
     if {$code} {
-	return -code error "Shell \"$shell\" is not executable"
+	append res \n[read [set chan [open $e r]]][close $chan]
+	file delete $e
+	return -code error "Shell \"$shell\" is not executable ($res)"
     }
 
+    file delete $e
     return $res
 }
 
@@ -219,4 +233,4 @@ proc ::platform::shell::DIR {} {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide platform::shell 1.1.1
+package provide platform::shell 1.1.3

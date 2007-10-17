@@ -115,9 +115,15 @@ GENERIC_DIR_NATIVE	= $(shell $(CYGPATH) '$(GENERIC_DIR)' | sed 's!\\!/!g')
 TOMMATH_DIR_NATIVE	= $(shell $(CYGPATH) '$(TOMMATH_DIR)' | sed 's!\\!/!g')
 WIN_DIR_NATIVE		= $(shell $(CYGPATH) '$(WIN_DIR)' | sed 's!\\!/!g')
 ROOT_DIR_NATIVE		= $(shell $(CYGPATH) '$(ROOT_DIR)' | sed 's!\\!/!g')
+#GENERIC_DIR_NATIVE	= $(GENERIC_DIR)
+#TOMMATH_DIR_NATIVE	= $(TOMMATH_DIR)
+#WIN_DIR_NATIVE		= $(WIN_DIR)
+#ROOT_DIR_NATIVE		= $(ROOT_DIR)
 
-LIBRARY_DIR   = $(ROOT_DIR_NATIVE)/library
-
+# Fully qualify library path so that `make test`
+# does not depend on the current directory.
+LIBRARY_DIR1		= $(shell cd '$(ROOT_DIR_NATIVE)/library' ; pwd)
+LIBRARY_DIR             = $(shell $(CYGPATH) '$(LIBRARY_DIR1)' | sed 's!\\!/!g')
 DLLSUFFIX		= @DLLSUFFIX@
 LIBSUFFIX		= @LIBSUFFIX@
 EXESUFFIX		= @EXESUFFIX@
@@ -250,7 +256,6 @@ GENERIC_OBJS = \
 	tclListObj.$(OBJEXT) \
 	tclLoad.$(OBJEXT) \
 	tclMain.$(OBJEXT) \
-	tclMathOp.$(OBJEXT) \
 	tclNamesp.$(OBJEXT) \
 	tclNotify.$(OBJEXT) \
 	tclObj.$(OBJEXT) \
@@ -395,9 +400,6 @@ WIN_OBJS = \
 	tclWinThrd.$(OBJEXT) \
 	tclWinTime.$(OBJEXT)
 
-COMPAT_OBJS = \
-	strtoll.$(OBJEXT) strtoull.$(OBJEXT)
-
 PIPE_OBJS = stub16.$(OBJEXT)
 
 DDE_OBJS = tclWinDde.$(OBJEXT)
@@ -409,7 +411,7 @@ STUB_OBJS = tclStubLib.$(OBJEXT)
 TCLSH_OBJS = tclAppInit.$(OBJEXT)
 
 TCL_OBJS = ${GENERIC_OBJS} $(L_OBJS) $(TOMMATH_OBJS) ${WIN_OBJS} \
-	   ${COMPAT_OBJS} ${BK_OBJS}
+	   ${BK_OBJS}
 
 TCL_DOCS = "$(ROOT_DIR_NATIVE)"/doc/*.[13n]
 
@@ -710,12 +712,12 @@ install-libraries: libraries install-tzdata install-msgs
 	    done;
 	@echo "Installing package msgcat 1.4.2 as a Tcl Module";
 	@$(COPY) $(ROOT_DIR)/library/msgcat/msgcat.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/msgcat-1.4.2.tm;
-	@echo "Installing package tcltest 2.3a1 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/tcltest/tcltest.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/tcltest-2.3a1.tm;
-	@echo "Installing package platform 1.0.2 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/platform/platform.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform-1.0.2.tm;
-	@echo "Installing package platform::shell 1.1.1 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/platform/shell.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform/shell-1.1.1.tm;
+	@echo "Installing package tcltest 2.3b1 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/tcltest/tcltest.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/tcltest-2.3b1.tm;
+	@echo "Installing package platform 1.0.3 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/platform/platform.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform-1.0.3.tm;
+	@echo "Installing package platform::shell 1.1.3 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/platform/shell.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform/shell-1.1.3.tm;
 	@echo "Installing encodings";
 	@for i in $(ROOT_DIR)/library/encoding/*.enc ; do \
 		$(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)/encoding"; \

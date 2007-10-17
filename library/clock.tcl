@@ -9,7 +9,7 @@
 #
 #----------------------------------------------------------------------
 #
-# Copyright (c) 2004 by Kevin B. Kenny.  All rights reserved.
+# Copyright (c) 2004,2005,2006,2007 by Kevin B. Kenny
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
@@ -243,7 +243,6 @@ proc ::tcl::clock::Initialize {} {
 	/usr/share/lib/zoneinfo
 	/usr/lib/zoneinfo
 	/usr/local/etc/zoneinfo
-	C:/Progra~1/cygwin/usr/local/etc/zoneinfo
     } {
 	if { [file isdirectory $path] } {
 	    lappend ZoneinfoPaths $path
@@ -304,67 +303,82 @@ proc ::tcl::clock::Initialize {} {
     # been made to make a reasonable guess, but this table needs to be
     # taken with a grain of salt.
 
-    variable WinZoneInfo [dict create \
-	{-43200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :Pacific/Kwajalein \
-	{-39600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}	 :Pacific/Midway \
-	{-36000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :Pacific/Honolulu \
-	{-32400 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Anchorage \
-	{-28800 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Los_Angeles \
-	{-25200 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Denver \
-	{-25200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Phoenix \
-	{-21600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Regina \
-	{-21600 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Chicago \
-	{-18000 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/New_York \
-	{-18000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Indianapolis \
-	{-14400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Caracas \
-	{-14400 0 3600 0 3 6 2 0 0 0 0 0 10 6 2 0 0 0 0} :America/Santiago \
-	{-14400 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Halifax \
-	{-12600 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/St_Johns \
-	{-10800 0 3600 0 2 0 2 2 0 0 0 0 10 0 3 2 0 0 0} :America/Sao_Paulo \
-	{-10800 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Godthab \
-	{-10800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Buenos_Aires \
-	{-7200 0 3600 0 9 0 5 2 0 0 0 0 3 0 5 2 0 0 0}   :America/Noronha \
-	{-3600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Atlantic/Azores \
-	{-3600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Atlantic/Cape_Verde \
-	{0 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}       :UTC \
-	{0 0 3600 0 10 0 5 2 0 0 0 0 3 0 5 1 0 0 0}      :Europe/London \
-	{3600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}    :Africa/Kinshasa \
-	{3600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}   :CET \
-	{7200 0 3600 0 9 3 5 2 0 0 0 0 5 5 1 2 0 0 0}    :Africa/Cairo \
-	{7200 0 3600 0 10 0 5 4 0 0 0 0 3 0 5 3 0 0 0}   :Europe/Helsinki \
-	{7200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}    :Asia/Jerusalem \
-	{7200 0 3600 0 9 0 5 1 0 0 0 0 3 0 5 0 0 0 0}    :Europe/Bucharest \
-	{7200 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}   :Europe/Athens \
-	{10800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Riyadh \
-	{10800 0 3600 0 10 0 1 4 0 0 0 0 4 0 1 3 0 0 0}  :Asia/Baghdad \
-	{10800 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Europe/Moscow \
-	{12600 0 3600 0 9 2 4 2 0 0 0 0 3 0 1 2 0 0 0}   :Asia/Tehran \
-	{14400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Muscat \
-	{14400 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Tbilisi \
-	{16200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Kabul \
-	{18000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Karachi \
-	{18000 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Yekaterinburg \
-	{19800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Calcutta \
-	{20700 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Katmandu \
-	{21600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Dhaka \
-	{21600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Novosibirsk \
-	{23400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Rangoon \
-	{25200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Bangkok \
-	{25200 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Krasnoyarsk \
-	{28800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Chongqing \
-	{28800 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Irkutsk \
-	{32400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Tokyo \
-	{32400 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Yakutsk \
-	{34200 0 3600 0 3 0 5 3 0 0 0 0 10 0 5 2 0 0 0}  :Australia/Adelaide \
-	{34200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Australia/Darwin \
-	{36000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Australia/Brisbane \
-	{36000 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Vladivostok \
-	{36000 0 3600 0 3 0 5 3 0 0 0 0 10 0 1 2 0 0 0}  :Australia/Hobart \
-	{36000 0 3600 0 3 0 5 3 0 0 0 0 10 0 5 2 0 0 0}  :Australia/Sydney \
-	{39600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Noumea \
-	{43200 0 3600 0 3 0 3 2 0 0 0 0 10 0 1 2 0 0 0}  :Pacific/Auckland \
-	{43200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Fiji \
-	{46800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Tongatapu]
+    variable WinZoneInfo [dict create {*}{
+	{-43200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :Pacific/Kwajalein
+	{-39600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}	 :Pacific/Midway
+	{-36000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :Pacific/Honolulu
+        {-32400 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/Anchorage
+        {-28800 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/Los_Angeles
+        {-28800 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Tijuana
+        {-25200 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/Denver
+        {-25200 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Chihuahua
+	{-25200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Phoenix
+	{-21600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Regina
+	{-21600 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/Chicago
+        {-21600 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Mexico_City
+	{-18000 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/New_York
+	{-18000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Indianapolis
+	{-14400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Caracas
+        {-14400 0 3600 0 3 6 2 23 59 59 999 0 10 6 2 23 59 59 999}
+							 :America/Santiago
+        {-14400 0 3600 0 2 0 5 2 0 0 0 0 11 0 1 2 0 0 0} :America/Manaus
+        {-14400 0 3600 0 11 0 1 2 0 0 0 0 3 0 2 2 0 0 0} :America/Halifax
+	{-12600 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/St_Johns
+	{-10800 0 3600 0 2 0 2 2 0 0 0 0 10 0 3 2 0 0 0} :America/Sao_Paulo
+	{-10800 0 3600 0 10 0 5 2 0 0 0 0 4 0 1 2 0 0 0} :America/Godthab
+	{-10800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}  :America/Buenos_Aires
+        {-10800 0 3600 0 2 0 5 2 0 0 0 0 11 0 1 2 0 0 0} :America/Brasilia
+        {-10800 0 3600 0 3 0 2 2 0 0 0 0 10 0 1 2 0 0 0} :America/Montevideo
+	{-7200 0 3600 0 9 0 5 2 0 0 0 0 3 0 5 2 0 0 0}   :America/Noronha
+	{-3600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Atlantic/Azores
+	{-3600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Atlantic/Cape_Verde
+	{0 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}       :UTC
+	{0 0 3600 0 10 0 5 2 0 0 0 0 3 0 5 1 0 0 0}      :Europe/London
+	{3600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}    :Africa/Kinshasa
+	{3600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}   :CET
+        {7200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}    :Africa/Harare
+        {7200 0 3600 0 9 4 5 23 59 59 0 0 4 4 5 23 59 59 0}
+			      				 :Africa/Cairo
+	{7200 0 3600 0 10 0 5 4 0 0 0 0 3 0 5 3 0 0 0}   :Europe/Helsinki
+        {7200 0 3600 0 9 0 3 2 0 0 0 0 3 5 5 2 0 0 0}    :Asia/Jerusalem
+	{7200 0 3600 0 9 0 5 1 0 0 0 0 3 0 5 0 0 0 0}    :Europe/Bucharest
+	{7200 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}   :Europe/Athens
+        {7200 0 3600 0 9 5 5 1 0 0 0 0 3 4 5 0 0 0 0}    :Asia/Amman
+        {7200 0 3600 0 10 6 5 23 59 59 999 0 3 0 5 0 0 0 0}
+							 :Asia/Beirut
+        {7200 0 -3600 0 4 0 1 2 0 0 0 0 9 0 1 2 0 0 0}   :Africa/Windhoek
+	{10800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Riyadh
+	{10800 0 3600 0 10 0 1 4 0 0 0 0 4 0 1 3 0 0 0}  :Asia/Baghdad
+	{10800 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Europe/Moscow
+	{12600 0 3600 0 9 2 4 2 0 0 0 0 3 0 1 2 0 0 0}   :Asia/Tehran
+        {14400 0 3600 0 10 0 5 5 0 0 0 0 3 0 5 4 0 0 0}  :Asia/Baku
+	{14400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Muscat
+	{14400 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Tbilisi
+	{16200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Kabul
+	{18000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Karachi
+	{18000 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Yekaterinburg
+	{19800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Calcutta
+	{20700 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Katmandu
+	{21600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Dhaka
+	{21600 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Novosibirsk
+	{23400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Rangoon
+	{25200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Bangkok
+	{25200 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Krasnoyarsk
+	{28800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Chongqing
+	{28800 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Irkutsk
+	{32400 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Asia/Tokyo
+	{32400 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Yakutsk
+	{34200 0 3600 0 3 0 5 3 0 0 0 0 10 0 5 2 0 0 0}  :Australia/Adelaide
+	{34200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Australia/Darwin
+	{36000 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Australia/Brisbane
+	{36000 0 3600 0 10 0 5 3 0 0 0 0 3 0 5 2 0 0 0}  :Asia/Vladivostok
+	{36000 0 3600 0 3 0 5 3 0 0 0 0 10 0 1 2 0 0 0}  :Australia/Hobart
+	{36000 0 3600 0 3 0 5 3 0 0 0 0 10 0 5 2 0 0 0}  :Australia/Sydney
+	{39600 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Noumea
+	{43200 0 3600 0 3 0 3 3 0 0 0 0 10 0 1 2 0 0 0}  :Pacific/Auckland
+	{43200 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Fiji
+	{46800 0 3600 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0}   :Pacific/Tongatapu
+    }]
 
     # Groups of fields that specify the date, priorities, and 
     # code bursts that determine Julian Day Number given those groups.
@@ -675,16 +689,16 @@ proc ::tcl::clock::format { args } {
     foreach { flag value } [lreplace $args 0 0] {
 	set saw($flag) {}
 	switch -exact -- $flag {
-	    -format {
+	    -f - -fo - -for - -form - -forma - -format {
 		set format $value
 	    }
-	    -gmt {
+	    -g - -gm - -gmt {
 		set gmt $value
 	    }
-	    -locale {
+	    -l - -lo - -loc - -loca - -local - -locale {
 		set locale $value
 	    }
-	    -timezone {
+	    -t - -ti - -tim - -time - -timez - -timezo - -timezon - -timezone {
 		set timezone $value
 	    }
 	    default {
@@ -1268,19 +1282,19 @@ proc ::tcl::clock::scan { args } {
     foreach { flag value } [lreplace $args 0 0] {
 	set saw($flag) {}
 	switch -exact -- $flag {
-	    -base {
+	    -b - -ba - -bas - -base {
 		set base $value
 	    }
-	    -format {
+	    -f - -fo - -for - -form - -forma - -format {
 		set format $value
 	    }
-	    -gmt {
+	    -g - -gm - -gmt {
 		set gmt $value
 	    }
-	    -locale {
+	    -l - -lo - -loc - -loca - -local - -locale {
 		set locale $value
 	    }
-	    -timezone {
+	    -t - -ti - -tim - -time - -timez - -timezo - -timezon - -timezone {
 		set timezone $value
 	    }
 	    default {
@@ -1629,16 +1643,16 @@ proc ::tcl::clock::ParseClockScanFormat {formatString locale} {
 			    i {7 1 2 3 4 5 6} \
 			    abr [mc DAYS_OF_WEEK_ABBREV] \
 			    full [mc DAYS_OF_WEEK_FULL] {
-				dict set l $abr $i
-				dict set l $full $i
+				dict set l [string tolower $abr] $i
+				dict set l [string tolower $full] $i
 				incr i
 			    }
 			foreach { regex lookup } [UniquePrefixRegexp $l] break
 			append re ( $regex )
 			dict set fieldSet dayOfWeek [incr fieldCount]
 			append postcode "dict set date dayOfWeek \[" \
-			    "dict get " [list $lookup] " \$field" \
-			    [incr captureCount] \
+			    "dict get " [list $lookup] " " \
+			    \[ {string tolower $field} [incr captureCount] \] \
 			    "\]\n"
 		    }
 		    b - B - h {		# Name of month
@@ -1648,15 +1662,16 @@ proc ::tcl::clock::ParseClockScanFormat {formatString locale} {
 			    abr [mc MONTHS_ABBREV] \
 			    full [mc MONTHS_FULL] {
 				incr i
-				dict set l $abr $i
-				dict set l $full $i
+				dict set l [string tolower $abr] $i
+				dict set l [string tolower $full] $i
 			    }
 			foreach { regex lookup } [UniquePrefixRegexp $l] break
 			append re ( $regex )
 			dict set fieldSet month [incr fieldCount]
 			append postcode "dict set date month \[" \
-			    "dict get " [list $lookup] " \$field" \
-			    [incr captureCount] \
+			    "dict get " [list $lookup] \
+			    " " \[ {string tolower $field} \
+			    [incr captureCount] \] \
 			    "\]\n"
 		    }
 		    C {			# Gregorian century
@@ -1747,7 +1762,8 @@ proc ::tcl::clock::ParseClockScanFormat {formatString locale} {
 			set state %O
 		    }
 		    p - P { 		# AM/PM indicator
-			set l [list [mc AM] 0 [mc PM] 1]
+			set l [list [string tolower [mc AM]] 0 \
+				   [string tolower [mc PM]] 1]
 			foreach { regex lookup } [UniquePrefixRegexp $l] break
 			append re ( $regex )
 			dict set fieldSet amPmIndicator [incr fieldCount]
@@ -1875,33 +1891,33 @@ proc ::tcl::clock::ParseClockScanFormat {formatString locale} {
 			set d {}
 			foreach triple [mc LOCALE_ERAS] {
 			    foreach {t symbol year} $triple break
-			    dict set d $symbol $year
+			    dict set d [string tolower $symbol] $year
 			}
 			foreach { regex lookup } [UniquePrefixRegexp $d] break
 			append re (?: $regex )
-		        
 		    }
 		    E {
 			set l {}
-			dict set l [mc BCE] BCE
-			dict set l [mc CE] CE
-			dict set l B.C.E. BCE
-			dict set l C.E. CE
-			dict set l B.C. BCE
-			dict set l A.D. CE
+			dict set l [string tolower [mc BCE]] BCE
+			dict set l [string tolower [mc CE]] CE
+			dict set l b.c.e. BCE
+			dict set l c.e. CE
+			dict set l b.c. BCE
+			dict set l a.d. CE
 			foreach {regex lookup} [UniquePrefixRegexp $l] break
 			append re ( $regex )
 			dict set fieldSet era [incr fieldCount]
 			append postcode "dict set date era \["\
-			    "dict get " [list $lookup] " \$field" \
-			    [incr captureCount] \
+			    "dict get " [list $lookup] \
+			    { } \[ {string tolower $field} \
+			    [incr captureCount] \] \
 			    "\]\n"
 		    }
 		    y {			# Locale-dependent year of the era
 			foreach {regex lookup} \
 			    [LocaleNumeralMatcher $locale] break
 			append re $regex
-			incr fieldCount
+			incr captureCount
 		    }
 		    default {
 			append re %E
@@ -3505,7 +3521,7 @@ proc ::tcl::clock::LoadZoneinfoFile { fileName } {
 
 #----------------------------------------------------------------------
 #
-# LoadZoneinfoFile --
+# ReadZoneinfoFile --
 #
 #	Loads a binary time zone information file in Olson format.
 #
@@ -3524,7 +3540,7 @@ proc ::tcl::clock::LoadZoneinfoFile { fileName } {
 #----------------------------------------------------------------------
 
 
-proc ReadZoneinfoFile {fileName fname} {
+proc ::tcl::clock::ReadZoneinfoFile {fileName fname} {
     variable MINWIDE
     variable TZData
     if { ![info exists fname] } {
@@ -3545,24 +3561,50 @@ proc ReadZoneinfoFile {fileName fname} {
     # The file begins with a magic number, sixteen reserved bytes,
     # and then six 4-byte integers giving counts of fileds in the file.
 
-    binary scan $d a4x16IIIIII magic nIsGMT mIsStd nLeap nTime nType nChar
+    binary scan $d a4a1x15IIIIII \
+	magic version nIsGMT nIsStd nLeap nTime nType nChar
     set seek 44
+    set ilen 4
+    set iformat I
     if { $magic != {TZif} } {
 	return -code error "$fileName not a time zone information file"
     }
     if { $nType > 255 } {
 	return -code error "$fileName contains too many time types"
     }
+    # Accept only Posix-style zoneinfo.  Sorry, 'leaps' bigots.
     if { $nLeap != 0 } {
 	return -code error "$fileName contains leap seconds"
+    }
+
+    # In a version 2 file, we use the second part of the file, which
+    # contains 64-bit transition times.
+
+    if {$version eq "2"} {
+	set seek [expr {44
+			+ 5 * $nTime 
+			+ 6 * $nType 
+			+ 4 * $nLeap
+			+ $nIsStd 
+			+ $nIsGMT
+			+ $nChar
+		    }]
+	binary scan $d @${seek}a4a1x15IIIIII \
+	    magic version nIsGMT nIsStd nLeap nTime nType nChar
+	if {$magic ne {TZif}} {
+	    return -code error "seek address $seek miscomputed, magic = $magic"
+	}
+	set iformat W
+	set ilen 8
+	incr seek 44
     }
 
     # Next come ${nTime} transition times, followed by ${nTime} time type
     # codes.  The type codes are unsigned 1-byte quantities.  We insert an
     # arbitrary start time in front of the transitions.
 
-    binary scan $d @${seek}I${nTime}c${nTime} times tempCodes
-    incr seek [expr { 5 * $nTime }]
+    binary scan $d @${seek}${iformat}${nTime}c${nTime} times tempCodes
+    incr seek [expr { ($ilen + 1) * $nTime }]
     set times [linsert $times 0 $MINWIDE]
     set codes {}
     foreach c $tempCodes {
@@ -3595,7 +3637,6 @@ proc ReadZoneinfoFile {fileName fname} {
 	incr i [expr { [string length $a] + 1 }]
     }
 
-    # The rest of the data in the file are not used at present.
     # Package up a list of tuples, each of which contains transition time,
     # seconds east of Greenwich, DST flag and time zone abbreviation.
 
@@ -3611,7 +3652,28 @@ proc ReadZoneinfoFile {fileName fname} {
 	lappend r [list $t $gmtoff $isDst $abbrev]
     }
 
+    # In a version 2 file, there is also a POSIX-style time zone description
+    # at the very end of the file.  To get to it, skip over
+    # nLeap leap second values (8 bytes each),
+    # nIsStd standard/DST indicators and nIsGMT UTC/local indicators.
+
+    if {$version eq {2}} {
+	set seek [expr {$seek + 8 * $nLeap + $nIsStd + $nIsGMT + 1}]
+	set last [string first \n $d $seek]
+	set posix [string range $d $seek [expr {$last-1}]]
+	if {[llength $posix] > 0} {
+	    set posixFields [ParsePosixTimeZone $posix]
+	    foreach tuple [ProcessPosixTimeZone $posixFields] {
+		foreach {t gmtoff isDst abbrev} $tuple break
+		if {$t > $lastTime} {
+		    lappend r $tuple
+		}
+	    }
+	}
+    }
+
     set TZData(:$fileName) $r
+
     return
 }
 
@@ -3886,8 +3948,8 @@ proc ::tcl::clock::ProcessPosixTimeZone { z } {
 
     if { [dict get $z startDayOfYear] eq {} 
 	 && [dict get $z startMonth] eq {} } {
-	dict set z startMonth 4
-	dict set z startWeekOfMonth 1
+	dict set z startMonth 3
+	dict set z startWeekOfMonth 2
 	dict set z startDayOfWeek 0
 	dict set z startHours 2
 	dict set z startMinutes 0
@@ -3895,8 +3957,8 @@ proc ::tcl::clock::ProcessPosixTimeZone { z } {
     }
     if { [dict get $z endDayOfYear] eq {} 
 	 && [dict get $z endMonth] eq {} } {
-	dict set z endMonth 10
-	dict set z endWeekOfMonth 5
+	dict set z endMonth 11
+	dict set z endWeekOfMonth 1
 	dict set z endDayOfWeek 0
 	dict set z endHours 2
 	dict set z endMinutes 0
@@ -4344,12 +4406,13 @@ proc ::tcl::clock::add { clockval args } {
 
 	    switch -exact -- $a {
 
-		-gmt {
+		-g - -gm - -gmt {
 		    set gmt $b
 		}
-		-locale {
+		-l - -lo - -loc - -loca - -local - -locale {
 		    set locale $b
 		}
+		-t - -ti - -tim - -time - -timez - -timezo - -timezon -
 		-timezone {
 		    set timezone $b
 		}

@@ -28,23 +28,12 @@ static char **environCache = NULL;
 static char **ourEnviron = NULL;/* Cache of the array that we allocate. We
 				 * need to track this in case another
 				 * subsystem swaps around the environ array
-				 * like we do.
-				 */
+				 * like we do. */
 static int environSize = 0;	/* Non-zero means that the environ array was
 				 * malloced and has this many total entries
 				 * allocated to it (not all may be in use at
 				 * once). Zero means that the environment
 				 * array is in its original static state. */
-#endif
-
-/*
- * For MacOS X
- */
-
-#if defined(__APPLE__) && defined(__DYNAMIC__)
-#include <crt_externs.h>
-__private_extern__ char **environ;
-char **environ = NULL;
 #endif
 
 /*
@@ -92,14 +81,6 @@ TclSetupEnv(
     int i;
 
     /*
-     * For MacOS X, need to get the real system environment.
-     */
-
-#if defined(__APPLE__) && defined(__DYNAMIC__)
-    environ = *_NSGetEnviron();
-#endif
-
-    /*
      * Synchronize the values in the environ array with the contents of the
      * Tcl "env" variable. To do this:
      *    1) Remove the trace that fires when the "env" var is unset.
@@ -119,7 +100,7 @@ TclSetupEnv(
     if (environ[0] == NULL) {
 	Tcl_Obj *varNamePtr;
 
-	varNamePtr = Tcl_NewStringObj("env", -1);
+	TclNewLiteralStringObj(varNamePtr, "env");
 	Tcl_IncrRefCount(varNamePtr);
 	TclArraySet(interp, varNamePtr, NULL);
 	Tcl_DecrRefCount(varNamePtr);
@@ -211,18 +192,6 @@ TclSetEnv(
 	    }
 	    environ = ourEnviron = newEnviron;
 	    environSize = length + 5;
-
-#if defined(__APPLE__) && defined(__DYNAMIC__)
-	    /*
-	     * Install the new environment array where the system routines can
-	     * see it.
-	     */
-
-	    {
-		char ***e = _NSGetEnviron();
-		*e = environ;
-	    }
-#endif /* __APPLE__ && __DYNAMIC__ */
 	}
 	index = length;
 	environ[index + 1] = NULL;
@@ -638,7 +607,6 @@ ReplaceString(
     char *newStr)		/* New environment string. */
 {
     int i;
-    char **newCache;
 
     /*
      * Check to see if the old value was allocated by Tcl. If so, it needs to
@@ -670,24 +638,18 @@ ReplaceString(
 	    environCache[cacheSize-1] = NULL;
 	}
     } else {
-	int allocatedSize = (cacheSize + 5) * sizeof(char *);
-
 	/*
 	 * We need to grow the cache in order to hold the new string.
 	 */
 
-	newCache = (char **) ckalloc((unsigned) allocatedSize);
-	(void) memset(newCache, (int) 0, (size_t) allocatedSize);
+	const int growth = 5;
 
-	if (environCache) {
-	    memcpy((void *) newCache, (void *) environCache,
-		    (size_t) (cacheSize * sizeof(char*)));
-	    ckfree((char *) environCache);
-	}
-	environCache = newCache;
+	environCache = (char **) ckrealloc ((char *) environCache, 
+		(cacheSize + growth) * sizeof(char *));
 	environCache[cacheSize] = newStr;
-	environCache[cacheSize+1] = NULL;
-	cacheSize += 5;
+	(void) memset(environCache+cacheSize+1, (int) 0,
+		      (size_t) ((growth-1) * sizeof(char*)));
+	cacheSize += growth;
     }
 }
 

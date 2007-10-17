@@ -568,8 +568,10 @@ CopyRenameOneFile(
 	 */
 
 	{
-	    Tcl_Obj* perm = Tcl_NewStringObj("u+w",-1);
+	    Tcl_Obj *perm;
 	    int index;
+
+	    TclNewLiteralStringObj(perm, "u+w");
 	    Tcl_IncrRefCount(perm);
 	    if (TclFSFileAttrIndex(target, "-permissions", &index) == TCL_OK) {
 		Tcl_FSFileAttrsSet(NULL, index, target, perm);
@@ -587,7 +589,7 @@ CopyRenameOneFile(
 	if (errno == EINVAL) {
 	    Tcl_AppendResult(interp, "error renaming \"",
 		    TclGetString(source), "\" to \"", TclGetString(target),
-		    "\": trying to rename a volume or ",
+		    "\": trying to rename a volume or "
 		    "move a directory into itself", NULL);
 	    goto done;
 	} else if (errno != EXDEV) {
@@ -692,20 +694,20 @@ CopyRenameOneFile(
 		 * cross-filesystem copy. We do this through our Tcl library.
 		 */
 
-		Tcl_Obj *copyCommand = Tcl_NewListObj(0, NULL);
+		Tcl_Obj *copyCommand, *cmdObj, *opObj;
 
-		Tcl_IncrRefCount(copyCommand);
-		Tcl_ListObjAppendElement(interp, copyCommand,
-			Tcl_NewStringObj("::tcl::CopyDirectory",-1));
+		TclNewObj(copyCommand);
+		TclNewLiteralStringObj(cmdObj, "::tcl::CopyDirectory");
+		Tcl_ListObjAppendElement(interp, copyCommand, cmdObj);
 		if (copyFlag) {
-		    Tcl_ListObjAppendElement(interp, copyCommand,
-			    Tcl_NewStringObj("copying",-1));
+		    TclNewLiteralStringObj(opObj, "copying");
 		} else {
-		    Tcl_ListObjAppendElement(interp, copyCommand,
-			    Tcl_NewStringObj("renaming",-1));
+		    TclNewLiteralStringObj(opObj, "renaming");
 		}
+		Tcl_ListObjAppendElement(interp, copyCommand, opObj);
 		Tcl_ListObjAppendElement(interp, copyCommand, source);
 		Tcl_ListObjAppendElement(interp, copyCommand, target);
+		Tcl_IncrRefCount(copyCommand);
 		result = Tcl_EvalObjEx(interp, copyCommand,
 			TCL_EVAL_GLOBAL | TCL_EVAL_DIRECT);
 		Tcl_DecrRefCount(copyCommand);
@@ -999,8 +1001,8 @@ TclFileAttrsCmd(
 	if (Tcl_ListObjLength(interp, objStrings, &numObjStrings) != TCL_OK) {
 	    goto end;
 	}
-	attributeStrings = (CONST char **)
-		ckalloc((1+numObjStrings) * sizeof(char*));
+	attributeStrings = (CONST char **) TclStackAlloc(interp,
+		(1+numObjStrings) * sizeof(char*));
 	for (index = 0; index < numObjStrings; index++) {
 	    Tcl_ListObjIndex(interp, objStrings, index, &objPtr);
 	    attributeStrings[index] = TclGetString(objPtr);
@@ -1110,7 +1112,7 @@ TclFileAttrsCmd(
 	 * Free up the array we allocated.
 	 */
 
-	ckfree((char*)attributeStrings);
+	TclStackFree(interp, (void *)attributeStrings);
 
 	/*
 	 * We don't need this object that was passed to us any more.

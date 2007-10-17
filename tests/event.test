@@ -188,6 +188,23 @@ test event-5.2 {Tcl_BackgroundError, HandleBgErrors procedures} {
     rename bgerror {}
     set x
 } {{a simple error}}
+test event-5.3 {HandleBgErrors: [Bug 1670155]} -setup {
+    variable x
+    proc demo args {variable x done}
+    variable target [list [namespace which demo] x]
+    proc trial args {variable target; string length $target}
+    trace add execution demo enter [namespace code trial]
+    variable save [interp bgerror {}]
+    interp bgerror {} $target
+} -body {
+    after 0 {error bar}
+    vwait [namespace which -variable x]
+} -cleanup {
+    interp bgerror {} $save
+    unset x target save
+    rename demo {}
+    rename trial {}
+} -result {}
 
 test event-6.1 {BgErrorDeleteProc procedure} {
     catch {interp delete foo}
@@ -286,6 +303,45 @@ test event-7.5 {correct behaviour when there is no bgerror [Bug 219142]} {exec} 
     while executing
 "error hello"
     ("after" script)}}
+
+test event-7.6 {safe hidden bgerror fallback} {
+    variable result {}
+    interp create -safe safe
+    safe alias puts puts
+    safe alias result ::append [namespace which -variable result]
+    safe eval {proc bgerror m {result $m\n$::errorCode\n$::errorInfo\n}}
+    safe hide bgerror
+    safe eval after 0 error foo
+    update
+    interp delete safe
+    set result
+} {foo
+NONE
+foo
+    while executing
+"error foo"
+    ("after" script)
+}
+
+test event-7.7 {safe hidden bgerror fallback} {
+    variable result {}
+    interp create -safe safe
+    safe alias puts puts
+    safe alias result ::append [namespace which -variable result]
+    safe eval {proc bgerror m {result $m\n$::errorCode\n$::errorInfo\n}}
+    safe hide bgerror
+    safe eval {proc bgerror m {error bar soom baz}}
+    safe eval after 0 error foo
+    update
+    interp delete safe
+    set result
+} {foo
+NONE
+foo
+    while executing
+"error foo"
+    ("after" script)
+}
 
 
 # someday : add a test checking that 

@@ -238,7 +238,7 @@ Registry_Init(
     cmd = Tcl_CreateObjCommand(interp, "registry", RegistryObjCmd,
 	(ClientData)interp, DeleteCmd);
     Tcl_SetAssocData(interp, REGISTRY_ASSOC_KEY, NULL, (ClientData)cmd);
-    return Tcl_PkgProvide(interp, "registry", "1.2");
+    return Tcl_PkgProvide(interp, "registry", "1.2.1");
 }
 
 /*
@@ -589,21 +589,17 @@ GetKeyNames(
     Tcl_Obj *keyNameObj,	/* Key to enumerate. */
     Tcl_Obj *patternObj)	/* Optional match pattern. */
 {
-    HKEY key;
-    DWORD index;
-    char buffer[MAX_PATH+1], *pattern, *name;
-    Tcl_Obj *resultPtr;
-    int result = TCL_OK;
-    Tcl_DString ds;
-
-    /*
-     * Attempt to open the key for enumeration.
-     */
-
-    if (OpenKey(interp, keyNameObj, KEY_ENUMERATE_SUB_KEYS, 0,
-	    &key) != TCL_OK) {
-	return TCL_ERROR;
-    }
+    char *pattern;		/* Pattern being matched against subkeys */
+    HKEY key;			/* Handle to the key being examined */
+    DWORD subKeyCount;		/* Number of subkeys to list */
+    DWORD maxSubKeyLen;		/* Maximum string length of any subkey */
+    char *buffer;		/* Buffer to hold the subkey name */
+    DWORD bufSize;		/* Size of the buffer */
+    DWORD index;		/* Position of the current subkey */
+    char *name;			/* Subkey name */
+    Tcl_Obj *resultPtr;		/* List of subkeys being accumulated */
+    int result = TCL_OK;	/* Return value from this command */
+    Tcl_DString ds;		/* Buffer to translate subkey name to UTF-8 */
 
     if (patternObj) {
 	pattern = Tcl_GetString(patternObj);
@@ -611,15 +607,58 @@ GetKeyNames(
 	pattern = NULL;
     }
 
-    /*
-     * Enumerate over the subkeys until we get an error, indicating the end of
-     * the list.
+    /* Attempt to open the key for enumeration. */
+
+    if (OpenKey(interp, keyNameObj,
+		KEY_QUERY_VALUE | KEY_ENUMERATE_SUB_KEYS,
+		0, &key) != TCL_OK) {
+	return TCL_ERROR;
+    }
+
+    /* 
+     * Determine how big a buffer is needed for enumerating subkeys, and
+     * how many subkeys there are
      */
 
+    result = (*regWinProcs->regQueryInfoKeyProc)
+	(key, NULL, NULL, NULL, &subKeyCount, &maxSubKeyLen, NULL, NULL, 
+	 NULL, NULL, NULL, NULL);
+    if (result != ERROR_SUCCESS) {
+	Tcl_SetObjResult(interp, Tcl_NewObj());
+	Tcl_AppendResult(interp, "unable to query key \"", 
+			 Tcl_GetString(keyNameObj), "\": ", NULL);
+	AppendSystemError(interp, result);
+	RegCloseKey(key);
+	return TCL_ERROR;
+    }
+    if (regWinProcs->useWide) {
+	buffer = ckalloc((maxSubKeyLen+1) * sizeof(WCHAR));
+    } else {
+	buffer = ckalloc(maxSubKeyLen+1);
+    }
+
+    /* Enumerate the subkeys */
+
     resultPtr = Tcl_NewObj();
-    for (index = 0; (*regWinProcs->regEnumKeyProc)(key, index, buffer,
-	    MAX_PATH+1) == ERROR_SUCCESS; index++) {
-	Tcl_WinTCharToUtf((TCHAR *) buffer, -1, &ds);
+    for (index = 0; index < subKeyCount; ++index) {
+	bufSize = maxSubKeyLen+1;
+	result = (*regWinProcs->regEnumKeyExProc)
+	    (key, index, buffer, &bufSize, NULL, NULL, NULL, NULL);
+	if (result != ERROR_SUCCESS) {
+	    Tcl_SetObjResult(interp, Tcl_NewObj());
+	    Tcl_AppendResult(interp,
+			     "unable to enumerate subkeys of \"",
+			     Tcl_GetString(keyNameObj),
+			     "\": ", NULL);
+	    AppendSystemError(interp, result);
+	    result = TCL_ERROR;
+	    break;
+	}
+	if (regWinProcs->useWide) {
+	    Tcl_WinTCharToUtf((TCHAR *) buffer, bufSize * sizeof(WCHAR), &ds);
+	} else {
+	    Tcl_WinTCharToUtf((TCHAR *) buffer, bufSize, &ds);
+	}
 	name = Tcl_DStringValue(&ds);
 	if (pattern && !Tcl_StringMatch(name, pattern)) {
 	    Tcl_DStringFree(&ds);
@@ -632,8 +671,11 @@ GetKeyNames(
 	    break;
 	}
     }
-    Tcl_SetObjResult(interp, resultPtr);
+    if (result == TCL_OK) {
+	Tcl_SetObjResult(interp, resultPtr);
+    }
 
+    ckfree(buffer);
     RegCloseKey(key);
     return result;
 }
@@ -1283,6 +1325,7 @@ SetValue(
 
     if (type == REG_DWORD || type == REG_DWORD_BIG_ENDIAN) {
 	int value;
+
 	if (Tcl_GetIntFromObj(interp, dataObj, &value) != TCL_OK) {
 	    RegCloseKey(key);
 	    Tcl_DStringFree(&nameBuf);
@@ -1291,8 +1334,7 @@ SetValue(
 
 	value = ConvertDWORD((DWORD)type, (DWORD)value);
 	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0,
-		(DWORD)type,
-		(BYTE*) &value, sizeof(DWORD));
+		(DWORD) type, (BYTE *) &value, sizeof(DWORD));
     } else if (type == REG_MULTI_SZ) {
 	Tcl_DString data, buf;
 	int objc, i;
@@ -1326,9 +1368,8 @@ SetValue(
 
 	Tcl_WinUtfToTChar(Tcl_DStringValue(&data), Tcl_DStringLength(&data)+1,
 		&buf);
-	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0, 
-                (DWORD)type,
-		(BYTE *) Tcl_DStringValue(&buf),
+	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0,
+                (DWORD) type, (BYTE *) Tcl_DStringValue(&buf),
 		(DWORD) Tcl_DStringLength(&buf));
 	Tcl_DStringFree(&data);
 	Tcl_DStringFree(&buf);
@@ -1347,9 +1388,8 @@ SetValue(
 	}
 	length = Tcl_DStringLength(&buf) + 1;
 
-	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0, 
-                (DWORD)type,
-		(BYTE*)data, (DWORD) length);
+	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0,
+                (DWORD) type, (BYTE *) data, (DWORD) length);
 	Tcl_DStringFree(&buf);
     } else {
 	char *data;
@@ -1359,9 +1399,8 @@ SetValue(
 	 */
 
 	data = Tcl_GetByteArrayFromObj(dataObj, &length);
-	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0, 
-                (DWORD)type,
-		(BYTE *)data, (DWORD) length);
+	result = (*regWinProcs->regSetValueExProc)(key, valueName, 0,
+                (DWORD) type, (BYTE *) data, (DWORD) length);
     }
 
     Tcl_DStringFree(&nameBuf);
@@ -1465,7 +1504,7 @@ AppendSystemError(
     DWORD error)		/* Result code from error. */
 {
     int length;
-    WCHAR *wMsgPtr;
+    WCHAR *wMsgPtr, **wMsgPtrPtr = &wMsgPtr;
     char *msg;
     char id[TCL_INTEGER_SPACE], msgBuf[24 + TCL_INTEGER_SPACE];
     Tcl_DString ds;
@@ -1476,7 +1515,7 @@ AppendSystemError(
     }
     length = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM
 	    | FORMAT_MESSAGE_ALLOCATE_BUFFER, NULL, error,
-	    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (WCHAR *) &wMsgPtr,
+	    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (WCHAR *) wMsgPtrPtr,
 	    0, NULL);
     if (length == 0) {
 	char *msgPtr;

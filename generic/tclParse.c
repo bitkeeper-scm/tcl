@@ -19,13 +19,6 @@
 #include "Last.h"
 
 /*
- * For now, we enable the {expand} although it is deprecated - remove by final
- */
-#ifndef ALLOW_EXPAND
-#define ALLOW_EXPAND 1
-#endif
-
-/*
  * The following table provides parsing information about each possible 8-bit
  * character. The table is designed to be referenced with either signed or
  * unsigned characters, so it has 384 entries. The first 128 entries
@@ -184,11 +177,10 @@ static int		ParseLang(Tcl_Interp *interp, CONST char *src,
 			    int numBytes, Tcl_Parse *parsePtr, int *scanned);
 static int		ParseComment(CONST char *src, int numBytes,
 			    Tcl_Parse *parsePtr);
-static int		ParseTokens(CONST char *src, int numBytes,
-			    int mask, int flags, Tcl_Parse *parsePtr);
+static int		ParseTokens(CONST char *src, int numBytes, int mask,
+			    int flags, Tcl_Parse *parsePtr);
 static int		ParseWhiteSpace(CONST char *src, int numBytes,
-			    Tcl_Parse *parsePtr, char *typePtr);
-
+			    int *incompletePtr, char *typePtr);
 
 /*
  *----------------------------------------------------------------------
@@ -452,7 +444,7 @@ comments:
 	 * sequence: it should be treated just like white space.
 	 */
 
-	scanned = ParseWhiteSpace(src, numBytes, parsePtr, &type);
+	scanned = ParseWhiteSpace(src, numBytes, &(parsePtr->incomplete), &type);
 	src += scanned;
 	numBytes -= scanned;
 	if (numBytes == 0) {
@@ -506,17 +498,10 @@ comments:
 		&& (((1 == (size_t) expPtr->size)
 			    /* Same length as prefix */
 			    && (expPtr->start[0] == '*'))
-#if defined(ALLOW_EXPAND) && ALLOW_EXPAND == 1
-			/*
-			 * Allow {expand} in addition to {*}
-			 */
-			|| ((6 == (size_t) expPtr->size)
-				&& (0 == memcmp("expand",expPtr->start,6)))
-#endif
 		    )
 		/* Is the prefix */
-		&& (numBytes > 0)
-		&& (ParseWhiteSpace(termPtr, numBytes, parsePtr, &type) == 0)
+		&& (numBytes > 0) && (0 ==
+		ParseWhiteSpace(termPtr, numBytes, &(parsePtr->incomplete), &type))
 		&& (type != TYPE_COMMAND_END)
 		/* Non-whitespace follows */
 		) {
@@ -546,12 +531,146 @@ comments:
 	tokenPtr = &parsePtr->tokenPtr[wordIndex];
 	tokenPtr->size = src - tokenPtr->start;
 	tokenPtr->numComponents = parsePtr->numTokens - (wordIndex + 1);
-	if ((tokenPtr->numComponents == 1)
+	if (expandWord) {
+	    int i, isLiteral = 1;
+
+	    /* 
+	     * When a command includes a word that is an expanded literal;
+	     * for example, {*}{1 2 3}, the parser performs that expansion
+	     * immediately, generating several TCL_TOKEN_SIMPLE_WORDs instead
+	     * of a single TCL_TOKEN_EXPAND_WORD that the Tcl_ParseCommand()
+	     * caller might have to expand.  This notably makes it simpler for
+	     * those callers that wish to track line endings, such as those
+	     * that implement key parts of TIP 280.
+	     *
+	     * First check whether the thing to be expanded is a literal,
+	     * in the sense of being composed entirely of TCL_TOKEN_TEXT
+	     * tokens.
+	     */
+
+	    for (i = 1; i <= tokenPtr->numComponents; i++) {
+		if (tokenPtr[i].type != TCL_TOKEN_TEXT) {
+		    isLiteral = 0;
+		    break;
+		}
+	    }
+
+	    if (isLiteral) {
+		int elemCount = 0, code = TCL_OK;
+		const char *nextElem, *listEnd, *elemStart;
+
+		/* 
+		 * The word to be expanded is a literal, so determine the
+		 * boundaries of the literal string to be treated as a list
+		 * and expanded.  That literal string starts at
+		 * tokenPtr[1].start, and includes all bytes up to, but
+		 * not including (tokenPtr[tokenPtr->numComponents].start +
+		 * tokenPtr[tokenPtr->numComponents].size)
+		 */
+
+		listEnd = (tokenPtr[tokenPtr->numComponents].start +
+			tokenPtr[tokenPtr->numComponents].size);
+		nextElem = tokenPtr[1].start;
+
+		/* 
+		 * Step through the literal string, parsing and counting
+		 * list elements.
+		 */
+		 
+		while (nextElem < listEnd) {
+		    code = TclFindElement(NULL, nextElem, listEnd - nextElem,
+			    &elemStart, &nextElem, NULL, NULL);
+		    if (code != TCL_OK) break;
+		    if (elemStart < listEnd) {
+			elemCount++;
+		    }
+		}
+
+		if (code != TCL_OK) {
+
+		    /*
+		     * Some list element could not be parsed.  This means
+		     * the literal string was not in fact a valid list.
+		     * Defer the handling of this to compile/eval time, where
+		     * code is already in place to report the "attempt to
+		     * expand a non-list" error.
+		     */
+
+		    tokenPtr->type = TCL_TOKEN_EXPAND_WORD;
+		} else if (elemCount == 0) {
+
+		    /*
+		     * We are expanding a literal empty list.  This means
+		     * that the expanding word completely disappears, leaving
+		     * no word generated this pass through the loop.  Adjust
+		     * accounting appropriately.
+		     */
+
+		    parsePtr->numWords--;
+		    parsePtr->numTokens = wordIndex;
+		} else {
+
+		    /*
+		     * Recalculate the number of Tcl_Tokens needed to store
+		     * tokens representing the expanded list.
+		     */
+
+		    parsePtr->numWords += elemCount - 1;
+		    parsePtr->numTokens = wordIndex + 2*elemCount;
+		    while (parsePtr->numTokens >= parsePtr->tokensAvailable) {
+			TclExpandTokenArray(parsePtr);
+		    }
+		    tokenPtr = &parsePtr->tokenPtr[wordIndex];
+
+		    /*
+		     * Generate a TCL_TOKEN_SIMPLE_WORD token sequence for
+		     * each element of the literal list we are expanding in
+		     * place.  Take care with the start and size fields of
+		     * each token so they point to the right literal characters
+		     * in the original script to represent the right expanded
+		     * word value.
+		     */
+
+		    nextElem = tokenPtr[1].start;
+		    while (isspace(UCHAR(*nextElem))) {
+			nextElem++;
+		    }
+		    while (nextElem < listEnd) {
+			tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
+			tokenPtr->numComponents = 1;
+			tokenPtr->start = nextElem;
+
+			tokenPtr++;
+			tokenPtr->type = TCL_TOKEN_TEXT;
+			tokenPtr->numComponents = 0;
+			TclFindElement(NULL, nextElem, listEnd - nextElem,
+				&(tokenPtr->start), &nextElem,
+				&(tokenPtr->size), NULL);
+			if (tokenPtr->start + tokenPtr->size == listEnd) {
+			    tokenPtr[-1].size = listEnd - tokenPtr[-1].start;
+			} else {
+			    tokenPtr[-1].size = tokenPtr->start
+				    + tokenPtr->size - tokenPtr[-1].start;
+			    tokenPtr[-1].size += (isspace(UCHAR(
+				tokenPtr->start[tokenPtr->size])) == 0);
+			}
+
+			tokenPtr++;
+		    }
+		}
+	    } else {
+
+		/* 
+		 * The word to be expanded is not a literal, so defer
+		 * expansion to compile/eval time by marking with a
+		 * TCL_TOKEN_EXPAND_WORD token.
+		 */
+
+		tokenPtr->type = TCL_TOKEN_EXPAND_WORD;
+	    }
+	} else if ((tokenPtr->numComponents == 1)
 		&& (tokenPtr[1].type == TCL_TOKEN_TEXT)) {
 	    tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
-	}
-	if (expandWord) {
-	    tokenPtr->type = TCL_TOKEN_EXPAND_WORD;
 	}
 
 	/*
@@ -560,7 +679,7 @@ comments:
 	 * word), and (b) check for the end of the command.
 	 */
 
-	scanned = ParseWhiteSpace(src, numBytes, parsePtr, &type);
+	scanned = ParseWhiteSpace(src, numBytes, &(parsePtr->incomplete), &type);
 	if (scanned) {
 	    src += scanned;
 	    numBytes -= scanned;
@@ -626,9 +745,8 @@ static int
 ParseWhiteSpace(
     CONST char *src,		/* First character to parse. */
     register int numBytes,	/* Max number of bytes to scan. */
-    Tcl_Parse *parsePtr,	/* Information about parse in progress.
-				 * Updated if parsing indicates an incomplete
-				 * command. */
+    int *incompletePtr,		/* Set this boolean memory to true if parsing
+				 * indicates an incomplete command. */
     char *typePtr)		/* Points to location to store character type
 				 * of character that ends run of whitespace */
 {
@@ -652,7 +770,7 @@ ParseWhiteSpace(
 	    }
 	    p+=2;
 	    if (--numBytes == 0) {
-		parsePtr->incomplete = 1;
+		*incompletePtr = 1;
 		break;
 	    }
 	    continue;
@@ -672,7 +790,7 @@ ParseWhiteSpace(
  *	including the command-terminating newline characters.
  *
  * Results:
- *	Returns the number of bytes recognized as white space. 
+ *	Returns the number of bytes recognized as white space.
  *
  *----------------------------------------------------------------------
  */
@@ -682,13 +800,13 @@ TclParseAllWhiteSpace(
     CONST char *src,		/* First character to parse. */
     int numBytes)		/* Max number of byes to scan */
 {
-    Tcl_Parse dummy;	/* Since we know ParseWhiteSpace() generates
-			 * no tokens, there's no need for a call to
-			 * Tcl_FreeParse() in this routine */
+    int dummy;
     char type;
     CONST char *p = src;
+
     do {
 	int scanned = ParseWhiteSpace(p, numBytes, &dummy, &type);
+
 	p += scanned;
 	numBytes -= scanned;
     } while (numBytes && (*p == '\n') && (p++, --numBytes));
@@ -971,7 +1089,7 @@ ParseComment(
 
 	while (numBytes) {
 	    if (*p == '\\') {
-		scanned = ParseWhiteSpace(p, numBytes, parsePtr, &type);
+		scanned = ParseWhiteSpace(p, numBytes, &(parsePtr->incomplete), &type);
 		if (scanned) {
 		    p += scanned;
 		    numBytes -= scanned;
@@ -1047,7 +1165,6 @@ ParseTokens(
     int noSubstVars = !(flags & TCL_SUBST_VARIABLES);
     int noSubstBS = !(flags & TCL_SUBST_BACKSLASHES);
     Tcl_Token *tokenPtr;
-    Tcl_Parse nested;
 
     /*
      * Each iteration through the following loop adds one token of type
@@ -1101,6 +1218,8 @@ ParseTokens(
 	    src += parsePtr->tokenPtr[varToken].size;
 	    numBytes -= parsePtr->tokenPtr[varToken].size;
 	} else if (*src == '[') {
+	    Tcl_Parse *nestedPtr;
+
 	    if (noSubstCmds) {
 		tokenPtr->type = TCL_TOKEN_TEXT;
 		tokenPtr->size = 1;
@@ -1118,25 +1237,20 @@ ParseTokens(
 
 	    src++;
 	    numBytes--;
+	    nestedPtr = (Tcl_Parse *)
+		    TclStackAlloc(parsePtr->interp, sizeof(Tcl_Parse));
 	    while (1) {
 		if (Tcl_ParseCommand(parsePtr->interp, src,
-			numBytes, 1, &nested) != TCL_OK) {
-		    parsePtr->errorType = nested.errorType;
-		    parsePtr->term = nested.term;
-		    parsePtr->incomplete = nested.incomplete;
+			numBytes, 1, nestedPtr) != TCL_OK) {
+		    parsePtr->errorType = nestedPtr->errorType;
+		    parsePtr->term = nestedPtr->term;
+		    parsePtr->incomplete = nestedPtr->incomplete;
+		    TclStackFree(parsePtr->interp, nestedPtr);
 		    return TCL_ERROR;
 		}
-		src = nested.commandStart + nested.commandSize;
+		src = nestedPtr->commandStart + nestedPtr->commandSize;
 		numBytes = parsePtr->end - src;
-
-		/*
-		 * This is equivalent to Tcl_FreeParse(&nested), but
-		 * presumably inlined here for sake of runtime optimization
-		 */
-
-		if (nested.tokenPtr != nested.staticTokens) {
-		    ckfree((char *) nested.tokenPtr);
-		}
+		Tcl_FreeParse(nestedPtr);
 
 		/*
 		 * Check for the closing ']' that ends the command
@@ -1144,8 +1258,8 @@ ParseTokens(
 		 * parsed command.
 		 */
 
-		if ((nested.term < parsePtr->end) && (*nested.term == ']')
-			&& !nested.incomplete) {
+		if ((nestedPtr->term < parsePtr->end) && (*(nestedPtr->term) == ']')
+			&& !(nestedPtr->incomplete)) {
 		    break;
 		}
 		if (numBytes == 0) {
@@ -1156,9 +1270,11 @@ ParseTokens(
 		    parsePtr->errorType = TCL_PARSE_MISSING_BRACKET;
 		    parsePtr->term = tokenPtr->start;
 		    parsePtr->incomplete = 1;
+		    TclStackFree(parsePtr->interp, nestedPtr);
 		    return TCL_ERROR;
 		}
 	    }
+	    TclStackFree(parsePtr->interp, nestedPtr);
 	    tokenPtr->type = TCL_TOKEN_COMMAND;
 	    tokenPtr->size = src - tokenPtr->start;
 	    parsePtr->numTokens++;
@@ -1298,17 +1414,18 @@ TclExpandTokenArray(
     Tcl_Parse *parsePtr)	/* Parse structure whose token space has
 				 * overflowed. */
 {
-    int newCount;
-    Tcl_Token *newPtr;
+    int newCount = parsePtr->tokensAvailable*2;
 
-    newCount = parsePtr->tokensAvailable*2;
-    newPtr = (Tcl_Token *) ckalloc((unsigned) (newCount * sizeof(Tcl_Token)));
-    memcpy((VOID *) newPtr, (VOID *) parsePtr->tokenPtr,
-	    (size_t) (parsePtr->tokensAvailable * sizeof(Tcl_Token)));
     if (parsePtr->tokenPtr != parsePtr->staticTokens) {
-	ckfree((char *) parsePtr->tokenPtr);
+	parsePtr->tokenPtr = (Tcl_Token *) ckrealloc ((char *)
+		(parsePtr->tokenPtr), newCount * sizeof(Tcl_Token));
+    } else {
+	Tcl_Token *newPtr = (Tcl_Token *) ckalloc(
+		newCount * sizeof(Tcl_Token));
+	memcpy(newPtr, parsePtr->tokenPtr,
+		(size_t) (parsePtr->tokensAvailable * sizeof(Tcl_Token)));
+	parsePtr->tokenPtr = newPtr;
     }
-    parsePtr->tokenPtr = newPtr;
     parsePtr->tokensAvailable = newCount;
 }
 
@@ -1425,9 +1542,9 @@ Tcl_ParseVarName(
 	    src++;
 	}
 	if (numBytes == 0) {
-	    if (interp != NULL) {
-		Tcl_SetResult(interp, "missing close-brace for variable name",
-			TCL_STATIC);
+	    if (parsePtr->interp != NULL) {
+		Tcl_SetResult(parsePtr->interp,
+			"missing close-brace for variable name", TCL_STATIC);
 	    }
 	    parsePtr->errorType = TCL_PARSE_MISSING_VAR_BRACE;
 	    parsePtr->term = tokenPtr->start-1;
@@ -1558,26 +1675,29 @@ Tcl_ParseVar(
 					 * in with character just after last
 					 * one in the variable specifier. */
 {
-    Tcl_Parse parse;
     register Tcl_Obj *objPtr;
     int code;
+    Tcl_Parse *parsePtr = (Tcl_Parse *) TclStackAlloc(interp, sizeof(Tcl_Parse));
 
-    if (Tcl_ParseVarName(interp, start, -1, &parse, 0) != TCL_OK) {
+    if (Tcl_ParseVarName(interp, start, -1, parsePtr, 0) != TCL_OK) {
+	TclStackFree(interp, parsePtr);
 	return NULL;
     }
 
     if (termPtr != NULL) {
-	*termPtr = start + parse.tokenPtr->size;
+	*termPtr = start + parsePtr->tokenPtr->size;
     }
-    if (parse.numTokens == 1) {
+    if (parsePtr->numTokens == 1) {
 	/*
 	 * There isn't a variable name after all: the $ is just a $.
 	 */
 
+	TclStackFree(interp, parsePtr);
 	return "$";
     }
 
-    code = TclSubstTokens(interp, parse.tokenPtr, parse.numTokens, NULL, 1);
+    code = TclSubstTokens(interp, parsePtr->tokenPtr, parsePtr->numTokens, NULL, 1);
+    TclStackFree(interp, parsePtr);
     if (code != TCL_OK) {
 	return NULL;
     }
@@ -1649,7 +1769,6 @@ Tcl_ParseBraces(
 				 * store a pointer to the character just after
 				 * the terminating '}' if the parse was
 				 * successful. */
-
 {
     Tcl_Token *tokenPtr;
     register CONST char *src;
@@ -1762,7 +1881,7 @@ Tcl_ParseBraces(
     parsePtr->errorType = TCL_PARSE_MISSING_BRACE;
     parsePtr->term = start;
     parsePtr->incomplete = 1;
-    if (interp == NULL) {
+    if (parsePtr->interp == NULL) {
 	/*
 	 * Skip straight to the exit code since we have no interpreter to put
 	 * error message in.
@@ -1771,7 +1890,7 @@ Tcl_ParseBraces(
 	goto error;
     }
 
-    Tcl_SetResult(interp, "missing close-brace", TCL_STATIC);
+    Tcl_SetResult(parsePtr->interp, "missing close-brace", TCL_STATIC);
 
     /*
      * Guess if the problem is due to comments by searching the source string
@@ -1783,7 +1902,7 @@ Tcl_ParseBraces(
     {
 	register int openBrace = 0;
 
-	for (; src > start; src--) {
+	while (--src > start) {
 	    switch (*src) {
 	    case '{':
 		openBrace = 1;
@@ -1793,7 +1912,7 @@ Tcl_ParseBraces(
 		break;
 	    case '#' :
 		if (openBrace && (isspace(UCHAR(src[-1])))) {
-		    Tcl_AppendResult(interp,
+		    Tcl_AppendResult(parsePtr->interp,
 			    ": possible unbalanced brace in comment",
 			    (char *) NULL);
 		    goto error;
@@ -1873,7 +1992,7 @@ Tcl_ParseQuotedString(
 	goto error;
     }
     if (*parsePtr->term != '"') {
-	if (interp != NULL) {
+	if (parsePtr->interp != NULL) {
 	    Tcl_SetResult(parsePtr->interp, "missing \"", TCL_STATIC);
 	}
 	parsePtr->errorType = TCL_PARSE_MISSING_QUOTE;
@@ -1916,13 +2035,13 @@ Tcl_SubstObj(
     int flags)			/* What substitutions to do. */
 {
     int length, tokensLeft, code;
-    Tcl_Parse parse;
     Tcl_Token *endTokenPtr;
     Tcl_Obj *result;
     Tcl_Obj *errMsg = NULL;
     CONST char *p = Tcl_GetStringFromObj(objPtr, &length);
+    Tcl_Parse *parsePtr = (Tcl_Parse *) TclStackAlloc(interp, sizeof(Tcl_Parse));
 
-    TclParseInit(interp, p, length, &parse);
+    TclParseInit(interp, p, length, parsePtr);
 
     /*
      * First parse the string rep of objPtr, as if it were enclosed as a
@@ -1930,7 +2049,7 @@ Tcl_SubstObj(
      * inhibit types of substitution.
      */
 
-    if (TCL_OK != ParseTokens(p, length, /* mask */ 0, flags, &parse)) {
+    if (TCL_OK != ParseTokens(p, length, /* mask */ 0, flags, parsePtr)) {
 	/*
 	 * There was a parse error. Save the error message for possible
 	 * reporting later.
@@ -1952,18 +2071,19 @@ Tcl_SubstObj(
 	 */
 
 	do {
-	    parse.numTokens = 0;
-	    parse.tokensAvailable = NUM_STATIC_TOKENS;
-	    parse.end = parse.term;
-	    parse.incomplete = 0;
-	    parse.errorType = TCL_PARSE_SUCCESS;
-	} while (TCL_OK != ParseTokens(p, parse.end - p, 0, flags, &parse));
+	    parsePtr->numTokens = 0;
+	    parsePtr->tokensAvailable = NUM_STATIC_TOKENS;
+	    parsePtr->end = parsePtr->term;
+	    parsePtr->incomplete = 0;
+	    parsePtr->errorType = TCL_PARSE_SUCCESS;
+	} while (TCL_OK !=
+		ParseTokens(p, parsePtr->end - p, 0, flags, parsePtr));
 
 	/*
 	 * The good parse will have to be followed by {, (, or [.
 	 */
 
-	switch (*parse.term) {
+	switch (*(parsePtr->term)) {
 	case '{':
 	    /*
 	     * Parse error was a missing } in a ${varname} variable
@@ -1980,7 +2100,7 @@ Tcl_SubstObj(
 	     * array variable substitution at the toplevel.
 	     */
 
-	    if (*(parse.term - 1) == '$') {
+	    if (*(parsePtr->term - 1) == '$') {
 		/*
 		 * Special case where removing the array index left us with
 		 * just a dollar sign (array variable with name the empty
@@ -1999,7 +2119,7 @@ Tcl_SubstObj(
 		 */
 
 		Tcl_Token *varTokenPtr =
-			parse.tokenPtr + parse.numTokens - 2;
+			parsePtr->tokenPtr + parsePtr->numTokens - 2;
 
 		if (varTokenPtr->type != TCL_TOKEN_VARIABLE) {
 		    Tcl_Panic("Tcl_SubstObj: programming error");
@@ -2007,7 +2127,7 @@ Tcl_SubstObj(
 		if (varTokenPtr[1].type != TCL_TOKEN_TEXT) {
 		    Tcl_Panic("Tcl_SubstObj: programming error");
 		}
-		parse.numTokens -= 2;
+		parsePtr->numTokens -= 2;
 	    }
 	    break;
 	case '[':
@@ -2016,9 +2136,9 @@ Tcl_SubstObj(
 	     * substitution.
 	     */
 
-	    parse.end = p + length;
-	    p = parse.term + 1;
-	    length = parse.end - p;
+	    parsePtr->end = p + length;
+	    p = parsePtr->term + 1;
+	    length = parsePtr->end - p;
 	    if (length == 0) {
 		/*
 		 * No commands, just an unmatched [. As in previous cases,
@@ -2033,15 +2153,16 @@ Tcl_SubstObj(
 		 */
 
 		Tcl_Token *tokenPtr;
-		Tcl_Parse nested;
-		CONST char *lastTerm = parse.term;
+		CONST char *lastTerm = parsePtr->term;
+		Tcl_Parse *nestedPtr =
+			(Tcl_Parse *) TclStackAlloc(interp, sizeof(Tcl_Parse));
 
 		while (TCL_OK ==
-			Tcl_ParseCommand(NULL, p, length, 0, &nested)) {
-		    Tcl_FreeParse(&nested);
-		    p = nested.term + (nested.term < nested.end);
-		    length = nested.end - p;
-		    if ((length == 0) && (nested.term == nested.end)) {
+			Tcl_ParseCommand(NULL, p, length, 0, nestedPtr)) {
+		    Tcl_FreeParse(nestedPtr);
+		    p = nestedPtr->term + (nestedPtr->term < nestedPtr->end);
+		    length = nestedPtr->end - p;
+		    if ((length == 0) && (nestedPtr->term == nestedPtr->end)) {
 			/*
 			 * If we run out of string, blame the missing close
 			 * bracket on the last command, and do not evaluate it
@@ -2050,10 +2171,11 @@ Tcl_SubstObj(
 
 			break;
 		    }
-		    lastTerm = nested.term;
+		    lastTerm = nestedPtr->term;
 		}
+		TclStackFree(interp, nestedPtr);
 
-		if (lastTerm == parse.term) {
+		if (lastTerm == parsePtr->term) {
 		    /*
 		     * Parse error in first command. No commands to subst, add
 		     * no more tokens.
@@ -2066,15 +2188,15 @@ Tcl_SubstObj(
 		 * got parsed.
 		 */
 
-		if (parse.numTokens == parse.tokensAvailable) {
-		    TclExpandTokenArray(&parse);
+		if (parsePtr->numTokens == parsePtr->tokensAvailable) {
+		    TclExpandTokenArray(parsePtr);
 		}
-		tokenPtr = &parse.tokenPtr[parse.numTokens];
-		tokenPtr->start = parse.term;
+		tokenPtr = &(parsePtr->tokenPtr[parsePtr->numTokens]);
+		tokenPtr->start = parsePtr->term;
 		tokenPtr->numComponents = 0;
 		tokenPtr->type = TCL_TOKEN_COMMAND;
 		tokenPtr->size = lastTerm - tokenPtr->start + 1;
-		parse.numTokens++;
+		parsePtr->numTokens++;
 	    }
 	    break;
 
@@ -2087,12 +2209,13 @@ Tcl_SubstObj(
      * Next, substitute the parsed tokens just as in normal Tcl evaluation.
      */
 
-    endTokenPtr = parse.tokenPtr + parse.numTokens;
-    tokensLeft = parse.numTokens;
+    endTokenPtr = parsePtr->tokenPtr + parsePtr->numTokens;
+    tokensLeft = parsePtr->numTokens;
     code = TclSubstTokens(interp, endTokenPtr - tokensLeft, tokensLeft,
 	    &tokensLeft, 1);
     if (code == TCL_OK) {
-	Tcl_FreeParse(&parse);
+	Tcl_FreeParse(parsePtr);
+	TclStackFree(interp, parsePtr);
 	if (errMsg != NULL) {
 	    Tcl_SetObjResult(interp, errMsg);
 	    Tcl_DecrRefCount(errMsg);
@@ -2105,7 +2228,8 @@ Tcl_SubstObj(
     while (1) {
 	switch (code) {
 	case TCL_ERROR:
-	    Tcl_FreeParse(&parse);
+	    Tcl_FreeParse(parsePtr);
+	    TclStackFree(interp, parsePtr);
 	    Tcl_DecrRefCount(result);
 	    if (errMsg != NULL) {
 		Tcl_DecrRefCount(errMsg);
@@ -2118,7 +2242,8 @@ Tcl_SubstObj(
 	}
 
 	if (tokensLeft == 0) {
-	    Tcl_FreeParse(&parse);
+	    Tcl_FreeParse(parsePtr);
+	    TclStackFree(interp, parsePtr);
 	    if (errMsg != NULL) {
 		if (code != TCL_BREAK) {
 		    Tcl_DecrRefCount(result);
@@ -2478,51 +2603,6 @@ TclIsLocalScalar(
     }
 
     return 1;
-}
-
-
-
-
-
-
-	#define TCL_TOKEN_WORD		1
-#define TCL_TOKEN_SIMPLE_WORD	2
-#define TCL_TOKEN_TEXT		4
-#define TCL_TOKEN_BS		8
-#define TCL_TOKEN_COMMAND	16
-#define TCL_TOKEN_VARIABLE	32
-#define TCL_TOKEN_SUB_EXPR	64
-#define TCL_TOKEN_OPERATOR	128
-#define TCL_TOKEN_EXPAND_WORD	256
-
-static void
-TclPrintToken (Tcl_Token* token, int idx, int level)
-{
-    int i;
-    for (i=0;i<level;i++) fprintf(stdout," ");
-    level++;
-
-    fprintf(stdout,"[%3d] @%p/%4d",
-	    idx,
-	    token->start,
-	    token->size);
-    if (token->numComponents == 0) {
-	fprintf(stdout," <%.*s>\n", token->size, token->start);
-    } else {
-	fprintf(stdout,"\n");
-    }
-    fflush (stdout);
-    if (token->numComponents > 0) {
-	TclPrintTokens (token+1,token->numComponents, level);
-    }
-}
-void
-TclPrintTokens (Tcl_Token* token, int words, int level)
-{
-    int k;
-    for (k=0; k < words; k++, token += (1+token->numComponents)) {
-	TclPrintToken (token, k, level);
-    }
 }
 
 /*

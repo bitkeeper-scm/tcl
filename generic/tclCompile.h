@@ -4,6 +4,7 @@
  * Copyright (c) 1996-1998 Sun Microsystems, Inc.
  * Copyright (c) 1998-2000 by Scriptics Corporation.
  * Copyright (c) 2001 by Kevin B. Kenny. All rights reserved.
+ * Copyright (c) 2007 Daniel A. Steffen <das@users.sourceforge.net>
  *
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
@@ -15,6 +16,8 @@
 #define _TCLCOMPILATION 1
 
 #include "tclInt.h"
+
+struct ByteCode;		/* Forward declaration. */
 
 /*
  *------------------------------------------------------------------------
@@ -125,19 +128,19 @@ typedef struct CmdLocation {
  */
 
 typedef struct ECL {
-  int srcOffset;		/* Command location to find the entry. */
-  int nline;
-  int *line;			/* Line information for all words in the
+    int srcOffset;		/* Command location to find the entry. */
+    int nline;
+    int *line;			/* Line information for all words in the
 				 * command. */
 } ECL;
 
 typedef struct ExtCmdLoc {
-  int type;			/* Context type. */
-  Tcl_Obj *path;		/* Path of the sourced file the command is
+    int type;			/* Context type. */
+    Tcl_Obj *path;		/* Path of the sourced file the command is
 				 * in. */
-  ECL *loc;			/* Command word locations (lines). */
-  int nloc;			/* Number of allocated entries in 'loc'. */
-  int nuloc;			/* Number of used entries in 'loc'. */
+    ECL *loc;			/* Command word locations (lines). */
+    int nloc;			/* Number of allocated entries in 'loc'. */
+    int nuloc;			/* Number of used entries in 'loc'. */
 } ExtCmdLoc;
 
 /*
@@ -157,6 +160,9 @@ typedef struct ExtCmdLoc {
 
 typedef ClientData (AuxDataDupProc)  (ClientData clientData);
 typedef void       (AuxDataFreeProc) (ClientData clientData);
+typedef void	   (AuxDataPrintProc)(ClientData clientData,
+			    Tcl_Obj *appendObj, struct ByteCode *codePtr,
+			    unsigned int pcOffset);
 
 /*
  * We define a separate AuxDataType struct to hold type-related information
@@ -177,6 +183,9 @@ typedef struct AuxDataType {
     AuxDataFreeProc *freeProc;	/* Callback procedure to invoke when the aux
 				 * data is freed. NULL means no proc need be
 				 * called. */
+    AuxDataPrintProc *printProc;/* Callback function to invoke when printing
+				 * the aux data as part of debugging. NULL
+				 * means that the data can't be printed. */
 } AuxDataType;
 
 /*
@@ -208,7 +217,7 @@ typedef struct CompileEnv {
 				 * compiled. Commands and their compile procs
 				 * are specific to an interpreter so the code
 				 * emitted will depend on the interpreter. */
-    char *source;		/* The source string being compiled by
+    const char *source;		/* The source string being compiled by
 				 * SetByteCodeFromAny. This pointer is not
 				 * owned by the CompileEnv and must not be
 				 * freed or changed by it. */
@@ -281,8 +290,8 @@ typedef struct CompileEnv {
     AuxData staticAuxDataArraySpace[COMPILEENV_INIT_AUX_DATA_SIZE];
 				/* Initial storage for aux data array. */
     /* TIP #280 */
-    ExtCmdLoc *extCmdMapPtr;	/* Extended command location information
-				 * for 'info frame'. */
+    ExtCmdLoc *extCmdMapPtr;	/* Extended command location information for
+				 * 'info frame'. */
     int line;			/* First line of the script, based on the
 				 * invoking context, then the line of the
 				 * command currently compiled. */
@@ -339,7 +348,7 @@ typedef struct ByteCode {
     unsigned int flags;		/* flags describing state for the codebyte.
 				 * this variable holds ORed values from the
 				 * TCL_BYTECODE_ masks defined above */
-    char *source;		/* The source string from which this ByteCode
+    const char *source;		/* The source string from which this ByteCode
 				 * was compiled. Note that this pointer is not
 				 * owned by the ByteCode and must not be freed
 				 * or modified by it. */
@@ -409,6 +418,9 @@ typedef struct ByteCode {
 				 * code deltas. Source lengths are always
 				 * positive. This sequence is just after the
 				 * last byte in the source delta sequence. */
+    LocalCache *localCachePtr;  /* Pointer to the start of the cached variable
+				 * names and initialisation data for local
+				 * variables. */
 #ifdef TCL_COMPILE_STATS
     Tcl_Time createTime;	/* Absolute time when the ByteCode was
 				 * created. */
@@ -562,7 +574,7 @@ typedef struct ByteCode {
 
 #define INST_EXPON			99
 
-/* TIP #157 - {expand}... language syntax support. */
+/* TIP #157 - {*}... (word expansion) language syntax support. */
 
 #define INST_EXPAND_START		100
 #define INST_EXPAND_STKTOP		101
@@ -607,8 +619,25 @@ typedef struct ByteCode {
 
 #define INST_JUMP_TABLE			121
 
+/*
+ * Instructions to support compilation of global, variable, upvar and
+ * [namespace upvar].
+ */
+
+#define INST_UPVAR                      122
+#define INST_NSUPVAR                    123
+#define INST_VARIABLE                   124
+
+/* Instruction to support compiling syntax error to bytecode */
+
+#define INST_SYNTAX			125
+
+/* Instruction to reverse N items on top of stack */
+
+#define INST_REVERSE			126
+
 /* The last opcode */
-#define LAST_INST_OPCODE		121
+#define LAST_INST_OPCODE		126
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for displaying
@@ -631,8 +660,10 @@ typedef enum InstOperandType {
 				 * integer, but displayed differently.) */
     OPERAND_LVT1,		/* One byte unsigned index into the local
 				 * variable table. */
-    OPERAND_LVT4		/* Four byte unsigned index into the local
+    OPERAND_LVT4,		/* Four byte unsigned index into the local
 				 * variable table. */
+    OPERAND_AUX4,		/* Four byte unsigned index into the aux data
+				 * table. */
 } InstOperandType;
 
 typedef struct InstructionDesc {
@@ -754,13 +785,34 @@ typedef struct JumptableInfo {
 MODULE_SCOPE AuxDataType	tclJumptableInfoType;
 
 /*
+ * Structure used to hold information about a [dict update] command that is
+ * needed during program execution. These structures are stored in CompileEnv
+ * and ByteCode structures as auxiliary data.
+ */
+
+typedef struct {
+    int length;			/* Size of array */
+    int varIndices[1];		/* Array of variable indices to manage when
+				 * processing the start and end of a [dict
+				 * update]. There is really more than one
+				 * entry, and the structure is allocated to
+				 * take account of this. MUST BE LAST FIELD IN
+				 * STRUCTURE. */
+} DictUpdateInfo;
+
+MODULE_SCOPE AuxDataType	tclDictUpdateInfoType;
+
+/*
  * ClientData type used by the math operator commands.
  */
 
 typedef struct {
     const char *operator;
     const char *expected;
-    int numArgs;
+    union {
+	int numArgs;
+	int identity;
+    } i;
 } TclOpCmdClientData;
 
 /*
@@ -770,9 +822,8 @@ typedef struct {
  */
 
 MODULE_SCOPE int	TclEvalObjvInternal(Tcl_Interp *interp,
-			    int objc, Tcl_Obj *CONST objv[],
+			    int objc, Tcl_Obj *const objv[],
 			    CONST char *command, int length, int flags);
-
 /*
  *----------------------------------------------------------------
  * Procedures exported by the engine to be used by tclBasic.c
@@ -796,13 +847,15 @@ MODULE_SCOPE void	TclCleanupByteCode(ByteCode *codePtr);
 MODULE_SCOPE void	TclCompileCmdWord(Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int count,
 			    CompileEnv *envPtr);
-MODULE_SCOPE int	TclCompileExpr(Tcl_Interp *interp, CONST char *script,
+MODULE_SCOPE void	TclCompileExpr(Tcl_Interp *interp, CONST char *script,
 			    int numBytes, CompileEnv *envPtr);
 MODULE_SCOPE void	TclCompileExprWords(Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int numWords,
 			    CompileEnv *envPtr);
 MODULE_SCOPE void	TclCompileScript(Tcl_Interp *interp,
 			    CONST char *script, int numBytes,
+			    CompileEnv *envPtr);
+MODULE_SCOPE void	TclCompileSyntaxError(Tcl_Interp *interp,
 			    CompileEnv *envPtr);
 MODULE_SCOPE void	TclCompileTokens(Tcl_Interp *interp,
 			    Tcl_Token *tokenPtr, int count,
@@ -812,6 +865,10 @@ MODULE_SCOPE int	TclCreateAuxData(ClientData clientData,
 MODULE_SCOPE int	TclCreateExceptRange(ExceptionRangeType type,
 			    CompileEnv *envPtr);
 MODULE_SCOPE ExecEnv *	TclCreateExecEnv(Tcl_Interp *interp);
+MODULE_SCOPE Tcl_Obj *  TclCreateLiteral(Interp *iPtr, char *bytes,
+	                    int length, unsigned int hash, int *newPtr,
+	                    Namespace *nsPtr, int flags,
+	                    LiteralEntry **globalPtrPtr);
 MODULE_SCOPE void	TclDeleteExecEnv(ExecEnv *eePtr);
 MODULE_SCOPE void	TclDeleteLiteralTable(Tcl_Interp *interp,
 			    LiteralTable *tablePtr);
@@ -824,7 +881,7 @@ MODULE_SCOPE int	TclExecuteByteCode(Tcl_Interp *interp,
 			    ByteCode *codePtr);
 MODULE_SCOPE void	TclFinalizeAuxDataTypeTable(void);
 MODULE_SCOPE int	TclFindCompiledLocal(CONST char *name, int nameChars,
-			    int create, int flags, Proc *procPtr);
+			    int create, Proc *procPtr);
 MODULE_SCOPE LiteralEntry * TclLookupLiteralEntry(Tcl_Interp *interp,
 			    Tcl_Obj *objPtr);
 MODULE_SCOPE int	TclFixupForwardJump(CompileEnv *envPtr,
@@ -837,8 +894,8 @@ MODULE_SCOPE void	TclInitByteCodeObj(Tcl_Obj *objPtr,
 			    CompileEnv *envPtr);
 MODULE_SCOPE void	TclInitCompilation(void);
 MODULE_SCOPE void	TclInitCompileEnv(Tcl_Interp *interp,
-			    CompileEnv *envPtr, char *string, int numBytes,
-			    CONST CmdFrame* invoker, int word);
+			    CompileEnv *envPtr, const char *string,
+			    int numBytes, CONST CmdFrame* invoker, int word);
 MODULE_SCOPE void	TclInitJumpFixupArray(JumpFixupArray *fixupArrayPtr);
 MODULE_SCOPE void	TclInitLiteralTable(LiteralTable *tablePtr);
 #ifdef TCL_COMPILE_STATS
@@ -877,11 +934,8 @@ MODULE_SCOPE int	TclNoIdentOpCmd(ClientData clientData,
 MODULE_SCOPE void	TclVerifyGlobalLiteralTable(Interp *iPtr);
 MODULE_SCOPE void	TclVerifyLocalLiteralTable(CompileEnv *envPtr);
 #endif
-MODULE_SCOPE int	TclCompileVariableCmd(Tcl_Interp *interp,
-			    Tcl_Parse *parsePtr, CompileEnv *envPtr);
 MODULE_SCOPE int	TclWordKnownAtCompileTime(Tcl_Token *tokenPtr,
 			    Tcl_Obj *valuePtr);
-MODULE_SCOPE int	TclWordSimpleExpansion(Tcl_Token *tokenPtr);
 
 /*
  *----------------------------------------------------------------
@@ -1150,6 +1204,94 @@ MODULE_SCOPE int	TclWordSimpleExpansion(Tcl_Token *tokenPtr);
 
 #define TclMin(i, j)   ((((int) i) < ((int) j))? (i) : (j))
 #define TclMax(i, j)   ((((int) i) > ((int) j))? (i) : (j))
+
+/*
+ * DTrace probe macros (NOPs if DTrace support is not enabled).
+ */
+
+#ifdef USE_DTRACE
+
+#include "tclDTrace.h"
+
+#if defined(__GNUC__ ) && __GNUC__ > 2
+/* Use gcc branch prediction hint to minimize cost of DTrace ENABLED checks. */
+#define unlikely(x) (__builtin_expect((x), 0))
+#else
+#define unlikely(x) (x)
+#endif
+
+#define TCL_DTRACE_PROC_ENTRY_ENABLED()	    unlikely(TCL_PROC_ENTRY_ENABLED())
+#define TCL_DTRACE_PROC_RETURN_ENABLED()    unlikely(TCL_PROC_RETURN_ENABLED())
+#define TCL_DTRACE_PROC_RESULT_ENABLED()    unlikely(TCL_PROC_RESULT_ENABLED())
+#define TCL_DTRACE_PROC_ARGS_ENABLED()	    unlikely(TCL_PROC_ARGS_ENABLED())
+#define TCL_DTRACE_PROC_INFO_ENABLED()	    unlikely(TCL_PROC_INFO_ENABLED())
+#define TCL_DTRACE_PROC_ENTRY(a0, a1, a2)   TCL_PROC_ENTRY(a0, a1, a2)
+#define TCL_DTRACE_PROC_RETURN(a0, a1)	    TCL_PROC_RETURN(a0, a1)
+#define TCL_DTRACE_PROC_RESULT(a0, a1, a2, a3) TCL_PROC_RESULT(a0, a1, a2, a3)
+#define TCL_DTRACE_PROC_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+	TCL_PROC_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+#define TCL_DTRACE_PROC_INFO(a0, a1, a2, a3, a4, a5) \
+	TCL_PROC_INFO(a0, a1, a2, a3, a4, a5)
+
+#define TCL_DTRACE_CMD_ENTRY_ENABLED()	    unlikely(TCL_CMD_ENTRY_ENABLED())
+#define TCL_DTRACE_CMD_RETURN_ENABLED()	    unlikely(TCL_CMD_RETURN_ENABLED())
+#define TCL_DTRACE_CMD_RESULT_ENABLED()	    unlikely(TCL_CMD_RESULT_ENABLED())
+#define TCL_DTRACE_CMD_ARGS_ENABLED()	    unlikely(TCL_CMD_ARGS_ENABLED())
+#define TCL_DTRACE_CMD_INFO_ENABLED()	    unlikely(TCL_CMD_INFO_ENABLED())
+#define TCL_DTRACE_CMD_ENTRY(a0, a1, a2)    TCL_CMD_ENTRY(a0, a1, a2)
+#define TCL_DTRACE_CMD_RETURN(a0, a1)	    TCL_CMD_RETURN(a0, a1)
+#define TCL_DTRACE_CMD_RESULT(a0, a1, a2, a3) TCL_CMD_RESULT(a0, a1, a2, a3)
+#define TCL_DTRACE_CMD_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+	TCL_CMD_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+#define TCL_DTRACE_CMD_INFO(a0, a1, a2, a3, a4, a5) \
+	TCL_CMD_INFO(a0, a1, a2, a3, a4, a5)
+
+#define TCL_DTRACE_INST_START_ENABLED()	    unlikely(TCL_INST_START_ENABLED())
+#define TCL_DTRACE_INST_DONE_ENABLED()	    unlikely(TCL_INST_DONE_ENABLED())
+#define TCL_DTRACE_INST_START(a0, a1, a2)   TCL_INST_START(a0, a1, a2)
+#define TCL_DTRACE_INST_DONE(a0, a1, a2)    TCL_INST_DONE(a0, a1, a2)
+
+#define TCL_DTRACE_TCL_PROBE_ENABLED()	    unlikely(TCL_TCL_PROBE_ENABLED())
+#define TCL_DTRACE_TCL_PROBE(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+	TCL_TCL_PROBE(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+
+MODULE_SCOPE void TclDTraceInfo(Tcl_Obj *info, char **args, int *argsi);
+
+#else /* USE_DTRACE */
+
+#define TCL_DTRACE_PROC_ENTRY_ENABLED()	    0
+#define TCL_DTRACE_PROC_RETURN_ENABLED()    0
+#define TCL_DTRACE_PROC_RESULT_ENABLED()    0
+#define TCL_DTRACE_PROC_ARGS_ENABLED()	    0
+#define TCL_DTRACE_PROC_INFO_ENABLED()	    0
+#define TCL_DTRACE_PROC_ENTRY(a0, a1, a2)   {}
+#define TCL_DTRACE_PROC_RETURN(a0, a1)	    {}
+#define TCL_DTRACE_PROC_RESULT(a0, a1, a2, a3) {}
+#define TCL_DTRACE_PROC_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) {}
+#define TCL_DTRACE_PROC_INFO(a0, a1, a2, a3, a4, a5) {}
+
+#define TCL_DTRACE_CMD_ENTRY_ENABLED()	    0
+#define TCL_DTRACE_CMD_RETURN_ENABLED()	    0
+#define TCL_DTRACE_CMD_RESULT_ENABLED()	    0
+#define TCL_DTRACE_CMD_ARGS_ENABLED()	    0
+#define TCL_DTRACE_CMD_INFO_ENABLED()	    0
+#define TCL_DTRACE_CMD_ENTRY(a0, a1, a2)    {}
+#define TCL_DTRACE_CMD_RETURN(a0, a1)	    {}
+#define TCL_DTRACE_CMD_RESULT(a0, a1, a2, a3) {}
+#define TCL_DTRACE_CMD_ARGS(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) {}
+#define TCL_DTRACE_CMD_INFO(a0, a1, a2, a3, a4, a5) {}
+
+#define TCL_DTRACE_INST_START_ENABLED()	    0
+#define TCL_DTRACE_INST_DONE_ENABLED()	    0
+#define TCL_DTRACE_INST_START(a0, a1, a2)   {}
+#define TCL_DTRACE_INST_DONE(a0, a1, a2)    {}
+
+#define TCL_DTRACE_TCL_PROBE_ENABLED()	    0
+#define TCL_DTRACE_TCL_PROBE(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) {}
+
+#define TclDTraceInfo(info, args, argsi)    {*args = ""; *argsi = 0;}
+
+#endif /* USE_DTRACE */
 
 #endif /* _TCLCOMPILATION */
 

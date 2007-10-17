@@ -213,7 +213,7 @@ ValidateMemory(
 				 * been printed */
 {
     unsigned char *hiPtr;
-    int idx;
+    size_t idx;
     int guard_failed = FALSE;
     int byte;
 
@@ -223,7 +223,7 @@ ValidateMemory(
 	    guard_failed = TRUE;
 	    fflush(stdout);
 	    byte &= 0xff;
-	    fprintf(stderr, "low guard byte %d is 0x%x  \t%c\n", idx, byte,
+	    fprintf(stderr, "low guard byte %d is 0x%x  \t%c\n", (int)idx, byte,
 		    (isprint(UCHAR(byte)) ? byte : ' ')); /* INTL: bytes */
 	}
     }
@@ -244,7 +244,7 @@ ValidateMemory(
 	    guard_failed = TRUE;
 	    fflush(stdout);
 	    byte &= 0xff;
-	    fprintf(stderr, "hi guard byte %d is 0x%x  \t%c\n", idx, byte,
+	    fprintf(stderr, "hi guard byte %d is 0x%x  \t%c\n", (int)idx, byte,
 		    (isprint(UCHAR(byte)) ? byte : ' ')); /* INTL: bytes */
 	}
     }
@@ -913,7 +913,7 @@ MemoryCmd(
     }
 
     Tcl_AppendResult(interp, "bad option \"", argv[1],
-	    "\": should be active, break_on_malloc, info, init, onexit, ",
+	    "\": should be active, break_on_malloc, info, init, onexit, "
 	    "tag, trace, trace_on_at_malloc, or validate", NULL);
     return TCL_ERROR;
 

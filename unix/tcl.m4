@@ -297,7 +297,7 @@ AC_DEFUN([SC_LOAD_TCLCONFIG], [
     # of TCL_BUILD_LIB_SPEC. An extension should make use of TCL_LIB_SPEC
     # instead of TCL_BUILD_LIB_SPEC since it will work with both an
     # installed and uninstalled version of Tcl.
-    if test -f ${TCL_BIN_DIR}/Makefile ; then
+    if test -f "${TCL_BIN_DIR}/Makefile" ; then
         TCL_LIB_SPEC=${TCL_BUILD_LIB_SPEC}
         TCL_STUB_LIB_SPEC=${TCL_BUILD_STUB_LIB_SPEC}
         TCL_STUB_LIB_PATH=${TCL_BUILD_STUB_LIB_PATH}
@@ -307,7 +307,7 @@ AC_DEFUN([SC_LOAD_TCLCONFIG], [
 	# against Tcl.framework installed in an arbitary location.
 	case ${TCL_DEFS} in
 	    *TCL_FRAMEWORK*)
-		if test -f ${TCL_BIN_DIR}/${TCL_LIB_FILE}; then
+		if test -f "${TCL_BIN_DIR}/${TCL_LIB_FILE}"; then
 		    for i in "`cd ${TCL_BIN_DIR}; pwd`" \
 			     "`cd ${TCL_BIN_DIR}/../..; pwd`"; do
 			if test "`basename "$i"`" = "${TCL_LIB_FILE}.framework"; then
@@ -316,7 +316,7 @@ AC_DEFUN([SC_LOAD_TCLCONFIG], [
 			fi
 		    done
 		fi
-		if test -f ${TCL_BIN_DIR}/${TCL_STUB_LIB_FILE}; then
+		if test -f "${TCL_BIN_DIR}/${TCL_STUB_LIB_FILE}"; then
 		    TCL_STUB_LIB_SPEC="-L${TCL_BIN_DIR} ${TCL_STUB_LIB_FLAG}"
 		    TCL_STUB_LIB_PATH="${TCL_BIN_DIR}/${TCL_STUB_LIB_FILE}"
 		fi
@@ -365,7 +365,7 @@ AC_DEFUN([SC_LOAD_TKCONFIG], [
 
     if test -f "${TK_BIN_DIR}/tkConfig.sh" ; then
         AC_MSG_RESULT([loading])
-	. ${TK_BIN_DIR}/tkConfig.sh
+	. "${TK_BIN_DIR}/tkConfig.sh"
     else
         AC_MSG_RESULT([could not find ${TK_BIN_DIR}/tkConfig.sh])
     fi
@@ -380,7 +380,7 @@ AC_DEFUN([SC_LOAD_TKCONFIG], [
     # of TK_BUILD_LIB_SPEC. An extension should make use of TK_LIB_SPEC
     # instead of TK_BUILD_LIB_SPEC since it will work with both an
     # installed and uninstalled version of Tcl.
-    if test -f ${TK_BIN_DIR}/Makefile ; then
+    if test -f "${TK_BIN_DIR}/Makefile" ; then
         TK_LIB_SPEC=${TK_BUILD_LIB_SPEC}
         TK_STUB_LIB_SPEC=${TK_BUILD_STUB_LIB_SPEC}
         TK_STUB_LIB_PATH=${TK_BUILD_STUB_LIB_PATH}
@@ -390,7 +390,7 @@ AC_DEFUN([SC_LOAD_TKCONFIG], [
 	# against Tk.framework installed in an arbitary location.
 	case ${TK_DEFS} in
 	    *TK_FRAMEWORK*)
-		if test -f ${TK_BIN_DIR}/${TK_LIB_FILE}; then
+		if test -f "${TK_BIN_DIR}/${TK_LIB_FILE}"; then
 		    for i in "`cd ${TK_BIN_DIR}; pwd`" \
 			     "`cd ${TK_BIN_DIR}/../..; pwd`"; do
 			if test "`basename "$i"`" = "${TK_LIB_FILE}.framework"; then
@@ -399,7 +399,7 @@ AC_DEFUN([SC_LOAD_TKCONFIG], [
 			fi
 		    done
 		fi
-		if test -f ${TK_BIN_DIR}/${TK_STUB_LIB_FILE}; then
+		if test -f "${TK_BIN_DIR}/${TK_STUB_LIB_FILE}"; then
 		    TK_STUB_LIB_SPEC="-L${TK_BIN_DIR} ${TK_STUB_LIB_FLAG}"
 		    TK_STUB_LIB_PATH="${TK_BIN_DIR}/${TK_STUB_LIB_FILE}"
 		fi
@@ -1086,6 +1086,23 @@ AC_DEFUN([SC_CONFIG_CFLAGS], [
 	do64bit=yes
     fi
 
+    # Step 0.c: Check if visibility support is available. Do this here so
+    # that platform specific alternatives can be used below if this fails.
+
+    AC_CACHE_CHECK([if compiler supports visibility "hidden"],
+	tcl_cv_cc_visibility_hidden, [
+	hold_cflags=$CFLAGS; CFLAGS="$CFLAGS -Werror"
+	AC_TRY_LINK([
+	    extern __attribute__((__visibility__("hidden"))) void f(void);
+	    void f(void) {}], [f();], tcl_cv_cc_visibility_hidden=yes,
+	    tcl_cv_cc_visibility_hidden=no)
+	CFLAGS=$hold_cflags])
+    if test $tcl_cv_cc_visibility_hidden = yes; then
+	AC_DEFINE(MODULE_SCOPE,
+	    [extern __attribute__((__visibility__("hidden")))],
+	    [Compiler support for module scope symbols])
+    fi
+
     # Step 1: set the variable "system" to hold the name and version number
     # for the system.
 
@@ -1113,7 +1130,6 @@ AC_DEFUN([SC_CONFIG_CFLAGS], [
     TCL_TRIM_DOTS='`echo ${VERSION} | tr -d .`'
     ECHO_VERSION='`echo ${VERSION}`'
     TCL_LIB_VERSIONS_OK=ok
-    CFLAGS="${CPPFLAGS} ${CFLAGS}"
     CFLAGS_DEBUG=-g
     CFLAGS_OPTIMIZE=-O
     if test "$GCC" = "yes" ; then
@@ -1185,7 +1201,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 		LD_SEARCH_FLAGS='-R ${LIB_RUNTIME_DIR}'
 	    else
 		if test "$GCC" = "yes" ; then
-		    SHLIB_LD="gcc -shared"
+		    SHLIB_LD='${CC} -shared'
 		else
 		    SHLIB_LD="/bin/ld -bhalt:4 -bM:SRE -bE:lib.exp -H512 -T512 -bnoentry"
 		fi
@@ -1223,7 +1239,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	BeOS*)
 	    SHLIB_CFLAGS="-fPIC"
-	    SHLIB_LD="${CC} -nostart"
+	    SHLIB_LD='${CC} -nostart'
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1248,7 +1264,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	BSD/OS-4.*)
 	    SHLIB_CFLAGS="-export-dynamic -fPIC"
-	    SHLIB_LD="cc -shared"
+	    SHLIB_LD='${CC} -shared'
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1259,7 +1275,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	dgux*)
 	    SHLIB_CFLAGS="-K PIC"
-	    SHLIB_LD="cc -G"
+	    SHLIB_LD='${CC} -G'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1273,7 +1289,11 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    AC_DEFINE(_XOPEN_SOURCE_EXTENDED, 1, [Do we want to use the XOPEN network library?])
 	    LIBS="$LIBS -lxnet"               # Use the XOPEN network library
 
-	    SHLIB_SUFFIX=".sl"
+	    if test "`uname -m`" = "ia64" ; then
+		SHLIB_SUFFIX=".so"
+	    else
+		SHLIB_SUFFIX=".sl"
+	    fi
 	    AC_CHECK_LIB(dld, shl_load, tcl_ok=yes, tcl_ok=no)
 	    if test "$tcl_ok" = yes; then
 		SHLIB_CFLAGS="+z"
@@ -1287,7 +1307,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 		LD_LIBRARY_PATH_VAR="SHLIB_PATH"
 	    fi
 	    if test "$GCC" = "yes" ; then
-		SHLIB_LD="gcc -shared"
+		SHLIB_LD='${CC} -shared'
 		SHLIB_LD_LIBS='${LIBS}'
 		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
 	    fi
@@ -1303,7 +1323,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 			hppa64*)
 			    # 64-bit gcc in use.  Fix flags for GNU ld.
 			    do64bit_ok=yes
-			    SHLIB_LD="${CC} -shared"
+			    SHLIB_LD='${CC} -shared'
 			    SHLIB_LD_LIBS='${LIBS}'
 			    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
 			    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
@@ -1397,7 +1417,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 
-	    CFLAGS_OPTIMIZE=-O2
+	    CFLAGS_OPTIMIZE="-O2"
 	    # egcs-2.91.66 on Redhat Linux 6.0 generates lots of warnings 
 	    # when you inline the string and math operations.  Turn this off to
 	    # get rid of the warnings.
@@ -1444,7 +1464,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 
-	    SHLIB_LD="${CC} -shared"
+	    SHLIB_LD='${CC} -shared'
 	    DL_OBJS=""
 	    DL_LIBS="-ldl"
 	    LDFLAGS="$LDFLAGS -Wl,--export-dynamic"
@@ -1459,7 +1479,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 	    CFLAGS_OPTIMIZE=-02
-	    SHLIB_LD="${CC} -shared "
+	    SHLIB_LD='${CC} -shared'
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS="-mshared -ldl"
 	    LD_FLAGS="-Wl,--export-dynamic"
@@ -1468,7 +1488,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	MP-RAS-02*)
 	    SHLIB_CFLAGS="-K PIC"
-	    SHLIB_LD="cc -G"
+	    SHLIB_LD='${CC} -G'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1478,7 +1498,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	MP-RAS-*)
 	    SHLIB_CFLAGS="-K PIC"
-	    SHLIB_LD="cc -G"
+	    SHLIB_LD='${CC} -G'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1487,8 +1507,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    CC_SEARCH_FLAGS=""
 	    LD_SEARCH_FLAGS=""
 	    ;;
-	NetBSD-*|FreeBSD-[[1-2]].*)
-	    # NetBSD/SPARC needs -fPIC, -fpic will not do.
+	NetBSD-1.*|FreeBSD-[[1-2]].*)
 	    SHLIB_CFLAGS="-fPIC"
 	    SHLIB_LD="ld -Bshareable -x"
 	    SHLIB_LD_LIBS='${LIBS}'
@@ -1515,14 +1534,8 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    TCL_LIB_VERSIONS_OK=nodots
 	    ;;
 	OpenBSD-*)
-	    # OpenBSD/SPARC[64] needs -fPIC, -fpic will not do.
-	    case `machine` in
-	    sparc|sparc64)
-		SHLIB_CFLAGS="-fPIC";;
-	    *)
-		SHLIB_CFLAGS="-fpic";;
-	    esac
-	    SHLIB_LD="${CC} -shared ${SHLIB_CFLAGS}"
+	    SHLIB_CFLAGS="-fPIC"
+	    SHLIB_LD='${CC} -shared ${SHLIB_CFLAGS}'
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1546,17 +1559,18 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    UNSHARED_LIB_SUFFIX='${TCL_TRIM_DOTS}.a'
 	    TCL_LIB_VERSIONS_OK=nodots
 	    ;;
-	FreeBSD-*)
+	NetBSD-*|FreeBSD-*)
 	    # FreeBSD 3.* and greater have ELF.
+	    # NetBSD 2.* has ELF and can use 'cc -shared' to build shared libs
 	    SHLIB_CFLAGS="-fPIC"
-	    SHLIB_LD="ld -Bshareable -x"
+	    SHLIB_LD='${CC} -shared ${SHLIB_CFLAGS}'
 	    SHLIB_LD_LIBS='${LIBS}'
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS=""
 	    LDFLAGS="$LDFLAGS -export-dynamic"
 	    CC_SEARCH_FLAGS='-Wl,-rpath,${LIB_RUNTIME_DIR}'
-	    LD_SEARCH_FLAGS='-rpath ${LIB_RUNTIME_DIR}'
+	    LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
 	    if test "${TCL_THREADS}" = "1" ; then
 		# The -pthread needs to go in the CFLAGS, not LIBS
 		LIBS=`echo $LIBS | sed s/-pthread//`
@@ -1576,11 +1590,14 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    CFLAGS_OPTIMIZE="-Os"
 	    SHLIB_CFLAGS="-fno-common"
 	    # To avoid discrepancies between what headers configure sees during
-	    # preprocessing tests and compiling tests, add any -isysroot and
-	    # -mmacosx-version-min flags present in CFLAGS to CPPFLAGS:
+	    # preprocessing tests and compiling tests, move any -isysroot and
+	    # -mmacosx-version-min flags from CFLAGS to CPPFLAGS:
 	    CPPFLAGS="${CPPFLAGS} `echo " ${CFLAGS}" | \
-		awk 'BEGIN {FS=" +-";ORS=" "}; {for (i=1;i<=NF;i++) \
+		awk 'BEGIN {FS=" +-";ORS=" "}; {for (i=2;i<=NF;i++) \
 		if ([$]i~/^(isysroot|mmacosx-version-min)/) print "-"[$]i}'`"
+	    CFLAGS="`echo " ${CFLAGS}" | \
+		awk 'BEGIN {FS=" +-";ORS=" "}; {for (i=2;i<=NF;i++) \
+		if (!([$]i~/^(isysroot|mmacosx-version-min)/)) print "-"[$]i}'`"
 	    if test $do64bit = yes; then
 		case `arch` in
 		    ppc)
@@ -1631,7 +1648,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    DL_LIBS=""
 	    # Don't use -prebind when building for Mac OS X 10.4 or later only:
 	    test "`echo "${MACOSX_DEPLOYMENT_TARGET}" | awk -F '10\\.' '{print int([$]2)}'`" -lt 4 -a \
-		"`echo "${CFLAGS}" | awk -F '-mmacosx-version-min=10\\.' '{print int([$]2)}'`" -lt 4 && \
+		"`echo "${CPPFLAGS}" | awk -F '-mmacosx-version-min=10\\.' '{print int([$]2)}'`" -lt 4 && \
 		LDFLAGS="$LDFLAGS -prebind"
 	    LDFLAGS="$LDFLAGS -headerpad_max_install_names"
 	    AC_CACHE_CHECK([if ld accepts -search_paths_first flag], tcl_cv_ld_search_paths_first, [
@@ -1655,18 +1672,20 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    AC_MSG_RESULT([$tcl_corefoundation])
 	    if test $tcl_corefoundation = yes; then
 		AC_CACHE_CHECK([for CoreFoundation.framework], tcl_cv_lib_corefoundation, [
-		    hold_libs=$LIBS; hold_cflags=$CFLAGS
-		    if test "$fat_32_64" = yes; then
+		    hold_libs=$LIBS
+		    if test "$fat_32_64" = yes; then for v in CFLAGS CPPFLAGS LDFLAGS; do
 			# On Tiger there is no 64-bit CF, so remove 64-bit archs
-			# from CFLAGS while testing for presence of CF.
+			# from CFLAGS et al. while testing for presence of CF.
 			# 64-bit CF is disabled in tclUnixPort.h if necessary.
-			CFLAGS="`echo "$CFLAGS " | sed -e 's/-arch ppc64 / /g' -e 's/-arch x86_64 / /g'`"
-		    fi
+			eval 'hold_'$v'="$'$v'";'$v'="`echo "$'$v' "|sed -e "s/-arch ppc64 / /g" -e "s/-arch x86_64 / /g"`"'
+		    done; fi
 		    LIBS="$LIBS -framework CoreFoundation"
 		    AC_TRY_LINK([#include <CoreFoundation/CoreFoundation.h>], 
 			[CFBundleRef b = CFBundleGetMainBundle();], 
 			tcl_cv_lib_corefoundation=yes, tcl_cv_lib_corefoundation=no)
-		    LIBS=$hold_libs; CFLAGS=$hold_cflags])
+		    if test "$fat_32_64" = yes; then for v in CFLAGS CPPFLAGS LDFLAGS; do
+			eval $v'="$hold_'$v'"'
+		    done; fi; LIBS=$hold_libs])
 		if test $tcl_cv_lib_corefoundation = yes; then
 		    LIBS="$LIBS -framework CoreFoundation"
 		    AC_DEFINE(HAVE_COREFOUNDATION, 1, 
@@ -1676,12 +1695,15 @@ dnl AC_CHECK_TOOL(AR, ar)
 		fi
 		if test "$fat_32_64" = yes -a $tcl_corefoundation = yes; then
 		    AC_CACHE_CHECK([for 64-bit CoreFoundation], tcl_cv_lib_corefoundation_64, [
-			hold_cflags=$CFLAGS
-			CFLAGS="`echo "$CFLAGS " | sed -e 's/-arch ppc / /g' -e 's/-arch i386 / /g'`"
+			for v in CFLAGS CPPFLAGS LDFLAGS; do
+			    eval 'hold_'$v'="$'$v'";'$v'="`echo "$'$v' "|sed -e "s/-arch ppc / /g" -e "s/-arch i386 / /g"`"'
+			done
 			AC_TRY_LINK([#include <CoreFoundation/CoreFoundation.h>], 
 			    [CFBundleRef b = CFBundleGetMainBundle();], 
 			    tcl_cv_lib_corefoundation_64=yes, tcl_cv_lib_corefoundation_64=no)
-			CFLAGS=$hold_cflags])
+			for v in CFLAGS CPPFLAGS LDFLAGS; do
+			    eval $v'="$hold_'$v'"'
+			done])
 		    if test $tcl_cv_lib_corefoundation_64 = no; then
 			AC_DEFINE(NO_COREFOUNDATION_64, 1,
 			    [Is Darwin CoreFoundation unavailable for 64-bit?])
@@ -1689,13 +1711,15 @@ dnl AC_CHECK_TOOL(AR, ar)
 		    fi
 		fi
 	    fi
+	    if test "$tcl_cv_cc_visibility_hidden" != yes; then
+		AC_DEFINE(MODULE_SCOPE, [__private_extern__],
+		    [Compiler support for module scope symbols])
+	    fi
 	    AC_DEFINE(MAC_OSX_TCL, 1, [Is this a Mac I see before me?])
-	    AC_DEFINE(MODULE_SCOPE, __private_extern__,
-		[Linker support for module scope symbols])
 	    ;;
 	NEXTSTEP-*)
 	    SHLIB_CFLAGS=""
-	    SHLIB_LD="cc -nostdlib -r"
+	    SHLIB_LD='${CC} -nostdlib -r'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadNext.o"
@@ -1803,7 +1827,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    ;;
 	SINIX*5.4*)
 	    SHLIB_CFLAGS="-K PIC"
-	    SHLIB_LD="cc -G"
+	    SHLIB_LD='${CC} -G'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1850,7 +1874,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS="-ldl"
 	    if test "$GCC" = "yes" ; then
-		SHLIB_LD="$CC -shared"
+		SHLIB_LD='${CC} -shared'
 		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
 		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
 	    else
@@ -1874,7 +1898,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 		arch=`isainfo`
 		if test "$arch" = "sparcv9 sparc" ; then
 			if test "$GCC" = "yes" ; then
-			    if test "`gcc -dumpversion | awk -F. '{print [$]1}'`" -lt "3" ; then
+			    if test "`${CC} -dumpversion | awk -F. '{print [$]1}'`" -lt "3" ; then
 				AC_MSG_WARN([64bit mode not supported with GCC < 3.2 on $system])
 			    else
 				do64bit_ok=yes
@@ -1915,7 +1939,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS="-ldl"
 	    if test "$GCC" = "yes" ; then
-		SHLIB_LD="$CC -shared"
+		SHLIB_LD='${CC} -shared'
 		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
 		LD_SEARCH_FLAGS=${CC_SEARCH_FLAGS}
 		if test "$do64bit_ok" = "yes" ; then
@@ -1928,14 +1952,19 @@ dnl AC_CHECK_TOOL(AR, ar)
 		    #CC_SEARCH_FLAGS="${CC_SEARCH_FLAGS},-R,$v9gcclibdir"
 		fi
 	    else
-		SHLIB_LD="/usr/ccs/bin/ld -G -z text"
+		case $system in
+		    SunOS-5.[[1-9]][[0-9]]*)
+			SHLIB_LD='${CC} -G -z text';;
+		    *)
+			SHLIB_LD='/usr/ccs/bin/ld -G -z text';;
+		esac
 		CC_SEARCH_FLAGS='-Wl,-R,${LIB_RUNTIME_DIR}'
 		LD_SEARCH_FLAGS='-R ${LIB_RUNTIME_DIR}'
 	    fi
 	    ;;
 	UNIX_SV* | UnixWare-5*)
 	    SHLIB_CFLAGS="-KPIC"
-	    SHLIB_LD="cc -G"
+	    SHLIB_LD='${CC} -G'
 	    SHLIB_LD_LIBS=""
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
@@ -1962,6 +1991,12 @@ dnl AC_CHECK_TOOL(AR, ar)
     if test "$do64bit" = "yes" -a "$do64bit_ok" = "yes" ; then
 	AC_DEFINE(TCL_CFG_DO64BIT, 1, [Is this a 64-bit build?])
     fi
+
+dnl # Add any CPPFLAGS set in the environment to our CFLAGS, but delay doing so
+dnl # until the end of configure, as configure's compile and link tests use
+dnl # both CPPFLAGS and CFLAGS (unlike our compile and link) but configure's
+dnl # preprocessing tests use only CPPFLAGS.
+    AC_CONFIG_COMMANDS_PRE([CFLAGS="${CFLAGS} ${CPPFLAGS}"; CPPFLAGS=""])
 
     # Step 4: disable dynamic loading if requested via a command-line switch.
 

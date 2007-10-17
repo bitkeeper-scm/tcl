@@ -453,9 +453,9 @@ Tcl_Main(
 	    errChannel = Tcl_GetStdChannel(TCL_STDERR);
 	    if (errChannel) {
 		Tcl_Obj *options = Tcl_GetReturnOptions(interp, code);
-		Tcl_Obj *keyPtr = Tcl_NewStringObj("-errorinfo", -1);
-		Tcl_Obj *valuePtr;
+		Tcl_Obj *keyPtr, *valuePtr;
 
+		TclNewLiteralStringObj(keyPtr, "-errorinfo");
 		Tcl_IncrRefCount(keyPtr);
 		Tcl_DictObjGet(NULL, options, keyPtr, &valuePtr);
 		Tcl_DecrRefCount(keyPtr);
@@ -537,22 +537,30 @@ Tcl_Main(
 		break;
 	    }
 
-	    if (!TclObjCommandComplete(commandPtr)) {
-		/*
-		 * Add the newline removed by Tcl_GetsObj back to the string.
-		 */
+	    /*
+	     * Add the newline removed by Tcl_GetsObj back to the string.
+	     * Have to add it back before testing completeness, because
+	     * it can make a difference.  [Bug 1775878].
+	     */
 
-		if (Tcl_IsShared(commandPtr)) {
-		    Tcl_DecrRefCount(commandPtr);
-		    commandPtr = Tcl_DuplicateObj(commandPtr);
-		    Tcl_IncrRefCount(commandPtr);
-		}
-		Tcl_AppendToObj(commandPtr, "\n", 1);
+	    if (Tcl_IsShared(commandPtr)) {
+		Tcl_DecrRefCount(commandPtr);
+		commandPtr = Tcl_DuplicateObj(commandPtr);
+		Tcl_IncrRefCount(commandPtr);
+	    }
+	    Tcl_AppendToObj(commandPtr, "\n", 1);
+	    if (!TclObjCommandComplete(commandPtr)) {
 		prompt = PROMPT_CONTINUE;
 		continue;
 	    }
 
 	    prompt = PROMPT_START;
+	    /*
+	     * The final newline is syntactically redundant, and causes
+	     * some error messages troubles deeper in, so lop it back off.
+	     */
+	    Tcl_GetStringFromObj(commandPtr, &length);
+	    Tcl_SetObjLength(commandPtr, --length);
 	    code = Tcl_RecordAndEvalObj(interp, commandPtr, TCL_EVAL_GLOBAL);
 	    inChannel = Tcl_GetStdChannel(TCL_STDIN);
 	    outChannel = Tcl_GetStdChannel(TCL_STDOUT);
@@ -647,49 +655,49 @@ Tcl_Main(
 	 * this point.
 	 */
 
-		(*mainLoopProc)();
-		mainLoopProc = NULL;
-	    }
-	    if (commandPtr != NULL) {
-		Tcl_DecrRefCount(commandPtr);
-	    }
+	(*mainLoopProc)();
+	mainLoopProc = NULL;
+    }
+    if (commandPtr != NULL) {
+	Tcl_DecrRefCount(commandPtr);
+    }
 
-	    /*
-	     * Rather than calling exit, invoke the "exit" command so that users can
-	     * replace "exit" with some other command to do additional cleanup on
-	     * exit. The Tcl_EvalObjEx call should never return.
-	     */
+    /*
+     * Rather than calling exit, invoke the "exit" command so that users can
+     * replace "exit" with some other command to do additional cleanup on
+     * exit. The Tcl_EvalObjEx call should never return.
+     */
 
-	    if (!Tcl_InterpDeleted(interp)) {
-		if (!Tcl_LimitExceeded(interp)) {
-		    Tcl_Obj *cmd = Tcl_ObjPrintf("exit %d", exitCode);
-		    Tcl_IncrRefCount(cmd);
-		    Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL);
-		    Tcl_DecrRefCount(cmd);
-		}
-
-		/*
-		 * If Tcl_EvalObjEx returns, trying to eval [exit], something unusual
-		 * is happening. Maybe interp has been deleted; maybe [exit] was
-		 * redefined, maybe we've blown up because of an exceeded limit. We
-		 * still want to cleanup and exit.
-		 */
-
-		if (!Tcl_InterpDeleted(interp)) {
-		    Tcl_DeleteInterp(interp);
-		}
-	    }
-	    Tcl_SetStartupScript(NULL, NULL);
-
-	    /*
-	     * If we get here, the master interp has been deleted. Allow its
-	     * destruction with the last matching Tcl_Release.
-	     */
-
-	    Tcl_Release((ClientData) interp);
-	    Tcl_Exit(exitCode);
+    if (!Tcl_InterpDeleted(interp)) {
+	if (!Tcl_LimitExceeded(interp)) {
+	    Tcl_Obj *cmd = Tcl_ObjPrintf("exit %d", exitCode);
+	    Tcl_IncrRefCount(cmd);
+	    Tcl_EvalObjEx(interp, cmd, TCL_EVAL_GLOBAL);
+	    Tcl_DecrRefCount(cmd);
 	}
-	
+
+	/*
+	 * If Tcl_EvalObjEx returns, trying to eval [exit], something unusual
+	 * is happening. Maybe interp has been deleted; maybe [exit] was
+	 * redefined, maybe we've blown up because of an exceeded limit. We
+	 * still want to cleanup and exit.
+	 */
+
+	if (!Tcl_InterpDeleted(interp)) {
+	    Tcl_DeleteInterp(interp);
+	}
+    }
+    Tcl_SetStartupScript(NULL, NULL);
+
+    /*
+     * If we get here, the master interp has been deleted. Allow its
+     * destruction with the last matching Tcl_Release.
+     */
+
+    Tcl_Release((ClientData) interp);
+    Tcl_Exit(exitCode);
+}
+
 /*
  *---------------------------------------------------------------
  *
@@ -768,17 +776,19 @@ StdinProc(
 	return;
     }
 
+    if (Tcl_IsShared(commandPtr)) {
+	Tcl_DecrRefCount(commandPtr);
+	commandPtr = Tcl_DuplicateObj(commandPtr);
+	Tcl_IncrRefCount(commandPtr);
+    }
+    Tcl_AppendToObj(commandPtr, "\n", 1);
     if (!TclObjCommandComplete(commandPtr)) {
-	if (Tcl_IsShared(commandPtr)) {
-	    Tcl_DecrRefCount(commandPtr);
-	    commandPtr = Tcl_DuplicateObj(commandPtr);
-	    Tcl_IncrRefCount(commandPtr);
-	}
-	Tcl_AppendToObj(commandPtr, "\n", 1);
 	isPtr->prompt = PROMPT_CONTINUE;
 	goto prompt;
     }
     isPtr->prompt = PROMPT_START;
+    Tcl_GetStringFromObj(commandPtr, &length);
+    Tcl_SetObjLength(commandPtr, --length);
 
     /*
      * Disable the stdin channel handler while evaluating the command;

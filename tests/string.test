@@ -173,13 +173,13 @@ test string-3.8 {string equal with length, unequal strings} {
 
 test string-4.1 {string first, too few args} {
     list [catch {string first a} msg] $msg
-} {1 {wrong # args: should be "string first subString string ?startIndex?"}}
+} {1 {wrong # args: should be "string first needleString haystackString ?startIndex?"}}
 test string-4.2 {string first, bad args} {
     list [catch {string first a b c} msg] $msg
 } {1 {bad index "c": must be integer?[+-]integer? or end?[+-]integer?}}
 test string-4.3 {string first, too many args} {
     list [catch {string first a b 5 d} msg] $msg
-} {1 {wrong # args: should be "string first subString string ?startIndex?"}}
+} {1 {wrong # args: should be "string first needleString haystackString ?startIndex?"}}
 test string-4.4 {string first} {
     string first bq abcdefgbcefgbqrs
 } 12
@@ -274,12 +274,12 @@ test string-5.16 {string index, bytearray object with string obj shimmering} {
     binary scan $str H* dump
     string compare [string index $str 10] \x00
 } 0
-test string-5.17 {string index, bad integer} {
-    list [catch {string index "abc" 08} msg] $msg
-} {1 {bad index "08": must be integer?[+-]integer? or end?[+-]integer? (looks like invalid octal number)}}
-test string-5.18 {string index, bad integer} {
-    list [catch {string index "abc" end-00289} msg] $msg
-} {1 {bad index "end-00289": must be integer?[+-]integer? or end?[+-]integer? (looks like invalid octal number)}}
+test string-5.17 {string index, bad integer} -body {
+    list [catch {string index "abc" 0o8} msg] $msg
+} -match glob -result {1 {*invalid octal number*}}
+test string-5.18 {string index, bad integer} -body {
+    list [catch {string index "abc" end-0o0289} msg] $msg
+} -match glob -result {1 {*invalid octal number*}}
 test string-5.19 {string index, bytearray object out of bounds} {
     string index [binary format I* {0x50515253 0x52}] -1
 } {}
@@ -480,8 +480,11 @@ test string-6.57 {string is integer, false} {
     list [string is integer -fail var "    "] $var
 } {0 0}
 test string-6.58 {string is integer, false on bad octal} {
-    list [string is integer -fail var 036963] $var
-} {0 3}
+    list [string is integer -fail var 0o36963] $var
+} {0 4}
+test string-6.58.1 {string is integer, false on bad octal} {
+    list [string is integer -fail var 0o36963] $var
+} {0 4}
 test string-6.59 {string is integer, false on bad hex} {
     list [string is integer -fail var 0X345XYZ] $var
 } {0 5}
@@ -647,8 +650,11 @@ test string-6.104 {string is wideinteger, false} {
     list [string is wideinteger -fail var "    "] $var
 } {0 0}
 test string-6.105 {string is wideinteger, false on bad octal} {
-    list [string is wideinteger -fail var 036963] $var
-} {0 3}
+    list [string is wideinteger -fail var 0o36963] $var
+} {0 4}
+test string-6.105.1 {string is wideinteger, false on bad octal} {
+    list [string is wideinteger -fail var 0o36963] $var
+} {0 4}
 test string-6.106 {string is wideinteger, false on bad hex} {
     list [string is wideinteger -fail var 0X345XYZ] $var
 } {0 5}
@@ -674,13 +680,13 @@ catch {rename largest_int {}}
 
 test string-7.1 {string last, too few args} {
     list [catch {string last a} msg] $msg
-} {1 {wrong # args: should be "string last subString string ?startIndex?"}}
+} {1 {wrong # args: should be "string last needleString haystackString ?startIndex?"}}
 test string-7.2 {string last, bad args} {
     list [catch {string last a b c} msg] $msg
 } {1 {bad index "c": must be integer?[+-]integer? or end?[+-]integer?}}
 test string-7.3 {string last, too many args} {
     list [catch {string last a b c d} msg] $msg
-} {1 {wrong # args: should be "string last subString string ?startIndex?"}}
+} {1 {wrong # args: should be "string last needleString haystackString ?startIndex?"}}
 test string-7.4 {string last} {
     string la xxx xxxx123xx345x678
 } 1
@@ -1512,6 +1518,33 @@ test string-24.4 {string reverse command - unshared string} {
     set y de
     string reverse $x$y
 } edcba
+test string-24.5 {string reverse command - shared unicode string} {
+    set x abcde\udead
+    string reverse $x
+} \udeadedcba
+test string-24.6 {string reverse command - unshared string} {
+    set x abc
+    set y de\udead
+    string reverse $x$y
+} \udeadedcba
+test string-24.7 {string reverse command - simple case} {
+    string reverse a
+} a
+test string-24.8 {string reverse command - simple case} {
+    string reverse \udead
+} \udead
+test string-24.9 {string reverse command - simple case} {
+    string reverse {}
+} {}
+test string-24.10 {string reverse command - corner case} {
+    set x \ubeef\udead
+    string reverse $x
+} \udead\ubeef
+test string-24.11 {string reverse command - corner case} {
+    set x \ubeef
+    set y \udead
+    string reverse $x$y
+} \udead\ubeef
 
 test string-25.1 {string is list} {
     string is list {a b c}

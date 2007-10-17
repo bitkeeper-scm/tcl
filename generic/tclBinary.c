@@ -14,7 +14,7 @@
  */
 
 #include "tclInt.h"
-#include "tclTomMath.h"
+#include "tommath.h"
 
 #include <math.h>
 
@@ -70,7 +70,7 @@ static int		SetByteArrayFromAny(Tcl_Interp *interp,
 static void		UpdateStringOfByteArray(Tcl_Obj *listPtr);
 static void		DeleteScanNumberCache(Tcl_HashTable *numberCachePtr);
 static int		NeedReversing(int format);
-static void		CopyNumber(CONST void *from, void *to,
+static void		CopyNumber(const void *from, void *to,
 			    unsigned int length, int type);
 
 /*
@@ -154,7 +154,7 @@ typedef struct ByteArray {
 
 Tcl_Obj *
 Tcl_NewByteArrayObj(
-    CONST unsigned char *bytes,	/* The array of bytes used to initialize the
+    const unsigned char *bytes,	/* The array of bytes used to initialize the
 				 * new object. */
     int length)			/* Length of the array of bytes, which must be
 				 * >= 0. */
@@ -166,7 +166,7 @@ Tcl_NewByteArrayObj(
 
 Tcl_Obj *
 Tcl_NewByteArrayObj(
-    CONST unsigned char *bytes,	/* The array of bytes used to initialize the
+    const unsigned char *bytes,	/* The array of bytes used to initialize the
 				 * new object. */
     int length)			/* Length of the array of bytes, which must be
 				 * >= 0. */
@@ -208,11 +208,11 @@ Tcl_NewByteArrayObj(
 
 Tcl_Obj *
 Tcl_DbNewByteArrayObj(
-    CONST unsigned char *bytes,	/* The array of bytes used to initialize the
+    const unsigned char *bytes,	/* The array of bytes used to initialize the
 				 * new object. */
     int length,			/* Length of the array of bytes, which must be
 				 * >= 0. */
-    CONST char *file,		/* The name of the source file calling this
+    const char *file,		/* The name of the source file calling this
 				 * procedure; used for debugging. */
     int line)			/* Line number in the source file; used for
 				 * debugging. */
@@ -228,11 +228,11 @@ Tcl_DbNewByteArrayObj(
 
 Tcl_Obj *
 Tcl_DbNewByteArrayObj(
-    CONST unsigned char *bytes,	/* The array of bytes used to initialize the
+    const unsigned char *bytes,	/* The array of bytes used to initialize the
 				 * new object. */
     int length,			/* Length of the array of bytes, which must be
 				 * >= 0. */
-    CONST char *file,		/* The name of the source file calling this
+    const char *file,		/* The name of the source file calling this
 				 * procedure; used for debugging. */
     int line)			/* Line number in the source file; used for
 				 * debugging. */
@@ -262,7 +262,7 @@ Tcl_DbNewByteArrayObj(
 void
 Tcl_SetByteArrayObj(
     Tcl_Obj *objPtr,		/* Object to initialize as a ByteArray. */
-    CONST unsigned char *bytes,	/* The array of bytes to use as the new
+    const unsigned char *bytes,	/* The array of bytes to use as the new
 				 * value. */
     int length)			/* Length of the array of bytes, which must be
 				 * >= 0. */
@@ -346,7 +346,7 @@ Tcl_SetByteArrayLength(
     Tcl_Obj *objPtr,		/* The ByteArray object. */
     int length)			/* New length for internal byte array. */
 {
-    ByteArray *byteArrayPtr, *newByteArrayPtr;
+    ByteArray *byteArrayPtr;
 
     if (Tcl_IsShared(objPtr)) {
 	Tcl_Panic("%s called with shared object", "Tcl_SetByteArrayLength");
@@ -357,13 +357,9 @@ Tcl_SetByteArrayLength(
 
     byteArrayPtr = GET_BYTEARRAY(objPtr);
     if (length > byteArrayPtr->allocated) {
-	newByteArrayPtr = (ByteArray *) ckalloc(BYTEARRAY_SIZE(length));
-	newByteArrayPtr->used = length;
-	newByteArrayPtr->allocated = length;
-	memcpy(newByteArrayPtr->bytes, byteArrayPtr->bytes,
-		(size_t) byteArrayPtr->used);
-	ckfree((char *) byteArrayPtr);
-	byteArrayPtr = newByteArrayPtr;
+	byteArrayPtr = (ByteArray *) ckrealloc(
+		(char *) byteArrayPtr, BYTEARRAY_SIZE(length));
+	byteArrayPtr->allocated = length;
 	SET_BYTEARRAY(objPtr, byteArrayPtr);
     }
     Tcl_InvalidateStringRep(objPtr);
@@ -562,7 +558,7 @@ Tcl_BinaryObjCmd(
     ClientData dummy,		/* Not used. */
     Tcl_Interp *interp,		/* Current interpreter. */
     int objc,			/* Number of arguments. */
-    Tcl_Obj *CONST objv[])	/* Argument objects. */
+    Tcl_Obj *const objv[])	/* Argument objects. */
 {
     int arg;			/* Index of next argument to consume. */
     int value = 0;		/* Current integer value to be packed.
@@ -578,9 +574,10 @@ Tcl_BinaryObjCmd(
     unsigned char *cursor;	/* Current position within result buffer. */
     unsigned char *maxPos;	/* Greatest position within result buffer that
 				 * cursor has visited.*/
-    char *errorString, *errorValue, *str;
+    const char *errorString;
+    char *errorValue, *str;
     int offset, size, length, index;
-    static CONST char *options[] = {
+    static const char *options[] = {
 	"format",	"scan",		NULL
     };
     enum options {
@@ -832,6 +829,7 @@ Tcl_BinaryObjCmd(
 			    value |= 1;
 			} else if (str[offset] != '0') {
 			    errorValue = str;
+			    Tcl_DecrRefCount(resultPtr);
 			    goto badValue;
 			}
 			if (((offset + 1) % 8) == 0) {
@@ -846,6 +844,7 @@ Tcl_BinaryObjCmd(
 			    value |= 128;
 			} else if (str[offset] != '0') {
 			    errorValue = str;
+			    Tcl_DecrRefCount(resultPtr);
 			    goto badValue;
 			}
 			if (!((offset + 1) % 8)) {
@@ -889,6 +888,7 @@ Tcl_BinaryObjCmd(
 			value <<= 4;
 			if (!isxdigit(UCHAR(str[offset]))) { /* INTL: digit */
 			    errorValue = str;
+			    Tcl_DecrRefCount(resultPtr);
 			    goto badValue;
 			}
 			c = str[offset] - '0';
@@ -910,6 +910,7 @@ Tcl_BinaryObjCmd(
 
 			if (!isxdigit(UCHAR(str[offset]))) { /* INTL: digit */
 			    errorValue = str;
+			    Tcl_DecrRefCount(resultPtr);
 			    goto badValue;
 			}
 			c = str[offset] - '0';
@@ -978,6 +979,7 @@ Tcl_BinaryObjCmd(
 		arg++;
 		for (i = 0; i < count; i++) {
 		    if (FormatNumber(interp, cmd, listv[i], &cursor)!=TCL_OK) {
+			Tcl_DecrRefCount(resultPtr);
 			return TCL_ERROR;
 		    }
 		}
@@ -1159,7 +1161,7 @@ Tcl_BinaryObjCmd(
 		char *dest;
 		unsigned char *src;
 		int i;
-		static CONST char hexdigit[] = "0123456789abcdef";
+		static const char hexdigit[] = "0123456789abcdef";
 
 		if (arg >= objc) {
 		    DeleteScanNumberCache(numberCachePtr);
@@ -1541,7 +1543,7 @@ NeedReversing(
 
 static void
 CopyNumber(
-    CONST void *from,		/* source */
+    const void *from,		/* source */
     void *to,			/* destination */
     unsigned int length,	/* Number of bytes to copy */
     int type)			/* What type of thing are we copying? */
@@ -1551,7 +1553,7 @@ CopyNumber(
 	memcpy(to, from, length);
 	break;
     case 1: {
-	CONST unsigned char *fromPtr = from;
+	const unsigned char *fromPtr = from;
 	unsigned char *toPtr = to;
 
 	switch (length) {
@@ -1575,7 +1577,7 @@ CopyNumber(
 	break;
     }
     case 2: {
-	CONST unsigned char *fromPtr = from;
+	const unsigned char *fromPtr = from;
 	unsigned char *toPtr = to;
 
 	toPtr[0] = fromPtr[4];
@@ -1589,7 +1591,7 @@ CopyNumber(
 	break;
     }
     case 3: {
-	CONST unsigned char *fromPtr = from;
+	const unsigned char *fromPtr = from;
 	unsigned char *toPtr = to;
 
 	toPtr[0] = fromPtr[3];

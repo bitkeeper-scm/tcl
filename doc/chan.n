@@ -330,6 +330,7 @@ returned as the result of the \fBchan create\fR command, and the
 channel is open. Use either \fBclose\fR or \fBchan close\fR to remove
 the channel.
 .RS
+.PP
 The argument \fImode\fR specifies if the new channel is opened for
 reading, writing, or both. It has to be a list containing any of the
 strings "\fBread\fR" or "\fBwrite\fR". The list must have at least one
@@ -352,7 +353,7 @@ interpreter, even if the channel was shared with and/or was moved into
 a different interpreter. Each reflected channel also knows the thread
 it was created in, and executes its handler command only in that
 thread, even if the channel was moved into a different thread. To this
-end all invokations of the handler are forwarded to the original
+end all invocations of the handler are forwarded to the original
 thread by posting special events to it. This means that the original
 thread (i.e. the thread that executed the \fBchan create\fR command)
 must have an active event loop, i.e. it must be able to process such
@@ -384,7 +385,7 @@ within the safe interpreter.
 .
 Test whether the last input operation on the channel called
 \fIchannelId\fR failed because the end of the data stream was reached,
-returning 1 if end-fo-file was reached, and 0 otherwise.
+returning 1 if end-of-file was reached, and 0 otherwise.
 .TP
 \fBchan event \fIchannelId event\fR ?\fIscript\fR?
 .
@@ -513,6 +514,7 @@ occurred. The argument has to be a list containing any of the strings
 element as it does not make sense to invoke the command if there are
 no events to post.
 .RS
+.PP
 Note that this subcommand can only be used with channel handles that
 were created/opened by \fBchan create\fR. All other channels will
 cause this subcommand to report an error.
@@ -687,6 +689,7 @@ omitted). The channel is flushed before truncation.
 This opens a file using a known encoding (CP1252, a very common encoding
 on Windows), searches for a string, rewrites that part, and truncates the
 file after a further two lines.
+.PP
 .CS
 set f [open somefile.txt r+]
 \fBchan configure\fR $f -encoding cp1252

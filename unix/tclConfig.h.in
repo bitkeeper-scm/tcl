@@ -181,12 +181,6 @@
 /* Define to 1 if you have the `strtol' function. */
 #undef HAVE_STRTOL
 
-/* Define to 1 if you have the `strtoll' function. */
-#undef HAVE_STRTOLL
-
-/* Define to 1 if you have the `strtoull' function. */
-#undef HAVE_STRTOULL
-
 /* Is 'struct dirent64' in <sys/types.h>? */
 #undef HAVE_STRUCT_DIRENT64
 
@@ -265,7 +259,7 @@
 /* Is this a Mac I see before me? */
 #undef MAC_OSX_TCL
 
-/* Linker support for module scope symbols */
+/* Compiler support for module scope symbols */
 #undef MODULE_SCOPE
 
 /* Default libtommath precision. */
@@ -418,6 +412,9 @@
 /* May we include <dirent2.h>? */
 #undef USE_DIRENT2_H
 
+/* Are we building with DTrace support? */
+#undef USE_DTRACE
+
 /* Should we use FIONBIO? */
 #undef USE_FIONBIO
 
@@ -474,6 +471,12 @@
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef gid_t
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
 
 /* Signed integer type wide enough to hold a pointer. */
 #undef intptr_t

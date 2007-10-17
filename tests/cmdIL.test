@@ -118,6 +118,10 @@ test cmdIL-1.27 {Tcl_LsortObjCmd procedure, returning indices} {
 test cmdIL-1.28 {Tcl_LsortObjCmd procedure, returning indices} {
     lsort -indices -unique -decreasing -real {1.2 34.5 34.5 5.6}
 } {2 3 0}
+test cmdIL-1.29 {Tcl_LsortObjCmd procedure, loss of list rep during sorting} {
+    set l {1 2 3}
+    string length [lsort -command {apply {args {string length $::l}}} $l]
+} 5
 
 # Can't think of any good tests for the MergeSort and MergeLists
 # procedures, except a bunch of random lists to sort.
@@ -191,8 +195,8 @@ test cmdIL-3.10 {SortCompare procedure, -integer option} {
     list [catch {lsort -integer {3 q}} msg] $msg
 } {1 {expected integer but got "q"}}
 test cmdIL-3.11 {SortCompare procedure, -integer option} {
-    lsort -integer {35 21 0x20 30 023 100 8}
-} {8 023 21 30 0x20 35 100}
+    lsort -integer {35 21 0x20 30 0o23 100 8}
+} {8 0o23 21 30 0x20 35 100}
 test cmdIL-3.12 {SortCompare procedure, -real option} {
     list [catch {lsort -real {6...4 3}} msg] $msg
 } {1 {expected floating-point number but got "6...4"}}
@@ -243,8 +247,8 @@ test cmdIL-3.18 {SortCompare procedure, -command option} -body {
     rename cmp ""
 } -result {48 36 35 22 21 18 6}
 test cmdIL-3.19 {SortCompare procedure, -decreasing option} {
-    lsort -decreasing -integer {35 21 0x20 30 023 100 8}
-} {100 35 0x20 30 21 023 8}
+    lsort -decreasing -integer {35 21 0x20 30 0o23 100 8}
+} {100 35 0x20 30 21 0o23 8}
 
 test cmdIL-4.1 {DictionaryCompare procedure, numerics, leading zeros} {
     lsort -dictionary {a003b a03b}
@@ -740,6 +744,26 @@ test cmdIL-7.4 {lreverse command - shared object} {
 test cmdIL-7.5 {lreverse command - unshared object} {
     lreverse [list a b {c d} e f]
 } {f e {c d} b a}
+test cmdIL-7.6 {lreverse command - unshared object [Bug 1672585]} {
+    lreverse [set x {1 2 3}][unset x]
+} {3 2 1}
+
+testConstraint testobj [llength [info commands testobj]]
+test cmdIL-7.7 {lreverse command - shared intrep [Bug 1675044]} -setup {
+    teststringobj set 1 {1 2 3}
+    testobj convert 1 list
+    testobj duplicate 1 2
+    variable x [teststringobj get 1]
+    variable y [teststringobj get 2]
+    testobj freeallvars
+    proc K {a b} {return $a}
+} -constraints testobj -body {
+    lreverse [K $y [unset y]]
+    lindex $x 0
+} -cleanup {
+    unset -nocomplain x y
+    rename K {}
+} -result 1
 
 # cleanup
 ::tcltest::cleanupTests

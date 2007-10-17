@@ -987,13 +987,13 @@ Tcl_CreateEncoding(
 				/* The encoding type. */
 {
     Tcl_HashEntry *hPtr;
-    int new;
+    int isNew;
     Encoding *encodingPtr;
     char *name;
 
     Tcl_MutexLock(&encodingMutex);
-    hPtr = Tcl_CreateHashEntry(&encodingTable, typePtr->encodingName, &new);
-    if (new == 0) {
+    hPtr = Tcl_CreateHashEntry(&encodingTable, typePtr->encodingName, &isNew);
+    if (isNew == 0) {
 	/*
 	 * Remove old encoding from hash table, but don't delete it until last
 	 * reference goes away.
@@ -1948,7 +1948,7 @@ LoadEscapeEncoding(
     strcpy(dataPtr->final, final);
     dataPtr->numSubTables =
 	    Tcl_DStringLength(&escapeData) / sizeof(EscapeSubTable);
-    memcpy((VOID *) dataPtr->subTables, (VOID *) Tcl_DStringValue(&escapeData),
+    memcpy(dataPtr->subTables, Tcl_DStringValue(&escapeData),
 	    (size_t) Tcl_DStringLength(&escapeData));
     Tcl_DStringFree(&escapeData);
 
@@ -2986,7 +2986,7 @@ EscapeFromUtfProc(
 	    *dstWrotePtr = 0;
 	    return TCL_CONVERT_NOSPACE;
 	}
-	memcpy((VOID *)dst, (VOID *)dataPtr->init, (size_t)dataPtr->initLen);
+	memcpy(dst, dataPtr->init, (size_t)dataPtr->initLen);
 	dst += dataPtr->initLen;
     } else {
 	state = PTR2INT(*statePtr);
@@ -3062,7 +3062,7 @@ EscapeFromUtfProc(
 		    result = TCL_CONVERT_NOSPACE;
 		    break;
 		}
-		memcpy((VOID *) dst, (VOID *) subTablePtr->sequence,
+		memcpy(dst, subTablePtr->sequence,
 			(size_t) subTablePtr->sequenceLen);
 		dst += subTablePtr->sequenceLen;
 	    }
@@ -3103,12 +3103,10 @@ EscapeFromUtfProc(
 	    result = TCL_CONVERT_NOSPACE;
 	} else {
 	    if (state) {
-		memcpy((VOID *) dst, (VOID *) dataPtr->subTables[0].sequence,
-			(size_t) len);
+		memcpy(dst, dataPtr->subTables[0].sequence, (size_t) len);
 		dst += len;
 	    }
-	    memcpy((VOID *) dst, (VOID *) dataPtr->final,
-		    (size_t) dataPtr->finalLen);
+	    memcpy(dst, dataPtr->final, (size_t) dataPtr->finalLen);
 	    dst += dataPtr->finalLen;
 	    state &= ~TCL_ENCODING_END;
 	}
@@ -3264,9 +3262,10 @@ InitializeEncodingSearchPath(
 {
     char *bytes;
     int i, numDirs, numBytes;
-    Tcl_Obj *libPath, *encodingObj = Tcl_NewStringObj("encoding", -1);
-    Tcl_Obj *searchPath = Tcl_NewObj();
+    Tcl_Obj *libPath, *encodingObj, *searchPath;
 
+    TclNewLiteralStringObj(encodingObj, "encoding");
+    TclNewObj(searchPath);
     Tcl_IncrRefCount(encodingObj);
     Tcl_IncrRefCount(searchPath);
     libPath = TclGetLibraryPath();
@@ -3296,7 +3295,7 @@ InitializeEncodingSearchPath(
 
     *lengthPtr = numBytes;
     *valuePtr = ckalloc((unsigned int) numBytes + 1);
-    memcpy((VOID *) *valuePtr, (VOID *) bytes, (size_t) numBytes + 1);
+    memcpy(*valuePtr, bytes, (size_t) numBytes + 1);
     Tcl_DecrRefCount(searchPath);
 }
 

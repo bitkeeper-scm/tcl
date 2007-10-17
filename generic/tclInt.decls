@@ -73,7 +73,7 @@ declare 11 generic {
     void TclDeleteCompiledLocalVars(Interp *iPtr, CallFrame *framePtr)
 }
 declare 12 generic {
-    void TclDeleteVars(Interp *iPtr, Tcl_HashTable *tablePtr)
+    void TclDeleteVars(Interp *iPtr, TclVarHashTable *tablePtr)
 }
 # Removed in 8.5
 #declare 13 generic {
@@ -416,7 +416,7 @@ declare 102 generic {
     void TclSetupEnv(Tcl_Interp *interp)
 }
 declare 103 generic {
-    int TclSockGetPort(Tcl_Interp *interp, char *str, char *proto,
+    int TclSockGetPort(Tcl_Interp *interp, CONST char *str, CONST char *proto,
 	    int *portPtr)
 }
 declare 104 {unix win} {
@@ -868,10 +868,10 @@ declare 214 generic {
     void TclSetObjNameOfExecutable(Tcl_Obj *name, Tcl_Encoding encoding)
 }
 declare 215 generic {
-    char * TclStackAlloc(Tcl_Interp *interp, int numBytes)
+    void * TclStackAlloc(Tcl_Interp *interp, int numBytes)
 }
 declare 216 generic {
-    void TclStackFree(Tcl_Interp *interp)
+    void TclStackFree(Tcl_Interp *interp, void *freePtr)
 }
 declare 217 generic {
     int TclPushStackFrame(Tcl_Interp *interp, Tcl_CallFrame **framePtrPtr,
@@ -886,7 +886,7 @@ declare 224 generic {
     TclPlatformType *TclGetPlatform(void)
 }
 
-# 
+#
 declare 225 generic {
     Tcl_Obj *TclTraceDictPath(Tcl_Interp *interp, Tcl_Obj *rootPtr,
 	    int keyc, Tcl_Obj *CONST keyv[], int flags)
@@ -901,9 +901,8 @@ declare 227 generic {
             Tcl_Namespace *pathAry[])
 }
 declare 228 generic {
-    int TclObjInterpProcCore(register Tcl_Interp *interp, CallFrame *framePtr,
-            Tcl_Obj *procNameObj, int isLambda, int skip,
-            ProcErrorProc errorProc)
+    int TclObjInterpProcCore(register Tcl_Interp *interp, Tcl_Obj *procNameObj,
+             int skip, ProcErrorProc errorProc) 
 }
 declare 229 generic {
     int	TclPtrMakeUpvar(Tcl_Interp *interp, Var *otherP1Ptr,
@@ -914,6 +913,35 @@ declare 230 generic {
 	    CONST char *part2, int flags, CONST char *msg,
 	    CONST int createPart1, CONST int createPart2, Var **arrayPtrPtr)
 }
+
+declare 231 generic {
+    int	TclGetNamespaceFromObj(Tcl_Interp *interp, Tcl_Obj *objPtr,
+	    Tcl_Namespace **nsPtrPtr)
+}
+
+# Bits and pieces of TIP#280's guts
+declare 232 generic {
+    int TclEvalObjEx(Tcl_Interp *interp, Tcl_Obj *objPtr, int flags,
+	    const CmdFrame *invoker, int word)
+}
+declare 233 generic {
+    void TclGetSrcInfoForPc(CmdFrame *contextPtr)
+}
+
+# Exports for VarReform compat: Itcl, XOTcl like to peek into our varTables :(
+declare 234 generic {
+    Var *TclVarHashCreateVar(TclVarHashTable *tablePtr, const char *key, 
+             int *newPtr)
+}
+declare 235 generic {
+    void TclInitVarHashTable(TclVarHashTable *tablePtr, Namespace *nsPtr)
+}
+
+
+declare 236 generic {
+    void TclBackgroundException(Tcl_Interp *interp, int code)
+}
+
 
 ##############################################################################
 
@@ -1127,4 +1155,3 @@ declare 18 macosx {
 	    CONST char *fileName, Tcl_StatBuf *statBufPtr,
 	    Tcl_GlobTypeData *types)
 }
-

@@ -123,7 +123,7 @@ EXTERN void		TclDeleteCompiledLocalVars (Interp * iPtr,
 #define TclDeleteVars_TCL_DECLARED
 /* 12 */
 EXTERN void		TclDeleteVars (Interp * iPtr, 
-				Tcl_HashTable * tablePtr);
+				TclVarHashTable * tablePtr);
 #endif
 /* Slot 13 is reserved */
 #ifndef TclDumpMemoryInfo_TCL_DECLARED
@@ -442,8 +442,9 @@ EXTERN void		TclSetupEnv (Tcl_Interp * interp);
 #ifndef TclSockGetPort_TCL_DECLARED
 #define TclSockGetPort_TCL_DECLARED
 /* 103 */
-EXTERN int		TclSockGetPort (Tcl_Interp * interp, char * str, 
-				char * proto, int * portPtr);
+EXTERN int		TclSockGetPort (Tcl_Interp * interp, 
+				CONST char * str, CONST char * proto, 
+				int * portPtr);
 #endif
 #if !defined(__WIN32__) /* UNIX */
 #ifndef TclSockMinimumBuffers_TCL_DECLARED
@@ -949,12 +950,12 @@ EXTERN void		TclSetObjNameOfExecutable (Tcl_Obj * name,
 #ifndef TclStackAlloc_TCL_DECLARED
 #define TclStackAlloc_TCL_DECLARED
 /* 215 */
-EXTERN char *		TclStackAlloc (Tcl_Interp * interp, int numBytes);
+EXTERN void *		TclStackAlloc (Tcl_Interp * interp, int numBytes);
 #endif
 #ifndef TclStackFree_TCL_DECLARED
 #define TclStackFree_TCL_DECLARED
 /* 216 */
-EXTERN void		TclStackFree (Tcl_Interp * interp);
+EXTERN void		TclStackFree (Tcl_Interp * interp, void * freePtr);
 #endif
 #ifndef TclPushStackFrame_TCL_DECLARED
 #define TclPushStackFrame_TCL_DECLARED
@@ -1001,8 +1002,7 @@ EXTERN void		TclSetNsPath (Namespace * nsPtr, int pathLength,
 #define TclObjInterpProcCore_TCL_DECLARED
 /* 228 */
 EXTERN int		TclObjInterpProcCore (register Tcl_Interp * interp, 
-				CallFrame * framePtr, Tcl_Obj * procNameObj, 
-				int isLambda, int skip, 
+				Tcl_Obj * procNameObj, int skip, 
 				ProcErrorProc errorProc);
 #endif
 #ifndef TclPtrMakeUpvar_TCL_DECLARED
@@ -1020,6 +1020,42 @@ EXTERN Var *		TclObjLookupVar (Tcl_Interp * interp,
 				int flags, CONST char * msg, 
 				CONST int createPart1, CONST int createPart2, 
 				Var ** arrayPtrPtr);
+#endif
+#ifndef TclGetNamespaceFromObj_TCL_DECLARED
+#define TclGetNamespaceFromObj_TCL_DECLARED
+/* 231 */
+EXTERN int		TclGetNamespaceFromObj (Tcl_Interp * interp, 
+				Tcl_Obj * objPtr, Tcl_Namespace ** nsPtrPtr);
+#endif
+#ifndef TclEvalObjEx_TCL_DECLARED
+#define TclEvalObjEx_TCL_DECLARED
+/* 232 */
+EXTERN int		TclEvalObjEx (Tcl_Interp * interp, Tcl_Obj * objPtr, 
+				int flags, const CmdFrame * invoker, 
+				int word);
+#endif
+#ifndef TclGetSrcInfoForPc_TCL_DECLARED
+#define TclGetSrcInfoForPc_TCL_DECLARED
+/* 233 */
+EXTERN void		TclGetSrcInfoForPc (CmdFrame * contextPtr);
+#endif
+#ifndef TclVarHashCreateVar_TCL_DECLARED
+#define TclVarHashCreateVar_TCL_DECLARED
+/* 234 */
+EXTERN Var *		TclVarHashCreateVar (TclVarHashTable * tablePtr, 
+				const char * key, int * newPtr);
+#endif
+#ifndef TclInitVarHashTable_TCL_DECLARED
+#define TclInitVarHashTable_TCL_DECLARED
+/* 235 */
+EXTERN void		TclInitVarHashTable (TclVarHashTable * tablePtr, 
+				Namespace * nsPtr);
+#endif
+#ifndef TclBackgroundException_TCL_DECLARED
+#define TclBackgroundException_TCL_DECLARED
+/* 236 */
+EXTERN void		TclBackgroundException (Tcl_Interp * interp, 
+				int code);
 #endif
 
 typedef struct TclIntStubs {
@@ -1048,7 +1084,7 @@ typedef struct TclIntStubs {
 #endif /* __WIN32__ */
     int (*tclCreateProc) (Tcl_Interp * interp, Namespace * nsPtr, CONST char * procName, Tcl_Obj * argsPtr, Tcl_Obj * bodyPtr, Proc ** procPtrPtr); /* 10 */
     void (*tclDeleteCompiledLocalVars) (Interp * iPtr, CallFrame * framePtr); /* 11 */
-    void (*tclDeleteVars) (Interp * iPtr, Tcl_HashTable * tablePtr); /* 12 */
+    void (*tclDeleteVars) (Interp * iPtr, TclVarHashTable * tablePtr); /* 12 */
     void *reserved13;
     void (*tclDumpMemoryInfo) (FILE * outFile); /* 14 */
     void *reserved15;
@@ -1139,7 +1175,7 @@ typedef struct TclIntStubs {
     void *reserved100;
     char * (*tclSetPreInitScript) (char * string); /* 101 */
     void (*tclSetupEnv) (Tcl_Interp * interp); /* 102 */
-    int (*tclSockGetPort) (Tcl_Interp * interp, char * str, char * proto, int * portPtr); /* 103 */
+    int (*tclSockGetPort) (Tcl_Interp * interp, CONST char * str, CONST char * proto, int * portPtr); /* 103 */
 #if !defined(__WIN32__) /* UNIX */
     int (*tclSockMinimumBuffers) (int sock, int size); /* 104 */
 #endif /* UNIX */
@@ -1256,8 +1292,8 @@ typedef struct TclIntStubs {
     void (*tclpFindExecutable) (CONST char * argv0); /* 212 */
     Tcl_Obj * (*tclGetObjNameOfExecutable) (void); /* 213 */
     void (*tclSetObjNameOfExecutable) (Tcl_Obj * name, Tcl_Encoding encoding); /* 214 */
-    char * (*tclStackAlloc) (Tcl_Interp * interp, int numBytes); /* 215 */
-    void (*tclStackFree) (Tcl_Interp * interp); /* 216 */
+    void * (*tclStackAlloc) (Tcl_Interp * interp, int numBytes); /* 215 */
+    void (*tclStackFree) (Tcl_Interp * interp, void * freePtr); /* 216 */
     int (*tclPushStackFrame) (Tcl_Interp * interp, Tcl_CallFrame ** framePtrPtr, Tcl_Namespace * namespacePtr, int isProcCallFrame); /* 217 */
     void (*tclPopStackFrame) (Tcl_Interp * interp); /* 218 */
     void *reserved219;
@@ -1269,9 +1305,15 @@ typedef struct TclIntStubs {
     Tcl_Obj * (*tclTraceDictPath) (Tcl_Interp * interp, Tcl_Obj * rootPtr, int keyc, Tcl_Obj *CONST keyv[], int flags); /* 225 */
     int (*tclObjBeingDeleted) (Tcl_Obj * objPtr); /* 226 */
     void (*tclSetNsPath) (Namespace * nsPtr, int pathLength, Tcl_Namespace * pathAry[]); /* 227 */
-    int (*tclObjInterpProcCore) (register Tcl_Interp * interp, CallFrame * framePtr, Tcl_Obj * procNameObj, int isLambda, int skip, ProcErrorProc errorProc); /* 228 */
+    int (*tclObjInterpProcCore) (register Tcl_Interp * interp, Tcl_Obj * procNameObj, int skip, ProcErrorProc errorProc); /* 228 */
     int (*tclPtrMakeUpvar) (Tcl_Interp * interp, Var * otherP1Ptr, CONST char * myName, int myFlags, int index); /* 229 */
     Var * (*tclObjLookupVar) (Tcl_Interp * interp, Tcl_Obj * part1Ptr, CONST char * part2, int flags, CONST char * msg, CONST int createPart1, CONST int createPart2, Var ** arrayPtrPtr); /* 230 */
+    int (*tclGetNamespaceFromObj) (Tcl_Interp * interp, Tcl_Obj * objPtr, Tcl_Namespace ** nsPtrPtr); /* 231 */
+    int (*tclEvalObjEx) (Tcl_Interp * interp, Tcl_Obj * objPtr, int flags, const CmdFrame * invoker, int word); /* 232 */
+    void (*tclGetSrcInfoForPc) (CmdFrame * contextPtr); /* 233 */
+    Var * (*tclVarHashCreateVar) (TclVarHashTable * tablePtr, const char * key, int * newPtr); /* 234 */
+    void (*tclInitVarHashTable) (TclVarHashTable * tablePtr, Namespace * nsPtr); /* 235 */
+    void (*tclBackgroundException) (Tcl_Interp * interp, int code); /* 236 */
 } TclIntStubs;
 
 #ifdef __cplusplus
@@ -1980,6 +2022,30 @@ extern TclIntStubs *tclIntStubsPtr;
 #ifndef TclObjLookupVar
 #define TclObjLookupVar \
 	(tclIntStubsPtr->tclObjLookupVar) /* 230 */
+#endif
+#ifndef TclGetNamespaceFromObj
+#define TclGetNamespaceFromObj \
+	(tclIntStubsPtr->tclGetNamespaceFromObj) /* 231 */
+#endif
+#ifndef TclEvalObjEx
+#define TclEvalObjEx \
+	(tclIntStubsPtr->tclEvalObjEx) /* 232 */
+#endif
+#ifndef TclGetSrcInfoForPc
+#define TclGetSrcInfoForPc \
+	(tclIntStubsPtr->tclGetSrcInfoForPc) /* 233 */
+#endif
+#ifndef TclVarHashCreateVar
+#define TclVarHashCreateVar \
+	(tclIntStubsPtr->tclVarHashCreateVar) /* 234 */
+#endif
+#ifndef TclInitVarHashTable
+#define TclInitVarHashTable \
+	(tclIntStubsPtr->tclInitVarHashTable) /* 235 */
+#endif
+#ifndef TclBackgroundException
+#define TclBackgroundException \
+	(tclIntStubsPtr->tclBackgroundException) /* 236 */
 #endif
 
 #endif /* defined(USE_TCL_STUBS) && !defined(USE_TCL_STUB_PROCS) */

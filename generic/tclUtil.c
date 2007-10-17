@@ -1598,9 +1598,7 @@ Tcl_DStringAppend(
     if (newSize >= dsPtr->spaceAvl) {
 	dsPtr->spaceAvl = newSize * 2;
 	if (dsPtr->string == dsPtr->staticSpace) {
-	    char *newString;
-
-	    newString = (char *) ckalloc((unsigned) dsPtr->spaceAvl);
+	    char *newString = ckalloc((unsigned) dsPtr->spaceAvl);
 	    memcpy((void *) newString, (void *) dsPtr->string,
 		    (size_t) dsPtr->length);
 	    dsPtr->string = newString;
@@ -1665,9 +1663,7 @@ Tcl_DStringAppendElement(
     if (newSize >= dsPtr->spaceAvl) {
 	dsPtr->spaceAvl = newSize * 2;
 	if (dsPtr->string == dsPtr->staticSpace) {
-	    char *newString;
-
-	    newString = (char *) ckalloc((unsigned) dsPtr->spaceAvl);
+	    char *newString = ckalloc((unsigned) dsPtr->spaceAvl);
 	    memcpy((void *) newString, (void *) dsPtr->string,
 		    (size_t) dsPtr->length);
 	    dsPtr->string = newString;
@@ -1749,9 +1745,7 @@ Tcl_DStringSetLength(
 	    dsPtr->spaceAvl = length + 1;
 	}
 	if (dsPtr->string == dsPtr->staticSpace) {
-	    char *newString;
-
-	    newString = (char *) ckalloc((unsigned) dsPtr->spaceAvl);
+	    char *newString = ckalloc((unsigned) dsPtr->spaceAvl);
 	    memcpy((void *) newString, (void *) dsPtr->string,
 		    (size_t) dsPtr->length);
 	    dsPtr->string = newString;
@@ -2149,7 +2143,7 @@ TclPrecTraceProc(
      */
 
     if (flags & TCL_TRACE_UNSETS) {
-	if ((flags & TCL_TRACE_DESTROYED) && !(flags & TCL_INTERP_DESTROYED)) {
+	if ((flags & TCL_TRACE_DESTROYED) && !Tcl_InterpDeleted(interp)) {
 	    Tcl_TraceVar2(interp, name1, name2,
 		    TCL_GLOBAL_ONLY|TCL_TRACE_READS|TCL_TRACE_WRITES
 		    |TCL_TRACE_UNSETS, TclPrecTraceProc, clientData);
@@ -2378,8 +2372,8 @@ TclGetIntForIndex(
 	    Tcl_AppendResult(interp, "bad index \"", bytes,
 		    "\": must be integer?[+-]integer? or end?[+-]integer?",
 		    (char *) NULL);
-	    if (!strncmp(bytes, "end-", 3)) {
-		bytes += 3;
+	    if (!strncmp(bytes, "end-", 4)) {
+		bytes += 4;
 	    }
 	    TclCheckBadOctal(interp, bytes);
 	}
@@ -2562,6 +2556,9 @@ TclCheckBadOctal(
 	p++;
     }
     if (*p == '0') {
+	if ((p[1] == 'o') || p[1] == 'O') {
+	    p+=2;
+	}
 	while (isdigit(UCHAR(*p))) {	/* INTL: digit. */
 	    p++;
 	}

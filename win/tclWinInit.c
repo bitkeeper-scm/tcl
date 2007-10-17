@@ -211,7 +211,7 @@ TclpInitLibraryPath(
     *encodingPtr = NULL;
     bytes = Tcl_GetStringFromObj(pathPtr, lengthPtr);
     *valuePtr = ckalloc((unsigned int)(*lengthPtr)+1);
-    memcpy((VOID *) *valuePtr, (VOID *) bytes, (size_t)(*lengthPtr)+1);
+    memcpy(*valuePtr, bytes, (size_t)(*lengthPtr)+1);
     Tcl_DecrRefCount(pathPtr);
 }
 
@@ -359,7 +359,7 @@ InitializeDefaultLibraryDir(
     *lengthPtr = strlen(name);
     *valuePtr = ckalloc((unsigned int) *lengthPtr + 1);
     *encodingPtr = NULL;
-    memcpy((VOID *) *valuePtr, (VOID *) name, (size_t) *lengthPtr + 1);
+    memcpy(*valuePtr, name, (size_t) *lengthPtr + 1);
 }
 
 /*
@@ -499,7 +499,7 @@ TclpSetVariables(
 {
     CONST char *ptr;
     char buffer[TCL_INTEGER_SPACE * 2];
-    SYSTEM_INFO sysInfo;
+    SYSTEM_INFO sysInfo, *sysInfoPtr = &sysInfo;
     OemId *oemId;
     OSVERSIONINFOA osInfo;
     Tcl_DString ds;
@@ -512,7 +512,7 @@ TclpSetVariables(
     osInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOA);
     GetVersionExA(&osInfo);
 
-    oemId = (OemId *) &sysInfo;
+    oemId = (OemId *) sysInfoPtr;
     GetSystemInfo(&sysInfo);
 
     /*
@@ -626,7 +626,7 @@ TclpFindVariable(
 
     length = strlen(name);
     nameUpper = (char *) ckalloc((unsigned) length+1);
-    memcpy((VOID *) nameUpper, (VOID *) name, (size_t) length+1);
+    memcpy(nameUpper, name, (size_t) length+1);
     Tcl_UtfToUpper(nameUpper);
 
     Tcl_DStringInit(&envString);

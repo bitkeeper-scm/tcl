@@ -118,8 +118,8 @@ Tcl_SaveInterpState(
 
 int
 Tcl_RestoreInterpState(
-    Tcl_Interp *interp,		/* Interpreter's state to be restored*/
-    Tcl_InterpState state)	/* saved interpreter state */
+    Tcl_Interp *interp,		/* Interpreter's state to be restored. */
+    Tcl_InterpState state)	/* Saved interpreter state. */
 {
     Interp *iPtr = (Interp *)interp;
     InterpState *statePtr = (InterpState *)state;
@@ -189,7 +189,7 @@ Tcl_DiscardInterpState(
 	Tcl_DecrRefCount(statePtr->returnOpts);
     }
     Tcl_DecrRefCount(statePtr->objResult);
-    ckfree((char*) statePtr);
+    ckfree((char *) statePtr);
 }
 
 /*
@@ -315,7 +315,7 @@ Tcl_RestoreResult(
 	 */
 
 	if (iPtr->appendResult != NULL) {
-	    ckfree((char *)iPtr->appendResult);
+	    ckfree((char *) iPtr->appendResult);
 	}
 
 	iPtr->appendResult = statePtr->appendResult;
@@ -881,8 +881,8 @@ Tcl_FreeResult(
  * Side effects:
  *	It resets the result object to an unshared empty object. It then
  *	restores the interpreter's string result area to its default
- *	initialized state, freeing up any memory that may have been
- *	allocated. It also clears any error information for the interpreter.
+ *	initialized state, freeing up any memory that may have been allocated.
+ *	It also clears any error information for the interpreter.
  *
  *----------------------------------------------------------------------
  */
@@ -906,15 +906,19 @@ Tcl_ResetResult(
     iPtr->resultSpace[0] = 0;
     if (iPtr->errorCode) {
 	/* Legacy support */
-	Tcl_ObjSetVar2(interp, iPtr->ecVar, NULL,
-		iPtr->errorCode, TCL_GLOBAL_ONLY);
+	if (iPtr->flags & ERR_LEGACY_COPY) {
+	    Tcl_ObjSetVar2(interp, iPtr->ecVar, NULL,
+		    iPtr->errorCode, TCL_GLOBAL_ONLY);
+	}
 	Tcl_DecrRefCount(iPtr->errorCode);
 	iPtr->errorCode = NULL;
     }
     if (iPtr->errorInfo) {
 	/* Legacy support */
-	Tcl_ObjSetVar2(interp, iPtr->eiVar, NULL,
-		iPtr->errorInfo, TCL_GLOBAL_ONLY);
+	if (iPtr->flags & ERR_LEGACY_COPY) {
+	    Tcl_ObjSetVar2(interp, iPtr->eiVar, NULL,
+		    iPtr->errorInfo, TCL_GLOBAL_ONLY);
+	}
 	Tcl_DecrRefCount(iPtr->errorInfo);
 	iPtr->errorInfo = NULL;
     }
@@ -924,7 +928,7 @@ Tcl_ResetResult(
 	Tcl_DecrRefCount(iPtr->returnOpts);
 	iPtr->returnOpts = NULL;
     }
-    iPtr->flags &= ~ERR_ALREADY_LOGGED;
+    iPtr->flags &= ~(ERR_ALREADY_LOGGED | ERR_LEGACY_COPY);
 }
 
 /*
@@ -962,7 +966,7 @@ ResetObjResult(
 		&& (objResultPtr->bytes != tclEmptyStringRep)) {
 	    ckfree((char *) objResultPtr->bytes);
 	}
-	objResultPtr->bytes  = tclEmptyStringRep;
+	objResultPtr->bytes = tclEmptyStringRep;
 	objResultPtr->length = 0;
 	TclFreeIntRep(objResultPtr);
 	objResultPtr->typePtr = NULL;
@@ -1112,12 +1116,12 @@ GetKeys(void)
 
 	int i;
 
-	keys[KEY_CODE]	    = Tcl_NewStringObj("-code", -1);
-	keys[KEY_ERRORCODE] = Tcl_NewStringObj("-errorcode", -1);
-	keys[KEY_ERRORINFO] = Tcl_NewStringObj("-errorinfo", -1);
-	keys[KEY_ERRORLINE] = Tcl_NewStringObj("-errorline", -1);
-	keys[KEY_LEVEL]	    = Tcl_NewStringObj("-level", -1);
-	keys[KEY_OPTIONS]   = Tcl_NewStringObj("-options", -1);
+	TclNewLiteralStringObj(keys[KEY_CODE],	    "-code");
+	TclNewLiteralStringObj(keys[KEY_ERRORCODE], "-errorcode");
+	TclNewLiteralStringObj(keys[KEY_ERRORINFO], "-errorinfo");
+	TclNewLiteralStringObj(keys[KEY_ERRORLINE], "-errorline");
+	TclNewLiteralStringObj(keys[KEY_LEVEL],	    "-level");
+	TclNewLiteralStringObj(keys[KEY_OPTIONS],   "-options");
 
 	for (i = KEY_CODE; i < KEY_LAST; i++) {
 	    Tcl_IncrRefCount(keys[i]);
@@ -1237,6 +1241,9 @@ TclProcessReturn(
 	iPtr->returnCode = code;
 	return TCL_RETURN;
     }
+    if (code == TCL_ERROR) {
+	iPtr->flags |= ERR_LEGACY_COPY;
+    }
     return code;
 }
 
@@ -1334,11 +1341,14 @@ TclMergeReturnOptions(
 
 	if (TCL_ERROR == Tcl_GetIndexFromObj(NULL, valuePtr, returnCodes,
 		NULL, TCL_EXACT, &code)) {
-	    /* Value is not a legal return code */
+	    /*
+	     * Value is not a legal return code.
+	     */
+
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "bad completion code \"",
 		    TclGetString(valuePtr),
-		    "\": must be ok, error, return, break, ",
+		    "\": must be ok, error, return, break, "
 		    "continue, or an integer", NULL);
 	    goto error;
 	}
@@ -1358,7 +1368,7 @@ TclMergeReturnOptions(
 	     */
 
 	    Tcl_ResetResult(interp);
-	    Tcl_AppendResult(interp, "bad -level value: ",
+	    Tcl_AppendResult(interp, "bad -level value: "
 		    "expected non-negative integer but got \"",
 		    TclGetString(valuePtr), "\"", NULL);
 	    goto error;
@@ -1442,14 +1452,13 @@ Tcl_GetReturnOptions(
     }
 
     if (result == TCL_ERROR) {
-	/*
-	 * When result was an error, fill in any missing values for
-	 * -errorinfo, -errorcode, and -errorline
-	 */
-
 	Tcl_AddObjErrorInfo(interp, "", -1);
-	Tcl_DictObjPut(NULL, options, keys[KEY_ERRORINFO], iPtr->errorInfo);
+    }
+    if (iPtr->errorCode) {
 	Tcl_DictObjPut(NULL, options, keys[KEY_ERRORCODE], iPtr->errorCode);
+    }
+    if (iPtr->errorInfo) {
+	Tcl_DictObjPut(NULL, options, keys[KEY_ERRORINFO], iPtr->errorInfo);
 	Tcl_DictObjPut(NULL, options, keys[KEY_ERRORLINE],
 		Tcl_NewIntObj(iPtr->errorLine));
     }
@@ -1542,15 +1551,28 @@ TclTransferResult(
 				 * should be stored. If source and target are
 				 * the same, nothing is done. */
 {
-    Interp *iPtr = (Interp *) targetInterp;
+    Interp *tiPtr = (Interp *) targetInterp;
+    Interp *siPtr = (Interp *) sourceInterp;
 
     if (sourceInterp == targetInterp) {
 	return;
     }
 
-    Tcl_SetReturnOptions(targetInterp,
-	    Tcl_GetReturnOptions(sourceInterp, result));
-    iPtr->flags &= ~(ERR_ALREADY_LOGGED);
+    if (result == TCL_OK && siPtr->returnOpts == NULL) {
+	/*
+	 * Special optimization for the common case of normal command return
+	 * code and no explicit return options.
+	 */
+
+	if (tiPtr->returnOpts) {
+	    Tcl_DecrRefCount(tiPtr->returnOpts);
+	    tiPtr->returnOpts = NULL;
+	}
+    } else {
+	Tcl_SetReturnOptions(targetInterp,
+		Tcl_GetReturnOptions(sourceInterp, result));
+	tiPtr->flags &= ~(ERR_ALREADY_LOGGED);
+    }
     Tcl_SetObjResult(targetInterp, Tcl_GetObjResult(sourceInterp));
     Tcl_ResetResult(sourceInterp);
 }

@@ -2,7 +2,7 @@
  * tclUnixFCmd.c
  *
  *	This file implements the unix specific portion of file manipulation
- *	subcommands of the "file" command.  All filename arguments should
+ *	subcommands of the "file" command. All filename arguments should
  *	already be translated to native format.
  *
  * Copyright (c) 1996-1998 Sun Microsystems, Inc.
@@ -16,7 +16,7 @@
  * following copyright notice:
  *
  * Copyright (c) 1988, 1993, 1994
- *      The Regents of the University of California.  All rights reserved.
+ *      The Regents of the University of California. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -63,7 +63,7 @@
  * TraverseUnixTree() calls the traverseProc()
  */
 
-#define DOTREE_PRED	1	/* pre-order directory  */
+#define DOTREE_PRED	1	/* pre-order directory */
 #define DOTREE_POSTD	2	/* post-order directory */
 #define DOTREE_F	3	/* regular file */
 
@@ -164,11 +164,11 @@ CONST TclFileAttrProcs tclpFileAttrProcs[] = {
  * This is the maximum number of consecutive readdir/unlink calls that can be
  * made (with no intervening rewinddir or closedir/opendir) before triggering
  * a bug that makes readdir return NULL even though some directory entries
- * have not been processed.  The bug afflicts SunOS's readdir when applied to
- * ufs file systems and Darwin 6.5's (and OSX v.10.3.8's) HFS+.  JH found the
- * Darwin readdir to reset at 147, so 130 is chosen to be conservative.  We
+ * have not been processed. The bug afflicts SunOS's readdir when applied to
+ * ufs file systems and Darwin 6.5's (and OSX v.10.3.8's) HFS+. JH found the
+ * Darwin readdir to reset at 147, so 130 is chosen to be conservative. We
  * can't do a general rewind on failure as NFS can create special files that
- * recreate themselves when you try and delete them.  8.4.8 added a solution
+ * recreate themselves when you try and delete them. 8.4.8 added a solution
  * that was affected by a single such NFS file, this solution should not be
  * affected by less than THRESHOLD such files. [Bug 1034337]
  */
@@ -224,24 +224,45 @@ Realpath(
 	defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
 	MAC_OS_X_VERSION_MIN_REQUIRED < 1030
 /*
- * prior to Darwin 7, realpath is not threadsafe, c.f. bug 711232;
- * if we might potentially be running on pre-10.3 OSX,
- * check Darwin release at runtime before using realpath.
+ * Prior to Darwin 7, realpath is not thread-safe, c.f. Bug 711232; if we
+ * might potentially be running on pre-10.3 OSX, check Darwin release at
+ * runtime before using realpath.
  */
+
 MODULE_SCOPE long tclMacOSXDarwinRelease;
 #define haveRealpath (tclMacOSXDarwinRelease >= 7)
 #else
 #define haveRealpath 1
 #endif
 #endif /* NO_REALPATH */
+
+#ifdef HAVE_FTS
+#ifdef HAVE_STRUCT_STAT64
+/* fts doesn't do stat64 */
+#define noFtsStat 1
+#elif defined(__APPLE__) && defined(__LP64__) && \
+	defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
+	MAC_OS_X_VERSION_MIN_REQUIRED < 1050
+/*
+ * Prior to Darwin 9, 64bit fts_open() without FTS_NOSTAT may crash (due to a
+ * 64bit-unsafe ALIGN macro); if we could be running on pre-10.5 OSX, check
+ * Darwin release at runtime and do a separate stat() if necessary.
+ */
+
+MODULE_SCOPE long tclMacOSXDarwinRelease;
+#define noFtsStat (tclMacOSXDarwinRelease < 9)
+#else
+#define noFtsStat 0
+#endif
+#endif /* HAVE_FTS */
 
 /*
  *---------------------------------------------------------------------------
  *
  * TclpObjRenameFile, DoRenameFile --
  *
- *	Changes the name of an existing file or directory, from src to dst.
- *	If src and dst refer to the same file or directory, does nothing and
+ *	Changes the name of an existing file or directory, from src to dst. If
+ *	src and dst refer to the same file or directory, does nothing and
  *	returns success. Otherwise if dst already exists, it will be deleted
  *	and replaced by src subject to the following conditions:
  *	    If src is a directory, dst may be an empty directory.
@@ -249,7 +270,7 @@ MODULE_SCOPE long tclMacOSXDarwinRelease;
  *	In any other situation where dst already exists, the rename will fail.
  *
  * Results:
- *	If the directory was successfully created, returns TCL_OK.  Otherwise
+ *	If the directory was successfully created, returns TCL_OK. Otherwise
  *	the return value is TCL_ERROR and errno is set to indicate the error.
  *	Some possible values for errno are:
  *
@@ -368,12 +389,12 @@ DoRenameFile(
  *
  * Results:
  *	If the file was successfully copied, returns TCL_OK. Otherwise the
- *	return value is TCL_ERROR and errno is set to indicate the error.
- *	Some possible values for errno are:
+ *	return value is TCL_ERROR and errno is set to indicate the error. Some
+ *	possible values for errno are:
  *
  *	EACCES:	    src or dst parent directory can't be read and/or written.
  *	EISDIR:	    src or dst is a directory.
- *	ENOENT:	    src doesn't exist.  src or dst is "".
+ *	ENOENT:	    src doesn't exist. src or dst is "".
  *
  * Side effects:
  *	This procedure will also copy symbolic links, block, and character
@@ -415,7 +436,7 @@ DoCopyFile(
     }
 
     /*
-     * symlink, and some of the other calls will fail if the target exists, so
+     * Symlink, and some of the other calls will fail if the target exists, so
      * we remove it first.
      */
 
@@ -481,7 +502,7 @@ DoCopyFile(
  *	A standard Tcl result.
  *
  * Side effects:
- *	A file is copied.  Dst will be overwritten if it exists.
+ *	A file is copied. Dst will be overwritten if it exists.
  *
  *----------------------------------------------------------------------
  */
@@ -525,8 +546,7 @@ TclUnixCopyFile(
 
 #ifdef HAVE_ST_BLKSIZE
     blockSize = statBufPtr->st_blksize;
-#else
-#ifndef NO_FSTATFS
+#elif !defined(NO_FSTATFS)
     {
 	struct statfs fs;
 
@@ -538,18 +558,17 @@ TclUnixCopyFile(
     }
 #else
     blockSize = 4096;
-#endif
-#endif
+#endif /* HAVE_ST_BLKSIZE */
 
-    /* [SF Tcl Bug 1586470] Even if we HAVE_ST_BLKSIZE, there are
-     * filesystems which report a bogus value for the blocksize.  An
-     * example is the Andrew Filesystem (afs), reporting a blocksize
-     * of 0. When detecting such a situation we now simply fall back
-     * to a hardwired default size.
+    /*
+     * [SF Tcl Bug 1586470] Even if we HAVE_ST_BLKSIZE, there are filesystems
+     * which report a bogus value for the blocksize. An example is the Andrew
+     * Filesystem (afs), reporting a blocksize of 0. When detecting such a
+     * situation we now simply fall back to a hardwired default size.
      */
 
     if (blockSize <= 0) {
-        blockSize = 4096;
+	blockSize = 4096;
     }
     buffer = ckalloc(blockSize);
     while (1) {
@@ -590,8 +609,8 @@ TclUnixCopyFile(
  *
  * Results:
  *	If the file was successfully deleted, returns TCL_OK. Otherwise the
- *	return value is TCL_ERROR and errno is set to indicate the error.
- *	Some possible values for errno are:
+ *	return value is TCL_ERROR and errno is set to indicate the error. Some
+ *	possible values for errno are:
  *
  *	EACCES:	    a parent directory can't be read and/or written.
  *	EISDIR:	    path is a directory.
@@ -736,7 +755,6 @@ TclpObjCopyDirectory(
     }
     return ret;
 }
-
 
 /*
  *---------------------------------------------------------------------------
@@ -990,8 +1008,8 @@ TraverseUnixTree(
 	if (doRewind && (numProcessed > MAX_READDIR_UNLINK_THRESHOLD)) {
 	    /*
 	     * Call rewinddir if we've called unlink or rmdir so many times
-	     * (since the opendir or the previous rewinddir), to avoid
-	     * a NULL-return that may a symptom of a buggy readdir.
+	     * (since the opendir or the previous rewinddir), to avoid a
+	     * NULL-return that may a symptom of a buggy readdir.
 	     */
 
 	    rewinddir(dirPtr);
@@ -1020,13 +1038,8 @@ TraverseUnixTree(
     }
 #else /* HAVE_FTS */
     paths[0] = source;
-    fts = fts_open((char**)paths, FTS_PHYSICAL|FTS_NOCHDIR|
-#ifdef HAVE_STRUCT_STAT64
-	    FTS_NOSTAT,				/* fts doesn't do stat64 */
-#else
-	    (doRewind ? FTS_NOSTAT : 0),	/* no need to stat for delete */
-#endif
-	    NULL);
+    fts = fts_open((char**)paths, FTS_PHYSICAL | FTS_NOCHDIR |
+	    (noFtsStat || doRewind ? FTS_NOSTAT : 0), NULL);
     if (fts == NULL) {
 	errfile = source;
 	goto end;
@@ -1053,26 +1066,26 @@ TraverseUnixTree(
 	    Tcl_DStringAppend(targetPtr, path, pathlen);
 	}
 	switch (info) {
-	    case FTS_D:
-		type = DOTREE_PRED;
-		break;
-	    case FTS_DP:
-		type = DOTREE_POSTD;
-		break;
-	    default:
-		type = DOTREE_F;
-		break;
+	case FTS_D:
+	    type = DOTREE_PRED;
+	    break;
+	case FTS_DP:
+	    type = DOTREE_POSTD;
+	    break;
+	default:
+	    type = DOTREE_F;
+	    break;
 	}
 	if (!doRewind) { /* no need to stat for delete */
-#ifdef HAVE_STRUCT_STAT64
-	    statBufPtr = &statBuf;
-	    if (TclOSlstat(ent->fts_path, statBufPtr) != 0) {
-		errfile = ent->fts_path;
-		break;
+	    if (noFtsStat) {
+		statBufPtr = &statBuf;
+		if (TclOSlstat(ent->fts_path, statBufPtr) != 0) {
+		    errfile = ent->fts_path;
+		    break;
+		}
+	    } else {
+		statBufPtr = ent->fts_statp;
 	    }
-#else
-	    statBufPtr = ent->fts_statp;
-#endif
 	}
 	result = (*traverseProc)(sourcePtr, targetPtr, statBufPtr, type,
 		errorPtr);
@@ -1273,7 +1286,6 @@ CopyFileAtts(
 #endif
     return TCL_OK;
 }
-
 
 /*
  *----------------------------------------------------------------------
@@ -1296,7 +1308,7 @@ static int
 GetGroupAttribute(
     Tcl_Interp *interp,		/* The interp we are using for errors. */
     int objIndex,		/* The index of the attribute. */
-    Tcl_Obj *fileName,  	/* The name of the file (UTF-8). */
+    Tcl_Obj *fileName,		/* The name of the file (UTF-8). */
     Tcl_Obj **attributePtrPtr)	/* A pointer to return the object with. */
 {
     Tcl_StatBuf statBuf;
@@ -1351,7 +1363,7 @@ static int
 GetOwnerAttribute(
     Tcl_Interp *interp,		/* The interp we are using for errors. */
     int objIndex,		/* The index of the attribute. */
-    Tcl_Obj *fileName,  	/* The name of the file (UTF-8). */
+    Tcl_Obj *fileName,		/* The name of the file (UTF-8). */
     Tcl_Obj **attributePtrPtr)	/* A pointer to return the object with. */
 {
     Tcl_StatBuf statBuf;
@@ -1406,7 +1418,7 @@ static int
 GetPermissionsAttribute(
     Tcl_Interp *interp,		    /* The interp we are using for errors. */
     int objIndex,		    /* The index of the attribute. */
-    Tcl_Obj *fileName,  	    /* The name of the file (UTF-8). */
+    Tcl_Obj *fileName,		    /* The name of the file (UTF-8). */
     Tcl_Obj **attributePtrPtr)	    /* A pointer to return the object with. */
 {
     Tcl_StatBuf statBuf;
@@ -1545,7 +1557,7 @@ SetOwnerAttribute(
     }
 
     native = Tcl_FSGetNativePath(fileName);
-    result = chown(native, (uid_t) uid, (gid_t) -1);   /* INTL: Native. */
+    result = chown(native, (uid_t) uid, (gid_t) -1);	/* INTL: Native. */
 
     if (result != 0) {
 	if (interp != NULL) {
@@ -1583,18 +1595,31 @@ SetPermissionsAttribute(
 {
     long mode;
     mode_t newMode;
-    int result;
+    int result = TCL_ERROR;
     CONST char *native;
+    char *modeStringPtr = TclGetString(attributePtr);
+    int scanned = TclParseAllWhiteSpace(modeStringPtr, -1);
 
     /*
-     * First try if the string is a number
+     * First supply support for octal number format
      */
 
-    if (Tcl_GetLongFromObj(NULL, attributePtr, &mode) == TCL_OK) {
+    if ((modeStringPtr[scanned] == '0')
+	    && (modeStringPtr[scanned+1] >= '0')
+	    && (modeStringPtr[scanned+1] <= '7')) {
+	/* Leading zero - attempt octal interpretation */
+	Tcl_Obj *modeObj;
+
+	TclNewLiteralStringObj(modeObj, "0o");
+	Tcl_AppendToObj(modeObj, modeStringPtr+scanned+1, -1);
+	result = Tcl_GetLongFromObj(NULL, modeObj, &mode);
+	Tcl_DecrRefCount(modeObj);
+    }
+    if (result == TCL_OK
+	    || Tcl_GetLongFromObj(NULL, attributePtr, &mode) == TCL_OK) {
 	newMode = (mode_t) (mode & 0x00007FFF);
     } else {
 	Tcl_StatBuf buf;
-	char *modeStringPtr = TclGetString(attributePtr);
 
 	/*
 	 * Try the forms "rwxrwxrwx" and "ugo=rwx"
@@ -1837,13 +1862,13 @@ GetModeFromPermString(
 	    }
 	}
 	switch (op) {
-	case 1 :
+	case 1:
 	    *modePtr = oldMode | (who & what);
 	    continue;
-	case 2 :
+	case 2:
 	    *modePtr = oldMode & ~(who & what);
 	    continue;
-	case 3 :
+	case 3:
 	    *modePtr = (oldMode & ~who) | (who & what);
 	    continue;
 	}
@@ -2003,12 +2028,12 @@ TclpObjNormalizePath(
 		Tcl_DStringFree(&ds);
 
 		/*
-		 * Enable this to have the native FS claim normalization of the
-		 * whole path for existing files. That would permit the caller
-		 * to declare normalization complete without calls to additional
-		 * filesystems. Saving lots of calls is probably worth the extra
-		 * access() time here. When no other FS's are registered though,
-		 * things are less clear.
+		 * Enable this to have the native FS claim normalization of
+		 * the whole path for existing files. That would permit the
+		 * caller to declare normalization complete without calls to
+		 * additional filesystems. Saving lots of calls is probably
+		 * worth the extra access() time here. When no other FS's are
+		 * registered though, things are less clear.
 		 *
 		if (0 == access(normPath, F_OK)) {
 		    return pathLen;

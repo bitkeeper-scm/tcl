@@ -332,7 +332,9 @@ static int		MacOSXGetLibraryPath(Tcl_Interp *interp,
 #endif /* HAVE_COREFOUNDATION */
 #if defined(__APPLE__) && (defined(TCL_LOAD_FROM_MEMORY) || ( \
 	defined(TCL_THREADS) && defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
-	MAC_OS_X_VERSION_MIN_REQUIRED < 1030))
+	MAC_OS_X_VERSION_MIN_REQUIRED < 1030) || ( \
+	defined(__LP64__) && defined(MAC_OS_X_VERSION_MIN_REQUIRED) && \
+	MAC_OS_X_VERSION_MIN_REQUIRED < 1050))
 /*
  * Need to check Darwin release at runtime in tclUnixFCmd.c and tclLoadDyld.c:
  * initialize release global at startup from uname().
@@ -413,7 +415,8 @@ TclpInitPlatform(void)
     /*
      * Find local symbols. Don't report an error if we fail.
      */
-    (void) dlopen (NULL, RTLD_NOW);			/* INTL: Native. */
+
+    (void) dlopen(NULL, RTLD_NOW);			/* INTL: Native. */
 #endif
 
     /*
@@ -439,6 +442,7 @@ TclpInitPlatform(void)
 #ifdef GET_DARWIN_RELEASE
     {
 	struct utsname name;
+
 	if (!uname(&name)) {
 	    tclMacOSXDarwinRelease = strtol(name.release, NULL, 10);
 	}
@@ -560,7 +564,7 @@ TclpInitLibraryPath(
     *encodingPtr = Tcl_GetEncoding(NULL, NULL);
     str = Tcl_GetStringFromObj(pathPtr, lengthPtr);
     *valuePtr = ckalloc((unsigned int) (*lengthPtr)+1);
-    memcpy((VOID *) *valuePtr, (VOID *) str, (size_t)(*lengthPtr)+1);
+    memcpy(*valuePtr, str, (size_t)(*lengthPtr)+1);
     Tcl_DecrRefCount(pathPtr);
 }
 
@@ -760,7 +764,6 @@ TclpSetVariables(
     struct utsname name;
 #endif
     int unameOK;
-    CONST char *user;
     Tcl_DString ds;
 
 #ifdef HAVE_COREFOUNDATION
@@ -770,6 +773,7 @@ TclpSetVariables(
     /*
      * Set msgcat fallback locale to current CFLocale identifier.
      */
+
     CFLocaleRef localeRef;
     
     if (CFLocaleCopyCurrent != NULL && CFLocaleGetIdentifier != NULL &&
@@ -788,11 +792,10 @@ TclpSetVariables(
 	}
 	CFRelease(localeRef);
     }
-#endif
+#endif /* MAC_OS_X_VERSION_MAX_ALLOWED > 1020 */
 
     if (MacOSXGetLibraryPath(interp, MAXPATHLEN, tclLibPath) == TCL_OK) {
 	CONST char *str;
-	Tcl_DString ds;
 	CFBundleRef bundleRef;
 
 	Tcl_SetVar(interp, "tclDefaultLibrary", tclLibPath, TCL_GLOBAL_ONLY);
@@ -910,12 +913,12 @@ TclpSetVariables(
 	    Tcl_SetVar2(interp, "tcl_platform", "osVersion", name.release,
 		    TCL_GLOBAL_ONLY|TCL_APPEND_VALUE);
 
-#endif
+#endif /* DJGPP */
 	}
 	Tcl_SetVar2(interp, "tcl_platform", "machine", name.machine,
 		TCL_GLOBAL_ONLY);
     }
-#endif
+#endif /* !NO_UNAME */
     if (!unameOK) {
 	Tcl_SetVar2(interp, "tcl_platform", "os", "", TCL_GLOBAL_ONLY);
 	Tcl_SetVar2(interp, "tcl_platform", "osVersion", "", TCL_GLOBAL_ONLY);
@@ -923,19 +926,24 @@ TclpSetVariables(
     }
 
     /*
-     * Copy USER or LOGNAME environment variable into tcl_platform(user).
+     * Copy the username of the real user (according to getuid()) into
+     * tcl_platform(user).
      */
 
-    Tcl_DStringInit(&ds);
-    user = TclGetEnv("USER", &ds);
-    if (user == NULL) {
-	user = TclGetEnv("LOGNAME", &ds);
-	if (user == NULL) {
+    {
+	struct passwd *pwEnt = TclpGetPwUid(getuid());
+	const char *user;
+
+	if (pwEnt == NULL) {
 	    user = "";
+	    Tcl_DStringInit(&ds);	/* ensure cleanliness */
+	} else {
+	    user = Tcl_ExternalToUtfDString(NULL, pwEnt->pw_name, -1, &ds);
 	}
+
+	Tcl_SetVar2(interp, "tcl_platform", "user", user, TCL_GLOBAL_ONLY);
+	Tcl_DStringFree(&ds);
     }
-    Tcl_SetVar2(interp, "tcl_platform", "user", user, TCL_GLOBAL_ONLY);
-    Tcl_DStringFree(&ds);
 }
 
 /*
@@ -1030,7 +1038,7 @@ TclpCheckStackSpace(void)
 				/* Most variables are actually in a
 				 * thread-specific data block to minimise the
 				 * impact on the stack. */
-    register ptrdiff_t stackUsed;
+    register size_t stackUsed;
     int localVar;		/* Reference to somewhere on the local stack.
 				 * This is declared last so it's as "deep" as
 				 * possible. */
@@ -1089,7 +1097,7 @@ TclpCheckStackSpace(void)
      * Now we perform the actual check. Are we about to blow our stack frame?
      */
 
-    if (stackUsed < (ptrdiff_t) tsdPtr->stackSize) {
+    if (stackUsed < tsdPtr->stackSize) {
 	STACK_DEBUG(("stack OK\tin:%p\tout:%p\tuse:%04X\tmax:%04X\n",
 		&localVar, tsdPtr->outerVarPtr, stackUsed, tsdPtr->stackSize));
 	return 1;
