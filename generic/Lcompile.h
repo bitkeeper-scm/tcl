@@ -212,6 +212,17 @@ void L_start_lexer();
                 lframe->envPtr);\
 }
 
+#define L_INVOKE(size0) {\
+    int size = (size0);\
+    if ((size) < 256) {\
+	TclEmitInstInt1(INST_INVOKE_STK1, (size), lframe->envPtr);\
+    } else {\
+	TclEmitInstInt4(INST_INVOKE_STK4, (size), lframe->envPtr);\
+    }\
+}
+	
+	
+
 #endif /* L_COMPILE_H */
 
 /*

@@ -354,7 +354,7 @@ L_compile_toplevel_statements(L_toplevel_statement *stmt)
 	/* This actually invokes the toplevel code that we just compiled */
 	if (lframe->envPtr) {
 	    L_PUSH_STR(name);
-	    TclEmitInstInt4(INST_INVOKE_STK4, 1, lframe->envPtr);
+	    L_INVOKE(1);
 	} else {
 	    return	Tcl_Eval(lframe->interp, name);
 	}
@@ -607,7 +607,7 @@ compile_initializer(
 		}
 		L_compile_expressions(i->value);
 	    }
-	    TclEmitInstInt4(INST_INVOKE_STK4, count + 1, lframe->envPtr);
+	    L_INVOKE(count+1);
 	} else {
 	    L_compile_expressions(init->value);
 	}
@@ -626,7 +626,7 @@ compile_initializer(
 		}
 		L_compile_expressions(i->next_dim->value);
 	    }
-	    TclEmitInstInt4(INST_INVOKE_STK4, (count * 2) + 1, lframe->envPtr);
+	    L_INVOKE((count * 2) + 1);
 	} else {
 	    L_compile_expressions(init->value);
 	}
@@ -650,7 +650,7 @@ compile_blank_initializer(
     if (needs_eval) {
         L_PUSH_STR("eval");
         L_PUSH_STR(code);
-        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+	L_INVOKE(2);
     } else {
         L_PUSH_STR(code);
     }
@@ -968,7 +968,7 @@ L_compile_expressions(L_expression *expr)
 	}
         param_count =
 	    push_parameters(symbol ? NULL : expr->a->u.string, expr->b);
-        TclEmitInstInt4(INST_INVOKE_STK4, param_count+1, lframe->envPtr);
+	L_INVOKE(param_count+1);
 	if (!symbol) {
 	    L_check_arg_count(expr->a->u.string, param_count, expr);
 	}
@@ -1085,7 +1085,7 @@ L_push_pointer(L_expression *lval)
     L_PUSH_STR("new");
     L_PUSH_STR(lval->a->u.string);
     if (!lval->indices) {
-        TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+	L_INVOKE(3);
     } else {
         L_symbol *var;
         if (lval->indices->indices) {
@@ -1096,7 +1096,7 @@ L_push_pointer(L_expression *lval)
         }
         if (!(var = L_get_local_symbol(lval->a, TRUE))) return;
         L_compile_index(var->type, lval->indices);
-        TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	L_INVOKE(4);
     }
 }
 
@@ -1158,12 +1158,12 @@ void L_compile_unop(L_expression *expr)
     case T_INT_CAST:
         L_PUSH_STR("::tcl::mathfunc::int");
         L_compile_expressions(expr->a);
-        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+	L_INVOKE(2);
         break;
     case T_FLOAT_CAST:
         L_PUSH_STR("::tcl::mathfunc::double");
         L_compile_expressions(expr->a);
-        TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+	L_INVOKE(2);
         break;
     case T_HASH_CAST:
         L_compile_expressions(expr->a);
@@ -1380,8 +1380,7 @@ L_compile_twiddle(L_expression *expr)
 	L_PUSH_STR(buf);
     }
     L_trace("submatch count is %d\n", submatchCount);
-    TclEmitInstInt1(INST_INVOKE_STK1, 5 + submatchCount + modCount,
-	lframe->envPtr);
+    L_INVOKE(5 + submatchCount + modCount);
 }
 
 void
@@ -1664,13 +1663,13 @@ import_global_symbol(L_symbol *var)
     {
 	L_PUSH_STR("global");
 	L_PUSH_STR(var->name);
-	TclEmitInstInt4(INST_INVOKE_STK4, 2, lframe->envPtr);
+	L_INVOKE(2);
     } else {
 	L_PUSH_STR("upvar");
 	L_PUSH_STR("1");
 	L_PUSH_STR(var->name);
 	L_PUSH_STR(var->name);
-	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	L_INVOKE(4);
     }
     TclEmitOpcode(INST_POP, lframe->envPtr);
     return local;
@@ -1683,7 +1682,7 @@ emit_upvar(L_symbol *var, char *upvarName)
     L_PUSH_STR("upvar");
     L_LOAD_SCALAR(var->localIndex);
     L_PUSH_STR(upvarName);
-    TclEmitInstInt4(INST_INVOKE_STK4, 3, lframe->envPtr);
+    L_INVOKE(3);
     TclEmitOpcode(INST_POP, lframe->envPtr);
 }
 
@@ -1736,7 +1735,7 @@ L_compile_defined(L_expression *lval)
 	L_PUSH_STR("exists");
 	L_compile_expressions(lval);
 	L_compile_expressions(last_index->a);
-	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	L_INVOKE(4);
     } else {
 	/* grab the length of the list */
 	L_compile_expressions(lval);
@@ -1806,7 +1805,7 @@ L_write_index(
 	L_PUSH_STR(var->name);
 	L_compile_index(var->type, index);
 	L_compile_expressions(rval);
-	TclEmitInstInt4(INST_INVOKE_STK4, 4, lframe->envPtr);
+	L_INVOKE(4);
 	return;
     }
     /* regular case */
@@ -1953,7 +1952,7 @@ regsub_for_assignment(
     /* the substitution */
     L_compile_expressions(regexp->b);
     L_PUSH_STR(tempVarName);
-    TclEmitInstInt1(INST_INVOKE_STK1, modCount + 7, lframe->envPtr);
+    L_INVOKE(modCount + 7);
     /* move the result of substitution into lvalIndex and leave the matched_p
      * value on stack top */
     L_PUSH_STR(tempVarName);
