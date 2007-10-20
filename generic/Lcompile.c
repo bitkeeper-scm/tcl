@@ -67,7 +67,7 @@ static L_expression *L_read_hash_index_chunk(L_expression *i);
 static L_expression *L_read_struct_index_chunk(L_expression *index,
                                                L_type **type);
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
-static Tcl_Obj *atomic_initial_value(L_type *type);
+static char *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static char *gensym(char *name);
 static int store_in_tempvar(int pop_p);
@@ -659,17 +659,16 @@ compile_blank_initializer(
    a string.  If the type is not atomic or has no special default initial
    value, defaults to a Tcl_Obj with an empty string rep and no type.  The
    reference count on the return value is 0. */
-static Tcl_Obj *
+static char *
 atomic_initial_value(L_type *type) {
     switch (type->kind) {
     case L_TYPE_INT:
-        return Tcl_NewIntObj(0);
+        return "0";
     case L_TYPE_FLOAT:
-        return Tcl_NewDoubleObj(0.0);
+        return "0.0";
     case L_TYPE_STRING:
-        return Tcl_NewStringObj("", 0);
     default:
-        return Tcl_NewObj();
+        return "";
     }
 }
 
@@ -714,11 +713,9 @@ blank_initializer_code(
     /* the base type */
     if (type->kind != L_TYPE_STRUCT) {
 	if (brackets > 0) {
-	    Tcl_AppendPrintfToObj(code, "{%s}",
-		Tcl_GetString(atomic_initial_value(type)));
+	    Tcl_AppendPrintfToObj(code, "{%s}", atomic_initial_value(type));
         } else {
-	    Tcl_AppendPrintfToObj(code, "%s",
-		Tcl_GetString(atomic_initial_value(type)));
+	    Tcl_AppendPrintfToObj(code, "%s", atomic_initial_value(type));
         }
     } else {
         L_variable_declaration *mem;
@@ -739,8 +736,7 @@ blank_initializer_code(
 		    Tcl_AppendPrintfToObj(code, "%s ", code1);
                 }
             } else {
-		Tcl_AppendPrintfToObj(code, " {%s} ",
-		    Tcl_GetString(atomic_initial_value(mem->type)));
+		Tcl_AppendPrintfToObj(code, " {%s} ", atomic_initial_value(mem->type));
             }
         }
         if (brackets > 0) {
