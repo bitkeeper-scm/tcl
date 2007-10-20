@@ -1377,6 +1377,7 @@ L_compile_twiddle(L_expression *expr)
     }
     L_trace("submatch count is %d\n", submatchCount);
     L_INVOKE(5 + submatchCount + modCount);
+    Tcl_DecrRefCount(const_regexp);
 }
 
 void
@@ -2826,13 +2827,17 @@ L_do_includes(
 {
     Tcl_RegExp includeRe = NULL;
     Tcl_Obj *strObj = Tcl_NewStringObj(bytes, numBytes);
+    Tcl_Obj *regexObj = Tcl_NewStringObj(
+	    "^include\\s*\\(\\s*\"([^)\"]+)\"\\s*\\)\\s*;",
+	    -1);
     int offset = 0;
 
+    Tcl_IncrRefCount(regexObj);
     includeRe =
-	Tcl_GetRegExpFromObj(interp,
-	    Tcl_NewStringObj("^include\\s*\\(\\s*\"([^)\"]+)\"\\s*\\)\\s*;",
-		-1),
-	    TCL_REG_ADVANCED | TCL_REG_NLANCH);
+	Tcl_GetRegExpFromObj(interp, regexObj, TCL_REG_ADVANCED | TCL_REG_NLANCH);
+    Tcl_DecrRefCount(regexObj);
+
+    Tcl_IncrRefCount(strObj);
     while (Tcl_RegExpExecObj(interp, includeRe, strObj, offset, 2, 0)) {
 	const char *start, *end;
 	char *file, *tmp;
@@ -2858,6 +2863,7 @@ L_do_includes(
 	Tcl_RegExpRange(includeRe, 0, &start, &end);
 	offset += end - start;
     }
+    Tcl_DecrRefCount(strObj);
 }
 
 /* Search for file in the include path.  Currently only looks in the directory
@@ -2868,10 +2874,11 @@ L_include_search(Tcl_Interp *interp, const char *file)
 {
     char *resolvedFile;
     Interp *iPtr = (Interp *)interp;
+    Tcl_Obj *fileObj = Tcl_NewStringObj(file, -1);
 
 	/* if the path is relative, make it absolute */
-    if (Tcl_FSGetPathType(Tcl_NewStringObj(file, -1)) == TCL_PATH_ABSOLUTE ||
-	!iPtr->scriptFile)
+    Tcl_IncrRefCount(fileObj);
+    if (Tcl_FSGetPathType(fileObj) == TCL_PATH_ABSOLUTE || !iPtr->scriptFile)
     {
 	resolvedFile = ckstrdup(file);
     } else {
@@ -2880,6 +2887,7 @@ L_include_search(Tcl_Interp *interp, const char *file)
 	Tcl_AppendPrintfToObj(scriptDir, "/%s", file);
 	resolvedFile = ckstrdup(Tcl_GetString(scriptDir));
     }
+    Tcl_DecrRefCount(fileObj);
     return resolvedFile;
 }
 
@@ -2887,8 +2895,8 @@ L_include_search(Tcl_Interp *interp, const char *file)
 static int
 fresh_include_p(Tcl_Interp *interp, const char *file)
 {
-    int len, new;
-    char *normalizedPath, *tmp;
+    int new;
+    char *normalizedPath;
     Tcl_Obj *pathPtr;
     Tcl_HashEntry *hPtr;
 
@@ -2899,15 +2907,14 @@ fresh_include_p(Tcl_Interp *interp, const char *file)
 	L_errorf(NULL, "Unable to normalize include file %s\n", file);
 	return TRUE;
     }
-    tmp = Tcl_GetStringFromObj(pathPtr, &len);
-    normalizedPath = ckstrndup(tmp, len);
-    Tcl_DecrRefCount(pathPtr);
+    normalizedPath = Tcl_GetString(pathPtr);
 
     /* check if it's already been included */
     hPtr = Tcl_CreateHashEntry(L_include_table(), normalizedPath, &new);
     if (!new) {
 	L_trace("file %s already included", normalizedPath);
     }
+    Tcl_DecrRefCount(pathPtr);
     return new;
 }
 
