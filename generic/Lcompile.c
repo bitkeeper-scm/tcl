@@ -69,7 +69,6 @@ static L_expression *L_read_struct_index_chunk(L_expression *index,
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static Tcl_Obj *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
-static void emit_upvar(L_symbol *var, char *upvarName);
 static char *gensym(char *name);
 static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_expression *index,
@@ -576,7 +575,7 @@ L_compile_variable_decls(L_variable_declaration *var)
 	    compile_blank_initializer(var->type);
 	}
 	L_STORE_SCALAR(symbol->localIndex);
-	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_POP();
     }
 
     L_compile_variable_decls(var->next);
@@ -826,7 +825,7 @@ L_compile_statements(L_statement *stmt)
         L_compile_expressions(stmt->u.expr);
         /* Expressions leave a value on the evaluation stack, but statements
            don't. So pop the value. */
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_POP();
         break;
     case L_STATEMENT_COND:
         L_compile_if_unless(stmt->u.cond);
@@ -883,12 +882,15 @@ L_compile_parameters(L_variable_declaration *param)
     L_expression *name;
     int i;
     L_variable_declaration *p;
+    int hasParamByName = 0;
 
+    /* Loop through all params and create the argument list for the proc. */
     for (p = param, i = 0; p; p = p->next, i++) {
         if (param_passed_by_name_p(p)) {
             /* if the parameter is pass by name, we use a mangled name for it
                so that we can define an upvar using the original name */
             name = reference_mangle(p->name->u.string);
+	    hasParamByName = 1;
         } else {
             name = p->name;
         }
@@ -920,27 +922,33 @@ L_compile_parameters(L_variable_declaration *param)
         strcpy(localPtr->name, name->u.string);
         L_make_symbol(name, p->type, i);
     }
-    /* we have to loop over them again, otherwise TclFindCompiledLocal somehow
-       screws up the compiled locals for us, such that L code with args after
-       a by-name arg will segfault.  I haven't 100% understood what's going
-       on.  --timjr 2006.9.26*/
+
+    
+    /* If no parameter is passed by name we are done; otherwise emit
+     * instructions to create the upvar links */
+    
+    if (!hasParamByName) return;
+
+    L_PUSH_STR("1");
     for (p = param, i = 0; p; p = p->next, i++) {
-        if (param_passed_by_name_p(p)) {
-            L_symbol *symbol;
-            int localIndex;
-
-            /* if the parameter is pass by name, we use a mangled name for it
-               so that we can define an upvar using the original name */
-            name = reference_mangle(p->name->u.string);
-            symbol = L_get_symbol(name, TRUE);
-
-            localIndex =
-                TclFindCompiledLocal(p->name->u.string, strlen(p->name->u.string),
-                                     1, procPtr);
-            L_make_symbol(p->name, p->type, localIndex);
-            emit_upvar(symbol, p->name->u.string);
-        }
+	if (param_passed_by_name_p(p)) {
+	    L_symbol *symbol;
+	    int localIndex;
+	    
+	    /* if the parameter is pass by name, we use a mangled name for it
+	       so that we can define an upvar using the original name */
+	    name = reference_mangle(p->name->u.string);
+	    symbol = L_get_symbol(name, TRUE);
+	    
+	    localIndex =
+		TclFindCompiledLocal(p->name->u.string, strlen(p->name->u.string),
+			1, procPtr);
+	    L_make_symbol(p->name, p->type, localIndex);
+	    L_LOAD_SCALAR(symbol->localIndex);
+	    TclEmitInstInt4(INST_UPVAR, localIndex, lframe->envPtr);
+	}
     }
+    L_POP();	
 }
 
 static int
@@ -1285,12 +1293,12 @@ L_compile_interpolated_string(L_expression *expr)
     L_STORE_SCALAR(tempVar);
     L_compile_expressions(expr->b);
     TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     if (expr->c) {
         L_compile_expressions(expr->c);
         TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_POP();
+        L_POP();
         L_LOAD_SCALAR(tempVar);
     } else {
         /* Currently, an interpolated string node will always be
@@ -1400,7 +1408,7 @@ L_compile_short_circuit_op(L_expression *expr)
     /* If the operator doesn't short-circuit, we want to leave the value of
        the second expression on the stack, so remove the value that we DUPed
        above. */
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     L_compile_expressions(expr->b);
     TclUpdateInstInt4AtPc(op, CurrentOffset(lframe->envPtr) - jumpOffset,
 			      lframe->envPtr->codeStart + jumpOffset);
@@ -1464,7 +1472,7 @@ L_compile_loop(L_loop *loop)
     startOffset = CurrentOffset(lframe->envPtr);
     if ((loop->kind == L_LOOP_FOR) && loop->pre) {
         L_compile_expressions(loop->pre);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_POP();
     }
     /* XXX: need optimization for null conditions and infinite loops
      * See TclCompileWhileComd() for the stuff Tcl does.
@@ -1481,7 +1489,7 @@ L_compile_loop(L_loop *loop)
     fixup_jumps(lframe->envPtr, continue_jumps, CurrentOffset(lframe->envPtr));
     if ((loop->kind == L_LOOP_FOR) && loop->post) {
         L_compile_expressions(loop->post);
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_POP();
     }
     TclUpdateInstInt4AtPc(INST_JUMP4,
 	CurrentOffset(lframe->envPtr) - jumpToCond,
@@ -1542,11 +1550,11 @@ L_compile_foreach_loop(L_foreach_loop *loop)
        we can jump back to it after DICT_NEXT. */
     bodyTargetOffset = CurrentOffset(lframe->envPtr);
     L_STORE_SCALAR(keyVar->localIndex);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     if (loop->value) {
 	L_STORE_SCALAR(valueVar->localIndex);
     }
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     L_frame_push(lframe->interp, lframe->envPtr, loop);
     L_compile_statements(loop->body);
     /* grab the jump offsets out of the frame before popping it */
@@ -1565,8 +1573,8 @@ L_compile_foreach_loop(L_foreach_loop *loop)
 			  lframe->envPtr->codeStart + jumpWhenEmptyOffset);
     /* All done.  Cleanup the bogus values that DICT_FIRST/DICT_NEXT pushed
        and emit DICT_DONE. */
-    TclEmitOpcode(INST_POP, lframe->envPtr);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
+    L_POP();
     fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
     /* XXX We need to ensure that DICT_DONE happens in the face of exceptions,
        so that the refcount on the dict will be decremented, and the iterator
@@ -1638,7 +1646,7 @@ L_push_variable(L_expression *expr)
 /* Import a global variable into a procedure's table of locals and
    create an L symbol that shadows the global one. Return the new L
    symbol. */
-L_symbol *
+static L_symbol *
 import_global_symbol(L_symbol *var)
 {
     L_symbol *local;
@@ -1661,29 +1669,16 @@ import_global_symbol(L_symbol *var)
     if (((Interp *)lframe->interp)->rootFramePtr ==
 	((Interp *)lframe->interp)->varFramePtr)
     {
-	L_PUSH_STR("global");
+	L_PUSH_STR("::");
 	L_PUSH_STR(var->name);
-	L_INVOKE(2);
+	TclEmitInstInt4(INST_NSUPVAR, localIndex, lframe->envPtr);
     } else {
-	L_PUSH_STR("upvar");
 	L_PUSH_STR("1");
 	L_PUSH_STR(var->name);
-	L_PUSH_STR(var->name);
-	L_INVOKE(4);
+	TclEmitInstInt4(INST_UPVAR, localIndex, lframe->envPtr);
     }
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     return local;
-}
-
-/* Make an upvar named upvarName that references the variable named by var. */
-static void
-emit_upvar(L_symbol *var, char *upvarName)
-{
-    L_PUSH_STR("upvar");
-    L_LOAD_SCALAR(var->localIndex);
-    L_PUSH_STR(upvarName);
-    L_INVOKE(3);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
 }
 
 void
@@ -1709,7 +1704,7 @@ store_in_tempvar(int pop_p)
         TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
     L_STORE_SCALAR(tempVar);
     if (pop_p) {
-        TclEmitOpcode(INST_POP, lframe->envPtr);
+        L_POP();
     }
     return tempVar;
 }
@@ -1816,7 +1811,7 @@ L_write_index(
     L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p, var);
 /*     L_STORE_SCALAR(var->localIndex); */
 
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
     L_LOAD_SCALAR(rvalVar);
 }
 
@@ -1882,13 +1877,13 @@ L_write_index_aux(
 	}
 	L_LOAD_SCALAR(tempVar);
 	L_STORE_SCALAR(rvalVar);
-	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_POP();
     } else if (expr->op == T_EQTWID) {
 	/* regexp substitution */
 	tempVar = store_in_tempvar(TRUE);
 	regsub_for_assignment(tempVar, rvalVar, FALSE, expr->b);
 	L_STORE_SCALAR(rvalVar);
-	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_POP();
 	L_LOAD_SCALAR(tempVar);
     } else {
 	/* Put the rval on the stack.  If we're doing a compound assignment,
@@ -1918,7 +1913,7 @@ L_write_index_aux(
 	L_STORE_SCALAR(var->localIndex);
     } else {
 	tempVar = store_in_tempvar(TRUE);
-	TclEmitOpcode(INST_POP, lframe->envPtr);
+	L_POP();
 	L_LOAD_SCALAR(tempVar);
     }
 }
@@ -1958,7 +1953,7 @@ regsub_for_assignment(
     L_PUSH_STR(tempVarName);
     TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
     L_STORE_SCALAR(lvalIndex);
-    TclEmitOpcode(INST_POP, lframe->envPtr);
+    L_POP();
 }
 
 static int
@@ -2213,7 +2208,7 @@ L_compile_incdec(L_expression *expr)
             TclEmitInstInt1(INST_INCR_SCALAR1_IMM, var->localIndex,
                             lframe->envPtr);
             TclEmitInt1((expr->op == T_PLUSPLUS) ? 1 : -1, lframe->envPtr);
-            TclEmitOpcode(INST_POP, lframe->envPtr);
+            L_POP();
         }
     }
 }

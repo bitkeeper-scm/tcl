@@ -221,7 +221,9 @@ void L_start_lexer();
     }\
 }
 	
-	
+#define L_POP() \
+    TclEmitOpcode(INST_POP, lframe->envPtr)	
+
 
 #endif /* L_COMPILE_H */
 
