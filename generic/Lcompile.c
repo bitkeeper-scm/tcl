@@ -1284,28 +1284,20 @@ void L_compile_binop(L_expression *expr)
 void
 L_compile_interpolated_string(L_expression *expr)
 {
-    int tempVar;
-
-    /* XXX is there really no better way to concatenate 3 strings
-       using TCL bytecode? */
+    int count = 2;
+    
     L_compile_expressions(expr->a);
-    tempVar = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
-    L_STORE_SCALAR(tempVar);
     L_compile_expressions(expr->b);
-    TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
-    L_POP();
     if (expr->c) {
         L_compile_expressions(expr->c);
-        TclEmitInstInt1(INST_APPEND_SCALAR1, tempVar, lframe->envPtr);
-        L_POP();
-        L_POP();
-        L_LOAD_SCALAR(tempVar);
+	count++;
     } else {
         /* Currently, an interpolated string node will always be
            followed by another one, or by a regular string node, so
            there's no way to test this branch.  */
         L_bomb("L_compile_interpolated_string: Malformed AST");
     }
+    TclEmitInstInt1(INST_CONCAT1, count, lframe->envPtr);
 }
 
 void
