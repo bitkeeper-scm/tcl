@@ -433,6 +433,7 @@ Begin_Proc()
     procPtr->iPtr = (struct Interp *)lframe->interp;
     procPtr->refCount = 1;
     procPtr->bodyPtr = Tcl_NewObj();
+    Tcl_IncrRefCount(procPtr->bodyPtr);
     procPtr->numArgs  = 0;
     procPtr->numCompiledLocals = 0;
     procPtr->firstLocalPtr = NULL;
