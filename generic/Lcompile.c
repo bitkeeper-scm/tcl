@@ -500,12 +500,10 @@ L_compile_global_decls(L_variable_declaration *decl)
 {
     L_symbol *symbol;
 
-    if (!decl) return;
-    /* just create the symbol, but don't initialize the Tcl variable.  The
-       toplevel code function will initialize it. */
-    symbol = L_make_symbol(decl->name, decl->type, -1);
-    symbol->global_p = TRUE;
-    L_compile_global_decls(decl->next);
+    for (; decl; decl = decl->next) {
+	symbol = L_make_symbol(decl->name, decl->type, -1);
+	symbol->global_p = TRUE;
+    }
 }
 
 /* Initialize the struct types table and lookup a type in it.  Returns the
