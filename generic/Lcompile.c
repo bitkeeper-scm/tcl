@@ -945,7 +945,7 @@ L_compile_parameters(L_variable_declaration *param)
 	    TclEmitInstInt4(INST_UPVAR, localIndex, lframe->envPtr);
 	}
     }
-    L_POP();	
+    L_POP();
 }
 
 static int
@@ -1607,15 +1607,13 @@ L_push_variable(L_expression *expr)
                 L_trace("read a struct index, %p", index);
                 break;
             case L_EXPRESSION_ARRAY_INDEX: {
-                /* read_array_index_chunk wants to read the value from a local
-                   variable, so ensure it's in one. */
                 int varIndex;
                 L_type *base_type;
                 if (first_chunk) {
                     varIndex = var->localIndex;
                     base_type = type;
                 } else {
-                    varIndex = store_in_tempvar(TRUE);
+                    varIndex = -1;
                     base_type = NULL;
                 }
                 index = L_read_array_index_chunk(varIndex, index, &type,
@@ -1725,7 +1723,7 @@ L_compile_defined(L_expression *lval)
 	/* grab the length of the list */
 	L_compile_expressions(lval);
 	TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
-	/* check if the index is within bounds */
+	/* check if the index is within bounds; use tempvar for lack of SWAP */
 	L_compile_expressions(last_index->a);
 	tempVar = store_in_tempvar(FALSE);
 	TclEmitOpcode(INST_GT, lframe->envPtr);
@@ -1795,14 +1793,7 @@ L_write_index(
     }
     /* regular case */
     L_compile_expressions(rval);
-    rvalVar = store_in_tempvar(TRUE);
-
-/*     L_LOAD_SCALAR(var->localIndex); */
     L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p, var);
-/*     L_STORE_SCALAR(var->localIndex); */
-
-    L_POP();
-    L_LOAD_SCALAR(rvalVar);
 }
 
 static void
@@ -1815,11 +1806,15 @@ L_write_index_aux(
 				   we're done, this variable will hold the
 				   value of the expression as a whole.  */
     int post_incr_p,		/* whether we're doing a post-increment */
-    L_symbol *var)
+    L_symbol *var)              /* 0 if this is a recursive call */
 {
     L_expression *idx = index;
     int idx_count = 0, hash_idx_p, i, tempVar;
 
+    if (var) {
+	rvalVar = store_in_tempvar(TRUE);
+    }
+    
     /* Push a contiguous sequence of hash or non-hash indices. */
     hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
     while (idx && (hash_idx_p == (idx->kind == L_EXPRESSION_HASH_INDEX))) {
@@ -1859,7 +1854,7 @@ L_write_index_aux(
 	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p, 0);
     } else if (post_incr_p) {
 	/* We're doing a post-increment, so take care to store the prior value
-	   in rvalVar. */
+	   in tempVar for lack of SWAP. */
 	tempVar = store_in_tempvar(FALSE);
 	L_LOAD_SCALAR(rvalVar);
 	if (expr->op != T_EQUALS) {
@@ -1898,9 +1893,11 @@ L_write_index_aux(
 	TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
     }
     /* We want to leave the new dict/list atop the stack, but we need to get
-       the old one out from under it.  So we juggle a bit. */
+       the old one out from under it.  So we juggle a bit for lack of SWAP */
     if (var) {
 	L_STORE_SCALAR(var->localIndex);
+	L_POP();
+	L_LOAD_SCALAR(rvalVar)
     } else {
 	tempVar = store_in_tempvar(TRUE);
 	L_POP();
@@ -2064,7 +2061,12 @@ L_read_array_index_chunk(
     L_expression *i;
     int index_count = 0;
 
-    L_LOAD_SCALAR(varIndex);
+    if (varIndex >= 0) {
+	/* data in a variable*/
+	L_LOAD_SCALAR(varIndex);
+    } else {
+	/* data already on stackTop */
+    }
     for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
          i = i->indices)
     {
