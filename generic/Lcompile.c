@@ -526,6 +526,7 @@ lookup_struct_type(char *tag)
     }
 }
 
+/* stackeffect 0 */
 void 
 L_compile_variable_decls(L_variable_declaration *var)
 {
@@ -580,7 +581,7 @@ L_compile_variable_decls(L_variable_declaration *var)
     L_compile_variable_decls(var->next);
 }
 
-/* Compile an initializer and stack the value */
+/* Compile an initializer and stack the value: stackeffect +1 */
 static void
 compile_initializer(
     L_initializer *init,
@@ -635,7 +636,7 @@ compile_initializer(
     }
 }
 
-/* Stack a suitable empty value for variable's type. */
+/* Stack a suitable empty value for variable's type: stackeffect +1. */
 static void
 compile_blank_initializer(
     L_type *type)
@@ -1774,8 +1775,6 @@ L_write_index(
     L_expression *rval,		/* the rvalue to use. */
     int post_incr_p)		/* whether we're doing a post-increment */
 {
-    int rvalVar;
-
     /* auto-extending array special case */
     if (auto_extending_array_p(var->type) && (expr->op == T_EQUALS)) {
 	if (index->indices) {
@@ -1791,7 +1790,7 @@ L_write_index(
     }
     /* regular case */
     L_compile_expressions(rval);
-    L_write_index_aux(index, var->type, expr, rvalVar, post_incr_p, var);
+    L_write_index_aux(index, var->type, expr, /*ignored*/0 , post_incr_p, var);
 }
 
 static void
