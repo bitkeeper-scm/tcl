@@ -1606,17 +1606,17 @@ test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
 lib_1_0() {
 	puts("don't overwrite");
 	setenv("PATH", "nil", 0);
-	if (getenv("PATH") != "nil") {
+	if (getenv("PATH") ne "nil") {
 		puts("worked");
 	}
 	puts("overwrite");
-	setenv("PATH", "nil", 1);
-	if (getenv("PATH") == "nil") {
+	setenv("PATH", "nil");
+	if (getenv("PATH") eq "nil") {
 		puts("worked");
 	}
 	puts("unset");
 	unsetenv("PATH");
-	if (!getenv("PATH")) {
+	if (getenv("PATH") eq "") {
 		puts("worked");
 	}
 }
