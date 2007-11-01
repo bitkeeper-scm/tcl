@@ -596,7 +596,7 @@ compile_initializer(
     case L_TYPE_STRUCT:
     case L_TYPE_ARRAY:
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
-	    L_PUSH_STR("list");
+	    L_PUSH_STR("::list");
 	    for (i = (L_initializer *)init->value, count = 0;
 		 i;
 		 i = i->next, count++)
@@ -613,7 +613,7 @@ compile_initializer(
 	break;
     case L_TYPE_HASH:
 	if (init->value && ((L_ast_node *)init->value)->type == L_NODE_INITIALIZER) {
-	    L_PUSH_STR("list");
+	    L_PUSH_STR("::list");
 	    for (i = (L_initializer *)init->value, count = 0;
 		 i;
 		 i = i->next, count++)
@@ -647,7 +647,7 @@ compile_blank_initializer(
     /* array or struct */
     code = blank_initializer_code(type, &needs_eval);
     if (needs_eval) {
-        L_PUSH_STR("eval");
+        L_PUSH_STR("::eval");
         L_PUSH_STR(code);
 	L_INVOKE(2);
     } else {
@@ -1085,7 +1085,7 @@ push_parameters(
 static void
 L_push_pointer(L_expression *lval)
 {
-    L_PUSH_STR("pointer");
+    L_PUSH_STR("::pointer");
     L_PUSH_STR("new");
     L_PUSH_STR(lval->a->u.string);
     if (!lval->indices) {
@@ -1361,7 +1361,7 @@ L_compile_twiddle(L_expression *expr)
         }
     }
     /* emit code to call the regexp object command */
-    L_PUSH_STR("regexp");
+    L_PUSH_STR("::regexp");
     /* modifiers */
     modCount = push_regexp_modifiers(regexp);
     L_PUSH_STR("--");
@@ -1699,9 +1699,8 @@ store_in_tempvar(int pop_p)
 void
 L_compile_defined(L_expression *lval)
 {
-    int tempVar = 0;
-
     L_expression *idx, *last_index;
+
     if ((lval->kind != L_EXPRESSION_VARIABLE) || !lval->indices) {
         L_errorf(lval, "defined is only defined for array and hash entries");
         return;
@@ -1713,22 +1712,22 @@ L_compile_defined(L_expression *lval)
     idx->indices = NULL;
     /* now check for the presence of the last index in the list or dict */
     if (last_index->kind == L_EXPRESSION_HASH_INDEX) {
-	L_PUSH_STR("dict");
+	L_PUSH_STR("::dict");
 	L_PUSH_STR("exists");
 	L_compile_expressions(lval);
 	L_compile_expressions(last_index->a);
 	L_INVOKE(4);
     } else {
+	L_compile_expressions(last_index->a);
+	TclEmitOpcode(INST_DUP, lframe->envPtr);
 	/* grab the length of the list */
 	L_compile_expressions(lval);
 	TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
-	/* check if the index is within bounds; use tempvar for lack of SWAP */
-	L_compile_expressions(last_index->a);
-	tempVar = store_in_tempvar(FALSE);
-	TclEmitOpcode(INST_GT, lframe->envPtr);
+	/* check if the index is within bounds */
+	TclEmitOpcode(INST_LT, lframe->envPtr);
+	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
 	L_PUSH_STR("0");
-	L_LOAD_SCALAR(tempVar);
-	TclEmitOpcode(INST_LE, lframe->envPtr);
+	TclEmitOpcode(INST_GE, lframe->envPtr);
 	TclEmitOpcode(INST_LAND, lframe->envPtr);
     }
     /* put the AST back the way it was */
@@ -1781,7 +1780,7 @@ L_write_index(
 	    L_errorf(index->indices,
 	      "Autoextending in multiple dimensions is not implemented yet");
 	}
-	L_PUSH_STR("extendingLset");
+	L_PUSH_STR("::extendingLset");
 	L_PUSH_STR(var->name);
 	L_compile_index(var->type, index);
 	L_compile_expressions(rval);
@@ -1809,6 +1808,7 @@ L_write_index_aux(
     int idx_count = 0, hash_idx_p, i, tempVar;
 
     if (var) {
+	/* Keep in stack? */ 
 	rvalVar = store_in_tempvar(TRUE);
     }
     
@@ -1850,18 +1850,20 @@ L_write_index_aux(
 	   stack. */
 	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p, 0);
     } else if (post_incr_p) {
-	/* We're doing a post-increment, so take care to store the prior value
-	   in tempVar for lack of SWAP. */
-	tempVar = store_in_tempvar(FALSE);
+	/* We're doing a post-increment, so take care to stack the prior value
+	   and recover it later. */
+
+	TclEmitOpcode(INST_DUP, lframe->envPtr);
 	L_LOAD_SCALAR(rvalVar);
 	if (expr->op != T_EQUALS) {
 	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
 	}
-	L_LOAD_SCALAR(tempVar);
+	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
 	L_STORE_SCALAR(rvalVar);
 	L_POP();
     } else if (expr->op == T_EQTWID) {
-	/* regexp substitution */
+	/* regexp substitution: use tempvar as regsub_for_assignment requires
+	 * a var */
 	tempVar = store_in_tempvar(TRUE);
 	regsub_for_assignment(tempVar, rvalVar, FALSE, expr->b);
 	L_STORE_SCALAR(rvalVar);
@@ -1883,6 +1885,7 @@ L_write_index_aux(
 	TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
     }
     if (hash_idx_p) {
+	/* use tempvar: DICT_SET operates on variables */
 	int dictVar = store_in_tempvar(TRUE);
 	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
 	TclEmitInt4(dictVar, lframe->envPtr);
@@ -1890,15 +1893,14 @@ L_write_index_aux(
 	TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
     }
     /* We want to leave the new dict/list atop the stack, but we need to get
-       the old one out from under it.  So we juggle a bit for lack of SWAP */
+       the old one out from under it.  So we juggle a bit. */
     if (var) {
 	L_STORE_SCALAR(var->localIndex);
 	L_POP();
 	L_LOAD_SCALAR(rvalVar)
     } else {
-	tempVar = store_in_tempvar(TRUE);
+	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
 	L_POP();
-	L_LOAD_SCALAR(tempVar);
     }
 }
 
@@ -1910,13 +1912,16 @@ regsub_for_assignment(
     int rvalIndex,		/* the regexp (perhaps) */
     int compile_rval_p,		/* whether to push the rval ourselves, or use
 				 * rvalIndex */
-    L_expression *regexp)	/* the regexp, substituion, and modifiers */
+    L_expression *regexp)	/* the regexp, substitution, and modifiers */
 {
     char *tempVarName = gensym("%%matchedp");
-    int modCount;
+    int modCount, tempVarIndex;
+
+    tempVarIndex = TclFindCompiledLocal(tempVarName, strlen(tempVarName),
+	    1, lframe->envPtr->procPtr);
 
     L_trace("regsub_for_assignment");
-    L_PUSH_STR("regsub");
+    L_PUSH_STR("::regsub");
     modCount = push_regexp_modifiers(regexp);
     L_PUSH_STR("-line");
     L_PUSH_STR("--");
@@ -1934,8 +1939,9 @@ regsub_for_assignment(
     L_INVOKE(modCount + 7);
     /* move the result of substitution into lvalIndex and leave the matched_p
      * value on stack top */
-    L_PUSH_STR(tempVarName);
-    TclEmitOpcode(INST_LOAD_SCALAR_STK, lframe->envPtr);
+    /*/// FIXME: get the name, store in lvalIndex directly instead of going
+     * through a temp var!*/
+    L_LOAD_SCALAR(tempVarIndex);
     L_STORE_SCALAR(lvalIndex);
     L_POP();
 }

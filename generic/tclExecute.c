@@ -1937,6 +1937,19 @@ TclExecuteByteCode(
 	NEXT_INST_F(5, 0, 1);
     }
 
+    case INST_ROT: {
+	int opnd;
+
+	opnd = TclGetUInt1AtPtr(pc+1);
+	if (opnd > 0) {
+	    objResultPtr = OBJ_AT_DEPTH(opnd);
+	    memmove(&OBJ_AT_DEPTH(opnd), &OBJ_AT_DEPTH(opnd-1), opnd*sizeof(Tcl_Obj *));
+	    OBJ_AT_TOS = objResultPtr;
+	    TRACE_WITH_OBJ(("=> "), objResultPtr);
+	}
+	NEXT_INST_F(2, 0, 0);
+    }
+	
     case INST_REVERSE: {
 	int opnd;
 	Tcl_Obj **a, **b;
