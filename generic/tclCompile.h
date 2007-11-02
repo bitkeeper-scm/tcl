@@ -624,9 +624,9 @@ typedef struct ByteCode {
  * [namespace upvar].
  */
 
-#define INST_UPVAR                      122
-#define INST_NSUPVAR                    123
-#define INST_VARIABLE                   124
+#define INST_UPVAR			122
+#define INST_NSUPVAR			123
+#define INST_VARIABLE			124
 
 /* Instruction to support compiling syntax error to bytecode */
 
@@ -917,8 +917,6 @@ MODULE_SCOPE void	TclRegisterAuxDataType(AuxDataType *typePtr);
 MODULE_SCOPE int	TclRegisterLiteral(CompileEnv *envPtr,
 			    char *bytes, int length, int flags);
 MODULE_SCOPE void	TclReleaseLiteral(Tcl_Interp *interp, Tcl_Obj *objPtr);
-MODULE_SCOPE void	TclSetCmdNameObj(Tcl_Interp *interp, Tcl_Obj *objPtr,
-			    Command *cmdPtr);
 MODULE_SCOPE int	TclSingleOpCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *CONST objv[]);

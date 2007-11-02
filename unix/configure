@@ -1336,7 +1336,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 TCL_VERSION=8.5
 TCL_MAJOR_VERSION=8
 TCL_MINOR_VERSION=5
-TCL_PATCH_LEVEL="b1.1"
+TCL_PATCH_LEVEL="b2.1"
 VERSION=${TCL_VERSION}
 
 #------------------------------------------------------------------------
@@ -9903,8 +9903,7 @@ done
 
 
 
-
-for ac_func in opendir strtol tmpnam waitpid
+for ac_func in opendir strtol waitpid
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
