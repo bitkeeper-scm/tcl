@@ -7,6 +7,8 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
+/* tempvar handling for regsub */
+#define TEMPVAR_REGSUB "%% L: tempvar for regsub"
 
 /* Grab the offset of the next instruction to be issued.  Stolen from
    tclCompCmds.c. */
@@ -91,8 +93,8 @@ static void fixup_jumps(CompileEnv *envPtr, JumpOffsetList *jumps,
 static Proc *Begin_Proc();
 static void Finish_Proc(Proc *procPtr, char *name);
 static int instruction_for_l_op(int op);
-static void regsub_for_assignment(int lvalIndex, int compile_rval_p,
-	                L_expression *regexp);
+static void regsub_for_assignment(char *varName, int varIndex,
+	int compile_rval_p, L_expression *regexp);
 static void track_lineInfo(int codeOffset, int srcOffset, int len);
 static int push_regexp_modifiers(L_expression *regexp);
 static void L_do_includes(Tcl_Interp *interp, const char *str, int numBytes);
@@ -1750,7 +1752,7 @@ L_compile_assignment(L_expression *expr)
     if (lval->indices) {
         L_write_index(var, lval->indices, expr, rval, FALSE);
     } else if (expr->op == T_EQTWID) {
-	regsub_for_assignment(var->localIndex, TRUE, rval);
+	regsub_for_assignment(var->name, var->localIndex, TRUE, rval);
     } else {
 	if (expr->op != T_EQUALS) {
 	    L_LOAD_SCALAR(var->localIndex);
@@ -1805,7 +1807,7 @@ L_write_index_aux(
     L_symbol *var)              /* 0 if this is a recursive call */
 {
     L_expression *idx = index;
-    int idx_count = 0, hash_idx_p, i, tempVar;
+    int idx_count = 0, hash_idx_p, i;
 
     /* Push a contiguous sequence of hash or non-hash indices. */
     hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
@@ -1819,7 +1821,9 @@ L_write_index_aux(
 	if (!idx) {
 	    /* Not mixed! do a pure lset or dict-set */
 	    if (expr->op == T_EQUALS) {
-		/* plain assignment! Do the fast thing, RHS is ready and must be returned */
+		/* plain assignment! Do the fast thing.
+		 * RHS is on stack and must be returned at the end, leave it
+		 * there but fetch a copy to where it can be used. */
 		TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
 		if (hash_idx_p) {
 		    /* plain dict_set */
@@ -1883,13 +1887,20 @@ L_write_index_aux(
 	L_POP();
     } else if (expr->op == T_EQTWID) {
 	/* regexp substitution: use tempvar as regsub_for_assignment requires
-	 * a var */
-	tempVar = store_in_tempvar(TRUE);
+	 * a var. Can reuse the same one: only used at the last stage, all
+	 * indices are computed already and regsub_for_assignment takes care
+	 * of avoiding conflicts within itself. */
+
+	int localIndex = TclFindCompiledLocal(TEMPVAR_REGSUB,
+		strlen(TEMPVAR_REGSUB), 1, lframe->envPtr->procPtr);
+	
+	L_STORE_SCALAR(localIndex);
+	L_POP();
 	L_LOAD_SCALAR(rvalVar);
-	regsub_for_assignment(tempVar, FALSE, expr->b);
+	regsub_for_assignment(TEMPVAR_REGSUB, localIndex, FALSE, expr->b);
 	L_STORE_SCALAR(rvalVar);
 	L_POP();
-	L_LOAD_SCALAR(tempVar);
+	L_LOAD_SCALAR(localIndex);
     } else {
 	/* Put the rval on the stack.  If we're doing a compound assignment,
 	   calculate the actual rval and save it back into rvalVar. */
@@ -1929,16 +1940,15 @@ L_write_index_aux(
  * it. Leave a boolean indicating match success/failure on the stack top. */
 static void
 regsub_for_assignment(
-    int lvalIndex,		/* the subject string */
+    char *varName,
+    int varIndex,               /* name and index of var containing subject
+				 * string, and where the result will be
+				 * stored */
     int compile_rval_p,		/* whether to push the rval ourselves, or find
 				 * it on the stack. */
     L_expression *regexp)	/* the regexp, substitution, and modifiers */
 {
-    char *tempVarName = gensym("%%matchedp");
-    int modCount, tempVarIndex;
-
-    tempVarIndex = TclFindCompiledLocal(tempVarName, strlen(tempVarName),
-	    1, lframe->envPtr->procPtr);
+    int modCount;
 
     L_trace("regsub_for_assignment");
     L_PUSH_STR("::regsub");
@@ -1947,23 +1957,20 @@ regsub_for_assignment(
     L_PUSH_STR("--");
     /* the regexp */
     if (compile_rval_p) {
+	/* the target string: make sure it is not modified while compiling
+	 * the regexp! */
+	L_LOAD_SCALAR(varIndex);
 	L_compile_expressions(regexp->a);
+	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);	
     } else {
 	TclEmitInstInt1(INST_ROT, 3+modCount, lframe->envPtr);
+	/* the target string */
+	L_LOAD_SCALAR(varIndex);
     }
-    /* the target string */
-    L_LOAD_SCALAR(lvalIndex);
     /* the substitution */
     L_compile_expressions(regexp->b);
-    L_PUSH_STR(tempVarName);
+    L_PUSH_STR(varName);
     L_INVOKE(modCount + 7);
-    /* move the result of substitution into lvalIndex and leave the matched_p
-     * value on stack top */
-    /*/// FIXME: get the name, store in lvalIndex directly instead of going
-     * through a temp var!*/
-    L_LOAD_SCALAR(tempVarIndex);
-    L_STORE_SCALAR(lvalIndex);
-    L_POP();
 }
 
 static int
