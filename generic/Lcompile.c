@@ -1797,15 +1797,20 @@ L_write_index(
     L_write_index_aux(index, var->type, expr, /*ignored*/0 , post_incr_p, var);
 }
 
+
+/* On first entry the rvalVar is ignored, the rval is found at stacktop. On
+ * final exit the value of the expression as a whole is left at stacktop,
+ * replacing the original rval. */
+
 static void
 L_write_index_aux(
     L_expression *index,	/* the indices */
     L_type *type,		/* the type of the lvalue (used to lookup
 				   struct indices) */
     L_expression *expr,		/* the whole expression */
-    int rvalVar,		/* a local variable that holds the rval.  When
-				   we're done, this variable will hold the
-				   value of the expression as a whole.  */
+    int rvalVar,		/* a local variable that holds the rval on
+				   recursive entry; at first entry, the rval
+				   is found at stacktop. */
     int post_incr_p,		/* whether we're doing a post-increment */
     L_symbol *var)              /* 0 if this is a recursive call */
 {
