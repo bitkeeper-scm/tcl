@@ -7,8 +7,11 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
-/* tempvar handling for regsub */
-#define TEMPVAR_REGSUB "%% L: tempvar for regsub"
+/* Insure single tempvar per bytecode obj for non-conflicting usage */
+#define SINGLE_TEMPVAR "%% L: single tempvar for non-conflicting usage"
+#define get_single_tempvar() \
+    (TclFindCompiledLocal(SINGLE_TEMPVAR, strlen(SINGLE_TEMPVAR),	\
+	    1, lframe->envPtr->procPtr))
 
 /* Grab the offset of the next instruction to be issued.  Stolen from
    tclCompCmds.c. */
@@ -1891,13 +1894,12 @@ L_write_index_aux(
 	 * indices are computed already and regsub_for_assignment takes care
 	 * of avoiding conflicts within itself. */
 
-	int localIndex = TclFindCompiledLocal(TEMPVAR_REGSUB,
-		strlen(TEMPVAR_REGSUB), 1, lframe->envPtr->procPtr);
+	int localIndex = get_single_tempvar();
 	
 	L_STORE_SCALAR(localIndex);
 	L_POP();
 	L_LOAD_SCALAR(rvalVar);
-	regsub_for_assignment(TEMPVAR_REGSUB, localIndex, FALSE, expr->b);
+	regsub_for_assignment(SINGLE_TEMPVAR, localIndex, FALSE, expr->b);
 	L_STORE_SCALAR(rvalVar);
 	L_POP();
 	L_LOAD_SCALAR(localIndex);
@@ -1917,8 +1919,12 @@ L_write_index_aux(
 	TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
     }
     if (hash_idx_p) {
-	/* use tempvar: DICT_SET operates on variables */
-	int dictVar = store_in_tempvar(TRUE);
+	/* use tempvar: DICT_SET operates on variables. The single tempvar is
+	 * unused at this point. */
+	int dictVar = get_single_tempvar();
+
+	L_STORE_SCALAR(dictVar);
+	L_POP();
 	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
 	TclEmitInt4(dictVar, lframe->envPtr);
     } else {
