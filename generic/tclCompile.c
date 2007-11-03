@@ -387,6 +387,15 @@ InstructionDesc tclInstructionTable[] = {
 	/* Reverse the order of the arg elements at the top of stack */
     {"rot",              2,    0,         1,    {OPERAND_UINT1}},
         /* Rotate the top opnd elements in the stack */
+    {"l-deep",           6,    INT_MIN,   2,    {OPERAND_UINT4, OPERAND_UINT1}},
+        /* Dive deep into a nested struct/array/hash: opnd1 indicates the
+	 * stack depth where the indices start, opnd2 are flags indicating
+	 * the type of the first set of indices and if this is a read or
+	 * write operation. Stacktop contains a list of lengths for each
+	 * stage.  */
+    {"l-clone",          2,    -1,        0,    {OPERAND_NONE}},
+        /* Transfers string and internal reps from stacktop to obj below,
+	 * removes stacktop. */
     {0}
 };
 

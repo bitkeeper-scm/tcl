@@ -19,6 +19,7 @@
 #include "tclInt.h"
 #include "tclCompile.h"
 #include "tommath.h"
+#include "Lcompile.h"
 
 #include <math.h>
 #include <float.h>
@@ -6822,6 +6823,91 @@ TclExecuteByteCode(
 	    }
 	}
 	NEXT_INST_F(9, 1, 0);
+    }
+
+    /*
+     * Special opcodes for the L language
+     */
+
+    case INST_L_DEEP: {
+	int depth, flags;
+	Tcl_Obj *valuePtr, *countPtr;
+	
+	depth = TclGetUInt4AtPtr(pc+1);
+	flags = TclGetUInt1AtPtr(pc+5);
+
+	/*
+	 * Get the old value of variable, and remove the stack ref. This is
+	 * safe because the variable still references the object; the ref
+	 * count will never go zero here - we can use the smaller macro
+	 * Tcl_DecrRefCount.
+	 */
+
+	valuePtr = POP_OBJECT();
+	Tcl_DecrRefCount(valuePtr); /* This one should be done here */
+
+	/*
+	 * Get the list of index counts
+	 */
+
+	countPtr = OBJ_AT_TOS;
+
+	objResultPtr = L_DeepDiveIntoStruct(interp, valuePtr,
+		&OBJ_AT_DEPTH(depth-2), countPtr, flags);
+	if (!objResultPtr) {
+	    goto checkForCatch;
+	}
+
+	NEXT_INST_V(6, depth-1, -1);
+    }
+
+    case INST_L_CLONE: {
+	/*
+	 * DANGEROUS!
+	 *
+	 * THIS DOES SOME NASTY SURGERY. If newPtr has an internal rep that
+	 * refers to the actual memory location of newPtr, this will bomb! Are
+	 * there any such types?
+	 */
+	
+	Tcl_Obj *oldPtr, *newPtr;
+
+	newPtr = POP_OBJECT();
+	oldPtr = OBJ_AT_TOS;
+
+	/*
+	 * oldPtr has refCount 2: one for the stack, another for the struct
+	 * that we are modifying in-place. Clear it now.
+	 */
+
+	if (oldPtr->refCount != 2) {
+	    Tcl_Panic("INST_L_CLONE called with a bad refCount for oldPtr.");
+	}
+	TclInvalidateStringRep(oldPtr);
+	if (oldPtr->typePtr && oldPtr->typePtr->freeIntRepProc) {
+	    oldPtr->typePtr->freeIntRepProc(oldPtr);
+	}
+	
+	/*
+	 * Insure that newPtr is an unshared obj, transfer the contents to
+	 * oldPtr and  readjust the refCount. After this newPtr can be safely
+	 * discarded. This is using macros from tclInt.h - not nice.
+	 */
+	
+	if (Tcl_IsShared(newPtr)) {
+	    Tcl_Obj *objPtr = newPtr;
+
+	    newPtr = Tcl_DuplicateObj(objPtr);
+	    Tcl_DecrRefCount(objPtr);
+	}
+
+	*oldPtr = *newPtr;
+	oldPtr->refCount = 2;
+
+	TclFreeObjStorage(newPtr);
+	TclIncrObjsFreed();
+	
+	NEXT_INST_F(1, 0, 0);
     }
 
     default:

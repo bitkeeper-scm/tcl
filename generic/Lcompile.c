@@ -7,6 +7,9 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
+#define L_FIRST_IS_HASH   1
+#define L_DEEP_WRITE      2
+
 /* Insure single tempvar per bytecode obj for non-conflicting usage */
 #define SINGLE_TEMPVAR "%% L: single tempvar for non-conflicting usage"
 #define get_single_tempvar() \
@@ -65,12 +68,8 @@ static int global_symbol_p(L_symbol *symbol);
 static void fixup_struct_type(L_type *type);
 static int auto_extending_array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
-static L_expression *L_read_array_index_chunk(int varIndex, L_expression *i,
-                                              L_type **type,
-                                              L_type *base_type);
-static L_expression *L_read_hash_index_chunk(L_expression *i);
-static L_expression *L_read_struct_index_chunk(L_expression *index,
-                                               L_type **type);
+static int L_push_set_of_indices(L_expression *expr, L_type *type,
+	int *depthPtr, Tcl_Obj **countsPtr);
 static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static char *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
@@ -1577,6 +1576,55 @@ L_compile_foreach_loop(L_foreach_loop *loop)
     TclEmitInstInt4(INST_DICT_DONE, iteratorIndex, lframe->envPtr);
 }
 
+/* Pushes all the indices necessary for an expression. Return value is
+ * L_FIRST_IS_HASH if the first set is for a hash table, 0 otherwise. */
+
+static int
+L_push_set_of_indices(
+    L_expression *expr,
+    L_type *type,
+    int *depthPtr,
+    Tcl_Obj **countsPtr)
+{
+    L_expression *index = expr->indices;
+    int flags, kind, depth, levelCount;
+    Tcl_Obj *counts = Tcl_NewObj();
+    
+    if (!index) {
+	Tcl_Panic("Calling L_push_set_of_indices and no indices present");
+    }
+    flags = ((index->kind == L_EXPRESSION_HASH_INDEX)? L_FIRST_IS_HASH : 0);
+
+    kind = index->kind;
+    depth = 0;
+    levelCount = 0;
+    while (1) {
+        type = L_compile_index(type, index);
+	depth++;
+	levelCount++;
+        index = index->indices;
+	if (index && (index->kind == kind)) {
+	    continue;
+	}
+
+	/*
+	 * This is the end of a level: lappend the levelCount to counts. Then
+	 * return if we are done, or prepare for the next level.
+	 */
+
+	Tcl_ListObjAppendElement(NULL, counts, Tcl_NewIntObj(levelCount));
+	if (!index) {
+	    break;
+	}
+	kind = index->kind;
+	levelCount = 0;
+    }
+
+    *depthPtr = depth;
+    *countsPtr = counts;
+    return flags;
+}
+
 void
 L_push_variable(L_expression *expr)
 {
@@ -1587,51 +1635,31 @@ L_push_variable(L_expression *expr)
 	L_PUSH_STR("");
 	return;
     }
-    if (expr->indices) {
-        L_expression *index = expr->indices;
-        L_type *type = var->type;
-        int first_chunk = TRUE;
-        while (index) {
-            switch (index->kind) {
-            case L_EXPRESSION_HASH_INDEX:
-                if (first_chunk) {
-                    L_LOAD_SCALAR(var->localIndex);
-                }
-                index = L_read_hash_index_chunk(index);
-                /* we have no more information about the type after reading
-                   from a hash */
-                L_trace("read a hash index, %p", index);
-                type = NULL;
-                break;
-            case L_EXPRESSION_STRUCT_INDEX:
-                if (first_chunk) {
-                    L_LOAD_SCALAR(var->localIndex);
-                }
-                index = L_read_struct_index_chunk(index, &type);
-                L_trace("read a struct index, %p", index);
-                break;
-            case L_EXPRESSION_ARRAY_INDEX: {
-                int varIndex;
-                L_type *base_type;
-                if (first_chunk) {
-                    varIndex = var->localIndex;
-                    base_type = type;
-                } else {
-                    varIndex = -1;
-                    base_type = NULL;
-                }
-                index = L_read_array_index_chunk(varIndex, index, &type,
-                                                 base_type);
-                L_trace("read an array index, %p", index);
-                break;
-            }
-            default:
-                L_bomb("corrupt AST, unknown index type");
-            }
-            first_chunk = FALSE;
-        }
-    } else {
+    if (!expr->indices) {
         L_LOAD_SCALAR(var->localIndex);
+    } else {
+	/*
+	 * Compile the L deep diving code for reading
+	 */
+
+	int depth, flags;
+	Tcl_Obj *counts;
+
+	flags = L_push_set_of_indices(expr, var->type, &depth, &counts);
+
+	/* store the list of counts at stacktop; pushing a literal, it will
+	 * be reconverted to list rep at first use.
+	 * FIXME: check if we can store this object as literal directly!
+	 * FIXME: should we use direct code for lindex/dict-get when there is
+	 * only one level?
+	 */
+	
+	L_PUSH_STR(Tcl_GetString(counts));
+	Tcl_DecrRefCount(counts);
+	L_LOAD_SCALAR(var->localIndex);
+
+	TclEmitInstInt4(INST_L_DEEP, depth+2, lframe->envPtr);
+	TclEmitInt1(flags, lframe->envPtr);
     }
 }
 
@@ -1836,7 +1864,7 @@ L_write_index_aux(
 		if (hash_idx_p) {
 		    /* plain dict_set */
 		    TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
-		    TclEmitInt4(var->localIndex, lframe->envPtr);		    
+		    TclEmitInt4(var->localIndex, lframe->envPtr);    
 		} else {
 		    /* plain lset */
 		    L_LOAD_SCALAR(var->localIndex);
@@ -1857,6 +1885,12 @@ L_write_index_aux(
     if (idx || (expr->op != T_EQUALS)) {
 
 	/* latest noise */
+
+	/* This puts a SHARED copy on the stack! Not good, makes in-place
+	 * replacement in hashes impossible. Unsharing it here is possible
+	 * but bad: in case of errors the original may be modified, which is
+	 * not good at all. */
+
 	if (var) {
 	    L_LOAD_SCALAR(var->localIndex);
 	} else {
@@ -2078,68 +2112,6 @@ instruction_for_l_op(
 	L_bomb("Unable to map operator %d to an instruction", op);
     }
     return instruction;
-}
-
-static L_expression *
-L_read_struct_index_chunk(
-    L_expression *index,
-    L_type **type)
-{
-    *type = L_compile_index(*type, index);
-    TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-    return index->indices;
-}
-
-
-/* Read a value from an array. Returns the next non-array index. */
-static L_expression *
-L_read_array_index_chunk(
-    int varIndex,
-    L_expression *index,
-    L_type **type,
-    L_type *base_type)
-{
-    L_expression *i;
-    int index_count = 0;
-
-    if (varIndex >= 0) {
-	/* data in a variable*/
-	L_LOAD_SCALAR(varIndex);
-    } else {
-	/* data already on stackTop */
-    }
-    for (i = index; i && (i->kind == L_EXPRESSION_ARRAY_INDEX);
-         i = i->indices)
-    {
-        *type = L_compile_index(*type, i);
-        index_count++;
-    }
-    if (index_count == 1) {
-        TclEmitOpcode(INST_LIST_INDEX, lframe->envPtr);
-    } else {
-        TclEmitInstInt4(INST_LIST_INDEX_MULTI, index_count + 1,
-                        lframe->envPtr);
-    }
-    /*     *type = base_type; */
-    return i;
-}
-
-/* Read a value out of a hashtable and leave it on the stack.  We
-   expect the hashtable to be on top of the stack.  Return the next
-   non-hashtable index.*/
-static L_expression *
-L_read_hash_index_chunk(
-    L_expression *i)            /* the keys */
-{
-    int index_count = 0;
-    /* push the indices onto the stack */
-    while (i && (i->kind == L_EXPRESSION_HASH_INDEX)) {
-        L_compile_index(NULL, i);
-        i = i->indices;
-        index_count++;
-    }
-    TclEmitInstInt4(INST_DICT_GET, index_count, lframe->envPtr);
-    return i;
 }
 
 /* Emit code to push an index onto the stack and return the type to use for
@@ -2986,6 +2958,100 @@ ckstrndup(const char *str, int len)
     newStr[len] = '\0';
     return newStr;
 }
+
+
+
+/*
+ * L_DeepDiveIntoStruct is adapted from TclLSetFlat, DictObjGet and friends.
+ *
+ * REMARK: the returned objPtr has one extra refCount - mimicking what
+ * TclLindexFlat does (it is not safe to remove it, it might be the only one!)
+ */
+
+
+Tcl_Obj *
+L_DeepDiveIntoStruct(
+    Tcl_Interp *interp,
+    Tcl_Obj *valuePtr,    /* the nested struct to dive into */
+    Tcl_Obj **idxPtr,     /* the array of indices */
+    Tcl_Obj *countPtr,    /* a list of counts for each level - a level being a
+			   * contiguous set of indices of same kind (ie: hash
+			   * indices or list indices). */
+    int flags)            /* flag bits are L_FIRST_IS_HASH and L_DEEP_WRITE */ 
+{
+    int typeIsHash = flags & L_FIRST_IS_HASH;
+    int insureUnshared = flags & L_DEEP_WRITE;
+
+    int result, numLevels, i;
+    Tcl_Obj **levelCountPtr, *objPtr = NULL;
+
+    if (insureUnshared) Tcl_Panic("Writing not yet implemented!");
+    
+    result = Tcl_ListObjGetElements(interp, countPtr, &numLevels, &levelCountPtr);
+    if (result != TCL_OK) {
+	return NULL;
+    }
+
+    Tcl_IncrRefCount(valuePtr);
+    if (!numLevels) {
+	return valuePtr;
+    }
+    
+    for (i = 0; i < numLevels; i++) {
+	int idxCount;
+
+	result = Tcl_GetIntFromObj(interp, *levelCountPtr, &idxCount);
+	if (result != TCL_OK) {
+	    return NULL;
+	}
+	
+	if (typeIsHash) {
+	    /*
+	     * Essentially, DictObjGet.
+	     * Loop through the list of keys, looking up the key at the
+	     * current index in the current dictionary each time. Once we've
+	     * done the lookup, we set the current dictionary to be the value
+	     * we looked up (in case the value was not the last one and we are
+	     * going through a chain of searches.) Note that this loop always
+	     * executes at least once. 
+	     */
+
+	    Tcl_Obj *dictPtr = valuePtr;
+
+	    if (idxCount > 1) {
+		dictPtr = TclTraceDictPath(interp, valuePtr, idxCount, idxPtr, DICT_PATH_READ);
+		if (dictPtr == NULL) {
+		    return NULL;
+		}
+	    }
+	    
+	    result = Tcl_DictObjGet(interp, dictPtr, idxPtr[idxCount-1], &objPtr);
+	    if (result != TCL_OK) {
+		return NULL;
+	    }
+	    if (objPtr == NULL) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "key \"", TclGetString(idxPtr[idxCount-1]),
+			"\" not known in dictionary", NULL);
+		return NULL;
+	    }
+	    Tcl_IncrRefCount(objPtr);
+	} else {
+	    objPtr = TclLindexFlat(interp, valuePtr, idxCount, idxPtr);
+	    if (!objPtr) {
+		return NULL;
+	    }
+	}
+	
+	idxPtr += idxCount;
+	levelCountPtr++;
+	Tcl_DecrRefCount(valuePtr);
+	valuePtr = objPtr;
+	typeIsHash = !typeIsHash;
+    }
+    return objPtr;
+}
+
 
 /*
  * Local Variables:

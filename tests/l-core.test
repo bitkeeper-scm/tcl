@@ -1333,11 +1333,19 @@ hash_1_3() {
 	baz.bar[3][4]{"asdf"} = 9;
 	baz.bar[3][4]{"asdf"} *= 2;
 	puts(baz.bar[3][4]{"asdf"}--);
+
+        // change original value while processing first group of indices
+        baz.bar[0][0]{"foo"} = 1;
+        baz.bar[0][(baz.bar[0][0]{"foo"} = 0)]{"foo"} += 1;
+
+        // change original value while processing nested group of indices
+        baz.bar[0][1]{"foo"} = "oof";
+        baz.bar[0][1]{(baz.bar[0][1]{"foo"} = "foo")} =~ s/f/m/;
 	puts(baz);
 }
 #lang tcl
 hash_1_3
-} -output "18\n2 {{{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {asdf 17}}}\n"
+} -output "18\n2 {{{foo 1} {foo moo} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {asdf 17}}}\n"
 
 
 test regexp-1.0 {regular expression support} -body {
@@ -1711,6 +1719,68 @@ main(int ac, string av[])
 } -cleanup {
 	removeFile lfile-1.0.l
 } -returnCodes {error} -match regexp -result {.*line 4.*line 9.*line 15}
+
+
+test evalorder-1.0 {read array} -body {
+    #lang L
+    int foo[2];
+    foo[1] = 2;
+    puts(foo[(foo[1]=1)]);
+} -output 1\n
+
+test evalorder-1.1 {read array-2D} -body {
+    #lang L
+    int foo[2][2];
+    foo[1][1] = 2;
+    puts(foo[1][(foo[1][1]=1)]);
+} -output 1\n
+
+test evalorder-1.2 {read hash} -body {
+    #lang L -poly
+    hash foo;
+    foo{"a"} = "b";
+    puts(foo{(foo{"a"}="a")});
+} -output a\n
+
+test evalorder-1.3 {read array of hashes} -body {
+    #lang L -poly
+    hash foo[2];
+    foo[1]{"a"} = "b";
+    puts(foo[1]{(foo[1]{"a"}="a")});
+} -output a\n
+
+test evalorder-1.4 {write array} -body {
+    #lang L
+    int foo[2];
+    foo[1] = 2;
+    foo[(foo[1]=1)] *= 3;
+    puts(foo[1]);
+} -output 3\n
+
+test evalorder-1.5 {write array-2D} -body {
+    #lang L
+    int foo[2][2];
+    foo[1][1] = 2;
+    foo[1][(foo[1][1]=1)] *= 3;
+    puts(foo[1][1]);
+} -output 3\n
+
+test evalorder-1.6 {write hash} -body {
+    #lang L -poly
+    hash foo;
+    foo{"a"} = "b";
+    foo{(foo{"a"}="a")} =~ s/a/c/;
+    puts(foo{"a"});
+} -output c\n
+
+test evalorder-1.7 {write array of hashes} -body {
+    #lang L -poly
+    hash foo[2];
+    foo[1]{"a"} = "b";
+    foo[1]{(foo[1]{"a"}="a")} =~ s/a/c/;
+    puts(foo[1]{"a"});
+} -output c\n
+
 
 test pattern-1.0 {L pattern functions} -body {
 #lang L

@@ -225,6 +225,14 @@ void L_start_lexer();
     TclEmitOpcode(INST_POP, lframe->envPtr)	
 
 
+/*
+ * A special function to handle deep structs/arrays/hashes in L. This function
+ * is called from TclExecuteByteCode (INST_L_DEEP).
+ */
+
+MODULE_SCOPE Tcl_Obj * L_DeepDiveIntoStruct(Tcl_Interp *interp, Tcl_Obj *valuePtr,
+		Tcl_Obj **idxPtr, Tcl_Obj *countPtr, int flags);
+
 #endif /* L_COMPILE_H */
 
 /*
