@@ -206,10 +206,19 @@ void L_start_lexer();
                 lframe->envPtr);\
 }
 
-/* Emit code to push a Tcl_Obj on the stack. */
-#define L_PUSH_OBJ(obj) {\
-    TclEmitPush(TclAddLiteralObj(lframe->envPtr, obj, NULL),\
+#define L_PUSH_CSTR(str, len) {					\
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, (str), (len)), \
                 lframe->envPtr);\
+}
+
+/* Emit code to push a Tcl_Obj on the stack, guarding against leaks if it has
+ * 0 refCount. CURRENTLT UNUSED, it avoids the literal sharing mechanism. */
+#define L_PUSH_OBJ(objPtr) {\
+    Tcl_Obj *newPtr = objPtr;\
+    Tcl_IncrRefCount(newPtr);\
+    TclEmitPush(TclAddLiteralObj(lframe->envPtr, newPtr, NULL),\
+                lframe->envPtr);\
+    Tcl_DecrRefCount(newPtr);\
 }
 
 #define L_INVOKE(size0) {\

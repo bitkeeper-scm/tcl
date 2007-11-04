@@ -67,7 +67,7 @@ static int auto_extending_array_p(L_type *t);
 static L_type *lookup_struct_type(char *tag);
 static int L_push_set_of_indices(L_expression *expr, L_type *type,
 	int *depthPtr, Tcl_Obj **countsPtr);
-static Tcl_Obj *literal_to_TclObj(L_expression *expr);
+void l_push_literal(L_expression *expr);
 static char *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static char *gensym(char *name);
@@ -192,7 +192,7 @@ TclCompileLCmd(
            the stack. */
         L_trace("empty script");
         L_frame_push(interp, envPtr, NULL);
-        L_PUSH_OBJ(Tcl_NewObj());
+        L_PUSH_STR("");
         L_frame_pop();
 	return TCL_OK;
     }
@@ -839,7 +839,7 @@ L_compile_statements(L_statement *stmt)
         } else {
             L_trace("    without return value");
             /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
-            L_PUSH_OBJ(Tcl_NewObj());
+            L_PUSH_STR("");
         }
         /* INST_RETURN_STK involves a little more magic that I haven't wangled out
            yet... but I think it lets us pass back error codes and such that could
@@ -923,7 +923,7 @@ L_compile_parameters(L_variable_declaration *param)
     
     if (!hasParamByName) return;
 
-    L_PUSH_STR("1");
+    L_PUSH_CSTR("1", 1);
     for (p = param, i = 0; p; p = p->next, i++) {
 	if (param_passed_by_name_p(p)) {
 	    L_symbol *symbol;
@@ -1002,7 +1002,7 @@ L_compile_expressions(L_expression *expr)
     case L_EXPRESSION_INTEGER:
     case L_EXPRESSION_STRING:
     case L_EXPRESSION_FLOTE:
-        L_PUSH_OBJ(literal_to_TclObj(expr));
+	l_push_literal(expr);
         break;
     case L_EXPRESSION_REGEXP:
 	/* for a regexp, just handle the match part */
@@ -1102,37 +1102,40 @@ L_push_pointer(L_expression *lval)
     }
 }
 
-/* Create a Tcl Obj containing the value of a constant literal L AST
+/* Push a Tcl shared literal containing the value of a constant literal L AST
    node. */
-Tcl_Obj *literal_to_TclObj(L_expression *expr)
+void
+l_push_literal(L_expression *expr)
 {
-    Tcl_Obj *objPtr = NULL;
 
+    char buf[128];
+	
     switch (expr->kind) {
-    case L_EXPRESSION_INTEGER:
-        objPtr = Tcl_NewIntObj(expr->u.integer);
-        break;
     case L_EXPRESSION_STRING:
-        objPtr = Tcl_NewStringObj(expr->u.string, strlen(expr->u.string));
+	L_PUSH_CSTR(expr->u.string, strlen(expr->u.string));
+        return;
+    case L_EXPRESSION_INTEGER:
+	snprintf(buf, 128, "%i", expr->u.integer);
         break;
     case L_EXPRESSION_FLOTE:
-        objPtr = Tcl_NewDoubleObj(expr->u.flote);
+	snprintf(buf, 128, "%f", expr->u.flote);
         break;
     case L_EXPRESSION_UNARY:
         if (expr->op == T_PLUS) {
-            objPtr = Tcl_NewIntObj(expr->a->u.integer);
+	    snprintf(buf, 128, "%i", expr->a->u.integer);
         } else if (expr->op == T_MINUS) {
-            objPtr = Tcl_NewIntObj(-expr->a->u.integer);
+	    snprintf(buf, 128, "%i", -expr->a->u.integer);
         } else {
             L_errorf(expr, "Illegal initializer");
+	    return;
         }
         break;
     default:
-        return NULL;
-/*         L_bomb("literal_to_TclObj can't handle expressions of type %d\n", */
+/*         L_bomb("l_push_literal literal can't handle expressions of type %d\n", */
 /*                expr->kind); */
+	return;
     }
-    return objPtr;
+    L_PUSH_STR(buf);
 }
 
 void L_compile_unop(L_expression *expr)
@@ -1704,7 +1707,7 @@ L_return(int value_on_stack_p)
 {
     if (!value_on_stack_p) {
         /* Leave a NULL (an Tcl_Obj with the string rep "") on the stack. */
-        L_PUSH_OBJ(Tcl_NewObj());
+        L_PUSH_STR("");
     }
     /* INST_RETURN_STK involves a little more magic that I haven't wangled out
        yet... but I think it lets us pass back error codes and such that could
@@ -2023,6 +2026,7 @@ L_compile_index(
 	/* structure member */
 	L_variable_declaration *member;
 	int memberOffset;
+	char buf[128];
 
 	member = L_get_struct_member(t, index, &memberOffset);
 
@@ -2030,7 +2034,8 @@ L_compile_index(
 	    L_errorf(index, "Structure field not found, %s", index->a->u.string);
 	    break;
 	}
-	L_PUSH_OBJ(Tcl_NewIntObj(memberOffset));
+	snprintf(buf, 128, "%i", memberOffset);
+	L_PUSH_STR(buf);
 	t = member->type;
         break;
     }
@@ -2257,7 +2262,7 @@ void
 maybeFixupEmptyCode(L_compile_frame *frame)
 {
     if (frame->envPtr->codeNext == frame->originalCodeNext) {
-        L_PUSH_OBJ(Tcl_NewObj());
+        L_PUSH_STR("");
     }
 }
 
