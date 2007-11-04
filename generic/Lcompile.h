@@ -230,8 +230,13 @@ void L_start_lexer();
  * is called from TclExecuteByteCode (INST_L_DEEP).
  */
 
-MODULE_SCOPE Tcl_Obj * L_DeepDiveIntoStruct(Tcl_Interp *interp, Tcl_Obj *valuePtr,
-		Tcl_Obj **idxPtr, Tcl_Obj *countPtr, int flags);
+#define L_FIRST_IS_HASH   1
+#define L_DEEP_WRITE      2
+#define L_DEEP_CREATE     4
+
+MODULE_SCOPE Tcl_Obj * L_DeepDiveIntoStruct(Tcl_Interp *interp,
+	Tcl_Obj *valuePtr, Tcl_Obj **idxPtr, Tcl_Obj *countPtr,
+	int flags);
 
 #endif /* L_COMPILE_H */
 

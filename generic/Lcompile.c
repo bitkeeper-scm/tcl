@@ -7,9 +7,6 @@
 #include "Lgrammar.h"
 #include "Last.h"
 
-#define L_FIRST_IS_HASH   1
-#define L_DEEP_WRITE      2
-
 /* Insure single tempvar per bytecode obj for non-conflicting usage */
 #define SINGLE_TEMPVAR "%% L: single tempvar for non-conflicting usage"
 #define get_single_tempvar() \
@@ -74,11 +71,8 @@ static Tcl_Obj *literal_to_TclObj(L_expression *expr);
 static char *atomic_initial_value(L_type *type);
 static L_symbol *import_global_symbol(L_symbol *var);
 static char *gensym(char *name);
-static int store_in_tempvar(int pop_p);
 static void L_write_index(L_symbol *var, L_expression *index,
   L_expression *expr, L_expression *rval, int post_incr_p);
-static void L_write_index_aux(L_expression *index, L_type *type,
-  L_expression *expr, int rvalVar, int post_incr_p, L_symbol *var);
 static Tcl_HashTable *L_typedef_table();
 static L_expression *reference_mangle(char *name);
 static int param_passed_by_name_p(L_variable_declaration *p);
@@ -96,7 +90,7 @@ static Proc *Begin_Proc();
 static void Finish_Proc(Proc *procPtr, char *name);
 static int instruction_for_l_op(int op);
 static void regsub_for_assignment(char *varName, int varIndex,
-	int compile_rval_p, L_expression *regexp);
+	L_expression *regexp);
 static void track_lineInfo(int codeOffset, int srcOffset, int len);
 static int push_regexp_modifiers(L_expression *regexp);
 static void L_do_includes(Tcl_Interp *interp, const char *str, int numBytes);
@@ -1579,6 +1573,9 @@ L_compile_foreach_loop(L_foreach_loop *loop)
 /* Pushes all the indices necessary for an expression. Return value is
  * L_FIRST_IS_HASH if the first set is for a hash table, 0 otherwise. */
 
+
+#define IS_HASH(index) ((index)->kind == L_EXPRESSION_HASH_INDEX)
+
 static int
 L_push_set_of_indices(
     L_expression *expr,
@@ -1587,15 +1584,16 @@ L_push_set_of_indices(
     Tcl_Obj **countsPtr)
 {
     L_expression *index = expr->indices;
-    int flags, kind, depth, levelCount;
+    int flags, isHash, depth, levelCount;
     Tcl_Obj *counts = Tcl_NewObj();
     
     if (!index) {
 	Tcl_Panic("Calling L_push_set_of_indices and no indices present");
     }
-    flags = ((index->kind == L_EXPRESSION_HASH_INDEX)? L_FIRST_IS_HASH : 0);
 
-    kind = index->kind;
+    isHash = IS_HASH(index);
+    flags = (IS_HASH(index)? L_FIRST_IS_HASH : 0);
+
     depth = 0;
     levelCount = 0;
     while (1) {
@@ -1603,7 +1601,7 @@ L_push_set_of_indices(
 	depth++;
 	levelCount++;
         index = index->indices;
-	if (index && (index->kind == kind)) {
+	if (index && (IS_HASH(index) == isHash)) {
 	    continue;
 	}
 
@@ -1616,7 +1614,7 @@ L_push_set_of_indices(
 	if (!index) {
 	    break;
 	}
-	kind = index->kind;
+	isHash = !isHash;
 	levelCount = 0;
     }
 
@@ -1715,20 +1713,6 @@ L_return(int value_on_stack_p)
     TclEmitOpcode(INST_DONE, lframe->envPtr);
 }
 
-/* Emit code to pop the top of the stack and store it in a temporary local
-   variable.  Return the varIndex of the new local variable. */
-static int
-store_in_tempvar(int pop_p)
-{
-    int tempVar =
-        TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
-    L_STORE_SCALAR(tempVar);
-    if (pop_p) {
-        L_POP();
-    }
-    return tempVar;
-}
-
 void
 L_compile_defined(L_expression *lval)
 {
@@ -1783,7 +1767,8 @@ L_compile_assignment(L_expression *expr)
     if (lval->indices) {
         L_write_index(var, lval->indices, expr, rval, FALSE);
     } else if (expr->op == T_EQTWID) {
-	regsub_for_assignment(var->name, var->localIndex, TRUE, rval);
+	L_compile_expressions(rval);	
+	regsub_for_assignment(var->name, var->localIndex, rval);
     } else {
 	if (expr->op != T_EQUALS) {
 	    L_LOAD_SCALAR(var->localIndex);
@@ -1807,6 +1792,9 @@ L_write_index(
     L_expression *rval,		/* the rvalue to use. */
     int post_incr_p)		/* whether we're doing a post-increment */
 {
+    int depth, flags;
+    Tcl_Obj *counts;
+    
     /* auto-extending array special case */
     if (auto_extending_array_p(var->type) && (expr->op == T_EQUALS)) {
 	if (index->indices) {
@@ -1820,164 +1808,74 @@ L_write_index(
 	L_INVOKE(4);
 	return;
     }
+
     /* regular case */
     L_compile_expressions(rval);
-    L_write_index_aux(index, var->type, expr, /*ignored*/0 , post_incr_p, var);
-}
 
-
-/* On first entry the rvalVar is ignored, the rval is found at stacktop. On
- * final exit the value of the expression as a whole is left at stacktop,
- * replacing the original rval. */
-
-static void
-L_write_index_aux(
-    L_expression *index,	/* the indices */
-    L_type *type,		/* the type of the lvalue (used to lookup
-				   struct indices) */
-    L_expression *expr,		/* the whole expression */
-    int rvalVar,		/* a local variable that holds the rval on
-				   recursive entry; at first entry, the rval
-				   is found at stacktop. */
-    int post_incr_p,		/* whether we're doing a post-increment */
-    L_symbol *var)              /* 0 if this is a recursive call */
-{
-    L_expression *idx = index;
-    int idx_count = 0, hash_idx_p, i;
-
-    /* Push a contiguous sequence of hash or non-hash indices. */
-    hash_idx_p = (idx->kind == L_EXPRESSION_HASH_INDEX);
-    while (idx && (hash_idx_p == (idx->kind == L_EXPRESSION_HASH_INDEX))) {
-	type = L_compile_index(type, idx);
-	idx_count++;
-	idx = idx->indices;
-    }
-
-    if (var) {
-	if (!idx) {
-	    /* Not mixed! do a pure lset or dict-set */
-	    if (expr->op == T_EQUALS) {
-		/* plain assignment! Do the fast thing.
-		 * RHS is on stack and must be returned at the end, leave it
-		 * there but fetch a copy to where it can be used. */
-		TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
-		if (hash_idx_p) {
-		    /* plain dict_set */
-		    TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
-		    TclEmitInt4(var->localIndex, lframe->envPtr);    
-		} else {
-		    /* plain lset */
-		    L_LOAD_SCALAR(var->localIndex);
-		    TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
-		    L_STORE_SCALAR(var->localIndex);
-		}
-		L_POP();
-		return;
-	    }
-	}
-	TclEmitInstInt1(INST_ROT, idx_count, lframe->envPtr);
-	rvalVar = store_in_tempvar(TRUE);
-    }
-
-    /* In case we need to read value before writing it, (either because it's
-       further indexed, or because we're going to do some arithmetic with it),
-       copy the relevant portion of the stack and read the value. */
-    if (idx || (expr->op != T_EQUALS)) {
-
-	/* latest noise */
-
-	/* This puts a SHARED copy on the stack! Not good, makes in-place
-	 * replacement in hashes impossible. Unsharing it here is possible
-	 * but bad: in case of errors the original may be modified, which is
-	 * not good at all. */
-
-	if (var) {
-	    L_LOAD_SCALAR(var->localIndex);
-	} else {
-	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
-	}
-
-	for (i = 0; i < idx_count/*  + 1 */; i++) {
-	    TclEmitInstInt4(INST_OVER, idx_count, lframe->envPtr);
-	}
-	if (hash_idx_p) {
-	    TclEmitInstInt4(INST_DICT_GET, idx_count, lframe->envPtr);
-	} else {
-	    TclEmitInstInt4(INST_LIST_INDEX_MULTI, idx_count + 1,
-			    lframe->envPtr);
-	}
-    }
-    /* Leave the value to store on top of the stack.  The value is either a
-       sub-list/dict or, in the base case, the rval.  This section also takes
-       care to store the value of the expression as a whole in rvalVar, so it
-       can be left atop the stack. */
-    if (idx) {
-	/* There are more indices, so leave a sub-list or sub-dict on the
-	   stack. */
-	L_write_index_aux(idx, type, expr, rvalVar, post_incr_p, 0);
-    } else if (post_incr_p) {
-	/* We're doing a post-increment, so take care to stack the prior value
-	   and recover it later. */
-
-	TclEmitOpcode(INST_DUP, lframe->envPtr);
-	L_LOAD_SCALAR(rvalVar);
-	if (expr->op != T_EQUALS) {
-	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
-	}
-	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
-	L_STORE_SCALAR(rvalVar);
-	L_POP();
+    flags = L_push_set_of_indices(expr->a, var->type, &depth, &counts);
+    flags |= ((expr->op == T_EQUALS)? L_DEEP_WRITE|L_DEEP_CREATE : L_DEEP_WRITE);
+    
+    /* store the list of counts at stacktop; pushing a literal, it will
+     * be reconverted to list rep at first use.
+     * FIXME: should we use direct code for lindex/dict-get when there is
+     * only one level and it is a read?
+     */
+    
+    L_PUSH_STR(Tcl_GetString(counts));
+    Tcl_DecrRefCount(counts);
+    L_LOAD_SCALAR(var->localIndex);
+    
+    TclEmitInstInt4(INST_L_DEEP, depth+2, lframe->envPtr);
+    TclEmitInt1(flags, lframe->envPtr);
+    
+    /*
+     * We have now updated the deep struct to have an unshared path to the
+     * element of interest. The stack now has (rval was already in):
+     *  <rval elem deepStruct>
+     * Set the variable, then modify elem in-place
+     */
+    
+    L_STORE_SCALAR(var->localIndex);
+    L_POP();
+    
+    /* <rval elem > */
+    if (expr->op == T_EQUALS) {
+	TclEmitInstInt4(INST_REVERSE, 2, lframe->envPtr);
+	/* <elem rval> */
+	TclEmitInstInt1(INST_L_CLONE, 0, lframe->envPtr);
     } else if (expr->op == T_EQTWID) {
-	/* regexp substitution: use tempvar as regsub_for_assignment requires
-	 * a var. Can reuse the same one: only used at the last stage, all
-	 * indices are computed already and regsub_for_assignment takes care
-	 * of avoiding conflicts within itself. */
-
+	/* regexp substitution: use tempvar as regsub_for_assignment
+	 * requires a var. Can reuse the same one: only used at the
+	 * last stage, all indices are computed already and
+	 * regsub_for_assignment takes care of avoiding conflicts within itself. */ 
+	
 	int localIndex = get_single_tempvar();
+	
+	TclEmitInstInt4(INST_REVERSE, 2, lframe->envPtr);
+	TclEmitInstInt4(INST_OVER, 1, lframe->envPtr);
+	/* <elem rval elem> */
 	
 	L_STORE_SCALAR(localIndex);
 	L_POP();
-	L_LOAD_SCALAR(rvalVar);
-	regsub_for_assignment(SINGLE_TEMPVAR, localIndex, FALSE, expr->b);
-	L_STORE_SCALAR(rvalVar);
-	L_POP();
+	/* <elem rval> Note: elem is shared now! */
+	regsub_for_assignment(SINGLE_TEMPVAR, localIndex, expr->b);
+	TclEmitInstInt4(INST_REVERSE, 2, lframe->envPtr);
 	L_LOAD_SCALAR(localIndex);
-    } else {
-	/* Put the rval on the stack.  If we're doing a compound assignment,
-	   calculate the actual rval and save it back into rvalVar. */
-	L_LOAD_SCALAR(rvalVar);
-	if (expr->op != T_EQUALS) {
-	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
-	    L_STORE_SCALAR(rvalVar);
-	}
-    }
-    /* Copy the dict/list up to the top of the stack and do the set. */
-    if (var) {
-	L_LOAD_SCALAR(var->localIndex);
-    } else {
-	TclEmitInstInt4(INST_OVER, idx_count + 1, lframe->envPtr);
-    }
-    if (hash_idx_p) {
-	/* use tempvar: DICT_SET operates on variables. The single tempvar is
-	 * unused at this point. */
-	int dictVar = get_single_tempvar();
-
-	L_STORE_SCALAR(dictVar);
+	/* <match? elem newVal> Note: elem still possibly shared with tempvar? */
+	/*
+	  L_PUSH_STR("");
+	  L_STORE_SCALAR(localIndex);
+	  L_POP();
+	*/
+	/* <match? elem newVal> Note: elem not shared with tempvar! */	
+	TclEmitInstInt1(INST_L_CLONE, 0, lframe->envPtr);
 	L_POP();
-	TclEmitInstInt4(INST_DICT_SET, idx_count, lframe->envPtr);
-	TclEmitInt4(dictVar, lframe->envPtr);
     } else {
-	TclEmitInstInt4(INST_LSET_FLAT, idx_count + 2, lframe->envPtr);
-    }
-    /* We want to leave the new dict/list atop the stack, but we need to get
-       the old one out from under it.  So we juggle a bit. */
-    if (var) {
-	L_STORE_SCALAR(var->localIndex);
-	L_POP();
-	L_LOAD_SCALAR(rvalVar);
-    } else {
-	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
-	L_POP();
+	TclEmitOpcode(INST_DUP, lframe->envPtr);	    
+	TclEmitInstInt4(INST_REVERSE, 3, lframe->envPtr);
+	/* <elem elem rval> */
+	TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
+	TclEmitInstInt1(INST_L_CLONE, post_incr_p, lframe->envPtr);
     }
 }
 
@@ -1989,8 +1887,6 @@ regsub_for_assignment(
     int varIndex,               /* name and index of var containing subject
 				 * string, and where the result will be
 				 * stored */
-    int compile_rval_p,		/* whether to push the rval ourselves, or find
-				 * it on the stack. */
     L_expression *regexp)	/* the regexp, substitution, and modifiers */
 {
     int modCount;
@@ -2000,20 +1896,19 @@ regsub_for_assignment(
     modCount = push_regexp_modifiers(regexp);
     L_PUSH_STR("-line");
     L_PUSH_STR("--");
+
     /* the regexp */
-    if (compile_rval_p) {
-	/* the target string: make sure it is not modified while compiling
-	 * the regexp! */
-	L_LOAD_SCALAR(varIndex);
-	L_compile_expressions(regexp->a);
-	TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);	
-    } else {
-	TclEmitInstInt1(INST_ROT, 3+modCount, lframe->envPtr);
-	/* the target string */
-	L_LOAD_SCALAR(varIndex);
-    }
+    TclEmitInstInt1(INST_ROT, 3+modCount, lframe->envPtr);
+
     /* the substitution */
     L_compile_expressions(regexp->b);
+
+    /* the target string: push *after* everything else has been compiled to
+     * insure that possible substitutions occur before we get the "initial
+     * value" */
+    L_LOAD_SCALAR(varIndex);
+    TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
+
     L_PUSH_STR(varName);
     L_INVOKE(modCount + 7);
 }
@@ -2972,7 +2867,8 @@ ckstrndup(const char *str, int len)
 Tcl_Obj *
 L_DeepDiveIntoStruct(
     Tcl_Interp *interp,
-    Tcl_Obj *valuePtr,    /* the nested struct to dive into */
+    Tcl_Obj *valuePtr,/* pointer to the nested struct to dive into; any
+			   * modifications will be written in place */
     Tcl_Obj **idxPtr,     /* the array of indices */
     Tcl_Obj *countPtr,    /* a list of counts for each level - a level being a
 			   * contiguous set of indices of same kind (ie: hash
@@ -2980,19 +2876,19 @@ L_DeepDiveIntoStruct(
     int flags)            /* flag bits are L_FIRST_IS_HASH and L_DEEP_WRITE */ 
 {
     int typeIsHash = flags & L_FIRST_IS_HASH;
-    int insureUnshared = flags & L_DEEP_WRITE;
-
+    
     int result, numLevels, i;
     Tcl_Obj **levelCountPtr, *objPtr = NULL;
-
-    if (insureUnshared) Tcl_Panic("Writing not yet implemented!");
     
+    if ((flags & L_DEEP_WRITE) && Tcl_IsShared(valuePtr)) {
+	Tcl_Panic("L_DeepDiveIntoStruct called for writing in a shared obj!");
+    }
+
     result = Tcl_ListObjGetElements(interp, countPtr, &numLevels, &levelCountPtr);
     if (result != TCL_OK) {
 	return NULL;
     }
 
-    Tcl_IncrRefCount(valuePtr);
     if (!numLevels) {
 	return valuePtr;
     }
@@ -3017,9 +2913,18 @@ L_DeepDiveIntoStruct(
 	     */
 
 	    Tcl_Obj *dictPtr = valuePtr;
+	    int traceFlags = 0;
+
+	    if (!(flags & L_DEEP_WRITE)) {
+		traceFlags = DICT_PATH_READ;
+	    } else if (flags & L_DEEP_CREATE) {
+		traceFlags = DICT_PATH_CREATE;
+	    } else {
+		traceFlags = DICT_PATH_UPDATE;
+	    }
 
 	    if (idxCount > 1) {
-		dictPtr = TclTraceDictPath(interp, valuePtr, idxCount, idxPtr, DICT_PATH_READ);
+		dictPtr = TclTraceDictPath(interp, valuePtr, idxCount, idxPtr, traceFlags);
 		if (dictPtr == NULL) {
 		    return NULL;
 		}
@@ -3030,25 +2935,59 @@ L_DeepDiveIntoStruct(
 		return NULL;
 	    }
 	    if (objPtr == NULL) {
-		Tcl_ResetResult(interp);
-		Tcl_AppendResult(interp, "key \"", TclGetString(idxPtr[idxCount-1]),
-			"\" not known in dictionary", NULL);
-		return NULL;
+		if (flags & L_DEEP_CREATE) {
+		    /* What if there are errors later on? We get a new value
+		     * set to {} ... FIXME */
+		    objPtr = Tcl_NewObj();
+		    Tcl_DictObjPut(interp, dictPtr, idxPtr[idxCount-1], objPtr); 
+		} else {
+		    /* FIXME: error message ok? What if error before the last
+		       step? */
+		    Tcl_ResetResult(interp);
+		    Tcl_AppendResult(interp, "key \"", TclGetString(idxPtr[idxCount-1]),
+			    "\" not known in dictionary", NULL);
+		    return NULL;
+		}
 	    }
-	    Tcl_IncrRefCount(objPtr);
+	    if ((flags & L_DEEP_WRITE) && Tcl_IsShared(objPtr)) {
+		objPtr = Tcl_DuplicateObj(objPtr);
+		Tcl_DictObjPut(interp, dictPtr, idxPtr[idxCount-1], objPtr); 
+	    }
 	} else {
+	    /* Deep reading already implemented for lists in the core */
 	    objPtr = TclLindexFlat(interp, valuePtr, idxCount, idxPtr);
 	    if (!objPtr) {
-		return NULL;
+		if (flags & L_DEEP_CREATE) {
+		    /* What if there are errors later on? We get a new value
+		     * set to {} ... FIXME */
+
+		    objPtr = Tcl_NewObj();
+		    if (!TclLsetFlat(interp, valuePtr, 1, &idxPtr[idxCount-1], objPtr)) {
+			return NULL;
+		    }
+		} else {
+		    /* FIXME: error message ok? What if error before the last
+		       step? */
+		    Tcl_ResetResult(interp);
+		    Tcl_AppendResult(interp, "index \"", TclGetString(idxPtr[idxCount-1]),
+			    "\" not present in array", NULL);
+		    return NULL;
+		}
+	    }
+	    if ((flags & L_DEEP_WRITE) && Tcl_IsShared(objPtr)) {
+		objPtr = Tcl_DuplicateObj(objPtr);
+		if (!TclLsetFlat(interp, valuePtr, idxCount, idxPtr, objPtr)) {
+		    return NULL;
+		}
 	    }
 	}
 	
 	idxPtr += idxCount;
 	levelCountPtr++;
-	Tcl_DecrRefCount(valuePtr);
 	valuePtr = objPtr;
 	typeIsHash = !typeIsHash;
     }
+    Tcl_IncrRefCount(objPtr);
     return objPtr;
 }
 

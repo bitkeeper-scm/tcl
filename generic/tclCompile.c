@@ -393,9 +393,10 @@ InstructionDesc tclInstructionTable[] = {
 	 * the type of the first set of indices and if this is a read or
 	 * write operation. Stacktop contains a list of lengths for each
 	 * stage.  */
-    {"l-clone",          2,    -1,        0,    {OPERAND_NONE}},
+    {"l-clone",          2,    -1,        1,    {OPERAND_UINT1}},
         /* Transfers string and internal reps from stacktop to obj below,
-	 * removes stacktop. */
+	 * removes stacktop. If opnd!=0 this is a postincrement, the value
+	 * (not the obj!) originally below stacktop is returned. */
     {0}
 };
 

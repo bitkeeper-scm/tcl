@@ -6830,8 +6830,8 @@ TclExecuteByteCode(
      */
 
     case INST_L_DEEP: {
-	int depth, flags;
-	Tcl_Obj *valuePtr, *countPtr;
+	unsigned int depth, flags, addRefCount = 1;
+	Tcl_Obj *valuePtr, *countPtr, *tmpPtr;
 	
 	depth = TclGetUInt4AtPtr(pc+1);
 	flags = TclGetUInt1AtPtr(pc+5);
@@ -6852,13 +6852,47 @@ TclExecuteByteCode(
 
 	countPtr = OBJ_AT_TOS;
 
+	/*
+	 * Note that valuePtr will be modified in place if it is modified!
+	 */
+	
+	if (flags & L_DEEP_WRITE) {
+	    if (Tcl_IsShared(valuePtr)) {
+		valuePtr = Tcl_DuplicateObj(valuePtr);
+		Tcl_IncrRefCount(valuePtr);
+		addRefCount = -1;
+	    }
+	    Tcl_InvalidateStringRep(valuePtr);
+	}
+
 	objResultPtr = L_DeepDiveIntoStruct(interp, valuePtr,
 		&OBJ_AT_DEPTH(depth-2), countPtr, flags);
 	if (!objResultPtr) {
 	    goto checkForCatch;
 	}
 
-	NEXT_INST_V(6, depth-1, -1);
+	if (!(flags & L_DEEP_WRITE)) {
+	    /* just reading, no modif: simple return. */
+	    NEXT_INST_V(6, depth-1, -1);
+	}
+	
+
+	/*
+	 * If we get here we have to leave two elements on the stack: the new
+	 * full value and the value of the element sought. As the engine is
+	 * not really prepared to do this, we will do some stack surgery.
+	 *
+	 * We wish to leave the full value atop the element value. So: we
+	 * stash the element value (objResultPtr) in place of the first index,
+	 * put that first index on top of the stack to insure it is cleaned
+	 * up, and return the full value in objResultPtr.
+	 */
+
+	tmpPtr = OBJ_AT_DEPTH(depth-2);
+	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount already */
+	*++tosPtr = tmpPtr;
+	objResultPtr = valuePtr;
+	NEXT_INST_V(6, depth-1, addRefCount);	
     }
 
     case INST_L_CLONE: {
@@ -6870,7 +6904,10 @@ TclExecuteByteCode(
 	 * there any such types?
 	 */
 	
-	Tcl_Obj *oldPtr, *newPtr;
+	Tcl_Obj *oldPtr, *newPtr, *resPtr;
+	int postincr;
+
+	postincr = TclGetUInt1AtPtr(pc+1);
 
 	newPtr = POP_OBJECT();
 	oldPtr = OBJ_AT_TOS;
@@ -6883,9 +6920,16 @@ TclExecuteByteCode(
 	if (oldPtr->refCount != 2) {
 	    Tcl_Panic("INST_L_CLONE called with a bad refCount for oldPtr.");
 	}
-	TclInvalidateStringRep(oldPtr);
-	if (oldPtr->typePtr && oldPtr->typePtr->freeIntRepProc) {
-	    oldPtr->typePtr->freeIntRepProc(oldPtr);
+	    
+	if (postincr) {
+	    TclNewObj(resPtr);
+	    *resPtr = *oldPtr;
+	    resPtr->refCount = 1;
+	} else {
+	    TclInvalidateStringRep(oldPtr);
+	    if (oldPtr->typePtr && oldPtr->typePtr->freeIntRepProc) {
+		oldPtr->typePtr->freeIntRepProc(oldPtr);
+	    }
 	}
 	
 	/*
@@ -6900,14 +6944,18 @@ TclExecuteByteCode(
 	    newPtr = Tcl_DuplicateObj(objPtr);
 	    Tcl_DecrRefCount(objPtr);
 	}
-
 	*oldPtr = *newPtr;
-	oldPtr->refCount = 2;
-
 	TclFreeObjStorage(newPtr);
 	TclIncrObjsFreed();
-	
-	NEXT_INST_F(1, 0, 0);
+
+	if (postincr) {
+	    oldPtr->refCount = 1;
+	    OBJ_AT_TOS = resPtr;
+	} else {
+	    oldPtr->refCount = 2;
+	}
+
+	NEXT_INST_F(2, 0, 0);
     }
 
     default:
