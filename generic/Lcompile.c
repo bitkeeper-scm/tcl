@@ -1372,9 +1372,16 @@ L_compile_twiddle(L_expression *expr)
     L_compile_expressions(expr->a);
     /* match/submatch vars. NB: this loop always goes around at least once. */
     for (i = 0; i <= submatchCount; i++) {
-	char buf[128];
-	snprintf(buf, 128, "$%d", i);
-	L_PUSH_STR(buf);
+	 char buf[128];
+	 snprintf(buf, 128, "$%d", i);
+
+	 /*
+	  * You do not want THESE to be shared literals, likely to cause too
+	  * much shimmering with literal numbers
+	  *  L_PUSH_STR(buf);
+	  */
+
+	 L_PUSH_OBJ(Tcl_NewStringObj(buf, -1));
     }
     L_trace("submatch count is %d\n", submatchCount);
     L_INVOKE(5 + submatchCount + modCount);

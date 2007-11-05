@@ -212,8 +212,9 @@ void L_start_lexer();
 }
 
 /* Emit code to push a Tcl_Obj on the stack, guarding against leaks if it has
- * 0 refCount. CURRENTLT UNUSED, it avoids the literal sharing mechanism. */
-#define L_PUSH_OBJ(objPtr) {\
+ * 0 refCount. This sidesteps the literal sharing mechanism. */
+
+#define L_PUSH_OBJ(objPtr) {			\
     Tcl_Obj *newPtr = objPtr;\
     Tcl_IncrRefCount(newPtr);\
     TclEmitPush(TclAddLiteralObj(lframe->envPtr, newPtr, NULL),\
