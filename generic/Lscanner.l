@@ -9,6 +9,9 @@
 %x interpol
 ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
+/*
+ * Copyright (c) 2006-2007 BitMover, Inc.
+ */
 #include <string.h>
 #define	_PWD_H			// Some solaris9 conflict, we don't need pwd.h
 #include "Lcompile.h"

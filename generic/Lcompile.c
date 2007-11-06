@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2006-2007 BitMover, Inc.
+ */
 #include <stdio.h>
 #include <stdarg.h>
 #include "tclInt.h"

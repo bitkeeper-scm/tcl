@@ -1,4 +1,5 @@
 # Test to make sure that bugs don't creep back into L
+# Copyright (c) 2007 BitMover, Inc.
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest 2

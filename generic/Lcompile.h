@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2006-2007 BitMover, Inc.
+ */
 #ifndef L_COMPILE_H
 #define L_COMPILE_H
 

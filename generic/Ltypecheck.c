@@ -1,7 +1,10 @@
 /* A typechecker for the L programming language.  In case not enough type
  * information is available, typechecks are queued up to try again at the end
  * of compilation.  That way it doesn't matter which order functions appear
- * in. */
+ * in.
+ *
+ * Copyright (c) 2006-2007 BitMover, Inc.
+ */
 #include <stdio.h>
 #include "tclInt.h"
 #include "Lcompile.h"

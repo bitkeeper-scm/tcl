@@ -1,4 +1,5 @@
 # Test the L language.
+# Copyright (c) 2007 BitMover, Inc.
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest 2

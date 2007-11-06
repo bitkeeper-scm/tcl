@@ -1,9 +1,10 @@
 # This file provides environment initialization and runtime library
 # support for the L language.  It is loaded automatically by init.tcl.
-
-# this stuff should probably be in its own namespace, but I haven't
-# figured out the right way to import the L namespace for L code yet.
-# --timjr 2006.11.1
+#
+# This stuff should probably be in its own namespace or only turned on when
+# processing L source.  It breaks tcl scripts.
+#
+# Copyright (c) 2007 BitMover, Inc.
 
 proc printf {args} {
 	puts -nonewline [format {*}$args]
@@ -242,10 +243,3 @@ system(string cmd)
 	}
 	return (0);
 }
-
-/*
- * Remapping tcl/tk stuff we use.
- *
- * It would be nice if we could make the compiler do this.  If note, we'll
- * fill this in.
- */
