@@ -5,6 +5,13 @@
 
 2007-11-10  Miguel Sofer  <msofer@users.sf.net>
 
+	* unix/configure: autoconf 2.61
+	
+	* generic/tclBasic.c:
+	* unix/configure.in:
+	* unix/tclUnixInit.c: detect stack grwoth direction at compile
+	time, only fall to runtime detection when crosscompiling.
+
 	* generic/tclBasic.c:
 	* generic/tclInt.h:
 	* tests/interp.test:
