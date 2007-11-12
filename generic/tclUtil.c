@@ -2024,7 +2024,6 @@ Tcl_DStringResult(
     } else {
 	Tcl_SetResult(interp, dsPtr->string, TCL_VOLATILE);
     }
-    ((Interp *) interp)->flags |= INTERP_RESULT_UNCLEAN;
 
     dsPtr->string = dsPtr->staticSpace;
     dsPtr->length = 0;
@@ -3194,6 +3193,8 @@ TclGetPlatform(void)
  *	Returns TCL_OK on success, TCL_ERROR on failure.
  *	If interp is not NULL, an error message is placed in the result.
  *	On success, the DString will contain an exact equivalent glob pattern.
+ *	The caller is responsible for calling Tcl_DStringFree on success.
+ *	If exactPtr is not NULL, it will be 1 if an exact match qualifies.
  *
  * Side effects:
  *	None.
@@ -3220,7 +3221,9 @@ TclReToGlob(Tcl_Interp *interp,
      */
 
     if ((reStrLen >= 4) && (memcmp("***=", reStr, 4) == 0)) {
-	*exactPtr = 1;
+	if (exactPtr) {
+	    *exactPtr = 1;
+	}
 	Tcl_DStringAppend(dsPtr, reStr + 4, reStrLen - 4);
 	return TCL_OK;
     }
@@ -3347,7 +3350,9 @@ TclReToGlob(Tcl_Interp *interp,
     }
 #endif
 
-    *exactPtr = (anchorLeft && anchorRight);
+    if (exactPtr) {
+	*exactPtr = (anchorLeft && anchorRight);
+    }
 
 #if 0
     fprintf(stderr, "INPUT RE '%.*s' OUTPUT GLOB '%s' anchor %d:%d \n",
@@ -3363,6 +3368,9 @@ TclReToGlob(Tcl_Interp *interp,
 	    reStrLen, reStr, msg, *p);
     fflush(stderr);
 #endif
+    if (interp != NULL) {
+	Tcl_AppendResult(interp, msg, NULL);
+    }
     Tcl_DStringFree(dsPtr);
     return TCL_ERROR;
 }
