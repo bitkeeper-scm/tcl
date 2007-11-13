@@ -660,6 +660,9 @@ TclTraceDictPath(
 	dict = newDict;
 	dictPtr = tmpObj;
     }
+    if (flags & DICT_PATH_KILL_STRING) {
+	InvalidateDictChain(dictPtr);
+    }
     return dictPtr;
 }
 

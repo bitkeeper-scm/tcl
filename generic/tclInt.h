@@ -2162,7 +2162,8 @@ typedef struct List {
  *
  * DICT_PATH_UPDATE indicates that we are going to be doing an update at the
  * tip of the path, so duplication of shared objects should be done along the
- * way.
+ * way. If the DICT_PATH_KILL_STRING flag is set the string reps along the
+ * path are reset.
  *
  * DICT_PATH_EXISTS indicates that we are performing an existance test and a
  * lookup failure should therefore not be an error. If (and only if) this flag
@@ -2177,6 +2178,7 @@ typedef struct List {
 #define DICT_PATH_UPDATE	1
 #define DICT_PATH_EXISTS	2
 #define DICT_PATH_CREATE	5
+#define DICT_PATH_KILL_STRING   8
 
 #define DICT_PATH_NON_EXISTENT	((Tcl_Obj *) (void *) 1)
 

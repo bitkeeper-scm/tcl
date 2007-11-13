@@ -2933,9 +2933,9 @@ L_DeepDiveIntoStruct(
 	    if (!(flags & L_DEEP_WRITE)) {
 		traceFlags = DICT_PATH_READ;
 	    } else if (flags & L_DEEP_CREATE) {
-		traceFlags = DICT_PATH_CREATE;
+		traceFlags = DICT_PATH_CREATE|DICT_PATH_KILL_STRING;
 	    } else {
-		traceFlags = DICT_PATH_UPDATE;
+		traceFlags = DICT_PATH_UPDATE|DICT_PATH_KILL_STRING;
 	    }
 
 	    if (idxCount > 1) {
