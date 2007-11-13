@@ -6915,7 +6915,6 @@ TclExecuteByteCode(
 		Tcl_IncrRefCount(valuePtr);
 		addRefCount = -1;
 	    }
-	    Tcl_InvalidateStringRep(valuePtr);
 	}
 
 	objResultPtr = L_DeepDiveIntoStruct(interp, valuePtr,
