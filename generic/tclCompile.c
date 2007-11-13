@@ -386,6 +386,8 @@ InstructionDesc tclInstructionTable[] = {
 	/* Compiled bytecodes to signal syntax error. */
     {"reverse",		 5,    0,         1,	{OPERAND_UINT4}},
 	/* Reverse the order of the arg elements at the top of stack */
+    {"regexp",		 2,   -1,         1,	{OPERAND_INT1}},
+	/* Regexp:	push (regexp stknext stktop) opnd == nocase */
     {"rot",              2,    0,         1,    {OPERAND_UINT1}},
         /* Rotate the top opnd elements in the stack */
     {"l-deep",           6,    INT_MIN,   2,    {OPERAND_UINT4, OPERAND_UINT1}},
@@ -497,7 +499,7 @@ TclSetByteCodeFromAny(
     }
 #endif
 
-    stringPtr = Tcl_GetStringFromObj(objPtr, &length);
+    stringPtr = TclGetStringFromObj(objPtr, &length);
 
     /*
      * TIP #280: Pick up the CmdFrame in which the BC compiler was invoked and

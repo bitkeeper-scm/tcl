@@ -339,6 +339,34 @@ static const OpCmdInfo mathOpCmds[] = {
     { NULL,	NULL,			NULL,
 		{0},			NULL }
 };
+
+#ifdef TCL_NO_STACK_CHECK
+/* stack check disabled: make them noops */
+#define CheckCStack(interp, localIntPtr) 1
+#define GetCStackParams(iPtr) 
+#else /* TCL_NO_STACK_CHECK */
+#ifdef TCL_CROSS_COMPILE
+static int stackGrowsDown = 1;
+#define GetCStackParams(iPtr) \
+    stackGrowsDown = TclpGetCStackParams(&((iPtr)->stackBound))
+#define CheckCStack(iPtr, localIntPtr) \
+    (stackGrowsDown \
+	    ? ((localIntPtr) > (iPtr)->stackBound) \
+	    : ((localIntPtr) < (iPtr)->stackBound) \
+    )
+#else /* TCL_CROSS_COMPILE */
+#define GetCStackParams(iPtr) \
+    TclpGetCStackParams(&((iPtr)->stackBound))
+#ifdef TCL_STACK_GROWS_UP
+#define CheckCStack(iPtr, localIntPtr) \
+	   (!(iPtr)->stackBound || (localIntPtr) < (iPtr)->stackBound)
+#else /* TCL_STACK_GROWS_UP */
+#define CheckCStack(iPtr, localIntPtr) \
+	   ((localIntPtr) > (iPtr)->stackBound)
+#endif /* TCL_STACK_GROWS_UP */
+#endif /* TCL_CROSS_COMPILE */
+#endif /* TCL_NO_STACK_CHECK */
+
 
 /*
  *----------------------------------------------------------------------
@@ -576,6 +604,20 @@ Tcl_CreateInterp(void)
      */
 
     TclInitLimitSupport(interp);
+
+    /*
+     * Initialise the thread-specific data ekeko.
+     */
+
+#if defined(TCL_THREADS) && defined(USE_THREAD_ALLOC)
+    iPtr->allocCache = TclpGetAllocCache();
+#else
+    iPtr->allocCache = NULL;
+#endif
+    iPtr->pendingObjDataPtr = NULL;
+    iPtr->asyncReadyPtr = TclGetAsyncReadyPtr();
+
+    GetCStackParams(iPtr);
 
     /*
      * Create the core commands. Do it here, rather than calling
@@ -3382,6 +3424,7 @@ int
 TclInterpReady(
     Tcl_Interp *interp)
 {
+    int localInt; /* used for checking the stack */
     register Interp *iPtr = (Interp *) interp;
 
     /*
@@ -3409,14 +3452,19 @@ TclInterpReady(
      * probably because of an infinite loop somewhere.
      */
 
-    if (((iPtr->numLevels) > iPtr->maxNestingDepth)
-	    || (TclpCheckStackSpace() == 0)) {
-	Tcl_AppendResult(interp,
-		"too many nested evaluations (infinite loop?)", NULL);
-	return TCL_ERROR;
+    if (((iPtr->numLevels) <= iPtr->maxNestingDepth)
+	    && CheckCStack(iPtr, &localInt)) {
+	return TCL_OK;
     }
 
-    return TCL_OK;
+    if (!CheckCStack(iPtr, &localInt)) {
+	Tcl_AppendResult(interp,
+		"out of stack space (infinite loop?)", NULL);
+    } else {
+	Tcl_AppendResult(interp,
+		"too many nested evaluations (infinite loop?)", NULL);
+    }
+    return TCL_ERROR;
 }
 
 /*
@@ -3477,7 +3525,7 @@ TclEvalObjvInternal(
     Namespace *savedNsPtr = NULL;
     Namespace *lookupNsPtr = iPtr->lookupNsPtr;
     Tcl_Obj *commandPtr = NULL;
-    
+
     if (TclInterpReady(interp) == TCL_ERROR) {
 	return TCL_ERROR;
     }
@@ -3552,7 +3600,7 @@ TclEvalObjvInternal(
 	 */
 
 	commandPtr = GetCommandSource(iPtr, command, length, objc, objv);
-	command = Tcl_GetStringFromObj(commandPtr, &length);
+	command = TclGetStringFromObj(commandPtr, &length);
 	
 	/*
 	 * Execute any command or execution traces. Note that we bump up the
@@ -3621,7 +3669,8 @@ TclEvalObjvInternal(
 	    TCL_DTRACE_CMD_RETURN(TclGetString(objv[0]), code);
 	}
     }
-    if (Tcl_AsyncReady()) {
+
+    if (TclAsyncReady(iPtr)) {
 	code = Tcl_AsyncInvoke(interp, code);
     }
     if (code == TCL_OK && TclLimitReady(iPtr->limit)) {
@@ -4174,7 +4223,7 @@ TclEvalEx(
 		if (tokenPtr->type == TCL_TOKEN_EXPAND_WORD) {
 		    int numElements;
 
-		    code = Tcl_ListObjLength(interp, objv[objectsUsed],
+		    code = TclListObjLength(interp, objv[objectsUsed],
 			    &numElements);
 		    if (code == TCL_ERROR) {
 			/*
@@ -4605,7 +4654,7 @@ TclEvalObjEx(
 		line = 1;
 		for (i=0; i < eoFramePtr->nline; i++) {
 		    eoFramePtr->line[i] = line;
-		    w = Tcl_GetString(elements[i]);
+		    w = TclGetString(elements[i]);
 		    TclAdvanceLines(&line, w, w + strlen(w));
 		}
 
@@ -4962,7 +5011,7 @@ Tcl_ExprLongObj(
     case TCL_NUMBER_LONG:
     case TCL_NUMBER_WIDE:
     case TCL_NUMBER_BIG:
-	result = Tcl_GetLongFromObj(interp, resultPtr, ptr);
+	result = TclGetLongFromObj(interp, resultPtr, ptr);
 	break;
 
     case TCL_NUMBER_NAN:
@@ -5131,7 +5180,7 @@ TclObjInvoke(
 	return TCL_ERROR;
     }
 
-    cmdName = Tcl_GetString(objv[0]);
+    cmdName = TclGetString(objv[0]);
     hTblPtr = iPtr->hiddenCmdTablePtr;
     if (hTblPtr != NULL) {
 	hPtr = Tcl_FindHashEntry(hTblPtr, cmdName);
@@ -5251,7 +5300,7 @@ Tcl_AppendObjToErrorInfo(
     Tcl_Obj *objPtr)		/* Message to record. */
 {
     int length;
-    const char *message = Tcl_GetStringFromObj(objPtr, &length);
+    const char *message = TclGetStringFromObj(objPtr, &length);
 
     Tcl_AddObjErrorInfo(interp, message, length);
     Tcl_DecrRefCount(objPtr);
@@ -6109,7 +6158,7 @@ ExprIntFunc(
 	return TCL_ERROR;
     }
     objPtr = Tcl_GetObjResult(interp);
-    if (Tcl_GetLongFromObj(NULL, objPtr, &iResult) != TCL_OK) {
+    if (TclGetLongFromObj(NULL, objPtr, &iResult) != TCL_OK) {
 	/*
 	 * Truncate the bignum; keep only bits in long range.
 	 */
@@ -6120,7 +6169,7 @@ ExprIntFunc(
 	mp_mod_2d(&big, (int) CHAR_BIT * sizeof(long), &big);
 	objPtr = Tcl_NewBignumObj(&big);
 	Tcl_IncrRefCount(objPtr);
-	Tcl_GetLongFromObj(NULL, objPtr, &iResult);
+	TclGetLongFromObj(NULL, objPtr, &iResult);
 	Tcl_DecrRefCount(objPtr);
     }
     Tcl_SetObjResult(interp, Tcl_NewLongObj(iResult));
@@ -6347,7 +6396,7 @@ ExprSrandFunc(
 	return TCL_ERROR;
     }
 
-    if (Tcl_GetLongFromObj(NULL, objv[1], &i) != TCL_OK) {
+    if (TclGetLongFromObj(NULL, objv[1], &i) != TCL_OK) {
 	Tcl_Obj *objPtr;
 	mp_int big;
 
@@ -6359,7 +6408,7 @@ ExprSrandFunc(
 	mp_mod_2d(&big, (int) CHAR_BIT * sizeof(long), &big);
 	objPtr = Tcl_NewBignumObj(&big);
 	Tcl_IncrRefCount(objPtr);
-	Tcl_GetLongFromObj(NULL, objPtr, &i);
+	TclGetLongFromObj(NULL, objPtr, &i);
 	Tcl_DecrRefCount(objPtr);
     }
 
@@ -6507,7 +6556,7 @@ TclDTraceInfo(
 	for (i = 0; i < 2; i++) {
 	    Tcl_DictObjGet(NULL, info, *k++, &val);
 	    if (val) {
-		Tcl_GetIntFromObj(NULL, val, &(argsi[i]));
+		TclGetIntFromObj(NULL, val, &(argsi[i]));
 	    } else {
 		argsi[i] = 0;
 	    }

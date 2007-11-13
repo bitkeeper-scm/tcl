@@ -637,13 +637,17 @@ typedef struct ByteCode {
 
 #define INST_REVERSE			126
 
-#define INST_ROT                        127
+/* regexp instruction */
 
-#define INST_L_DEEP                     128
-#define INST_L_CLONE                    129
+#define INST_REGEXP			127
+
+/* L stuff */
+#define INST_ROT                        128
+#define INST_L_DEEP                     129
+#define INST_L_CLONE                    130
 
 /* The last opcode */
-#define LAST_INST_OPCODE		129
+#define LAST_INST_OPCODE		130
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for displaying
