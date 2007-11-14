@@ -2611,15 +2611,18 @@ void L_store_typedef(L_expression *name, L_type *type) {
     Tcl_HashEntry *hPtr;
     L_type *t;
 
-    /* mark all dimensions of the type as belonging to a typedef */
-    for (t = type; t; t->typedef_p = TRUE, t = t->next_dim);
-
     hPtr = Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
     if (!new) {
-        // XXX: emit a redefinition warning?
-    }
-    Tcl_SetHashValue(hPtr, type);
+	t = Tcl_GetHashValue(hPtr);
+	if (type->kind != t->kind) {
+            L_errorf(name, "Cannot redefine type: %s", name->u.string);
+	}
+    } else {
+	/* mark all dimensions of the type as belonging to a typedef */
+	for (t = type; t; t->typedef_p = TRUE, t = t->next_dim);
 
+	Tcl_SetHashValue(hPtr, type);
+    }
 }
 
 /* Pattern functions are also handled at parse time. */

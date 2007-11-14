@@ -122,7 +122,7 @@ toplevel_code:
                 $$ = mk_toplevel_statement(L_TOPLEVEL_STATEMENT_TYPE, $1);
                 ((L_toplevel_statement *)$$)->u.type = $2;
         }
-        | toplevel_code T_TYPEDEF type_specifier declarator ";"
+        | toplevel_code T_TYPEDEF type_specifier typedef_specifier ";"
         {
                 L_variable_declaration *typedecl = finish_declaration($3, $4);
                 L_store_typedef(typedecl->name, typedecl->type);
@@ -719,6 +719,14 @@ declarator:
                 $$ = $1;
         }
         ;
+
+typedef_specifier:
+	  declarator
+	| T_TYPE
+        {
+                $$ = mk_variable_declaration(NULL, $1, NULL, FALSE, FALSE, FALSE, NULL);
+        }
+	;
 
 type_specifier:
 	  T_STRING      { $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE); }

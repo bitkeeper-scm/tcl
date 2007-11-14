@@ -311,6 +311,21 @@ puts(String_tolower("FOO"));
 #lang tcl
 } -output "3\nfoo\n"
 
+test typedef-1.0 {L redeclaring types is allowed for same types} -body {
+#lang L
+typedef string FOO;
+typedef string FOO;
+#lang tcl
+} -output ""
+
+test typedef-1.1 {L redefining types is not allowed} -body {
+#lang L
+typedef string BAR;
+typedef int BAR;
+#lang tcl
+} -returnCodes {error} -match glob -result \
+	"*:2: L Error: Cannot redefine type: BAR*"
+
 # cleanup
 ::tcltest::cleanupTests
 return
