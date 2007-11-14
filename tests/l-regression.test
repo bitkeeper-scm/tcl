@@ -304,6 +304,13 @@ foo();
 #lang tcl
 } -output {00000}
 
+test pattern-1.1 {L pattern functions for Tcl commands} -body {
+#lang L
+puts(String_length("FOO"));
+puts(String_tolower("FOO"));
+#lang tcl
+} -output "3\nfoo\n"
+
 # cleanup
 ::tcltest::cleanupTests
 return

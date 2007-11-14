@@ -2640,25 +2640,28 @@ L_lookup_pattern_func(
     L_expression **newName, 	/* The name to use (only if retval is true) */
     L_expression **firstArg) 	/* The argument part of the name */
 {
+    int len;
     char *p, buf[1024];
     Tcl_HashEntry *hPtr = NULL;
     
-    if ((strlen(name) > 0) &&
+    if (((len = strlen(name)) > 0) &&
 	(name[0] >= 'A') && (name[0] <= 'Z') &&
 	(p = strchr(name, '_'))) 
     {
 	hPtr = Tcl_FindHashEntry(L_func_table(), name);
 	if (!hPtr) {
 	    *p = '\0';
-	    snprintf(buf, 1024, "%s_*", name);
-	    *p = '_';
+	    snprintf(buf, sizeof(buf), "%s_*", name);
 	    hPtr = Tcl_FindHashEntry(L_func_table(), buf);
-	    if (hPtr) {
-		MK_STRING_NODE(*newName, buf);
-		MK_STRING_NODE(*firstArg, p+1);
-		L_trace("Pattern function for %s found!", name);
-		return TRUE;
+	    if (!hPtr) {
+		Tcl_UtfToLower(name);
+		strncpy(buf, name, sizeof(buf));
 	    }
+	    *p = '_';
+	    MK_STRING_NODE(*newName, buf);
+	    MK_STRING_NODE(*firstArg, p+1);
+	    L_trace("Pattern function for %s found!", name);
+	    return TRUE;
 	}
     }
     L_trace("No pattern function for %s found", name);
