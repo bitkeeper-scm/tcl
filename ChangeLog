@@ -1,3 +1,61 @@
+2007-11-14  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* generic/regc*.c: Eliminate multi-char collating element code
+	completely. Simplifies the code quite a bit. If people still want the
+	full code, it will remain on the 8.4 branch. [Bug 1831425]
+
+2007-11-13  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tclCompCmds.c (TclCompileRegexpCmd): clean up comments,
+	only free dstring on OK from TclReToGlob.
+	(TclCompileSwitchCmd): simplify TclReToGlob usage.
+
+2007-11-14  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/regc*.c: #ifdef/comment out the code that deals with
+	multi-character collating elements, which have never been supported.
+	Cuts the memory consumption of the RE compiler. [Bug 1831425]
+
+2007-11-13  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/tclCompCmds.c (TclCompileSwitchCmd, TclCompileRegexpCmd):
+	Extend [switch] compiler to handle regular expressions as long as
+	things are not too complex. Fix [regexp] compiler so that non-trivial
+	literal regexps get fed to INST_REGEXP.
+
+	* doc/mathop.n: Clarify definitions of some operations.
+
+2007-11-13  Miguel Sofer  <msofer@users.sf.net>
+
+	* unix/tclUnixInit.c: the TCL_NO_STACK_CHECK was being incorrectly
+	undefined here; this should be set (or not) in the compile options, it
+	is used elsewhere and needs to be consistent.
+
+2007-11-13  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* unix/tcl.m4:       Added autoconf goo to detect and make use of
+	* unix/configure.in: getaddrinfo and friends.
+	* unix/configure:    (regenerated)
+
+2007-11-13  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* unix/tclUnixCompat.c (TclpGetHostByName): The six-argument form of
+	getaddressbyname_r() uses the fifth argument to indicate whether the
+	lookup succeeded or not on at least one platform. [Bug 1618235]
+
+2007-11-13  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/regcomp.c:	Convert optst() from expensive no-op to a
+	cheap no-op.
+
+2007-11-13  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* unix/tclUnixChan.c (CreateSocketAddress): Rewrote to use the
+	thread-safe version of gethostbyname() by forward-porting the code
+	used in 8.4, and added rudimentary support for getaddrinfo() (not
+	enabled by default, as no autoconf-ery written). Part of fix for [Bug
+	1618235]
+
 2007-11-12  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* generic/tclGet.c (Tcl_Get, Tcl_GetInt): revert use of TclGet*
@@ -8,7 +66,7 @@
 
 2007-11-12  Miguel Sofer  <msofer@users.sf.net>
 
-	* generic/tclBasic.c:     New macro TclResetResult, new iPtr flag 
+	* generic/tclBasic.c:     New macro TclResetResult, new iPtr flag
 	* generic/tclExecute.c:   bit INTERP_RESULT_UNCLEAN: shortcut for
 	* generic/tclInt.h:       Tcl_ResetResult for the "normal" case:
 	* generic/tclProc.c:      TCL_OK, no return options, no errorCode
@@ -18,8 +76,8 @@
 
 	THIS PATCH WAS REVERTED: initial (mis)measurements overstated the
 	perfomance wins, which turn out to be tiny. Not worth the
-	complication. 
-	
+	complication.
+
 2007-11-11  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* generic/tclCompCmds.c, generic/tclCompile.c, generic/tclCompile.h:
@@ -33,11 +91,11 @@
 2007-11-11  Miguel Sofer  <msofer@users.sf.net>
 
 	* generic/tclResult.c (ResetObjResult): clarify the logic.
-	
+
 	* generic/tclBasic.c:       Increased usage of macros to detect
-	* generic/tclBinary.c:      and take advantage of objTypes. Added 
+	* generic/tclBinary.c:      and take advantage of objTypes. Added
 	* generic/tclClock.c:       macros TclGet(Int|Long)FromObj,
-	* generic/tclCmdAH.c:       TclGetIntForIndexM and TclListObjLength, 
+	* generic/tclCmdAH.c:       TclGetIntForIndexM and TclListObjLength,
 	* generic/tclCmdIL.c:       modified TclListObjGetElements.
 	* generic/tclCmdMZ.c:
 	* generic/tclCompCmds.c:    The TclGetInt* macros are only a shortcut
@@ -46,8 +104,8 @@
 	* generic/tclDictObj.c:     also to other cases.
 	* generic/tclExecute.c:
 	* generic/tclGet.c:         As this patch touches many files it has
-	* generic/tclIO.c:          been recorded as [Patch 1830038] in order to
-	* generic/tclIOCmd.c:       facilitate reviewing.
+	* generic/tclIO.c:          been recorded as [Patch 1830038] in order
+	* generic/tclIOCmd.c:       to facilitate reviewing.
 	* generic/tclIOGT.c:
 	* generic/tclIndexObj.c:
 	* generic/tclInt.h:
