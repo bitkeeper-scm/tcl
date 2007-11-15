@@ -641,13 +641,18 @@ typedef struct ByteCode {
 
 #define INST_REGEXP			127
 
+/* For [info exists] compilation */
+#define INST_EXIST_SCALAR		128
+#define INST_EXIST_ARRAY		129
+#define INST_EXIST_ARRAY_STK		130
+#define INST_EXIST_STK			131
 /* L stuff */
-#define INST_ROT                        128
-#define INST_L_DEEP                     129
-#define INST_L_CLONE                    130
+#define INST_ROT                        132
+#define INST_L_DEEP                     133
+#define INST_L_CLONE                    134
 
 /* The last opcode */
-#define LAST_INST_OPCODE		130
+#define LAST_INST_OPCODE		134
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for displaying

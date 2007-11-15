@@ -1,3 +1,53 @@
+2007-11-15  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/regc_nfa.c:	Corrected looping logic in fixempties() to
+	avoid wasting time walking a list of dead states. [Bug 1832612]
+
+2007-11-15  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* generic/tclNamesp.c (NamespaceEnsembleCmd): Must pass a non-NULL
+	interp to Tcl_SetEnsemble* functions.
+
+	* doc/re_syntax.n: Try to make this easier to read. It's still a very
+	difficult manual page!
+
+	* unix/tcl.m4 (SC_CONFIG_CFLAGS): Allow people to turn off the -rpath
+	option to their linker if they so desire. This is a configuration only
+	recommended for (some) vendors. Relates to [Patch 1231022].
+
+2007-11-15  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* win/tclWin32Dll.c: Prefer UINT_PTR to DWORD_PTR when casting
+	pointers to integer types for greater portability. [Bug 1831253]
+
+2007-11-15  Daniel Steffen  <das@users.sourceforge.net>
+
+	* macosx/Tcl.xcodeproj/project.pbxproj: add new chanio.test.
+	* macosx/Tcl.xcode/project.pbxproj:
+
+2007-11-14  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* generic/tclCompile.c (TclCompileScript): Ensure that we get our
+	count in our INST_START_CMD calls right, even when there's a failure
+	to compile a command directly.
+
+	* generic/tclNamesp.c (Tcl_SetEnsembleSubcommandList) 
+	(Tcl_SetEnsembleMappingDict):		Special code to make sure that
+	* generic/tclCmdIL.c (TclInitInfoCmd):	[info exists] is compiled right
+	while not allowing changes to the ensemble to cause havok.
+
+	* generic/tclCompCmds.c (TclCompileInfoCmd): Simple compiler for the
+	[info] command that only handles [info exists].
+	* generic/tclExecute.c (TclExecuteByteCode:INST_EXIST_*): New
+	instructions to allow the testing of whether a variable exists.
+
+2007-11-14  Andreas Kupries  <andreask@activestate.com>
+
+	* tests/chanio.test: New file. This is essentially a duplicate of
+	'io.test', with all channel commands converted to their 'chan xxx'
+	notation.
+	* tests/io.test: Fixed typo in test description.
+
 2007-11-14  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
 
 	* generic/regc*.c: Eliminate multi-char collating element code
