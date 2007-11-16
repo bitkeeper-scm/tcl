@@ -326,6 +326,25 @@ typedef int BAR;
 } -returnCodes {error} -match glob -result \
 	"*:2: L Error: Cannot redefine type: BAR*"
 
+test crash-1.1 {crashing in some interim versions} -body {
+#lang L
+    struct xy { int x,y; };
+    struct xy xys[2];
+    xys[0].x = 1;
+    return xys;
+} -result {{1 0} {0 0}}
+
+test crash-1.1 {crashing in some interim versions} -body {
+#lang L
+    struct xy { int x,y; };
+    struct xy xys[];
+    xys[0].x = 1;
+    xys[1].y = 2;
+    return xys;
+} -returnCodes error -result {autoextending nested arrays not implemented yet}
+
+
+
 # cleanup
 ::tcltest::cleanupTests
 return

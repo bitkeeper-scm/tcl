@@ -3090,6 +3090,18 @@ L_DeepDiveIntoStruct(
 		if (!lastPtr) {
 		    goto listErr;
 		}
+		if (lastPtr->refCount < 2) {
+		    int len;
+
+		    Tcl_ListObjLength(NULL, currValuePtr, &len);
+		    if ((idxCount-1) >= len) {
+			goto autoErr;
+		    } else if ((idxCount-1) < 0) {
+			goto listErr;
+		    }
+		    fprintf(stderr, "element %i of list \n'%s'\n is '%s'\n\n", idxCount-1, TclGetString(currValuePtr), TclGetString(lastPtr));
+		    Tcl_Panic("lastPtr has refCount %i<2, how come?\n");
+		}
 		Tcl_DecrRefCount(lastPtr);
 		if (write) {
 		    /*
@@ -3122,9 +3134,10 @@ L_DeepDiveIntoStruct(
 	    
 	    if (idx >= len) {
 		/*
-		 * FIXME: auto-extending arrays GO HERE!
+		 * FIXME: auto-extending arrays GO HERE? This code assume the
+		 * depth is there ... do initialise for auto-extending.
 		 */
-		goto listErr;
+		goto autoErr;
 	    }
 	    if (write && (((List *)(lastPtr->internalRep.otherValuePtr))->refCount != 1)) {
 		Tcl_Obj *objPtr = resultPtrPtr[idx];
@@ -3137,6 +3150,9 @@ L_DeepDiveIntoStruct(
 
 	if (write) Tcl_InvalidateStringRep(currValuePtr);
 	currValuePtr = *resultPtrPtr;
+	if (!currValuePtr) {
+	    goto autoErr;
+	}
 	if (write) {
 	    Tcl_InvalidateStringRep(lastPtr);
 	    if (Tcl_IsShared(currValuePtr) && (i != numLevels-1)) {
@@ -3179,7 +3195,12 @@ L_DeepDiveIntoStruct(
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "key not known in dictionary", NULL);
     return NULL;
-}
+
+    autoErr:
+    Tcl_ResetResult(interp);
+    Tcl_AppendResult(interp, "autoextending nested arrays not implemented yet", NULL);
+    return NULL;
+    }
 
 
 /*

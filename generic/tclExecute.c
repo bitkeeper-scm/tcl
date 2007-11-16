@@ -7040,6 +7040,7 @@ TclExecuteByteCode(
 	    if (addRefCount == -1) {
 		Tcl_DecrRefCount(valuePtr);
 	    }
+	    result = TCL_ERROR;
 	    goto checkForCatch;
 	}
 
