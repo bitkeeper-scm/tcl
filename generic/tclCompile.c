@@ -395,11 +395,14 @@ InstructionDesc tclInstructionTable[] = {
 	 * stack depth where the indices start, opnd2 are flags indicating
 	 * the type of the first set of indices and if this is a read or
 	 * write operation. Stacktop contains a list of lengths for each
-	 * stage.  */
-    {"l-clone",          2,    -1,        1,    {OPERAND_UINT1}},
-        /* Transfers string and internal reps from stacktop to obj below,
-	 * removes stacktop. If opnd!=0 this is a postincrement, the value
-	 * (not the obj!) originally below stacktop is returned. */
+	 * stage. Leaves a special LdeepPtrType obj at stacktop */
+    {"l-readDeepPtr",          1,    0,        0,    {OPERAND_NONE}},
+        /* Read obj from/to the location pointed to at stackTop. */
+    {"l-writeDeepPtr",         2,   -1,        1,    {OPERAND_UINT1}},
+        /* Write value contained at stackTop to the location pointed to right
+	 * below. The opnd indicates if this is a "post-incr" operation: if
+	 * !=0 return the old (instead of the new) value at the pointed
+	 * location*/  
     {0}
 };
 

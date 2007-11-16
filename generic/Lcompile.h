@@ -203,16 +203,13 @@ void L_start_lexer();
 }
 
 /* Emit code to push a literal string on the stack. */
-#define L_PUSH_STR(str) {\
-    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, str,\
-                                      strlen(str)),\
-                lframe->envPtr);\
-}
+#define L_PUSH_STR(str) \
+    TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, (str), \
+            strlen(str)), lframe->envPtr)
 
-#define L_PUSH_CSTR(str, len) {					\
+#define L_PUSH_CSTR(str, len) \
     TclEmitPush(TclRegisterNewLiteral(lframe->envPtr, (str), (len)), \
-                lframe->envPtr);\
-}
+                lframe->envPtr)
 
 /* Emit code to push a Tcl_Obj on the stack, guarding against leaks if it has
  * 0 refCount. This sidesteps the literal sharing mechanism. */
@@ -235,7 +232,7 @@ void L_start_lexer();
 }
 	
 #define L_POP() \
-    TclEmitOpcode(INST_POP, lframe->envPtr)	
+    TclEmitOpcode(INST_POP, lframe->envPtr)
 
 
 /*
@@ -247,9 +244,12 @@ void L_start_lexer();
 #define L_DEEP_WRITE      2
 #define L_DEEP_CREATE     4
 
+MODULE_SCOPE Tcl_ObjType LdeepPtrType;
+
 MODULE_SCOPE Tcl_Obj * L_DeepDiveIntoStruct(Tcl_Interp *interp,
 	Tcl_Obj *valuePtr, Tcl_Obj **idxPtr, Tcl_Obj *countPtr,
 	int flags);
+
 
 #endif /* L_COMPILE_H */
 

@@ -6884,7 +6884,7 @@ TclExecuteByteCode(
 
     case INST_L_DEEP: {
 	unsigned int depth, flags, addRefCount = 1;
-	Tcl_Obj *valuePtr, *countPtr, *tmpPtr;
+	Tcl_Obj *valuePtr, *tmpPtr;
 	
 	depth = TclGetUInt4AtPtr(pc+1);
 	flags = TclGetUInt1AtPtr(pc+5);
@@ -6893,33 +6893,38 @@ TclExecuteByteCode(
 	 * Get the old value of variable, and remove the stack ref. This is
 	 * safe because the variable still references the object; the ref
 	 * count will never go zero here - we can use the smaller macro
-	 * Tcl_DecrRefCount.
+	 * Tcl_DecrRefCount. If writing and it is shared use an unshared copy,
+	 * as we will be modifying in place.
 	 */
 
+	//fprintf(stderr, "depth is %i\n", CURR_DEPTH);
 	valuePtr = POP_OBJECT();
+	if (valuePtr->refCount < 2) {
+	    Tcl_Panic("Entering INST_L_DEEP with refCount < 2!");
+	}
 	Tcl_DecrRefCount(valuePtr); /* This one should be done here */
-
-	/*
-	 * Get the list of index counts
-	 */
-
-	countPtr = OBJ_AT_TOS;
-
-	/*
-	 * Note that valuePtr will be modified in place if it is modified!
-	 */
-	
+	//fprintf(stdout, "**************************\n");
 	if (flags & L_DEEP_WRITE) {
 	    if (Tcl_IsShared(valuePtr)) {
+		//fprintf(stdout, "YES!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
 		valuePtr = Tcl_DuplicateObj(valuePtr);
 		Tcl_IncrRefCount(valuePtr);
 		addRefCount = -1;
+		//fprintf(stdout, "NOW!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
 	    }
 	}
+	//fflush(stdout);
+	
+	/*
+	 * Dive with the list of index counts at tos.
+	 */
 
 	objResultPtr = L_DeepDiveIntoStruct(interp, valuePtr,
-		&OBJ_AT_DEPTH(depth-2), countPtr, flags);
+		&OBJ_AT_DEPTH(depth-2), OBJ_AT_TOS, flags);
 	if (!objResultPtr) {
+	    if (addRefCount == -1) {
+		Tcl_DecrRefCount(valuePtr);
+	    }
 	    goto checkForCatch;
 	}
 
@@ -6928,86 +6933,78 @@ TclExecuteByteCode(
 	    NEXT_INST_V(6, depth-1, -1);
 	}
 	
-
 	/*
 	 * If we get here we have to leave two elements on the stack: the new
-	 * full value and the value of the element sought. As the engine is
-	 * not really prepared to do this, we will do some stack surgery.
+	 * full value and the pointer to the location of the element
+	 * sought. 
 	 *
-	 * We wish to leave the full value atop the element value. So: we
-	 * stash the element value (objResultPtr) in place of the first index,
-	 * put that first index on top of the stack to insure it is cleaned
-	 * up, and return the full value in objResultPtr.
+	 * We wish to leave the full value atop the element pointer. So: we
+	 * stash the element pointer (objResultPtr) in place of the first index,
+	 * stash the index on the stack, and return the full value in
+	 * objResultPtr while requesting cleanup of the indices and countPtr.
 	 */
+
+	//fprintf(stderr, "addRefCount? %i (val %p:'%s', refCount: %i): refCount: %i %p:'%s'\n", addRefCount, objResultPtr, TclGetString(objResultPtr), objResultPtr->refCount, valuePtr->refCount, valuePtr,TclGetString(valuePtr));
 
 	tmpPtr = OBJ_AT_DEPTH(depth-2);
-	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount already */
-	*++tosPtr = tmpPtr;
+	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount 1 already */
+	*(++tosPtr) = tmpPtr;
 	objResultPtr = valuePtr;
-	NEXT_INST_V(6, depth-1, addRefCount);	
+	NEXT_INST_V(6, depth-1, addRefCount);
     }
 
-    case INST_L_CLONE: {
-	/*
-	 * DANGEROUS!
-	 *
-	 * THIS DOES SOME NASTY SURGERY. If newPtr has an internal rep that
-	 * refers to the actual memory location of newPtr, this will bomb! Are
-	 * there any such types?
-	 */
-	
-	Tcl_Obj *oldPtr, *newPtr, *resPtr;
-	int postincr;
+    case INST_L_R_DEEP_PTR: {
+	Tcl_Obj *ptrObj = OBJ_AT_TOS;
 
-	postincr = TclGetUInt1AtPtr(pc+1);
-
-	newPtr = POP_OBJECT();
-	oldPtr = OBJ_AT_TOS;
-
-	/*
-	 * oldPtr has refCount 2: one for the stack, another for the struct
-	 * that we are modifying in-place. Clear it now.
-	 */
-
-	if (oldPtr->refCount != 2) {
-	    Tcl_Panic("INST_L_CLONE called with a bad refCount for oldPtr.");
+	if (!ptrObj->typePtr || (ptrObj->typePtr != &LdeepPtrType)) {
+	    Tcl_Panic("Deep reading a bad obj type!");
 	}
-	    
-	if (postincr) {
-	    TclNewObj(resPtr);
-	    *resPtr = *oldPtr;
-	    resPtr->refCount = 1;
-	} else {
-	    TclInvalidateStringRep(oldPtr);
-	    if (oldPtr->typePtr && oldPtr->typePtr->freeIntRepProc) {
-		oldPtr->typePtr->freeIntRepProc(oldPtr);
+	if (ptrObj->refCount != 1) {
+	    if (ptrObj != OBJ_AT_DEPTH(1)) {
+		Tcl_Panic("Deep reading a bad obj refCount!");
 	    }
 	}
+	objResultPtr = *((Tcl_Obj **)ptrObj->internalRep.otherValuePtr);
+	NEXT_INST_F(1,1,1);
+    }
 	
-	/*
-	 * Insure that newPtr is an unshared obj, transfer the contents to
-	 * oldPtr and  readjust the refCount. After this newPtr can be safely
-	 * discarded. This is using macros from tclInt.h - not nice.
-	 */
+    case INST_L_W_DEEP_PTR: {
+	Tcl_Obj *newPtr = POP_OBJECT(), *oldPtr;
+	Tcl_Obj *ptrObj = OBJ_AT_TOS;
+	int postincr = TclGetUInt1AtPtr(pc+1);
+	Tcl_Obj **slotPtr = ((Tcl_Obj **)ptrObj->internalRep.otherValuePtr);
 	
-	if (Tcl_IsShared(newPtr)) {
-	    Tcl_Obj *objPtr = newPtr;
-
-	    newPtr = Tcl_DuplicateObj(objPtr);
-	    Tcl_DecrRefCount(objPtr);
+	if (!ptrObj->typePtr || (ptrObj->typePtr != &LdeepPtrType)) {
+	    Tcl_Panic("Deep writing a bad obj type!");
 	}
-	*oldPtr = *newPtr;
-	TclFreeObjStorage(newPtr);
-	TclIncrObjsFreed();
+	if (ptrObj->refCount != 1) {
+	    Tcl_Panic("Deep writing a bad obj refCount!");
+	}
+
+	oldPtr = *slotPtr;
+	*slotPtr = newPtr;
 
 	if (postincr) {
-	    oldPtr->refCount = 1;
-	    OBJ_AT_TOS = resPtr;
+	    /*
+	     * Push the old value. Refcounts:
+	     *   - oldPtr: lose one as struct elem, gain one at tos
+	     *   - newPtr: lose one at tos, gain as struct elem
+	     */  
+	    
+	    OBJ_AT_TOS = oldPtr;
 	} else {
-	    oldPtr->refCount = 2;
-	}
+	    /*
+	     * Push the new value, lose the old. Refcounts:
+	     *   - oldPtr: lose one as struct elem in slot
+	     *   - newPtr: lose one at tos, gain one as struct elem in slot
+	     *             and another one at tos
+	     */  
 
-	NEXT_INST_F(2, 0, 0);
+	    OBJ_AT_TOS = newPtr;
+	    Tcl_IncrRefCount(newPtr);
+	    Tcl_DecrRefCount(oldPtr);
+	}
+	NEXT_INST_F(2,0,0);
     }
 
     default:

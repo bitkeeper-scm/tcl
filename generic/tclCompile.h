@@ -644,10 +644,11 @@ typedef struct ByteCode {
 /* L stuff */
 #define INST_ROT                        128
 #define INST_L_DEEP                     129
-#define INST_L_CLONE                    130
+#define INST_L_R_DEEP_PTR               130
+#define INST_L_W_DEEP_PTR               131
 
 /* The last opcode */
-#define LAST_INST_OPCODE		130
+#define LAST_INST_OPCODE		131
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for displaying
