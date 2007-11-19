@@ -153,6 +153,44 @@ test leak-2.3 {leaks in arrays} -body {
     leak();
 } -constraints memory -output "0 12\n"
 
+test leak-2.4 {leaks in arrays} -body {
+#lang L
+    leak() {
+	int tmp, end, i, j[2][2];
+
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j[0][0]=i;
+	    j[0][1]=2*j[0][0]+i;
+	    j[1][0]=j[0][0]+j[0][1];
+	    j[1][1]=2*j[1][0]+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {{4 12} {16 36}}\n"
+
+test leak-2.5 {leaks in arrays} -body {
+#lang L
+    leak() {
+	int tmp, end, i, t, j[2][2][2];
+
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    for (t=0; t < 2; t++) {
+	        j[0][i%2][t]=i+t;
+	        j[1][i%2][t]=i*i+t;
+	    }
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {{{4 5} {3 4}} {{16 17} {9 10}}}\n"
+
 test leak-3.1 {leaks in hashes} -body {
 #lang L
     leak() {
@@ -163,10 +201,11 @@ test leak-3.1 {leaks in hashes} -body {
 	for(i=0; i<5;i++) {
 	    j{"0"}=i;
 	    j{"1"}=2*(int)j{"0"}+i;
+	    j{"2"}=2*(int)j{"0"}+i;
             tmp=end;
 	    end = getbytes();
 	}
-	puts(list(end-tmp, j{"1"}));
+	puts(list(end-tmp, j{"0"}));
     }
     leak();
 } -constraints memory -output "0 12\n"
@@ -194,6 +233,62 @@ test leak-3.2 {leaks in hashes} -body {
     leak();
 } -constraints memory -output "0 12\n"
 
+test leak-4.1 {leaks in structs} -body {
+#lang L
+    struct js {int x, y;};
+    leak() {
+	int tmp, end, i;
+	struct js j;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j.x=i;
+	    j.y=2*j.x+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {4 12}\n"
+
+test leak-4.2 {leaks in structs} -body {
+#lang L
+    struct js {int x, y[2];};
+    leak() {
+	int tmp, end, i;
+	struct js j;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j.x=i;
+	    j.y[0]=2*j.x+i;
+	    j.y[1]=2*j.y[0]+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {4 {12 28}}\n"
+
+test leak-4.3 {leaks in structs} -body {
+#lang L
+    struct js {int x, y;};
+    leak() {
+	int tmp, end, i;
+	struct js j[2];
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j[0].x=i;
+	    j[0].y=2*j[0].x+i;
+	    j[1].x=j[0].x+j[0].y;
+	    j[1].y=2*j[1].x+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {{4 12} {16 36}}\n"
 
 
 
