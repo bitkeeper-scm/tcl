@@ -122,7 +122,6 @@ test leak-2.2 {leaks in arrays} -body {
 	end = getbytes();
 	for(i=0; i<5;i++) {
 	    j[0]=i;
-	    j[1]=2;
 	    j[1]=2*j[0]+i;
             tmp=end;
 	    end = getbytes();

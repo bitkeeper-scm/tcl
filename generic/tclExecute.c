@@ -6998,12 +6998,13 @@ TclExecuteByteCode(
      */
 
     case INST_L_DEEP: {
-	unsigned int depth, flags, addRefCount = 1;
+	unsigned int depth, flags, write, addRefCount = 1;
 	Tcl_Obj *valuePtr, *tmpPtr;
 	
 	depth = TclGetUInt4AtPtr(pc+1);
 	flags = TclGetUInt1AtPtr(pc+5);
-
+	write = (flags & L_DEEP_WRITE);
+	
 	/*
 	 * Get the old value of variable, and remove the stack ref. This is
 	 * safe because the variable still references the object; the ref
@@ -7019,7 +7020,7 @@ TclExecuteByteCode(
 	}
 	Tcl_DecrRefCount(valuePtr); /* This one should be done here */
 	//fprintf(stdout, "**************************\n");
-	if (flags & L_DEEP_WRITE) {
+	if (write) {
 	    if (Tcl_IsShared(valuePtr)) {
 		//fprintf(stdout, "YES!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
 		valuePtr = Tcl_DuplicateObj(valuePtr);
@@ -7044,7 +7045,7 @@ TclExecuteByteCode(
 	    goto checkForCatch;
 	}
 
-	if (!(flags & L_DEEP_WRITE)) {
+	if (!write) {
 	    /* just reading, no modif: simple return. */
 	    NEXT_INST_V(6, depth-1, -1);
 	}
@@ -7099,7 +7100,8 @@ TclExecuteByteCode(
 
 	oldPtr = *slotPtr;
 	*slotPtr = newPtr;
-
+	Tcl_DecrRefCount(ptrObj);
+	
 	if (postincr) {
 	    /*
 	     * Push the old value. Refcounts:

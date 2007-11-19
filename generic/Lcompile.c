@@ -2962,9 +2962,24 @@ L_DeepDiveIntoStruct(
     
     int result, numLevels, i;
     Tcl_Obj **levelCountPtr, *currValuePtr = valuePtr;
-    Tcl_Obj **resultPtrPtr, *lastPtr;
+    Tcl_Obj **resultPtrPtr, *lastPtr, *elemPtr = NULL;
     int create = (flags & L_DEEP_CREATE);
     int write = (flags & L_DEEP_WRITE);
+
+    /*
+     * TODO:
+     *   - negative indices for lists
+     *   - special case for just 1 level? Standard dict and list commands
+     *     handle this. Note that the dict opcode for dict-set requires a var!
+     *     Do we want to insist on deep-diving only into vars, or are values
+     *     fair game too?
+     *   - make sure (in the compiler) that struct offsets are always
+     *     literals.
+     *   - auto-extend: need to know (at the prober nesting levels) if the
+     *     level is extensible, and access to the level's initialiser. For
+     *     dict levels extensibility is easy (always extensible).
+     */
+    
     
     if (write && (valuePtr->refCount != 1)) {
 	Tcl_Panic(
@@ -2972,21 +2987,42 @@ L_DeepDiveIntoStruct(
 	    valuePtr->refCount);
     }
 
-    result = Tcl_ListObjGetElements(interp, countPtr, &numLevels, &levelCountPtr);
-    if (result != TCL_OK) {
-	return NULL;
-    }
+    if ((countPtr->typePtr != &tclListType) &&
+	    (TCL_OK == TclGetIntFromObj(NULL, countPtr, &i))) {
+	/* NOTE: when countPtr is a singleton, this already cause unwanted 
+	 * shimmering between dict and number! Special case it.
+	 */
 
-    if (!numLevels) {
-	return valuePtr;
+	numLevels = 1;
+	levelCountPtr = &countPtr;
+    } else {
+	if (Tcl_IsShared(countPtr)) {
+	    /*
+	     * Make a copy to prevent the intrep to shimmer away from us.
+	     */
+	    
+	    countPtr = TclListObjCopy(interp, countPtr);
+	    if (!countPtr) {
+		return NULL;
+	    }
+	}
+	
+	result = Tcl_ListObjGetElements(interp, countPtr, &numLevels, &levelCountPtr);
+	if (result != TCL_OK) {
+	    return NULL;
+	}
+	if (!numLevels) {
+	    return NULL;
+	}
     }
+    Tcl_IncrRefCount(countPtr);
     
     for (i = 0; i < numLevels; i++) {
 	int idxCount;
 
 	result = Tcl_GetIntFromObj(interp, *levelCountPtr, &idxCount);
 	if (result != TCL_OK) {
-	    return NULL;
+	    goto done;
 	}
 	
 	if (typeIsHash) {
@@ -3099,7 +3135,11 @@ L_DeepDiveIntoStruct(
 		    } else if ((idxCount-1) < 0) {
 			goto listErr;
 		    }
-		    fprintf(stderr, "element %i of list \n'%s'\n is '%s'\n\n", idxCount-1, TclGetString(currValuePtr), TclGetString(lastPtr));
+		    /*
+		     * Is this really a good test for "autoextending along the
+		     * path"? Does that case always return an unshared {}?
+		     */
+		    
 		    Tcl_Panic("lastPtr has refCount %i<2, how come?\n");
 		}
 		Tcl_DecrRefCount(lastPtr);
@@ -3140,6 +3180,10 @@ L_DeepDiveIntoStruct(
 		goto autoErr;
 	    }
 	    if (write && (((List *)(lastPtr->internalRep.otherValuePtr))->refCount != 1)) {
+		/*
+		 * Force a copy of the List internal rep: we do need it unshared!
+		 */
+		
 		Tcl_Obj *objPtr = resultPtrPtr[idx];
 
 		TclListObjSetElement(NULL, lastPtr, idx, objPtr);
@@ -3168,39 +3212,40 @@ L_DeepDiveIntoStruct(
 	typeIsHash = !typeIsHash;
     }
     
-    if (flags & L_DEEP_WRITE) {
-	if (valuePtr->refCount != 1) {
-	    fprintf(stderr, "valuePtr %p:'%s', currValuePtr %p:'%s'\n", valuePtr, TclGetString(valuePtr), currValuePtr, TclGetString(currValuePtr));
-	    Tcl_Panic(
-		"L_DeepDiveIntoStruct called for writing, exiting with obj with refCount = %i != 1!",
-		valuePtr->refCount);
-	}
+    if (write && (valuePtr->refCount != 1)) {
+	fprintf(stderr, "valuePtr %p:'%s', currValuePtr %p:'%s'\n", valuePtr, TclGetString(valuePtr), currValuePtr, TclGetString(currValuePtr));
+	Tcl_Panic(
+	    "L_DeepDiveIntoStruct called for writing, exiting with obj with refCount = %i != 1!",
+	    valuePtr->refCount);
+	
     }
 
-    { Tcl_Obj *objPtr = Tcl_NewObj();
-	objPtr->bytes = NULL;
-	objPtr->length = 0;
-	objPtr->refCount = 1;
-	objPtr->typePtr = &LdeepPtrType;
-	objPtr->internalRep.otherValuePtr = resultPtrPtr;
-	return objPtr;
-    }
+    elemPtr = Tcl_NewObj();
+    elemPtr->bytes = NULL;
+    elemPtr->length = 0;
+    elemPtr->refCount = 1;
+    elemPtr->typePtr = &LdeepPtrType;
+    elemPtr->internalRep.otherValuePtr = resultPtrPtr;
+
+    done:
+    Tcl_DecrRefCount(countPtr);
+    return elemPtr;
 
     listErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "index not present in array", NULL);
-    return NULL;
+    goto done;
 
     dictErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "key not known in dictionary", NULL);
-    return NULL;
+    goto done;
 
     autoErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "autoextending nested arrays not implemented yet", NULL);
-    return NULL;
-    }
+    goto done;
+}
 
 
 /*
