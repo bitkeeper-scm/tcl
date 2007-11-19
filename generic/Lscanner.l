@@ -125,6 +125,7 @@ tally_newlines(
         "hash"          return T_HASH;
         "poly"          return T_POLY;
         "var"           return T_VAR;
+	"widget"	return T_WIDGET;
 
         "("[ \t]*"string"[ \t]*")"      return T_STRING_CAST;
         "("[ \t]*"tcl"[ \t]*")"         return T_TCL_CAST;

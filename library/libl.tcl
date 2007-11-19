@@ -18,7 +18,7 @@ proc fprintf {stdio args} {
 # XXX - I'd really like a C preprocessor for this stuff
 # But we need {*} in L.
 proc sprintf {args} {
-	return [format {*}args]
+	return [format {*}$args]
 }
 
 set ::%%suppress_calling_main 0

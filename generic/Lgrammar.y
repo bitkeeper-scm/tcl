@@ -82,7 +82,7 @@ pattern_funcall_rewrite(L_expression *funcall)
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
-%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
+%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
 %token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_INCLUDE T_PATTERN
 
@@ -735,6 +735,7 @@ type_specifier:
 	| T_HASH        { $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL, FALSE); }
 	| T_POLY        { $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE); }
 	| T_VAR         { $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL, FALSE); }
+	| T_WIDGET      { $$ = mk_type(L_TYPE_WIDGET, NULL, NULL, NULL, NULL, FALSE); }
         | T_TYPE        { $$ = L_lookup_typedef($1, TRUE); }
         | struct_specifier
 	;

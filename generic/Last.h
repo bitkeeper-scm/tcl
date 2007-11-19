@@ -86,7 +86,8 @@ typedef enum L_type_kind {
 	L_TYPE_STRING,
 	L_TYPE_STRUCT,
 	L_TYPE_VAR,
-	L_TYPE_VOID
+	L_TYPE_VOID,
+	L_TYPE_WIDGET
 } L_type_kind;
 
 extern char *L_type_tostr[10];

@@ -344,6 +344,21 @@ test crash-1.1 {crashing in some interim versions} -body {
 } -returnCodes error -result {autoextending nested arrays not implemented yet}
 
 
+test pattern-1.2 {L widget pattern functions} -body {
+#lang L
+foo(...args)
+{
+	puts(args);
+}
+
+bar()
+{
+	widget w = "foo";
+	Text_insert(w, "end", "FOO");
+}
+bar();
+#lang tcl
+} -output "insert end FOO\n"
 
 # cleanup
 ::tcltest::cleanupTests

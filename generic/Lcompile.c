@@ -50,6 +50,11 @@ typedef struct Dict {
 #define SourceOffset(node) \
     ((L_ast_node *)node)->offset
 
+#define looks_like_pattern_func(name, len, p) \
+    (((len = strlen(name)) > 0) &&					\
+	(name[0] >= 'A') && (name[0] <= 'Z') &&				\
+	(p = strchr(name, '_'))) 
+
 L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
 Tcl_Obj *L_errors = NULL;
@@ -126,6 +131,7 @@ static void L_do_includes(Tcl_Interp *interp, const char *str, int numBytes);
 static int fresh_include_p(Tcl_Interp *interp, const char *file);
 static Tcl_HashTable *L_include_table();
 static char *L_include_search(Tcl_Interp *interp, const char *file);
+static Tcl_HashTable *L_func_table();
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -983,17 +989,38 @@ param_passed_by_name_p(L_variable_declaration *p)
 void
 L_compile_expressions(L_expression *expr)
 {
-    int param_count, startOffset;
+    int len, param_count, startOffset;
+    char *p, *name;
+    L_type *type;
     L_symbol *symbol;
+    Tcl_HashEntry *hPtr;
 
     if (!expr) return;
     startOffset = CurrentOffset(lframe->envPtr);
     switch (expr->kind) {
     case L_EXPRESSION_FUNCALL:
-	L_trace("compiling a call to %s", expr->a->u.string);
+    	name = expr->a->u.string;
+	L_trace("compiling a call to %s", name);
         if ((symbol = L_get_local_symbol(expr->a, FALSE))) {
 	    /* looks like the function name is in a variable */
 	    L_push_variable(expr);
+	} else if (looks_like_pattern_func(name, len, p)
+	    && !(hPtr = Tcl_FindHashEntry(L_func_table(), name))) {
+		L_expression *newArg;
+
+		MK_STRING_NODE(newArg, p+1);
+		if ((type = L_expression_type(expr->b))
+		    && (type->kind == L_TYPE_WIDGET)) {
+		    L_push_variable(expr->b);
+		    newArg->next = expr->b->next;
+		} else {
+		    *p = '\0';
+		    Tcl_UtfToLower(name);
+		    L_PUSH_STR(name);
+		    newArg->next = expr->b;
+		    *p = '_';
+		}
+		expr->b = newArg;
 	} else {
 	    L_PUSH_STR(expr->a->u.string);
 	}
@@ -2695,7 +2722,7 @@ static Tcl_HashTable *L_func_table() {
  * :newName, and the value to use for the first parameter is in :firstArg. */
 int
 L_lookup_pattern_func(
-    char *name, 		/* The name of the function to look up */
+    char	 *name, 	/* The name of the function to look up */
     L_expression **newName, 	/* The name to use (only if retval is true) */
     L_expression **firstArg) 	/* The argument part of the name */
 {
@@ -2703,20 +2730,14 @@ L_lookup_pattern_func(
     char *p, buf[1024];
     Tcl_HashEntry *hPtr = NULL;
     
-    if (((len = strlen(name)) > 0) &&
-	(name[0] >= 'A') && (name[0] <= 'Z') &&
-	(p = strchr(name, '_'))) 
-    {
-	hPtr = Tcl_FindHashEntry(L_func_table(), name);
-	if (!hPtr) {
-	    *p = '\0';
-	    snprintf(buf, sizeof(buf), "%s_*", name);
-	    hPtr = Tcl_FindHashEntry(L_func_table(), buf);
-	    if (!hPtr) {
-		Tcl_UtfToLower(name);
-		strncpy(buf, name, sizeof(buf));
-	    }
-	    *p = '_';
+    if (looks_like_pattern_func(name, len, p)
+    	&& !(hPtr = Tcl_FindHashEntry(L_func_table(), name))) {
+	/* The function being called is not a real function. */
+	*p = '\0';
+	snprintf(buf, sizeof(buf), "%s_*", name);
+	hPtr = Tcl_FindHashEntry(L_func_table(), buf);
+	*p = '_';
+	if (hPtr) {
 	    MK_STRING_NODE(*newName, buf);
 	    MK_STRING_NODE(*firstArg, p+1);
 	    L_trace("Pattern function for %s found!", name);
