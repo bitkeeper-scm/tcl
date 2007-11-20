@@ -207,6 +207,7 @@ int
 TclCompileLCmd(
     Tcl_Interp *interp,
     Tcl_Parse *parsePtr,
+    Command *cmdPtr,		// unused
     CompileEnv *envPtr)
 {
     Tcl_Token *lTokenPtr;
