@@ -3077,8 +3077,6 @@ L_DeepDiveIntoStruct(
 
 		lastPtr = currValuePtr;
 	    } else {
-		Tcl_Panic("BOO1\n"); // untested!!
-		
 		int traceFlags = 0;
 
 		if (!write) {
@@ -3110,12 +3108,6 @@ L_DeepDiveIntoStruct(
 		 */
 		
 		goto dictErr;
-	    }
-	    if (tmp == 0) {
-		/*
-		 * Uninitialised dict: mysteriously causes leaks, do something about
-		 * it here. FIXME AND EXPLAIN.
-		 */
 	    }
 	    
 	    dict = (Dict *) lastPtr->internalRep.otherValuePtr;

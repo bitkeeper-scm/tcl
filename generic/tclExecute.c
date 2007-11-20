@@ -7031,8 +7031,9 @@ TclExecuteByteCode(
      * Special opcodes for the L language
      */
 
-    case INST_L_DEEP: {
-	unsigned int depth, flags, write, addRefCount = 1;
+	case INST_L_DEEP: {
+	unsigned int depth, flags, write;
+	int addRefCount = 1;
 	Tcl_Obj *valuePtr, *tmpPtr;
 	
 	depth = TclGetUInt4AtPtr(pc+1);
@@ -7044,26 +7045,29 @@ TclExecuteByteCode(
 	 * safe because the variable still references the object; the ref
 	 * count will never go zero here - we can use the smaller macro
 	 * Tcl_DecrRefCount. If writing and it is shared use an unshared copy,
-	 * as we will be modifying in place.
+	 * as we will be modifying in place. If it is still shared and we want
+	 * to write, make a new copy to modify in place.
 	 */
 
-	//fprintf(stderr, "depth is %i\n", CURR_DEPTH);
 	valuePtr = POP_OBJECT();
+
 	if (valuePtr->refCount < 2) {
 	    Tcl_Panic("Entering INST_L_DEEP with refCount < 2!");
 	}
-	Tcl_DecrRefCount(valuePtr); /* This one should be done here */
-	fprintf(stdout, "**************************\n");
-	if (write) {
-	    if (Tcl_IsShared(valuePtr)) {
-		fprintf(stdout, "YES!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
-		valuePtr = Tcl_DuplicateObj(valuePtr);
-		Tcl_IncrRefCount(valuePtr);
-		addRefCount = -1;
-		fprintf(stdout, "NOW!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
-	    }
+	Tcl_DecrRefCount(valuePtr); 
+
+	if (write && Tcl_IsShared(valuePtr)) {
+	    /*
+	     * Add a refCount so that the new object does not disappear under
+	     * our feet (hairy monsters?). This will account for the fact that
+	     * we put it back on the stack at the end, so insure that the
+	     * NEXT_INST macro is instructed NOT to add a refCount.
+	     */
+	    
+	    valuePtr = Tcl_DuplicateObj(valuePtr);
+	    Tcl_IncrRefCount(valuePtr);
+	    addRefCount = -1;
 	}
-	fflush(stdout);
 	
 	/*
 	 * Dive with the list of index counts at tos.
@@ -7095,14 +7099,10 @@ TclExecuteByteCode(
 	 * objResultPtr while requesting cleanup of the indices and countPtr.
 	 */
 
-	//fprintf(stderr, "addRefCount? %i (val %p:'%s', refCount: %i): refCount: %i %p:'%s'\n", addRefCount, objResultPtr, TclGetString(objResultPtr), objResultPtr->refCount, valuePtr->refCount, valuePtr,TclGetString(valuePtr));
-
 	tmpPtr = OBJ_AT_DEPTH(depth-2);
 	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount 1 already */
 	*(++tosPtr) = tmpPtr;
 	objResultPtr = valuePtr;
-	fprintf(stdout, "END!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
-	fflush(stdout);
 	NEXT_INST_V(6, depth-1, addRefCount);
     }
 

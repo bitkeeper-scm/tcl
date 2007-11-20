@@ -326,6 +326,26 @@ test leak-3.2.1 {leaks in hashes} -body {
     leak();
 } -constraints memory -output "0 12\n"
 
+test leak-3.3 {leaks in nested hashes} -body {
+#lang L
+    leak() {
+	int tmp, end, i;
+	hash j;
+
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j{"0"}{"0"}=i;
+	    j{"0"}{"1"}=2*(int)j{"0"}{"0"}+i;
+	    j{"1"}{"0"}=2*i + 1 + (int)j{"0"}{"1"};
+	    j{"1"}{"1"}=2*(int)j{"1"}{"0"}+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j{"1"}{"1"}));
+    }
+    leak();
+} -constraints memory -output "0 46\n"
+
 test leak-4.1 {leaks in structs} -body {
 #lang L
     struct js {int x, y;};
@@ -383,6 +403,27 @@ test leak-4.3 {leaks in structs} -body {
     leak();
 } -constraints memory -output "0 {{4 12} {16 36}}\n"
 
+test leak-5.1 {leaks in deep diving} -body {
+#lang L
+    struct js {hash h; poly a[2];};
+    struct js j[2];
+    leak() {
+	int tmp, end, i;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j[0].h{"foo"}= j[1].a[1];
+	    j[1].h{"foo"}= "moo";
+	    j[0].a[0]=j[1].h;
+	    j[0].a[1]=j[0].h{"foo"};
+	    j[1].a[0]=j[0].h{"foo"};
+	    j[1].a[1]=j[1].a[0];
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j[0].a[0]{"foo"}, j[1].h{"foo"}));
+    }
+    leak();
+} -constraints memory -output "0 moo moo\n"
 
 
 # cleanup
