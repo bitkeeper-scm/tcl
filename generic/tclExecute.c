@@ -7019,17 +7019,17 @@ TclExecuteByteCode(
 	    Tcl_Panic("Entering INST_L_DEEP with refCount < 2!");
 	}
 	Tcl_DecrRefCount(valuePtr); /* This one should be done here */
-	//fprintf(stdout, "**************************\n");
+	fprintf(stdout, "**************************\n");
 	if (write) {
 	    if (Tcl_IsShared(valuePtr)) {
-		//fprintf(stdout, "YES!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
+		fprintf(stdout, "YES!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
 		valuePtr = Tcl_DuplicateObj(valuePtr);
 		Tcl_IncrRefCount(valuePtr);
 		addRefCount = -1;
-		//fprintf(stdout, "NOW!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
+		fprintf(stdout, "NOW!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
 	    }
 	}
-	//fflush(stdout);
+	fflush(stdout);
 	
 	/*
 	 * Dive with the list of index counts at tos.
@@ -7067,6 +7067,8 @@ TclExecuteByteCode(
 	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount 1 already */
 	*(++tosPtr) = tmpPtr;
 	objResultPtr = valuePtr;
+	fprintf(stdout, "END!: %i, %p:'%s'\n", valuePtr->refCount, valuePtr, TclGetString(valuePtr));
+	fflush(stdout);
 	NEXT_INST_V(6, depth-1, addRefCount);
     }
 
@@ -7107,7 +7109,7 @@ TclExecuteByteCode(
 	     * Push the old value. Refcounts:
 	     *   - oldPtr: lose one as struct elem, gain one at tos
 	     *   - newPtr: lose one at tos, gain as struct elem
-	     */  
+	     */
 	    
 	    OBJ_AT_TOS = oldPtr;
 	} else {

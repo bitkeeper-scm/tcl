@@ -3112,7 +3112,7 @@ L_DeepDiveIntoStruct(
 	    }
 	    if (tmp == 0) {
 		/*
-		 * Unitialised dict: mysteriously causes leaks, do something
+		 * Uninitialised dict: mysteriously causes leaks, do something about
 		 * it here. FIXME AND EXPLAIN.
 		 */
 	    }
