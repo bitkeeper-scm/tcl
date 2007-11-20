@@ -3213,16 +3213,22 @@ L_DeepDiveIntoStruct(
 		TclListObjSetElement(NULL, lastPtr, idx, objPtr);
 		TclListObjGetElements(interp, lastPtr, &len, &resultPtrPtr);
 	    }
+	    if (write && (((List *)(lastPtr->internalRep.otherValuePtr))->refCount != 1)) {
+		Tcl_Panic("internal rep refCount?\n");
+	    }
 	    resultPtrPtr = &(resultPtrPtr[idx]);
 	}
 
-	if (write) Tcl_InvalidateStringRep(currValuePtr);
+	if (write) {
+	    Tcl_InvalidateStringRep(currValuePtr);
+	    Tcl_InvalidateStringRep(lastPtr);
+	}
+	
 	currValuePtr = *resultPtrPtr;
 	if (!currValuePtr) {
 	    goto autoErr;
 	}
 	if (write) {
-	    Tcl_InvalidateStringRep(lastPtr);
 	    if (Tcl_IsShared(currValuePtr)  && (i != numLevels-1)) {
 		Tcl_DecrRefCount(currValuePtr);
 		currValuePtr = Tcl_DuplicateObj(currValuePtr);
@@ -3237,7 +3243,8 @@ L_DeepDiveIntoStruct(
     }
     
     if (write && (valuePtr->refCount != 1)) {
-	fprintf(stderr, "valuePtr %p:'%s', currValuePtr %p:'%s'\n", valuePtr, TclGetString(valuePtr), currValuePtr, TclGetString(currValuePtr));
+	fprintf(stderr, "valuePtr %p:'%s', currValuePtr %p:'%s'\n", valuePtr,
+		TclGetString(valuePtr), currValuePtr, TclGetString(currValuePtr));
 	Tcl_Panic(
 	    "L_DeepDiveIntoStruct called for writing, exiting with obj with refCount = %i != 1!",
 	    valuePtr->refCount);
@@ -3258,16 +3265,19 @@ L_DeepDiveIntoStruct(
     listErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "index not present in array", NULL);
+    elemPtr = NULL;
     goto done;
 
     dictErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "key not known in dictionary", NULL);
+    elemPtr = NULL;
     goto done;
 
     autoErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "autoextending nested arrays not implemented yet", NULL);
+    elemPtr = NULL;
     goto done;
 }
 
