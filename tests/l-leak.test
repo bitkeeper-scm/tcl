@@ -114,11 +114,28 @@ test leak-2.1 {leaks in array initializers} -body {
     leak();
 } -constraints memory -output "0\n"
 
-test leak-2.2 {leaks in arrays} -body {
+test leak-2.2.0 {leaks in arrays} -body {
 #lang L
     leak() {
 	int tmp, end, i, j[2];
 
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j[0]=i;
+	    j[1]=2*j[0]+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak();
+} -constraints memory -output "0 {4 12}\n"
+
+test leak-2.2.1 {leaks in arrays} -body {
+#lang L
+    leak() {
+	int tmp, end, i, k[2], j[2];
+	j=k;
 	end = getbytes();
 	for(i=0; i<5;i++) {
 	    j[0]=i;
@@ -232,6 +249,25 @@ test leak-3.1.1 {leaks in hashes} -body {
 	int tmp, end, i;
 	hash j = {"u" => 0};
 
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j{"0"}=i;
+	    j{"1"}=2*(int)j{"0"}+i;
+            tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j{"1"}));
+    }
+    leak();
+} -constraints memory -output "0 12\n"
+
+test leak-3.1.2 {leaks in hashes} -body {
+#lang L
+    leak() {
+	int tmp, end, i;
+	hash j, k = {"u" => 0};
+
+	j = k;
 	end = getbytes();
 	for(i=0; i<5;i++) {
 	    j{"0"}=i;
