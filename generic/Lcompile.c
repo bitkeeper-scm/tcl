@@ -33,7 +33,12 @@ Tcl_ObjType LdeepPtrType = {
  */
 
 typedef struct Dict {
-    Tcl_HashTable table;
+    Tcl_HashTable table;	/* Object hash table to store mapping in. */
+    int epoch;			/* Epoch counter */
+    int refcount;		/* Reference counter (see above) */
+    Tcl_Obj *chain;		/* Linked list used for invalidating the
+				 * string representations of updated nested
+				 * dictionaries. */
 } Dict;
 
 /* Insure single tempvar per bytecode obj for non-conflicting usage */
@@ -1897,7 +1902,8 @@ L_write_index(
      */
     
     /* store the list of counts at stacktop; pushing a literal, it will
-     * be reconverted to list rep at first use.
+     * be reconverted to list rep at first use. CAREFUL: shimmering of
+     * singletons! Special string rep {foo}?
      * FIXME: should we use direct code for lindex/dict-get when there is
      * only one level and it is a read?
      */
@@ -3048,7 +3054,7 @@ L_DeepDiveIntoStruct(
 	
 	if (typeIsHash) {
 	    /*
-	     * Essentially, DictObjGet.
+	     * Essentially, DictObjGet/DictObjSet.
 	     * Loop through the list of keys, looking up the key at the
 	     * current index in the current dictionary each time. Once we've
 	     * done the lookup, we set the current dictionary to be the value
@@ -3057,20 +3063,11 @@ L_DeepDiveIntoStruct(
 	     * executes at least once. 
 	     */
 
-	    int traceFlags = 0;
-	    Tcl_DictSearch search;
 	    int tmp;
 	    Tcl_HashEntry *hPtr;
-	    Tcl_HashTable *tablePtr;
-
-	    if (!write) {
-		traceFlags = DICT_PATH_READ;
-	    } else if (create) {
-		traceFlags = DICT_PATH_CREATE|DICT_PATH_KILL_STRING;
-	    } else {
-		traceFlags = DICT_PATH_UPDATE|DICT_PATH_KILL_STRING;
-	    }
-
+	    Dict *dict;
+	    Tcl_Obj *objPtr;
+	    
 	    if (write && Tcl_IsShared(currValuePtr)) Tcl_Panic("A shared dict in the path\n");
 	    if (idxCount==1) {
 		/*
@@ -3079,60 +3076,65 @@ L_DeepDiveIntoStruct(
 
 		lastPtr = currValuePtr;
 	    } else {
+		Tcl_Panic("BOO1\n"); // untested!!
+		
+		int traceFlags = 0;
+
+		if (!write) {
+		    traceFlags = DICT_PATH_READ;
+		} else if (create) {
+		    traceFlags = DICT_PATH_CREATE;
+		} else {
+		    traceFlags = DICT_PATH_UPDATE;
+		}
+
 		lastPtr = TclTraceDictPath(interp, currValuePtr, idxCount-1, idxPtr, traceFlags);
 		if (!lastPtr) {
 		    /* FIXME: error message ok? What if error before the last
 		       step? */
 		    goto dictErr;
 		}
-		if (write) {
-		    if (Tcl_IsShared(lastPtr)) {
-			Tcl_DecrRefCount(lastPtr);
-			lastPtr = Tcl_DuplicateObj(lastPtr);
-		    }
-		    /*
-		     * Write back the same value to insure that the path is
-		     * cleaned up (especially the string reps). 
-		     */
-		    
-		    Tcl_DictObjPutKeyList(interp, currValuePtr, idxCount-1,
-			    idxPtr, lastPtr);
+		if (write && Tcl_IsShared(lastPtr)) {
+		    Tcl_Panic("Shared lastPtr of dict type");
 		}
 	    }
 
-	    if (TCL_OK != Tcl_DictObjFirst(NULL, lastPtr, &search, NULL, NULL, &tmp)) {
-		/*
-		 * lastPtr is not a dict!
-		 */
-		goto dictErr;
-	    }
-	    Tcl_DictObjDone(&search);
-	    if (lastPtr->typePtr != &tclDictType) {
-		Tcl_Panic("OUCH! Tcl_DictObjFirst did not shimmer?");
-	    }
-	    
-	    tablePtr = &(((Dict *) lastPtr->internalRep.otherValuePtr)->table);
-	    
 	    /*
 	     * Look for the corresponding entry. Get into the dict guts ...
 	     */
 
-	    if (create) {
-		hPtr = Tcl_CreateHashEntry(tablePtr, (char *)idxPtr[idxCount-1], &tmp);
+	    if (TCL_OK != Tcl_DictObjSize(NULL, lastPtr, &tmp)) {
+		/*
+		 * lastPtr is not a dict!
+		 */
+		
+		goto dictErr;
+	    }
+	    if (tmp == 0) {
+		/*
+		 * Unitialised dict: mysteriously causes leaks, do something
+		 * it here. FIXME AND EXPLAIN.
+		 */
+	    }
+	    
+	    dict = (Dict *) lastPtr->internalRep.otherValuePtr;
+	    if (create) {		
+		hPtr = Tcl_CreateHashEntry(&dict->table, (char *)idxPtr[idxCount-1], &tmp);
 		if (tmp) {
-		    Tcl_Obj *objPtr = Tcl_NewObj();
-		    
-		    Tcl_SetHashValue(hPtr, (ClientData)objPtr);
+		    objPtr = Tcl_NewObj();
 		    Tcl_IncrRefCount(objPtr);
+		    Tcl_SetHashValue(hPtr, (ClientData)objPtr);
 		}
 	    } else {
-		hPtr = Tcl_FindHashEntry(tablePtr, (char *)idxPtr[idxCount-1]);
+		hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxPtr[idxCount-1]);
 		if (!hPtr) {
 		    goto dictErr;
 		}
 	    }
-	    
-	    resultPtrPtr = (Tcl_Obj **)(&(hPtr->clientData));
+	    if (write) {
+		dict->epoch++;
+	    }
+	    resultPtrPtr = (Tcl_Obj **)(&Tcl_GetHashValue(hPtr));
 	} else {
 	    int idx, len;
 	    
@@ -3220,7 +3222,7 @@ L_DeepDiveIntoStruct(
 	}
 	if (write) {
 	    Tcl_InvalidateStringRep(lastPtr);
-	    if (Tcl_IsShared(currValuePtr) && (i != numLevels-1)) {
+	    if (Tcl_IsShared(currValuePtr)  && (i != numLevels-1)) {
 		Tcl_DecrRefCount(currValuePtr);
 		currValuePtr = Tcl_DuplicateObj(currValuePtr);
 		Tcl_IncrRefCount(currValuePtr);
