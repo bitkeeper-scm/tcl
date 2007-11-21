@@ -7032,13 +7032,14 @@ TclExecuteByteCode(
      */
 
 	case INST_L_DEEP: {
-	unsigned int depth, flags, write;
+	    unsigned int depth, flags, write, equals;
 	int addRefCount = 1;
-	Tcl_Obj *valuePtr, *tmpPtr;
+	Tcl_Obj *deepPtr, *tmpPtr, **elemPtrPtr;
 	
 	depth = TclGetUInt4AtPtr(pc+1);
 	flags = TclGetUInt1AtPtr(pc+5);
 	write = (flags & L_DEEP_WRITE);
+	equals = (flags & L_DEEP_CREATE);
 	
 	/*
 	 * Get the old value of variable, and remove the stack ref. This is
@@ -7049,14 +7050,14 @@ TclExecuteByteCode(
 	 * to write, make a new copy to modify in place.
 	 */
 
-	valuePtr = POP_OBJECT();
+	objResultPtr = POP_OBJECT();
 
-	if (valuePtr->refCount < 2) {
+	if (objResultPtr->refCount < 2) {
 	    Tcl_Panic("Entering INST_L_DEEP with refCount < 2!");
 	}
-	Tcl_DecrRefCount(valuePtr); 
+	Tcl_DecrRefCount(objResultPtr); 
 
-	if (write && Tcl_IsShared(valuePtr)) {
+	if (write && Tcl_IsShared(objResultPtr)) {
 	    /*
 	     * Add a refCount so that the new object does not disappear under
 	     * our feet (hairy monsters?). This will account for the fact that
@@ -7064,8 +7065,8 @@ TclExecuteByteCode(
 	     * NEXT_INST macro is instructed NOT to add a refCount.
 	     */
 	    
-	    valuePtr = Tcl_DuplicateObj(valuePtr);
-	    Tcl_IncrRefCount(valuePtr);
+	    objResultPtr = Tcl_DuplicateObj(objResultPtr);
+	    Tcl_IncrRefCount(objResultPtr);
 	    addRefCount = -1;
 	}
 	
@@ -7073,55 +7074,70 @@ TclExecuteByteCode(
 	 * Dive with the list of index counts at tos.
 	 */
 
-	objResultPtr = L_DeepDiveIntoStruct(interp, valuePtr,
+	elemPtrPtr = L_DeepDiveIntoStruct(interp, objResultPtr,
 		&OBJ_AT_DEPTH(depth-2), OBJ_AT_TOS, flags);
-	if (!objResultPtr) {
+	if (!elemPtrPtr) {
 	    if (addRefCount == -1) {
-		Tcl_DecrRefCount(valuePtr);
+		Tcl_DecrRefCount(objResultPtr);
 	    }
 	    result = TCL_ERROR;
 	    goto checkForCatch;
 	}
 
 	if (!write) {
-	    /* just reading, no modif: simple return. */
-	    NEXT_INST_V(6, depth-1, -1);
+	    /* just reading, no modif: simply return the elem's value. */
+	    objResultPtr = *elemPtrPtr;
+	    NEXT_INST_V(6, depth-1, 1);
 	}
-	
+
+        if (equals) {
+	    /*
+	     * The whole machinery is not needed as we are just setting a
+	     * value. Let's do that and return it here. This uses the fact
+	     * that the new value sits right below us in the stack - should
+	     * adapt the interface to do it properly! FIXME
+	     * We have the new elem value at the same plce it was, the new
+	     * full value as the result. 
+	     */
+
+	    
+	    Tcl_DecrRefCount(*elemPtrPtr);
+	    tmpPtr = OBJ_AT_DEPTH(depth-1);
+	    *elemPtrPtr = tmpPtr;
+	    Tcl_IncrRefCount(tmpPtr);
+	    NEXT_INST_V(6, depth-1, addRefCount);
+	}
+
 	/*
-	 * If we get here we have to leave two elements on the stack: the new
-	 * full value and the pointer to the location of the element
-	 * sought. 
-	 *
-	 * We wish to leave the full value atop the element pointer. So: we
-	 * stash the element pointer (objResultPtr) in place of the first index,
-	 * stash the index on the stack, and return the full value in
-	 * objResultPtr while requesting cleanup of the indices and countPtr.
+	 * If we get here we have to leave on the stack
+	 *    <deepPtr oldElemVal rVal>
+	 * We do here all the stack gymnastics that used to be done with
+	 * separate opcodes. As above, we modify the stacl BELOW what it was
+	 * when this opcode was entered.
 	 */
 
-	tmpPtr = OBJ_AT_DEPTH(depth-2);
-	OBJ_AT_DEPTH(depth-2) = objResultPtr; /* correct refCount 1 already */
-	*(++tosPtr) = tmpPtr;
-	objResultPtr = valuePtr;
+	TclNewObj(deepPtr);
+	deepPtr->bytes = NULL;
+	deepPtr->length = 0;
+	deepPtr->refCount = 1;
+	deepPtr->typePtr = &LdeepPtrType;
+	deepPtr->internalRep.otherValuePtr = elemPtrPtr;
+	
+	tmpPtr = OBJ_AT_DEPTH(depth-2);  /* first index */
+	*(++tosPtr) = tmpPtr;            /* ... goes to the top */
+	tmpPtr = OBJ_AT_DEPTH(depth-2);  /* second index */
+	*(++tosPtr) = tmpPtr;            /* ... goes to the top */
+
+	tmpPtr = OBJ_AT_DEPTH(depth+1);  /* rVal */
+	OBJ_AT_DEPTH(depth+1) = deepPtr;
+	OBJ_AT_DEPTH(depth) = *elemPtrPtr;
+	Tcl_IncrRefCount(*elemPtrPtr);
+	OBJ_AT_DEPTH(depth-1) = tmpPtr;
+	
 	NEXT_INST_V(6, depth-1, addRefCount);
     }
 
-    case INST_L_R_DEEP_PTR: {
-	Tcl_Obj *ptrObj = OBJ_AT_TOS;
-
-	if (!ptrObj->typePtr || (ptrObj->typePtr != &LdeepPtrType)) {
-	    Tcl_Panic("Deep reading a bad obj type!");
-	}
-	if (ptrObj->refCount != 1) {
-	    if (ptrObj != OBJ_AT_DEPTH(1)) {
-		Tcl_Panic("Deep reading a bad obj refCount!");
-	    }
-	}
-	objResultPtr = *((Tcl_Obj **)ptrObj->internalRep.otherValuePtr);
-	NEXT_INST_F(1,1,1);
-    }
-	
-    case INST_L_W_DEEP_PTR: {
+    case INST_L_DEEP_WRITE: {
 	Tcl_Obj *newPtr = POP_OBJECT(), *oldPtr;
 	Tcl_Obj *ptrObj = OBJ_AT_TOS;
 	int postincr = TclGetUInt1AtPtr(pc+1);

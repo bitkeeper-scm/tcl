@@ -407,8 +407,6 @@ InstructionDesc tclInstructionTable[] = {
 	 * the type of the first set of indices and if this is a read or
 	 * write operation. Stacktop contains a list of lengths for each
 	 * stage. Leaves a special LdeepPtrType obj at stacktop */
-    {"l-readDeepPtr",          1,    0,        0,    {OPERAND_NONE}},
-        /* Read obj from/to the location pointed to at stackTop. */
     {"l-writeDeepPtr",         2,   -1,        1,    {OPERAND_UINT1}},
         /* Write value contained at stackTop to the location pointed to right
 	 * below. The opnd indicates if this is a "post-incr" operation: if

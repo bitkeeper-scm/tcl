@@ -1732,7 +1732,6 @@ L_push_variable(L_expression *expr)
 
 	TclEmitInstInt4(INST_L_DEEP, depth+2, lframe->envPtr);
 	TclEmitInt1(flags, lframe->envPtr);
-	TclEmitOpcode(INST_L_R_DEEP_PTR, lframe->envPtr);
     }
 }
 
@@ -1921,37 +1920,35 @@ L_write_index(
     
     TclEmitInstInt4(INST_L_DEEP, depth+2, lframe->envPtr);
     TclEmitInt1(flags, lframe->envPtr);
-    /* <rval elemPtr oldVarVal> */
+    /* <rval elemPtr newVarVal> */
     
     /*
-     * In this case L_DEEP lies about the stack depth, underestimating by one:
+     * L_DEEP may lie about the stack depth, underestimating by two:
      * the INST_L_DEEP opcode is defined to remove all arguments and leave a
-     * result; in this case it leaves TWO results <elemPtr oldVarVal>. Fix it.
+     * result; in some cases it leaves THREE results
+     * <rval> --> <elemPtr elem rval newVarVal>.
+     * Fix it.
      */
 
-    lframe->envPtr->currStackDepth++;
-        
+    if (expr->op != T_EQUALS) {
+	lframe->envPtr->currStackDepth += 2;
+    }        
+
+
     /*
      * We have now updated the deep struct to have an unshared path to the
      * element of interest. The stack now has (rval was already in):
-     *  <rval elemPtr oldVarVal>
-     * Set the variable, then modify elem in-place
+     *  <elem newVarVal>          if op==T_EQUALS
+     *  <rval elemPtr newVarVal>  otherwise
+     * Set the variable, then modify elem in-place if needed
      */
     
-    /* <rval elemPtr oldVarVal> */
     L_STORE_SCALAR(var->localIndex);
     L_POP();
-    /* <rval elemPtr > */
-    
     if (expr->op == T_EQUALS) {
-	TclEmitInstInt4(INST_REVERSE, 2, lframe->envPtr);
-	/* <elemPtr rval> */
-	TclEmitInstInt1(INST_L_W_DEEP_PTR, 0, lframe->envPtr);
+	/* <elem>: nothing else to be done */
     } else {
-	/* <rval elemPtr > */
-	TclEmitOpcode(INST_DUP, lframe->envPtr);
-	TclEmitOpcode(INST_L_R_DEEP_PTR, lframe->envPtr);
-	/* <rval elemPtr elem> */
+	/* <elemPtr elem rval> */
 	if (expr->op == T_EQTWID) {
 	    /* regexp substitution: use tempvar as regsub_for_assignment 
 	     * requires a var. Can reuse the same one: only used at the
@@ -1961,23 +1958,26 @@ L_write_index(
 	
 	    int localIndex = get_single_tempvar();
 	    
+	    /* <elemPtr elem rval> */
+	    TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
+	    /* <elemPtr rVal elem> */
+
 	    L_STORE_SCALAR(localIndex);
 	    L_POP();
-	    TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
+
 	    /* <elemPtr rval> */
 	    regsub_for_assignment(SINGLE_TEMPVAR, localIndex, expr->b);
 	    /* <elemPtr match?> */
-	    TclEmitInstInt4(INST_REVERSE, 2, lframe->envPtr);
+	    TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
 	    L_LOAD_SCALAR(localIndex);
 	    /* <match? elemPtr newVal> */
-	    TclEmitInstInt1(INST_L_W_DEEP_PTR, 0, lframe->envPtr);
+	    TclEmitInstInt1(INST_L_DEEP_WRITE, 0, lframe->envPtr);
 	    L_POP();
 	} else {
-	    TclEmitInstInt1(INST_ROT, 2, lframe->envPtr);
 	    /* <elemPtr elem rval> */
 	    TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
 	    /* <elemPtr newVal> */
-	    TclEmitInstInt1(INST_L_W_DEEP_PTR, post_incr_p, lframe->envPtr);
+	    TclEmitInstInt1(INST_L_DEEP_WRITE, post_incr_p, lframe->envPtr);
 	}
     }
 }
@@ -2974,7 +2974,7 @@ ckstrndup(const char *str, int len)
  * necessary and an empty obj will be stored at the element.
  */
  
-Tcl_Obj *
+Tcl_Obj **
 L_DeepDiveIntoStruct(
     Tcl_Interp *interp,
     Tcl_Obj *valuePtr,    /* pointer to the nested struct to dive into; any
@@ -2990,7 +2990,7 @@ L_DeepDiveIntoStruct(
     
     int result, numLevels, i;
     Tcl_Obj **levelCountPtr, *currValuePtr = valuePtr;
-    Tcl_Obj **resultPtrPtr, *lastPtr, *elemPtr = NULL;
+    Tcl_Obj **resultPtrPtr, *lastPtr;
     int create = (flags & L_DEEP_CREATE);
     int write = (flags & L_DEEP_WRITE);
 
@@ -3068,6 +3068,7 @@ L_DeepDiveIntoStruct(
 	    Tcl_HashEntry *hPtr;
 	    Dict *dict;
 	    Tcl_Obj *objPtr;
+	    void **tmpPtrPtr; /* to avoid type punning */
 	    
 	    if (write && Tcl_IsShared(currValuePtr)) Tcl_Panic("A shared dict in the path\n");
 	    if (idxCount==1) {
@@ -3127,7 +3128,8 @@ L_DeepDiveIntoStruct(
 	    if (write) {
 		dict->epoch++;
 	    }
-	    resultPtrPtr = (Tcl_Obj **)(&Tcl_GetHashValue(hPtr));
+	    tmpPtrPtr = &Tcl_GetHashValue(hPtr);
+	    resultPtrPtr = (Tcl_Obj **) tmpPtrPtr;
 	} else {
 	    int idx, len;
 	    
@@ -3243,33 +3245,26 @@ L_DeepDiveIntoStruct(
 	
     }
 
-    elemPtr = Tcl_NewObj();
-    elemPtr->bytes = NULL;
-    elemPtr->length = 0;
-    elemPtr->refCount = 1;
-    elemPtr->typePtr = &LdeepPtrType;
-    elemPtr->internalRep.otherValuePtr = resultPtrPtr;
-
     done:
     Tcl_DecrRefCount(countPtr);
-    return elemPtr;
+    return resultPtrPtr;
 
     listErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "index not present in array", NULL);
-    elemPtr = NULL;
+    resultPtrPtr = NULL;
     goto done;
 
     dictErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "key not known in dictionary", NULL);
-    elemPtr = NULL;
+    resultPtrPtr = NULL;
     goto done;
 
     autoErr:
     Tcl_ResetResult(interp);
     Tcl_AppendResult(interp, "autoextending nested arrays not implemented yet", NULL);
-    elemPtr = NULL;
+    resultPtrPtr = NULL;
     goto done;
 }
 

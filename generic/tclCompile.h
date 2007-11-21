@@ -650,11 +650,10 @@ typedef struct ByteCode {
 /* L stuff */
 #define INST_ROT                        132
 #define INST_L_DEEP                     133
-#define INST_L_R_DEEP_PTR               134
-#define INST_L_W_DEEP_PTR               135
+#define INST_L_DEEP_WRITE               134
 
 /* The last opcode */
-#define LAST_INST_OPCODE		135
+#define LAST_INST_OPCODE		134
 
 
 /*
