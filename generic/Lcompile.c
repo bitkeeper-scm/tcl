@@ -1554,8 +1554,6 @@ L_compile_loop(L_loop *loop)
 	CurrentOffset(lframe->envPtr) - jumpToCond,
 	lframe->envPtr->codeStart + jumpToCond);
     L_compile_expressions(loop->condition);
-    L_PUSH_STR("0");
-    TclEmitOpcode(INST_NEQ, lframe->envPtr);
     jumpDist = CurrentOffset(lframe->envPtr) - bodyCodeOffset;
     if (jumpDist > 127) {
         TclEmitInstInt4(INST_JUMP_TRUE4, -jumpDist, lframe->envPtr);
