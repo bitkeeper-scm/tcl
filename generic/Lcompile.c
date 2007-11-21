@@ -41,6 +41,23 @@ typedef struct Dict {
 				 * dictionaries. */
 } Dict;
 
+/*
+ * Macro to find out if we can compile a regexp inline: type is set to 1 if no
+ * modifiers, 'i' if only -nocase, 0 otherwise.
+ */
+
+#define REGEXP_TYPE(regexp, type) \
+    {				  \
+	L_expression *local = regexp; \
+				      \
+	type = (local->c) ? 0 : 1;			       \
+	if (local->c && !strchr(local->c->u.string, 'g')) {		\
+	    if (strchr(local->c->u.string, 'i')) {	       \
+		type = 'i';					 \
+	    } \
+	} \
+    }
+
 /* Insure single tempvar per bytecode obj for non-conflicting usage */
 #define SINGLE_TEMPVAR "%% L: single tempvar for non-conflicting usage"
 #define get_single_tempvar() \
@@ -1366,7 +1383,8 @@ L_compile_twiddle(L_expression *expr)
     Tcl_RegExp compiled;
     int submatchCount = 0, i, modCount;
     L_expression *runner, *regexp = expr->b;
-
+    int rtype;
+    
     if (regexp->b) {
 	/* it's a substitution, so let L_compile_assignment do the hard
 	 * stuff */
@@ -1423,6 +1441,55 @@ L_compile_twiddle(L_expression *expr)
 	    s->used_p = TRUE;	/* suppress unused var warning */
         }
     }
+
+    /*
+     * Check if the regexp can be compiled (like Tcl's)
+     */
+
+    REGEXP_TYPE(regexp, rtype);
+    if  (!submatchCount && rtype) {
+	/*
+	 * Can compile it: no match vars, no options (or just -nocase ) 
+	 */
+	int simple = 0, exact = 0, nocase;
+
+	nocase = (rtype == 'i');
+	
+	if (regexp->kind == L_EXPRESSION_STRING) {
+	    Tcl_DString ds;
+	    int len;
+	    
+	    /*
+	     * Attempt to convert pattern to glob.  If successful, push the
+	     * converted pattern as a literal.
+	     */
+
+	    len = strlen(regexp->u.string);
+	    if (TclReToGlob(NULL, regexp->u.string, len, &ds, &exact)
+		    == TCL_OK) {
+		simple = 1;
+		L_PUSH_CSTR(Tcl_DStringValue(&ds),Tcl_DStringLength(&ds));
+		Tcl_DStringFree(&ds);
+	    }
+	}
+	if (!simple) {
+	    L_compile_expressions(regexp);
+	}
+	/* the target string */
+	L_compile_expressions(expr->a);
+	if (simple) {
+	    if (exact && !nocase) {
+		TclEmitOpcode(INST_STR_EQ, lframe->envPtr);
+	    } else {
+		TclEmitInstInt1(INST_STR_MATCH, nocase, lframe->envPtr);
+	    }
+	} else {
+	    TclEmitInstInt1(INST_REGEXP, nocase, lframe->envPtr);
+	}
+	Tcl_DecrRefCount(const_regexp);
+	return;
+    }
+    
     /* emit code to call the regexp object command */
     L_PUSH_STR("::regexp");
     /* modifiers */
