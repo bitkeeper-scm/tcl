@@ -1729,7 +1729,7 @@ L_push_set_of_indices(
     }
 
     isHash = IS_HASH(index);
-    flags = (IS_HASH(index)? L_FIRST_IS_HASH : 0);
+    flags = (isHash? L_FIRST_IS_HASH : 0);
 
     depth = 0;
     levelCount = 0;
@@ -3082,7 +3082,7 @@ L_DeepDiveIntoStruct(
 
     if ((countPtr->typePtr != &tclListType) &&
 	    (TCL_OK == TclGetIntFromObj(NULL, countPtr, &i))) {
-	/* NOTE: when countPtr is a singleton, this already cause unwanted 
+	/* NOTE: when countPtr is a singleton, avoid causing unwanted 
 	 * shimmering between dict and number! Special case it.
 	 */
 
