@@ -1360,20 +1360,35 @@ void L_compile_binop(L_expression *expr)
 void
 L_compile_interpolated_string(L_expression *expr)
 {
-    int count = 2;
-    
-    L_compile_expressions(expr->a);
-    L_compile_expressions(expr->b);
-    if (expr->c) {
-        L_compile_expressions(expr->c);
+    int count = 0;
+
+    if ((expr->a->kind != L_EXPRESSION_STRING)
+	    || (expr->a->u.string[0] != '\0')) {
+	L_compile_expressions(expr->a);
 	count++;
+    }
+    if ((expr->b->kind != L_EXPRESSION_STRING)
+	    || (expr->b->u.string[0] != '\0')) {
+	L_compile_expressions(expr->b);
+	count++;
+    }
+    if (expr->c) {
+	if ((expr->c->kind != L_EXPRESSION_STRING)
+		|| (expr->c->u.string[0] != '\0')) {
+	    L_compile_expressions(expr->c);
+	    count++;
+	}
     } else {
         /* Currently, an interpolated string node will always be
            followed by another one, or by a regular string node, so
            there's no way to test this branch.  */
         L_bomb("L_compile_interpolated_string: Malformed AST");
     }
-    TclEmitInstInt1(INST_CONCAT1, count, lframe->envPtr);
+    if (count > 1) {
+	TclEmitInstInt1(INST_CONCAT1, count, lframe->envPtr);
+    } else if (count == 0) {
+	L_PUSH_STR("");
+    }
 }
 
 void
@@ -1384,7 +1399,6 @@ L_compile_twiddle(L_expression *expr)
     int submatchCount = 0, i, modCount;
     L_expression *runner, *regexp = expr->b;
     int rtype;
-    
     if (regexp->b) {
 	/* it's a substitution, so let L_compile_assignment do the hard
 	 * stuff */
@@ -1454,8 +1468,8 @@ L_compile_twiddle(L_expression *expr)
 	int simple = 0, exact = 0, nocase;
 
 	nocase = (rtype == 'i');
-	
-	if (regexp->kind == L_EXPRESSION_STRING) {
+
+	if (regexp->a->kind == L_EXPRESSION_STRING) {
 	    Tcl_DString ds;
 	    int len;
 	    
@@ -1464,16 +1478,17 @@ L_compile_twiddle(L_expression *expr)
 	     * converted pattern as a literal.
 	     */
 
-	    len = strlen(regexp->u.string);
-	    if (TclReToGlob(NULL, regexp->u.string, len, &ds, &exact)
+	    len = strlen(regexp->a->u.string);
+	    if (TclReToGlob(NULL, regexp->a->u.string, len, &ds, &exact)
 		    == TCL_OK) {
 		simple = 1;
 		L_PUSH_CSTR(Tcl_DStringValue(&ds),Tcl_DStringLength(&ds));
 		Tcl_DStringFree(&ds);
 	    }
 	}
+
 	if (!simple) {
-	    L_compile_expressions(regexp);
+	    L_compile_expressions(regexp->a);
 	}
 	/* the target string */
 	L_compile_expressions(expr->a);
@@ -1548,8 +1563,6 @@ L_compile_if_unless(L_if_unless *cond)
     int jumpFalseOffset, jumpEndOffset;
 
     L_compile_expressions(cond->condition);
-    L_PUSH_STR("0");
-    TclEmitOpcode(INST_NEQ, lframe->envPtr);
 
     /* Emit jumpFalse.  We use fixed-size jumps to simplify the code. */
     jumpFalseOffset = CurrentOffset(lframe->envPtr);
@@ -1631,7 +1644,6 @@ L_compile_loop(L_loop *loop)
     track_lineInfo(startOffset,
 	(loop->pre ? SourceOffset(loop->pre) : SourceOffset(loop->condition)) - 8,
 	SourceOffset(loop));
-
 }
 
 /* Fix the jump target for a list of INST_JUMP4 jumps and free the
