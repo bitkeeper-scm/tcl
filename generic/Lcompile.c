@@ -58,6 +58,17 @@ typedef struct Dict {
 	} \
     }
 
+/*
+ * Macro to detect (some cases) when a string comparison to "0" is superfluous 
+ */ 
+
+#define EXPR_IS_VALID_BOOLEAN(expr)				\
+    (((type = L_expression_type(expr)) != NULL)			\
+	    && ((type->kind == L_TYPE_FLOAT)			\
+		    || (type->kind == L_TYPE_INT)		\
+		    || (type->kind == L_TYPE_NUMBER)))
+
+
 /* Insure single tempvar per bytecode obj for non-conflicting usage */
 #define SINGLE_TEMPVAR "%% L: single tempvar for non-conflicting usage"
 #define get_single_tempvar() \
@@ -1561,8 +1572,13 @@ L_compile_if_unless(L_if_unless *cond)
     /* There are two jumps: one that skips the consequent, called jumpFalse,
      * and one called jumpEnd that skips the alternate (else) part. */
     int jumpFalseOffset, jumpEndOffset;
-
+    L_type *type;
+    
     L_compile_expressions(cond->condition);
+    if (!EXPR_IS_VALID_BOOLEAN(cond->condition)) {
+	L_PUSH_STR("0");
+	TclEmitOpcode(INST_NEQ, lframe->envPtr);
+    }
 
     /* Emit jumpFalse.  We use fixed-size jumps to simplify the code. */
     jumpFalseOffset = CurrentOffset(lframe->envPtr);
@@ -1607,7 +1623,8 @@ L_compile_loop(L_loop *loop)
     int jumpToCond;
     JumpOffsetList *break_jumps, *continue_jumps;
     int bodyCodeOffset, jumpDist, startOffset;
-
+    L_type *type;
+    
     startOffset = CurrentOffset(lframe->envPtr);
     if ((loop->kind == L_LOOP_FOR) && loop->pre) {
         L_compile_expressions(loop->pre);
@@ -1634,6 +1651,10 @@ L_compile_loop(L_loop *loop)
 	CurrentOffset(lframe->envPtr) - jumpToCond,
 	lframe->envPtr->codeStart + jumpToCond);
     L_compile_expressions(loop->condition);
+    if (!EXPR_IS_VALID_BOOLEAN(loop->condition)) {
+	L_PUSH_STR("0");
+	TclEmitOpcode(INST_NEQ, lframe->envPtr);
+    }
     jumpDist = CurrentOffset(lframe->envPtr) - bodyCodeOffset;
     if (jumpDist > 127) {
         TclEmitInstInt4(INST_JUMP_TRUE4, -jumpDist, lframe->envPtr);
