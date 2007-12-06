@@ -3857,14 +3857,14 @@ TclCompileSwitchCmd(
 
     /*
      * Only handle the following versions:
-     *   switch         -- word {pattern body ...}
-     *   switch -exact  -- word {pattern body ...}
-     *   switch -glob   -- word {pattern body ...}
-     *   switch -regexp -- word {pattern body ...}
-     *   switch         -- word simpleWordPattern simpleWordBody ...
-     *   switch -exact  -- word simpleWordPattern simpleWordBody ...
-     *   switch -glob   -- word simpleWordPattern simpleWordBody ...
-     *   switch -regexp -- word simpleWordPattern simpleWordBody ...
+     *   switch         ?--? word {pattern body ...}
+     *   switch -exact  ?--? word {pattern body ...}
+     *   switch -glob   ?--? word {pattern body ...}
+     *   switch -regexp ?--? word {pattern body ...}
+     *   switch         --   word simpleWordPattern simpleWordBody ...
+     *   switch -exact  --   word simpleWordPattern simpleWordBody ...
+     *   switch -glob   --   word simpleWordPattern simpleWordBody ...
+     *   switch -regexp --   word simpleWordPattern simpleWordBody ...
      * When the mode is -glob, can also handle a -nocase flag.
      *
      * First off, we don't care how the command's word was generated; we're
@@ -3876,15 +3876,29 @@ TclCompileSwitchCmd(
     numWords = parsePtr->numWords-1;
 
     /*
-     * Check for options. There must be at least one, --, because without that
-     * there is no way to statically avoid the problems you get from strings-
-     * -to-be-matched that start with a - (the interpreted code falls apart if
-     * it encounters them, so we punt if we *might* encounter them as that is
-     * the easiest way of emulating the behaviour).
+     * Check for options.
      */
 
     noCase = 0;
     mode = Switch_Exact;
+    if (numWords == 2) {
+	/*
+	 * There's just the switch value and the bodies list. In that case, we
+	 * can skip all option parsing and move on to consider switch values
+	 * and the body list.
+	 */
+
+	goto finishedOptionParse;
+    }
+
+    /*
+     * There must be at least one option, --, because without that there is no
+     * way to statically avoid the problems you get from strings-to-be-matched
+     * that start with a - (the interpreted code falls apart if it encounters
+     * them, so we punt if we *might* encounter them as that is the easiest
+     * way of emulating the behaviour).
+     */
+
     for (; numWords>=3 ; tokenPtr=TokenAfter(tokenPtr),numWords--) {
 	register unsigned size = tokenPtr[1].size;
 	register const char *chrs = tokenPtr[1].start;
@@ -3961,6 +3975,7 @@ TclCompileSwitchCmd(
      * compilable too.
      */
 
+  finishedOptionParse:
     valueTokenPtr = tokenPtr;
     /* For valueIndex, see previous loop. */
     tokenPtr = TokenAfter(tokenPtr);
@@ -6084,7 +6099,10 @@ TclCompileVariableCmd(
  *
  * TclCompileEnsemble --
  *
- *	Procedure called to compile an ensemble command.
+ *	Procedure called to compile an ensemble command. Note that most
+ *	ensembles are not compiled, since modifying a compiled ensemble causes
+ *	a invalidation of all existing bytecode (expensive!) which is not
+ *	normally warranted.
  *
  * Results:
  * 	Returns TCL_OK for a successful compile. Returns TCL_ERROR to defer
@@ -6131,8 +6149,8 @@ TclCompileEnsemble(
 
     /*
      * There's a sporting chance we'll be able to compile this. But now we
-     * must check properly. To do that, check that we're compiling an
-     * ensemble that has [info exists] as its appropriate subcommand.
+     * must check properly. To do that, check that we're compiling an ensemble
+     * that has a compilable command as its appropriate subcommand.
      */
 
     if (Tcl_GetEnsembleMappingDict(NULL, ensemble, &mapObj) != TCL_OK
@@ -6312,8 +6330,8 @@ TclCompileEnsemble(
 	synthetic.tokenPtr = synthetic.staticTokens;
 	synthetic.tokensAvailable = NUM_STATIC_TOKENS;
     } else {
-	synthetic.tokenPtr = (Tcl_Token *)
-		ckalloc(sizeof(Tcl_Token) * synthetic.numTokens);
+	synthetic.tokenPtr =
+		TclStackAlloc(interp, sizeof(Tcl_Token) * synthetic.numTokens);
 	synthetic.tokensAvailable = synthetic.numTokens;
     }
 
@@ -6343,8 +6361,8 @@ TclCompileEnsemble(
      * Copy over the real argument tokens.
      */
 
-    memcpy(synthetic.tokenPtr + 2, argTokensPtr,
-	    sizeof(Tcl_Token) * (synthetic.numTokens - 2));
+    memcpy(synthetic.tokenPtr + 2*len, argTokensPtr,
+	    sizeof(Tcl_Token) * (synthetic.numTokens - 2*len));
 
     /*
      * Hand off compilation to the subcommand compiler. At last!
@@ -6357,7 +6375,7 @@ TclCompileEnsemble(
      */
 
     if (synthetic.tokenPtr != synthetic.staticTokens) {
-	ckfree((char *) synthetic.tokenPtr);
+	TclStackFree(interp, synthetic.tokenPtr);
     }
     return result;
 }
