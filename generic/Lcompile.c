@@ -3233,9 +3233,10 @@ L_DeepDiveIntoStruct(
 		    goto dictErr;
 		}
 		objPtr = Tcl_NewObj();
+		Tcl_IncrRefCount(objPtr);
+		Tcl_DecrRefCount(objPtr);
 		result = Tcl_DictObjPut(interp, lastPtr, idxPtr[idxCount-1], objPtr);
 		if (result != TCL_OK) {
-		    Tcl_DecrRefCount(objPtr);
 		    goto dictErr;
 		}
 		hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxPtr[idxCount-1]);
