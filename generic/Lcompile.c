@@ -32,15 +32,28 @@ Tcl_ObjType LdeepPtrType = {
  * Dicts do not expose their guts; we need access to the hash table here. 
  */
 
+#if 0
 typedef struct Dict {
     Tcl_HashTable table;	/* Object hash table to store mapping in. */
+    struct ChainEntry *entryChainHead;	/* Linked list of all entries in the
+				 * dictionary. Used for doing traversal of the
+				 * entries in the order that they are
+				 * created. */
+    struct ChainEntry *entryChainTail;	/* Other end of linked list of all entries in
+				 * the dictionary. Used for doing traversal of
+				 * the entries in the order that they are
+				 * created. */
     int epoch;			/* Epoch counter */
     int refcount;		/* Reference counter (see above) */
     Tcl_Obj *chain;		/* Linked list used for invalidating the
 				 * string representations of updated nested
 				 * dictionaries. */
 } Dict;
-
+#else
+typedef struct Dict {
+    Tcl_HashTable table;	/* Object hash table to store mapping in. */
+} Dict;
+#endif
 /*
  * Macro to find out if we can compile a regexp inline: type is set to 1 if no
  * modifiers, 'i' if only -nocase, 0 otherwise.
@@ -3199,6 +3212,10 @@ L_DeepDiveIntoStruct(
 
 	    /*
 	     * Look for the corresponding entry. Get into the dict guts ...
+	     *
+	     * Try to build the deep pointers into Tcl? Avoid looking up
+	     * twice, but also avoid having to replicate too much of the dict
+	     * or list implementations.
 	     */
 
 	    if (TCL_OK != Tcl_DictObjSize(NULL, lastPtr, &tmp)) {
@@ -3210,22 +3227,20 @@ L_DeepDiveIntoStruct(
 	    }
 	    
 	    dict = (Dict *) lastPtr->internalRep.otherValuePtr;
-	    if (create) {		
-		hPtr = Tcl_CreateHashEntry(&dict->table, (char *)idxPtr[idxCount-1], &tmp);
-		if (tmp) {
-		    objPtr = Tcl_NewObj();
-		    Tcl_IncrRefCount(objPtr);
-		    Tcl_SetHashValue(hPtr, (ClientData)objPtr);
-		}
-	    } else {
-		hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxPtr[idxCount-1]);
-		if (!hPtr) {
+	    hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxPtr[idxCount-1]);
+	    if (!hPtr) {
+		if (!create) {
 		    goto dictErr;
 		}
+		objPtr = Tcl_NewObj();
+		result = Tcl_DictObjPut(interp, lastPtr, idxPtr[idxCount-1], objPtr);
+		if (result != TCL_OK) {
+		    Tcl_DecrRefCount(objPtr);
+		    goto dictErr;
+		}
+		hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxPtr[idxCount-1]);
 	    }
-	    if (write) {
-		dict->epoch++;
-	    }
+		    
 	    tmpPtrPtr = &Tcl_GetHashValue(hPtr);
 	    resultPtrPtr = (Tcl_Obj **) tmpPtrPtr;
 	} else {
