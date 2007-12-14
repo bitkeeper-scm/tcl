@@ -3234,8 +3234,8 @@ L_DeepDiveIntoStruct(
 		}
 		objPtr = Tcl_NewObj();
 		Tcl_IncrRefCount(objPtr);
-		Tcl_DecrRefCount(objPtr);
 		result = Tcl_DictObjPut(interp, lastPtr, idxPtr[idxCount-1], objPtr);
+		Tcl_DecrRefCount(objPtr);
 		if (result != TCL_OK) {
 		    goto dictErr;
 		}
