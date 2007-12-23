@@ -1,6 +1,75 @@
-2007-12-13  Donal K. Fellows  <donal.k.fellows@manchester.ac.uk>
+2007-12-21  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclCmdIL.c: speed patch for lsort [Patch 1856994].
+
+2007-12-21  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclCmdIL.c (Tcl_LsortObjCmd, Tcl_LsearchObjCmd): avoid
+	calling SelectObjFromSublist when there are no sublists.
+
+2007-12-21  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclCmdIL.c (Tcl_LsortObjCmd): preallocate a listObj of
+	sufficient length for the sorted list instead of growing
+	it. Second commit replaces calls to Tcl_ListObjAppenElement with
+	direct access to the internal rep.
+
+2007-12-19  Don Porter	<dgp@users.sourceforge.net>
 
 	*** 8.5.0 TAGGED FOR RELEASE ***
+
+	* changes:		Updated for 8.5.0 release.
+
+2007-12-19  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tclCompCmds.c (TclCompileSwitchCmd):	update switch -regexp
+	* tests/switch.test-14.*:			compilation to pass
+	the cflags to INST_REGEXP (changed on 12-07).  Added tests for
+	switch -regexp compilation (need more). [Bug 1854399]
+
+2007-12-18  Don Porter	<dgp@users.sourceforge.net>
+
+	* changes:		Updated for 8.5.0 release.
+
+2007-12-18  Donal K. Fellows  <donal.k.fellows@manchester.ac.uk>
+
+	* generic/regguts.h, generic/regc_color.c, generic/regc_nfa.c:
+	Fixes for problems created when processing regular expressions that
+	generate very large automata. An enormous number of thanks to Will
+	Drewry <wad_at_google.com>, Tavis Ormandy <taviso_at_google.com>,
+	and Tom Lane <tgl_at_sss.pgh.pa.us> from the Postgresql crowd for
+	their help in tracking these problems down. [Bug 1810264]
+
+2007-12-17  Don Porter	<dgp@users.sourceforge.net>
+
+	* changes:		Updated for 8.5.0 release.
+
+2007-12-17  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclAlloc.c:
+	* generic/tclExecute.c:
+	* generic/tclInt.h:
+	* generic/tclThreadAlloc.c: Fix alignment for memory returned by
+	TclStackAlloc; insure that all memory allocators align to 16-byte
+	boundaries on 64 bit platforms [Bug 1851832, 1851524]
+
+2007-12-14  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tclIOUtil.c (FsAddMountsToGlobResult): fix the tail
+	conversion of vfs mounts. [Bug 1602539]
+
+	* win/README: updated notes
+
+2007-12-14  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* tests/winFile.test: Fixed tests for win2k with long machine name
+
+2007-12-14  Pat Thoyts <patthoyts@users.sourceforge.net>
+
+	* win/nmakehlp.c:  Support compilation with MSVC9 for AMD64.
+	* win/makefile.vc:
+
+2007-12-13  Donal K. Fellows  <donal.k.fellows@manchester.ac.uk>
 
 	* doc/trace.n: Clarified documentation of enterstep and leavestep
 	traces, including adding example. [Bug 614282, 1701540, 1755984]
