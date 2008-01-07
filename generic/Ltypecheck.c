@@ -451,6 +451,9 @@ unop_expression_type(
     case T_HASH_CAST:
 	type->kind = L_TYPE_HASH;
         break;
+    case T_WIDGET_CAST:
+	type->kind = L_TYPE_WIDGET;
+        break;
     case T_BANG:
     case T_BITNOT:
     case T_INT_CAST:

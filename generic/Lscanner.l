@@ -132,6 +132,7 @@ tally_newlines(
         "("[ \t]*"float"[ \t]*")"       return T_FLOAT_CAST;
         "("[ \t]*"int"[ \t]*")"         return T_INT_CAST;
         "("[ \t]*"hash"[ \t]*")"        return T_HASH_CAST;
+        "("[ \t]*"widget"[ \t]*")"      return T_WIDGET_CAST;
 
         "if"		return T_IF;
         "else"		return T_ELSE;

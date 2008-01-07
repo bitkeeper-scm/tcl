@@ -1058,8 +1058,9 @@ L_compile_expressions(L_expression *expr)
 		MK_STRING_NODE(newArg, p+1);
 		if ((type = L_expression_type(expr->b))
 		    && (type->kind == L_TYPE_WIDGET)) {
-		    L_push_variable(expr->b);
 		    newArg->next = expr->b->next;
+		    expr->b->next = NULL;
+		    L_compile_expressions(expr->b);
 		} else {
 		    *p = '\0';
 		    Tcl_UtfToLower(name);
@@ -1083,7 +1084,7 @@ L_compile_expressions(L_expression *expr)
 	 * expression. Hence subtracting the offset of the first child gives
 	 * you the length of the whole expression. */
 	track_lineInfo(startOffset, ((L_ast_node *)expr->a)->offset,
-	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset) + 1);
+	    (((L_ast_node *)expr)->offset - ((L_ast_node *)expr->a)->offset)+1);
         break;
     case L_EXPRESSION_PRE:
     case L_EXPRESSION_POST:
@@ -1259,6 +1260,7 @@ void L_compile_unop(L_expression *expr)
         }
         break;
     case T_STRING_CAST:
+    case T_WIDGET_CAST:
         /* no conversion -- it's all a string. However, we might have to do
            something here to make the future type checker happy. */
         L_compile_expressions(expr->a);
@@ -1809,7 +1811,7 @@ L_push_set_of_indices(
 void
 L_push_variable(L_expression *expr)
 {
-    L_symbol *var;
+    L_symbol *var = NULL;
     L_expression *name = expr->a;
 
     if (!(var = L_get_local_symbol(name, TRUE))) {
@@ -2848,6 +2850,8 @@ L_lookup_pattern_func(
     char *p, buf[1024];
     Tcl_HashEntry *hPtr = NULL;
     
+    if (!name) return FALSE;
+
     if (looks_like_pattern_func(name, len, p)
     	&& !(hPtr = Tcl_FindHashEntry(L_func_table(), name))) {
 	/* The function being called is not a real function. */
