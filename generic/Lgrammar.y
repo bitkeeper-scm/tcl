@@ -100,6 +100,7 @@ pattern_funcall_rewrite(L_expression *funcall)
 %left T_STAR T_SLASH T_PERC
 %right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT ADDRESS
 %right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST T_HASH_CAST
+%right T_WIDGET_CAST
 %left T_DOT
 
 %%
@@ -425,6 +426,11 @@ expr:
         | T_INT_CAST expr
         {
                 $$ = mk_expression(L_EXPRESSION_UNARY, T_INT_CAST, $2,
+                                   NULL, NULL, NULL, NULL);
+        }
+        | T_WIDGET_CAST expr
+        {
+                $$ = mk_expression(L_EXPRESSION_UNARY, T_WIDGET_CAST, $2,
                                    NULL, NULL, NULL, NULL);
         }
  	| T_BANG expr
