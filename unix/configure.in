@@ -250,6 +250,12 @@ fi
 
 SC_TIME_HANDLER
 
+#------------------------------------------------------------------------------
+#       Check if we want to use pcre
+#------------------------------------------------------------------------------
+
+SC_ENABLE_PCRE
+
 #--------------------------------------------------------------------
 #	Some systems (e.g., IRIX 4.0.5) lack the st_blksize field
 #	in struct stat.  But we might be able to use fstatfs instead.

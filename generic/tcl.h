@@ -542,6 +542,8 @@ typedef void (Tcl_ThreadCreateProc) _ANSI_ARGS_((ClientData clientData));
 #define	TCL_REG_NEWLINE		000300  /* newlines are line terminators */
 #define	TCL_REG_CANMATCH	001000  /* report details on partial/limited
 					 * matches */
+#define	TCL_REG_PCRE	0x08000000	/* Make sure it doesn't conflict with
+					 * existing TCL_REG_* or PCRE_* bits */
 
 /*
  * Flags values passed to Tcl_RegExpExecObj.
