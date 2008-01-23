@@ -178,6 +178,7 @@ static int fresh_include_p(Tcl_Interp *interp, const char *file);
 static Tcl_HashTable *L_include_table();
 static char *L_include_search(Tcl_Interp *interp, const char *file);
 static Tcl_HashTable *L_func_table();
+static void L_compile_push(L_expression *expr);
 
 /* we keep track of each AST node we allocate and free them all at once */
 L_ast_node *ast_trace_root = NULL;
@@ -911,6 +912,9 @@ L_compile_statements(L_statement *stmt)
         break;
     case L_STATEMENT_FOREACH:
 	L_compile_foreach_loop(stmt->u.foreach);
+	break;
+    case L_STATEMENT_PUSH:
+	L_compile_push(stmt->u.expr);
 	break;
     case L_STATEMENT_RETURN:
         L_trace("compiling return statement");
@@ -1753,6 +1757,28 @@ L_compile_foreach_loop(L_foreach_loop *loop)
        freed.  See the implementation of "dict for" in tclCompCmds.c.
        --timjr 2006.11.3 */
     TclEmitInstInt4(INST_DICT_DONE, iteratorIndex, lframe->envPtr);
+}
+
+void
+L_compile_push(L_expression *expr)
+{
+    L_symbol *symbol;
+
+    symbol = L_get_symbol(expr->a, FALSE);
+
+    L_PUSH_STR(expr->a->u.string);
+
+    L_compile_expressions(expr->b);
+
+    if (symbol->localIndex <= 255) {
+    	TclEmitInstInt1(INST_LAPPEND_SCALAR1, symbol->localIndex,
+		lframe->envPtr);
+    } else {
+    	TclEmitInstInt4(INST_LAPPEND_SCALAR4, symbol->localIndex,
+		lframe->envPtr);
+    }
+    L_POP();
+    L_POP();
 }
 
 /* Pushes all the indices necessary for an expression. Return value is

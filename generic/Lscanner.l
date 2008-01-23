@@ -146,6 +146,7 @@ tally_newlines(
 	"foreach"	return T_FOREACH;
 	"break"		return T_BREAK;
 	"continue"	return T_CONTINUE;
+	"push"		return T_PUSH;
 	"as"		return T_AS;
 	"in"		return T_IN;
         "=>"		return T_ARROW;

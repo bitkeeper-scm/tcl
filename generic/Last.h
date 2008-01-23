@@ -42,7 +42,8 @@ typedef enum L_expression_kind {
 	L_EXPRESSION_STRUCT_INDEX,
 	L_EXPRESSION_TERTIARY,
 	L_EXPRESSION_UNARY,
-	L_EXPRESSION_VARIABLE
+	L_EXPRESSION_VARIABLE,
+	L_EXPRESSION_PUSH
 } L_expression_kind;
 
 extern char *L_expression_tostr[15];
@@ -62,7 +63,8 @@ typedef enum L_statement_kind {
 	L_STATEMENT_EXPR,
 	L_STATEMENT_FOREACH,
 	L_STATEMENT_LOOP,
-	L_STATEMENT_RETURN
+	L_STATEMENT_RETURN,
+	L_STATEMENT_PUSH
 } L_statement_kind;
 
 extern char *L_statement_tostr[9];

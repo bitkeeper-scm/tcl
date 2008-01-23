@@ -84,7 +84,7 @@ pattern_funcall_rewrite(L_expression *funcall)
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
 %token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_INCLUDE T_PATTERN
+%token T_INCLUDE T_PATTERN T_PUSH
 
 %token T_RE T_SUBST T_RE_MODIFIER
 
@@ -234,6 +234,11 @@ single_statement:
                 $$ = mk_statement(L_STATEMENT_FOREACH, NULL);
                 ((L_statement *)$$)->u.foreach = $1;
         }
+        | push_statement
+        {
+                $$ = mk_statement(L_STATEMENT_PUSH, NULL);
+                ((L_statement *)$$)->u.expr = $1;
+        }
 	| expr ";"              
         { 
                 $$ = mk_statement(L_STATEMENT_EXPR, NULL);
@@ -321,6 +326,15 @@ foreach_statement:
 	| T_FOREACH "(" T_ID T_IN expr ")" stmt
 	{
 		$$ = mk_foreach_loop($5, $3, NULL, $7);
+	}
+	;
+
+
+push_statement:
+	  T_PUSH "(" T_BITAND T_ID "," expr ")" ";"
+	{
+		$$ = mk_expression(L_EXPRESSION_PUSH, -1, $4, $6, NULL, NULL,
+					NULL);
 	}
 	;
 
