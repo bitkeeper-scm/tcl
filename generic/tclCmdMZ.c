@@ -88,7 +88,7 @@ Tcl_RegexpObjCmd(
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
     int i, indices, about, offset, all, doinline;
-    int cflags, re_type, oldflags;
+    int cflags, iflags, re_type;
     Tcl_Obj *startIndex = NULL;
     Tcl_RegExp regExpr;
     static CONST char *options[] = {
@@ -245,15 +245,15 @@ Tcl_RegexpObjCmd(
      * RE engine.
      */
 
-    oldflags = ((Interp *)interp)->flags;
+    iflags = ((Interp *)interp)->flags;
     if ((enum re_type_opts) re_type == RETYPE_PCRE) {
 	cflags |= TCL_REG_PCRE;
-    } else if (oldflags & INTERP_PCRE) {
+    } else if (iflags & INTERP_PCRE) {
 	/* Prevent -type classic from being overridden compiling RE */
 	((Interp *)interp)->flags &= ~(INTERP_PCRE);
     }
     regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
-    ((Interp *)interp)->flags = oldflags;
+    ((Interp *)interp)->flags = iflags;
     if (regExpr == NULL) {
 	return TCL_ERROR;
     }
@@ -303,7 +303,7 @@ Tcl_RegsubObjCmd(
     int objc,			/* Number of arguments. */
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
-    int idx, result, cflags, all, wlen, wsublen, numMatches, offset;
+    int idx, result, cflags, iflags, all, wlen, wsublen, numMatches, offset;
     int start, end, subStart, subEnd, match, re_type;
     Tcl_RegExp regExpr;
     Tcl_RegExpInfo info;
@@ -503,10 +503,15 @@ Tcl_RegsubObjCmd(
 	goto regsubDone;
     }
 
+    iflags = ((Interp *)interp)->flags;
     if ((enum re_type_opts) re_type == RETYPE_PCRE) {
 	cflags |= TCL_REG_PCRE;
+    } else if (iflags & INTERP_PCRE) {
+	/* Prevent -type classic from being overridden compiling RE */
+	((Interp *)interp)->flags &= ~(INTERP_PCRE);
     }
     regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
+    ((Interp *)interp)->flags = iflags;
     if (regExpr == NULL) {
 	return TCL_ERROR;
     }
