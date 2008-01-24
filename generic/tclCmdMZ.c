@@ -88,7 +88,7 @@ Tcl_RegexpObjCmd(
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
     int i, indices, about, offset, all, doinline;
-    int cflags, re_type;
+    int cflags, re_type, oldflags;
     Tcl_Obj *startIndex = NULL;
     Tcl_RegExp regExpr;
     static CONST char *options[] = {
@@ -245,10 +245,15 @@ Tcl_RegexpObjCmd(
      * RE engine.
      */
 
+    oldflags = ((Interp *)interp)->flags;
     if ((enum re_type_opts) re_type == RETYPE_PCRE) {
 	cflags |= TCL_REG_PCRE;
+    } else if (oldflags & INTERP_PCRE) {
+	/* Prevent -type classic from being overridden compiling RE */
+	((Interp *)interp)->flags &= ~(INTERP_PCRE);
     }
     regExpr = Tcl_GetRegExpFromObj(interp, objv[0], cflags);
+    ((Interp *)interp)->flags = oldflags;
     if (regExpr == NULL) {
 	return TCL_ERROR;
     }

@@ -443,6 +443,7 @@ Tcl_RegExpExecObj(
     TclRegexp *regexpPtr = (TclRegexp *) re;
     int length;
     int reflags = regexpPtr->flags;
+    /* We could allow TCL_REG_PCRE to accept glob-fallback as well */
 #define TCL_REG_GLOBOK_FLAGS (TCL_REG_ADVANCED | TCL_REG_NOSUB | TCL_REG_NOCASE)
 
     /*
@@ -1018,7 +1019,7 @@ CompileRegexp(
 	 */
 
 	/* XXX Should enable PCRE_UTF8 selectively on non-ByteArray Tcl_Obj */
-	pcrecflags = PCRE_NO_UTF8_CHECK | PCRE_DOLLAR_ENDONLY;
+	pcrecflags = PCRE_NO_UTF8_CHECK | PCRE_DOLLAR_ENDONLY | PCRE_DOTALL;
 	for (i = 0, p = cstring; i < length; i++) {
 	    if (UCHAR(*p++) > 0x80) {
 		pcrecflags |= PCRE_UTF8;
@@ -1031,8 +1032,13 @@ CompileRegexp(
 	if (flags & TCL_REG_EXPANDED) {
 	    pcrecflags |= PCRE_EXTENDED;
 	}
-	if (flags & (TCL_REG_NEWLINE|TCL_REG_NLSTOP|TCL_REG_NLANCH)) {
+	/* TCL_REG_NLSTOP|TCL_REG_NLANCH == TCL_REG_NEWLINE */
+	if (flags & TCL_REG_NLSTOP) {
+	    pcrecflags &= ~(PCRE_DOTALL);
+	}
+	if (flags & TCL_REG_NLANCH) {
 	    pcrecflags |= PCRE_MULTILINE;
+	    pcrecflags &= ~(PCRE_DOLLAR_ENDONLY);
 	}
 
 	if (cstring[length] != 0) {
