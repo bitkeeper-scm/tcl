@@ -1718,7 +1718,7 @@ main(int ac, string av[])
 } -body {
 	exec [interpreter] $fname
 } -cleanup {
-	removeFile lfile-1.0.l
+	removeFile backtrace-1.0.l
 } -returnCodes {error} -match regexp -result {.*line 4.*line 9.*line 15}
 
 
