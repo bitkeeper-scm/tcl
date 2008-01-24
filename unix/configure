@@ -14018,7 +14018,7 @@ echo "$as_me: error: ${with_pcre} directory doesn't contain pcre header and/or l
 	    if test x"${ac_cv_c_pcre}" = x ; then
 		# Try pcre-config if it exists
 		ac_cv_c_pcre=`pcre-config --prefix 2>/dev/null`
-		if test "$?" -ne 0; then
+		if test "$?" -eq 0; then
 		    PCRE_INCLUDE=`pcre-config --cflags 2>/dev/null`
 		    PCRE_LIBS=`pcre-config --libs 2>/dev/null`
 		fi
@@ -14053,11 +14053,6 @@ echo "$as_me: WARNING: Can't find PCRE configuration, PCRE won't be used" >&2;}
     else
 	echo "$as_me:$LINENO: result: found PCRE configuration at ${ac_cv_c_pcre}" >&5
 echo "${ECHO_T}found PCRE configuration at ${ac_cv_c_pcre}" >&6
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_PCRE 1
-_ACEOF
-
     fi
 
 
@@ -14069,23 +14064,23 @@ echo $ECHO_N "checking whether to enable pcre in Tcl... $ECHO_C" >&6
     # Check whether --enable-pcre or --disable-pcre was given.
 if test "${enable_pcre+set}" = set; then
   enableval="$enable_pcre"
-  pcre_ok=$enableval
+  enable_pcre=$enableval
 else
-  pcre_ok=yes
+  enable_pcre=no
 fi;
 
     if test "${enable_pcre+set}" = set; then
 	enableval="$enable_pcre"
-	pcre_ok=$enableval
+	enable_pcre=$enableval
     else
-	pcre_ok=yes
+	enable_pcre=yes
     fi
 
     if test x"${ac_cv_c_pcre}" = x ; then
 	echo "$as_me:$LINENO: result: pcre configuration not found" >&5
 echo "${ECHO_T}pcre configuration not found" >&6
     else
-	if test "$pcre_ok" = "default" ; then
+	if test "$enable_pcre" = "default" ; then
 	    echo "$as_me:$LINENO: result: pcre default" >&5
 echo "${ECHO_T}pcre default" >&6
 
@@ -14093,10 +14088,22 @@ cat >>confdefs.h <<\_ACEOF
 #define USE_DEFAULT_PCRE 1
 _ACEOF
 
-	elif test "$pcre_ok" = "yes" ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_PCRE 1
+_ACEOF
+
+	elif test "$enable_pcre" = "yes" ; then
 	    echo "$as_me:$LINENO: result: pcre enabled" >&5
 echo "${ECHO_T}pcre enabled" >&6
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_PCRE 1
+_ACEOF
+
 	else
+	    PCRE_INCLUDE=
+	    PCRE_LIBS=
 	    echo "$as_me:$LINENO: result: no pcre" >&5
 echo "${ECHO_T}no pcre" >&6
 	fi

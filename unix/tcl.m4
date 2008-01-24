@@ -540,7 +540,7 @@ AC_DEFUN([SC_WITH_PCRE], [
 	    if test x"${ac_cv_c_pcre}" = x ; then
 		# Try pcre-config if it exists
 		ac_cv_c_pcre=`pcre-config --prefix 2>/dev/null`
-		if test "$?" -ne 0; then
+		if test "$?" -eq 0; then
 		    PCRE_INCLUDE=`pcre-config --cflags 2>/dev/null`
 		    PCRE_LIBS=`pcre-config --libs 2>/dev/null`
 		fi
@@ -586,7 +586,7 @@ AC_DEFUN([SC_WITH_PCRE], [
 #	
 # Results:
 #	Adds the following arguments to configure:
-#		--enable-pcre=yes|no|pcre
+#		--enable-pcre=yes|no|default
 #
 #------------------------------------------------------------------------
 
@@ -596,26 +596,28 @@ AC_DEFUN([SC_ENABLE_PCRE], [
     AC_ARG_ENABLE(pcre,
 	AC_HELP_STRING([--enable-pcre],
 	    [whether to enable pcre (default: off)]),
-	[pcre_ok=$enableval], [pcre_ok=yes])
+	[enable_pcre=$enableval], [enable_pcre=no])
 
     if test "${enable_pcre+set}" = set; then
 	enableval="$enable_pcre"
-	pcre_ok=$enableval
+	enable_pcre=$enableval
     else
-	pcre_ok=yes
+	enable_pcre=yes
     fi
 
     if test x"${ac_cv_c_pcre}" = x ; then
 	AC_MSG_RESULT([pcre configuration not found])
     else
-	if test "$pcre_ok" = "default" ; then
+	if test "$enable_pcre" = "default" ; then
 	    AC_MSG_RESULT([pcre default])
 	    AC_DEFINE(USE_DEFAULT_PCRE, 1, [Use PCRE as default RE?])
 	    AC_DEFINE(HAVE_PCRE, 1, [Do we enable PCRE interfaces?])
-	elif test "$pcre_ok" = "yes" ; then
+	elif test "$enable_pcre" = "yes" ; then
 	    AC_MSG_RESULT([pcre enabled])
 	    AC_DEFINE(HAVE_PCRE, 1, [Do we enable PCRE interfaces?])
 	else
+	    PCRE_INCLUDE=
+	    PCRE_LIBS=
 	    AC_MSG_RESULT([no pcre])
 	fi
     fi
