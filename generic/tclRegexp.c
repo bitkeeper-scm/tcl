@@ -261,8 +261,21 @@ Tcl_RegExpRange(
 	} else {
 	    string = regexpPtr->string;
 	}
-	*startPtr = Tcl_UtfAtIndex(string, regexpPtr->matches[index].rm_so);
-	*endPtr = Tcl_UtfAtIndex(string, regexpPtr->matches[index].rm_eo);
+	if (regexpPtr->flags & TCL_REG_PCRE) {
+#ifdef HAVE_PCRE
+	    /* XXX We could check for tclByteArrayType objPtr */
+	    int last = regexpPtr->details.rm_extend.rm_so; /* last offset */
+	    *startPtr = Tcl_UtfAtIndex(string,
+		    regexpPtr->matches[index].rm_so - last);
+	    *endPtr = Tcl_UtfAtIndex(string,
+		    regexpPtr->matches[index].rm_eo - last);
+#else
+	    Tcl_Panic("Cannot get info for PCRE match");
+#endif
+	} else {
+	    *startPtr = Tcl_UtfAtIndex(string, regexpPtr->matches[index].rm_so);
+	    *endPtr = Tcl_UtfAtIndex(string, regexpPtr->matches[index].rm_eo);
+	}
     }
 }
 
