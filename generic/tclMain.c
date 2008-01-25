@@ -339,10 +339,12 @@ Tcl_Main(
 				 * function to call after most initialization
 				 * but before starting to execute commands. */
 {
-    Tcl_Obj *path, *resultPtr, *argvPtr, *commandPtr = NULL;
+    Tcl_Obj *path, *resultPtr, *argvPtr, *LObj, *commandPtr = NULL;
+    int commandLen;
+    char *commandStr;
     CONST char *encodingName = NULL;
     PromptType prompt = PROMPT_START;
-    int code, length, tty, exitCode = 0;
+    int code, length, tty, L = 0, exitCode = 0;
     Tcl_Channel inChannel, outChannel, errChannel;
     Tcl_Interp *interp;
     Tcl_DString appName;
@@ -495,6 +497,7 @@ Tcl_Main(
      */
 
     Tcl_LinkVar(interp, "tcl_interactive", (char *) &tty, TCL_LINK_BOOLEAN);
+    Tcl_LinkVar(interp, "L", (char *) &L, TCL_LINK_BOOLEAN);
     inChannel = Tcl_GetStdChannel(TCL_STDIN);
     outChannel = Tcl_GetStdChannel(TCL_STDOUT);
     while ((inChannel != (Tcl_Channel) NULL) && !Tcl_InterpDeleted(interp)) {
@@ -539,6 +542,17 @@ Tcl_Main(
 	    }
 
 	    /*
+	     * Check for the #lang comments and sub them out for
+	     * meaningful commands.
+	     */
+	    commandStr = Tcl_GetStringFromObj(commandPtr, &commandLen);
+	    if (!L && strncasecmp(commandStr, "#lang l", 7) == 0) {
+		Tcl_SetStringObj(commandPtr, "set ::L 1", -1);
+	    } else if (L && strncasecmp(commandStr, "#lang tcl", 9) == 0) {
+		Tcl_SetStringObj(commandPtr, "set('::L',0);", -1);
+	    }
+
+	    /*
 	     * Add the newline removed by Tcl_GetsObj back to the string.
 	     * Have to add it back before testing completeness, because
 	     * it can make a difference.  [Bug 1775878].
@@ -556,6 +570,19 @@ Tcl_Main(
 	    }
 
 	    prompt = PROMPT_START;
+
+	    if (L) {
+	    	LObj = Tcl_NewStringObj("L {", -1);
+		Tcl_AppendObjToObj(LObj, commandPtr);
+		if (commandStr[commandLen-1] != ';') {
+		    Tcl_AppendToObj(LObj, ";", -1);
+		}
+		Tcl_AppendToObj(LObj, "}\n", -1);
+		Tcl_DecrRefCount(commandPtr);
+		commandPtr = LObj;
+		Tcl_IncrRefCount(commandPtr);
+	    }
+
 	    /*
 	     * The final newline is syntactically redundant, and causes
 	     * some error messages troubles deeper in, so lop it back off.
