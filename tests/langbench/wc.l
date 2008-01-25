@@ -11,7 +11,7 @@ wordsplit(string str)
 	for (i = 0; defined(chars[i]); i++) {
 		if (string("is", "space", chars[i])) {
 			if (String_length(word) > 0) {
-				lappend(&list, word);
+				push(&list, word);
 			}
 			word = "";
 		} else {
@@ -19,7 +19,7 @@ wordsplit(string str)
 		}
 	}
 	if (String_length(word) > 0) {
-		lappend(&list, word);
+		push(&list, word);
 	}
 	return (list);
 }

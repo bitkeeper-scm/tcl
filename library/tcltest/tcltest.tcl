@@ -658,7 +658,8 @@ namespace eval tcltest {
     } AcceptPattern matchFiles
 
     # By default, skip files that appear to be SCCS lock files.
-    Option -notfile l.*.test {
+    # XXX - busted.
+    Option -notfile SCCS/l.*.test {
 	Skip all test files that match the glob pattern given.
     } AcceptPattern skipFiles
 

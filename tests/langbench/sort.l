@@ -1,9 +1,3 @@
-void
-push(string &l[], string val)
-{
-	lappend(&l, val);
-}
-
 main(int ac, string av[])
 {
 	int	i;
@@ -16,9 +10,7 @@ main(int ac, string av[])
 	for (i = 1; i < ac; ++i) {
 		f = open(av[i], "rb");
 		while (gets(f, &buf) >= 0) {
-			// Not until we compile push.  Too slow.
-			// push(&l, buf);
-			lappend(&l, buf);
+			push(&l, buf);
 		}
 	}
 	s = lsort(l);
