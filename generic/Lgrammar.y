@@ -151,14 +151,11 @@ toplevel_code:
 	;
 
 function_declaration:
-	  type_specifier "[" "]" fundecl_tail
+	  type_specifier fundecl_arrays fundecl_tail
 	{
-		L_expression *zero;
-
-		MK_INT_NODE(zero, 0);
-		((L_function_declaration *)$4)->return_type =
-		    mk_type(L_TYPE_ARRAY, zero, NULL, $1, NULL, FALSE);
-		$$ = $4;
+		((L_type *)$2)->next_dim = $1;
+		((L_function_declaration *)$3)->return_type = $2;
+		$$ = $3;
 	}
 	| type_specifier fundecl_tail
 	{
@@ -177,6 +174,24 @@ function_declaration:
 		    mk_type(L_TYPE_VOID, NULL, NULL, NULL, NULL, FALSE);
 		$$ = $1;
 	}
+	;
+
+fundecl_arrays:
+	fundecl_arrays "[" "]"
+	{
+		L_expression *zero;
+
+		MK_INT_NODE(zero, 0);
+		$$ = mk_type(L_TYPE_ARRAY, zero, NULL, $1, NULL, FALSE);
+	}
+	| "[" "]"
+	{
+		L_expression *zero;
+
+		MK_INT_NODE(zero, 0);
+		$$ = mk_type(L_TYPE_ARRAY, zero, NULL, NULL, NULL, FALSE);
+	}
+	;
 
 fundecl_tail:
 	  T_ID fundecl_tail1

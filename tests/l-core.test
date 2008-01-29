@@ -1694,6 +1694,250 @@ bar(int a, int b) {}
 -result "*:3: L Error: Not enough arguments for function bar
 *:2: L Error: Too many arguments for function foo\n"
 
+test typecheck-1.2 {check functions returning int arrays of arrays} -body {
+#lang L
+int[]
+f_int()
+{
+	int	i, a[3];
+
+	for (i = 0; i < 3; ++i) {
+		a[i] = i;
+	}
+	return a;
+}
+int[][]
+f_int_int()
+{
+	int	i, j, a[3][4];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			a[i][j] = 10*i + j;
+		}
+	}
+	return a;
+}
+int[][][]
+f_int_int_int()
+{
+	int	i, j, k, a[3][4][5];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				a[i][j][k] = 100*i + 10*j + k;
+			}
+		}
+	}
+	return a;
+}
+void
+foo()
+{
+	int	i, j, k;
+	int	one[3];
+	int	two[3][4];
+	int	three[3][4][5];
+
+	one   = f_int();
+	two   = f_int_int();
+	three = f_int_int_int();
+
+	for (i = 0; i < 3; ++i) {
+		unless (one[i] == i) {
+			printf("one: i=%d bad\n", i);
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			unless (two[i][j] == (10*i + j)) {
+				printf("two: i=%d j=%d bad\n", i, j);
+			}
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				unless (three[i][j][k] == (100*i + 10*j + k)) {
+					printf("three: i=%d j=%d k=%d bad\n",
+					       i, j, k);
+				}
+			}
+		}
+	}
+}
+foo();
+} -output {}
+
+test typecheck-1.3 {check functions returning float arrays of arrays} -body {
+#lang L
+float[]
+f_float()
+{
+	int	i;
+	float	a[3];
+
+	for (i = 0; i < 3; ++i) {
+		a[i] = (float)i;
+	}
+	return a;
+}
+float[][]
+f_float_float()
+{
+	int	i, j;
+	float	a[3][4];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			a[i][j] = 10.0*i + j;
+		}
+	}
+	return a;
+}
+float[][][]
+f_float_float_float()
+{
+	int	i, j, k;
+	float	a[3][4][5];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				a[i][j][k] = 100.0*i + 10.0*j + k;
+			}
+		}
+	}
+	return a;
+}
+void
+foo()
+{
+	int	i, j, k;
+	float	one[3];
+	float	two[3][4];
+	float	three[3][4][5];
+
+	one   = f_float();
+	two   = f_float_float();
+	three = f_float_float_float();
+
+	/*
+	 * Although testing equality of floats is usually unwise,
+	 * there should be sufficient precision in this case to make
+	 * the comparisons true when they should be.
+	 */
+	for (i = 0; i < 3; ++i) {
+		unless (one[i] == (float)i) {
+			printf("one: i=%d bad\n", i);
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			unless (two[i][j] == (10.0*i + j)) {
+				printf("two: i=%d j=%d bad\n", i, j);
+			}
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				unless (three[i][j][k] == (100.0*i+10.0*j+k)) {
+					printf("three: i=%d j=%d k=%d bad\n",
+					       i, j, k);
+				}
+			}
+		}
+	}
+}
+foo();
+} -output {}
+
+test typecheck-1.4 {check functions returning string arrays of arrays} -body {
+#lang L
+string[]
+f_string()
+{
+	int	i;
+	string	a[3];
+
+	for (i = 0; i < 3; ++i) {
+		a[i] = "${i}";
+	}
+	return a;
+}
+string[][]
+f_string_string()
+{
+	int	i, j;
+	string	a[3][4];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			a[i][j] = "${i}:${j}";
+		}
+	}
+	return a;
+}
+string[][][]
+f_string_string_string()
+{
+	int	i, j, k;
+	string	a[3][4][5];
+
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				a[i][j][k] = "${i}:${j}:${k}";
+			}
+		}
+	}
+	return a;
+}
+void
+foo()
+{
+	int	i, j, k;
+	string	one[3];
+	string	two[3][4];
+	string	three[3][4][5];
+
+	one   = f_string();
+	two   = f_string_string();
+	three = f_string_string_string();
+
+	for (i = 0; i < 3; ++i) {
+		unless (one[i] eq "${i}") {
+			printf("one: i=%d bad\n", i);
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			unless (two[i][j] eq "${i}:${j}") {
+				printf("two: i=%d j=%d bad\n", i, j);
+			}
+		}
+	}
+	for (i = 0; i < 3; ++i) {
+		for (j = 0; j < 4; ++j) {
+			for (k = 0; k < 5; ++k) {
+				unless (three[i][j][k] eq "${i}:${j}:${k}") {
+					printf("three: i=%d j=%d k=%d bad\n",
+					       i, j, k);
+				}
+			}
+		}
+	}
+}
+foo();
+} -output {}
+
+test typecheck-1.5 {check functions returning void arrays are illegal} -body {
+#lang L
+void[] bad() { return; }
+} -returnCodes error -match regexp -result {.*syntax error.*unexpected "\["}
+
 test backtrace-1.0 {backtracing in L} -setup {
 	set fname [makeFile {
 foo()
