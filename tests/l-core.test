@@ -106,6 +106,7 @@ test proc-1.1 {Test L function returns.} -body {
 f1() {
         puts("whiz");
 }
+string
 f2() {
         puts("bang");
         return "foo";
@@ -513,6 +514,183 @@ unless_1_1() {
 unless_1_1
 } -output "1 working\ndone\n"
 
+test return-1.1 {return from void function allowed} -body {
+#lang L
+void good() { return; }
+} -returnCodes normal
+
+test return-1.2 {returning int from void function disallowed} -body {
+#lang L
+void bad() { return 0; }
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.3 {returning string from void function disallowed} -body {
+#lang L
+void bad() { return "str"; }
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.4 {returning float from void function disallowed} -body {
+#lang L
+void bad() { return 2.99792458; }
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.5 {returning array from void function disallowed} -body {
+#lang L
+void bad() {
+	int	a[3];
+	return a;
+}
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.6 {returning hash from void function disallowed} -body {
+#lang L
+void bad() {
+	hash	h;
+	return h;
+}
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.7 {returning struct from void function disallowed} -body {
+#lang L
+void bad() {
+	struct { int x,y; } s;
+	return s;
+}
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.8 {returning poly from void function disallowed} -body {
+#lang L
+void bad() {
+	poly	p;
+	return p;
+}
+} -returnCodes error -match regexp -result ".*Cannot return value from void function"
+
+test return-1.9 {return from global scope illegal} -body {
+#lang L
+return;
+} -returnCodes error -match regexp -result ".*Return from global scope illegal"
+
+test return-2.1 {int return value from int function allowed} -body {
+#lang L
+int f() { return 123; }
+unless (f() == 123) printf("BAD\n");
+} -output ""
+
+test return-2.2 {float return value from float function allowed} -body {
+#lang L
+float f() { return 123.456; }
+unless (f() == 123.456) printf("BAD\n");
+} -output ""
+
+test return-2.3 {string return value from string function allowed} -body {
+#lang L
+string f() { return "str"; }
+unless (f() eq "str") printf("BAD\n");
+} -output ""
+
+test return-2.4 {array return value from array function allowed} -body {
+#lang L
+int[]
+f()
+{
+	int	a[3] = {2,3,5};
+	return a;
+}
+int res[] = f();
+unless ((res[0] == 2) && (res[1] == 3) && (res[2] == 5)) printf("BAD\n");
+} -output ""
+
+test return-2.5 {hash return value from hash function allowed} -body {
+#lang L
+hash
+f()
+{
+	hash	h;
+	h{"one"} = 1;
+	h{"two"} = 2;
+	h{"ten"} = 10;
+	return h;
+}
+hash res = f();
+unless ((res{"one"} == 1) && (res{"two"} == 2) && (res{"ten"} == 10)) printf("BAD\n");
+} -output ""
+
+test return-2.6 {struct return value from struct function allowed} -body {
+#lang L
+struct s {
+	int x, y, z;
+};
+struct s
+f()
+{
+	struct s s;
+	s.x = 1;
+	s.y = 2;
+	s.z = 3;
+	return s;
+}
+struct s res = f();
+unless ((res.x == 1) && (res.y == 2) && (res.z == 3)) printf("BAD\n");
+} -output ""
+
+# Spot-check some of the type-checking cases to ensure that return-value
+# type checking is being done.  Do not check all possible permutations.
+
+test return-3.1 {int return value from string function disallowed} -body {
+#lang L
+string f() { return 1; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_STRING.*got L_TYPE_INT"
+
+test return-3.2 {float return value from string function disallowed} -body {
+#lang L
+string f() { return 1.2; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_STRING.*got L_TYPE_FLOAT"
+
+test return-3.3 {int return value from hash function disallowed} -body {
+#lang L
+hash f() { return 1; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_HASH.*got L_TYPE_INT"
+
+test return-3.4 {array return value from hash function disallowed} -body {
+#lang L
+hash f() { int a[3]; return a; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_HASH.*got L_TYPE_ARRAY"
+
+test return-3.5 {int return value from struct function disallowed} -body {
+#lang L
+struct s {
+	int x, y;
+};
+struct s f() { return 1; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_STRUCT.*got L_TYPE_INT"
+
+test return-3.6 {hash return value from struct function disallowed} -body {
+#lang L
+struct s {
+	int x, y;
+};
+struct s f() { hash h; return h; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_STRUCT.*got L_TYPE_HASH"
+
+test return-3.7 {int return value from array function disallowed} -body {
+#lang L
+int[] f() { return 1; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_ARRAY.*got L_TYPE_INT"
+
+test return-3.8 {struct return value from array function disallowed} -body {
+#lang L
+struct s {
+	int x, y;
+};
+int[] f() { struct s s; return s; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_ARRAY.*got L_TYPE_STRUCT"
+
+test return-3.9 {hash return value from array function disallowed} -body {
+#lang L
+int[] f() { hash h; return h; }
+} -returnCodes error -match regexp -result ".*type error.*want L_TYPE_ARRAY.*got L_TYPE_HASH"
+
 test syntax-1.0 {single-line comments a la C++} -body {
 #lang L
 syntax_1_0() {
@@ -746,6 +924,7 @@ op_1_6
 
 test op-1.7 {logical operator short-circuiting} -body {
 #lang L
+int
 puts_int(string str) {
         puts(str);
         return 9;

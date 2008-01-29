@@ -103,6 +103,7 @@ typedef struct Dict {
 
 L_compile_frame *lframe = NULL;
 static Tcl_HashTable *L_struct_types = NULL;
+static L_function_declaration *L_enclosing_func = NULL;
 Tcl_Obj *L_errors = NULL;
 int L_line_number = 0;
 char *L_source_file = "";
@@ -488,7 +489,9 @@ L_compile_function_decl(L_function_declaration *fun)
     lframe->block = (L_ast_node *)fun;
 
     L_compile_parameters(fun->params);
+    L_enclosing_func = fun;
     L_compile_block(fun->body);
+    L_enclosing_func = NULL;
 
     /* This is the "fall off the end" implicit return. We return "". */
     L_return(FALSE);
@@ -918,6 +921,16 @@ L_compile_statements(L_statement *stmt)
 	break;
     case L_STATEMENT_RETURN:
         L_trace("compiling return statement");
+        if (!L_enclosing_func) {
+            /* No need to bail, since tcl ignores the INST_DONE. */
+            L_errorf(stmt, "Return from global scope illegal\n");
+        }
+        else if ((L_enclosing_func->return_type->kind == L_TYPE_VOID) &&
+                 (stmt->u.expr)) {
+            L_errorf(stmt, "Cannot return value from void function\n");
+        } else {
+            L_check_type(L_enclosing_func->return_type, stmt->u.expr);
+        }
         if (stmt->u.expr) {
             L_trace("    with return value");
             /* compile the return value */

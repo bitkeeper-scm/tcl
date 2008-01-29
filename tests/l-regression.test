@@ -84,6 +84,7 @@ turing(int step, int state, int tape[], int pos) {
 }
 
 /* dump the tape to a string */
+string
 dump_tape(int tape[]) {
     return format("%d %d %d %d %d",
                   tape[0],  tape[1], tape[2], tape[3], tape[4]);
@@ -229,7 +230,7 @@ if_1_0() {
 	}
 }
 
-string winfo(string a, string b) {return 42;}
+string winfo(string a, string b) {return "42";}
 #lang tcl
 if_1_0
 } -output {wicky wicky3
@@ -328,19 +329,29 @@ typedef int BAR;
 
 test crash-1.1 {crashing in some interim versions} -body {
 #lang L
-    struct xy { int x,y; };
+struct xy { int x,y; };
+void
+foo()
+{
     struct xy xys[2];
     xys[0].x = 1;
-    return xys;
-} -result {{1 0} {0 0}}
+    printf("%s", xys);
+}
+foo();
+} -output "{1 0} {0 0}"
 
 test crash-1.1 {crashing in some interim versions} -body {
 #lang L
-    struct xy { int x,y; };
+struct xy { int x,y; };
+void
+foo()
+{
     struct xy xys[];
     xys[0].x = 1;
     xys[1].y = 2;
-    return xys;
+    printf("%s", xys);	
+}
+foo();
 } -returnCodes error -result {autoextending nested arrays not implemented yet}
 
 

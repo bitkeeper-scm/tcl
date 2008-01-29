@@ -123,7 +123,7 @@ fopen(string path, string mode)
 	if (catch("set f [open {${path}} ${mode}]", &err)) {
 		stdio_lasterr = err;
 		if (v) fprintf(stderr, "fopen(%s, %s) = %s\n", path, mode, err);
-		return (0);
+		return ("0");
 	} else {
 		return (f);
 	}
@@ -143,7 +143,7 @@ popen(string cmd, string mode)
 	if (catch("set f [open {|${cmd}} ${mode}]", &err)) {
 		stdio_lasterr = err;
 		if (v) fprintf(stderr, "popen(%s, %s) = %s\n", cmd, mode, err);
-		return (0);
+		return ("0");
 	} else {
 		return (f);
 	}
@@ -233,5 +233,5 @@ system(string cmd)
 		// XXX - this could be a lot nicer by digging into errorCode
 		return ("${cmd}: ${err}");
 	}
-	return (0);
+	return ("0");
 }
