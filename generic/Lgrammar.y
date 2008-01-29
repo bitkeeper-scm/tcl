@@ -562,7 +562,6 @@ expr:
         }
         | T_ID "(" ")"
         {
-                REVERSE(L_expression, next, $3);
                 $$ = mk_expression(L_EXPRESSION_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
 		pattern_funcall_rewrite($$);
         }
