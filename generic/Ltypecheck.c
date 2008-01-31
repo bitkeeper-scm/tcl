@@ -267,6 +267,12 @@ subtype(
 	    if (have->kind != L_TYPE_FLOAT && have->kind != L_TYPE_INT) {
 		return NOT_SUBTYPE;
 	    }
+	} else if (want->kind == L_TYPE_FLOAT && have->kind == L_TYPE_INT) {
+	    /*
+	     * Allow int -> float coercion.  No byte codes need to be
+	     * generated because tcl automatically does the coercion.
+	     */
+	    return IS_SUBTYPE;
 	} else if (want->kind != have->kind) {
 	    return NOT_SUBTYPE;
 	}
