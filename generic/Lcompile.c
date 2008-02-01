@@ -1261,6 +1261,11 @@ l_push_literal(L_expression *expr)
 
 void L_compile_unop(L_expression *expr)
 {
+    /* Voids can't be cast or used as operands to any operator . */
+    if (L_expr_is_void(expr->a) || L_expr_is_void(expr->b)) {
+	    L_errorf(expr, "Void type illegal in cast or operator");
+    }
+
     switch (expr->op) {
     case T_TCL_CAST:
         if ((expr->a->kind == L_EXPRESSION_VARIABLE) && !expr->a->indices) {
@@ -1327,6 +1332,11 @@ void L_compile_unop(L_expression *expr)
 void L_compile_binop(L_expression *expr)
 {
     L_type *type;
+
+    /* Voids aren't legal operands to any binary operator . */
+    if (L_expr_is_void(expr->a) || L_expr_is_void(expr->b)) {
+	    L_errorf(expr, "Void type illegal in assignment or operator");
+    }
 
     switch (expr->op) {
     case T_EQUALS:
@@ -1606,6 +1616,9 @@ L_compile_if_unless(L_if_unless *cond)
     int jumpFalseOffset, jumpEndOffset;
     L_type *type;
     
+    if (L_expr_is_void(cond->condition)) {
+	    L_errorf(cond->condition, "Void not a legal predicate");
+    }
     L_compile_expressions(cond->condition);
     if (!EXPR_IS_VALID_BOOLEAN(cond->condition)) {
 	L_PUSH_STR("0");
@@ -1682,6 +1695,9 @@ L_compile_loop(L_loop *loop)
     TclUpdateInstInt4AtPc(INST_JUMP4,
 	CurrentOffset(lframe->envPtr) - jumpToCond,
 	lframe->envPtr->codeStart + jumpToCond);
+    if (L_expr_is_void(loop->condition)) {
+	    L_errorf(loop->condition, "Void not a legal predicate");
+    }
     L_compile_expressions(loop->condition);
     if (!EXPR_IS_VALID_BOOLEAN(loop->condition)) {
 	L_PUSH_STR("0");

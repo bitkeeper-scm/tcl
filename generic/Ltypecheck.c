@@ -252,6 +252,18 @@ L_finish_typechecks()
     free_type_info();
 }
 
+/* Determine whether an expression is of void type. If the type is
+ * unknown, don't call it a void since it could be a call to an
+ * external function of unknown type. */
+int
+L_expr_is_void(L_expression *expr)
+{
+	L_type	*type;
+
+	if (!expr || !(type = L_expression_type(expr))) return 0;
+	return (type->kind == L_TYPE_VOID);
+}
+
 static type_relation 
 subtype(
     L_type *have, 
@@ -355,6 +367,7 @@ L_expression_type(
         break;
     case L_EXPRESSION_STRING:
     case L_EXPRESSION_INTERPOLATED_STRING:
+    case L_EXPRESSION_REGEXP:
 	type = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE);
 	break;
     case L_EXPRESSION_FLOTE:

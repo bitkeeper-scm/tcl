@@ -2115,7 +2115,7 @@ foo();
 test typecheck-1.5 {check functions returning void arrays are illegal} -body {
 #lang L
 void[] bad() { return; }
-} -returnCodes error -match regexp -result {.*syntax error.*unexpected "\["}
+} -returnCodes error -match regexp -result {.*syntax error.*unexpected.*\[}
 
 test typecheck-2.1 {check int-to-float casts and coercions} -body {
 #lang L
@@ -2254,6 +2254,243 @@ foo()
 }
 foo();
 } -output ""
+
+test typecheck-3.1 {void illegal in if-stmt conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	if (v()) return;
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.2 {void illegal in unless-stmt conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	unless (v()) return;
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.3 {void illegal in while-loop conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	while (v()) return;
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.4 {void illegal in do-loop conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	do {
+		return;
+	} while(v());
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.5 {void illegal in for-loop conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	for (1; v(); 1) return;
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.6 {void illegal in abbreviated-for-loop conditional} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	for (1; v();) return;
+}
+} -returnCodes error -match regexp -result {Void not a legal predicate}
+
+test typecheck-3.10 {void illegal in binary operators} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	int	i;
+
+	if (v() && 0) return;
+	if (0 && v()) return;
+	if (v() || 0) return;
+	if (0 || v()) return;
+	if (v() =~ /bad/) return;
+	if (v() eq "") return;
+	if ("" eq v()) return;
+	if (v() ne "") return;
+	if ("" ne v()) return;
+	if (v() gt "") return;
+	if ("" gt v()) return;
+	if (v() ge "") return;
+	if ("" ge v()) return;
+	if (v() lt "") return;
+	if ("" lt v()) return;
+	if (v() le "") return;
+	if ("" le v()) return;
+	if (v() == 0)  return;
+	if (0 == v())  return;
+	if (v() != 0)  return;
+	if (0 != v())  return;
+	if (v() > 0)   return;
+	if (0 > v())   return;
+	if (v() >= 0)  return;
+	if (0 >= v())  return;
+	if (v() < 0)   return;
+	if (0 < v())   return;
+	if (v() <= 0)  return;
+	if (0 <= v())  return;
+	i = v() + 1;
+	i = 1 + v();
+	i = v() - 1;
+	i = 1 - v();
+	i = v() * 1;
+	i = 1 * v();
+	i = v() / 1;
+	i = 1 / v();
+	i = v() % 1;
+	i = 1 % v();
+	i = v() & 1;
+	i = 1 & v();
+	i = v() | 1;
+	i = 1 | v();
+	i = v() ^ 1;
+	i = 1 ^ v();
+	i = v() << 1;
+	i = 1 << v();
+	i = v() >> 1;
+	i = 1 >> v();
+}
+} -returnCodes error -match regexp -result {.*7: L Error: Void type illegal in assignment or operator
+.*8: L Error: Void type illegal in assignment or operator
+.*9: L Error: Void type illegal in assignment or operator
+.*10: L Error: Void type illegal in assignment or operator
+.*11: L Error: Void type illegal in assignment or operator
+.*12: L Error: Void type illegal in assignment or operator
+.*13: L Error: Void type illegal in assignment or operator
+.*14: L Error: Void type illegal in assignment or operator
+.*15: L Error: Void type illegal in assignment or operator
+.*16: L Error: Void type illegal in assignment or operator
+.*17: L Error: Void type illegal in assignment or operator
+.*18: L Error: Void type illegal in assignment or operator
+.*19: L Error: Void type illegal in assignment or operator
+.*20: L Error: Void type illegal in assignment or operator
+.*21: L Error: Void type illegal in assignment or operator
+.*22: L Error: Void type illegal in assignment or operator
+.*23: L Error: Void type illegal in assignment or operator
+.*24: L Error: Void type illegal in assignment or operator
+.*25: L Error: Void type illegal in assignment or operator
+.*26: L Error: Void type illegal in assignment or operator
+.*27: L Error: Void type illegal in assignment or operator
+.*28: L Error: Void type illegal in assignment or operator
+.*29: L Error: Void type illegal in assignment or operator
+.*30: L Error: Void type illegal in assignment or operator
+.*31: L Error: Void type illegal in assignment or operator
+.*32: L Error: Void type illegal in assignment or operator
+.*33: L Error: Void type illegal in assignment or operator
+.*34: L Error: Void type illegal in assignment or operator
+.*35: L Error: Void type illegal in assignment or operator
+.*36: L Error: Void type illegal in assignment or operator
+.*37: L Error: Void type illegal in assignment or operator
+.*38: L Error: Void type illegal in assignment or operator
+.*39: L Error: Void type illegal in assignment or operator
+.*40: L Error: Void type illegal in assignment or operator
+.*41: L Error: Void type illegal in assignment or operator
+.*42: L Error: Void type illegal in assignment or operator
+.*43: L Error: Void type illegal in assignment or operator
+.*44: L Error: Void type illegal in assignment or operator
+.*45: L Error: Void type illegal in assignment or operator
+.*46: L Error: Void type illegal in assignment or operator
+.*47: L Error: Void type illegal in assignment or operator
+.*48: L Error: Void type illegal in assignment or operator
+.*49: L Error: Void type illegal in assignment or operator
+.*50: L Error: Void type illegal in assignment or operator
+.*51: L Error: Void type illegal in assignment or operator
+.*52: L Error: Void type illegal in assignment or operator
+.*53: L Error: Void type illegal in assignment or operator
+.*54: L Error: Void type illegal in assignment or operator
+.*55: L Error: Void type illegal in assignment or operator
+}
+
+test typecheck-3.11 {void illegal in casts and unary operators} -body {
+#lang L
+void v() { return; }
+void
+foo()
+{
+	int	i;
+	float	f;
+	string	s;
+	hash	h;
+
+	i = (int)v();
+	f = (float)v();
+	s = (string)v();
+	h = (hash)v();
+	i = !v();
+	i = ~v();
+	i = +v();
+	i = -v();
+}
+} -returnCodes error -match regexp -result {.*10: L Error: Void type illegal in cast or operator
+.*11: L Error: Void type illegal in cast or operator
+.*12: L Error: Void type illegal in cast or operator
+.*13: L Error: Void type illegal in cast or operator
+.*14: L Error: Void type illegal in cast or operator
+.*15: L Error: Void type illegal in cast or operator
+.*16: L Error: Void type illegal in cast or operator
+.*17: L Error: Void type illegal in cast or operator
+}
+
+test typecheck-3.12 {void illegal in assignments} -body {
+#lang L
+void v() { return; }
+int takes_int(int i) { return i; }
+void
+foo()
+{
+	int	i;
+
+	i = v();
+	i += v();
+	i -= v();
+	i /= v();
+	i *= v();
+	i %= v();
+	i &= v();
+	i |= v();
+	i ^= v();
+	i >>= v();
+	i <<= v();
+	takes_int(v());
+}
+} -returnCodes error -match regexp -result {.*8: L Error: Void type illegal in assignment or operator
+.*9: L Error: Void type illegal in assignment or operator
+.*10: L Error: Void type illegal in assignment or operator
+.*11: L Error: Void type illegal in assignment or operator
+.*12: L Error: Void type illegal in assignment or operator
+.*13: L Error: Void type illegal in assignment or operator
+.*14: L Error: Void type illegal in assignment or operator
+.*15: L Error: Void type illegal in assignment or operator
+.*16: L Error: Void type illegal in assignment or operator
+.*17: L Error: Void type illegal in assignment or operator
+.*18: L Error: Void type illegal in assignment or operator
+.*19: L Error: type error, want L_TYPE_INT, got L_TYPE_VOID
+}
 
 test backtrace-1.0 {backtracing in L} -setup {
 	set fname [makeFile {

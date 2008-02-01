@@ -636,7 +636,7 @@ test: tcltest
 	TCL_LIBRARY="${TCL_BUILDTIME_LIBRARY}"; export TCL_LIBRARY; \
 	./tcltest $(TOP_DIR)/tests/all.tcl $(TESTFLAGS)
 
-test-l test-L:
+l-test l-tests test-l test-L:
 	$(MAKE) test TESTFLAGS="-file l-*"
 
 gdb-test: tcltest
