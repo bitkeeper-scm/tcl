@@ -253,9 +253,7 @@ ParseLang(
 	if (!end) {
 	    end = (char *)src + numBytes;
 	}
-	if (parsePtr->numTokens + 2 < parsePtr->tokensAvailable) {
-	    TclExpandTokenArray(parsePtr);
-	}
+	TclGrowParseTokenArray(parsePtr, 2);
 	wordIdx = parsePtr->numTokens;
 	tokenPtr = &parsePtr->tokenPtr[wordIdx];
 	tokenPtr->type = TCL_TOKEN_SIMPLE_WORD;
