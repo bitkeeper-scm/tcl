@@ -3601,7 +3601,7 @@ TclEvalObjvInternal(
 	 */
 
 	cmdPtr->refCount++;
-	if (iPtr->tracePtr  && (traceCode == TCL_OK)) {
+	if (iPtr->tracePtr && (traceCode == TCL_OK)) {
 	    traceCode = TclCheckInterpTraces(interp, command, length,
 		    cmdPtr, code, TCL_TRACE_ENTER_EXEC, objc, objv);
 	}
@@ -4110,7 +4110,7 @@ TclEvalEx(
 
 	    Tcl_Obj *norm = Tcl_FSGetNormalizedPath(interp, iPtr->scriptFile);
 
-	    if (!norm) {
+	    if (norm == NULL) {
 		/*
 		 * Error message in the interp result.
 		 */
@@ -4131,8 +4131,7 @@ TclEvalEx(
 	eeFramePtr->data.eval.path = NULL;
     }
 
-    eeFramePtr->level =
-	    (iPtr->cmdFramePtr==NULL ? 1 : iPtr->cmdFramePtr->level+1);
+    eeFramePtr->level = iPtr->cmdFramePtr ? iPtr->cmdFramePtr->level + 1 : 1;
     eeFramePtr->framePtr = iPtr->framePtr;
     eeFramePtr->nextPtr = iPtr->cmdFramePtr;
     eeFramePtr->nline = 0;
