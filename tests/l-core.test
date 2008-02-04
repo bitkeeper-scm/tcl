@@ -1177,36 +1177,604 @@ loop_1_1() {
 loop_1_1
 } -output "1\n2\n3\n4\n5\n6\n-*-\n7\n6\n5\n4\n3\n2\n1\n"
 
-test loop-1.2 {foreach loops} -body {
+test loop-1.2.0 {simple foreach loops} -body {
 #lang L
-loop_1_2() {
-	hash h, empty;
-	string k, v;
+struct s {
+	int	i;
+	int	j;
+	string	s;
+};
+void
+loop_1_2_0()
+{
+	/*
+	 * Since we aren't yet typing hash elements, just test a hash
+	 * of ints.  This will change once hash types are enhanced.
+	 */
 
-	h{"a"} = 1;
-	h{"b"} = 2;
-	h{"c"} = 3;
-	foreach (h as k => v) {
-		printf("key is %s, value is %s\n", k, v);
+	int	k, vi;
+	string	vs;
+	float	vf;
+	hash	h0 = { };
+	hash	h1 = { 0=>1 };
+	hash	h2 = { 0=>1, 1=>2 };
+	hash	h3 = { 0=>1, 1=>2, 2=>3 };
+	int	ai0[];
+	int	ai1[1] = { 11 };
+	int	ai2[2] = { 22, 23 };
+	int	ai3[3] = { 33, 34, 35 };
+	string	as0[0];
+	string	as1[1] = { "a" };
+	string	as2[2] = { "b", "c" };
+	string	as3[3] = { "d", "e", "f" };
+	float	af0[0];
+	float	af1[1] = { 1.1 };
+	float	af2[2] = { 2.1, 2.2 };
+	float	af3[3] = { 3.1, 3.2, 3.3 };
+	struct s	vc;
+	struct s	ac[3];
+
+	printf("start\n");
+	foreach (k in h0) {
+		printf("h0 has %d\n", k);
 	}
-	foreach (empty as k => v) {
-		printf("key is %s, value is %s\n", k, v);
+	foreach (k in h1) {
+		printf("h1 has %d\n", k);
 	}
-	foreach (k in h) {
-		printf("key is %s\n", k);
+	foreach (k in h2) {
+		printf("h2 has %d\n", k);
 	}
-	foreach (k in empty) {
-		printf("key is %s\n", k);
+	foreach (k in h3) {
+		printf("h3 has %d\n", k);
 	}
+	foreach (k=>vi in h0) {
+		printf("h0 has %d=>%d\n", k, vi);
+	}
+	foreach (k=>vi in h1) {
+		printf("h1 has %d=>%d\n", k, vi);
+	}
+	foreach (k=>vi in h2) {
+		printf("h2 has %d=>%d\n", k, vi);
+	}
+	foreach (k=>vi in h3) {
+		printf("h3 has %d=>%d\n", k, vi);
+	}
+	foreach (vi in ai0) {
+		printf("ai0 has %d\n", vi);
+	}
+	foreach (vi in ai1) {
+		printf("ai1 has %d\n", vi);
+	}
+	foreach (vi in ai2) {
+		printf("ai2 has %d\n", vi);
+	}
+	foreach (vi in ai3) {
+		printf("ai3 has %d\n", vi);
+	}
+	foreach (vs in as0) {
+		printf("as0 has %s\n", vs);
+	}
+	foreach (vs in as1) {
+		printf("as1 has %s\n", vs);
+	}
+	foreach (vs in as2) {
+		printf("as2 has %s\n", vs);
+	}
+	foreach (vs in as3) {
+		printf("as3 has %s\n", vs);
+	}
+	foreach (vf in af0) {
+		printf("af0 has %1.1f\n", vf);
+	}
+	foreach (vf in af1) {
+		printf("af1 has %1.1f\n", vf);
+	}
+	foreach (vf in af2) {
+		printf("af2 has %1.1f\n", vf);
+	}
+	foreach (vf in af3) {
+		printf("af3 has %1.1f\n", vf);
+	}
+	foreach (vf in ai0) {
+		printf("ai0 has %1.1f\n", vf);
+	}
+	foreach (vf in ai1) {
+		printf("ai1 has %1.1f\n", vf);
+	}
+	foreach (vf in ai2) {
+		printf("ai2 has %1.1f\n", vf);
+	}
+	foreach (vf in ai3) {
+		printf("ai3 has %1.1f\n", vf);
+	}
+	ac[0].i = 1;
+	ac[0].j = 2;
+	ac[0].s = "a";
+	ac[1].i = 11;
+	ac[1].j = 22;
+	ac[1].s = "aa";
+	ac[2].i = 111;
+	ac[2].j = 222;
+	ac[2].s = "aaa";
+	foreach (vc in ac) {
+		printf("ac has %d,%d,%s\n", vc.i, vc.j, vc.s);
+	}
+	printf("end\n");
 }
 #lang tcl
-loop_1_2
-} -output "key is a, value is 1
-key is b, value is 2
-key is c, value is 3
-key is a
-key is b
-key is c
+loop_1_2_0
+} -output "start
+h1 has 0
+h2 has 0
+h2 has 1
+h3 has 0
+h3 has 1
+h3 has 2
+h1 has 0=>1
+h2 has 0=>1
+h2 has 1=>2
+h3 has 0=>1
+h3 has 1=>2
+h3 has 2=>3
+ai1 has 11
+ai2 has 22
+ai2 has 23
+ai3 has 33
+ai3 has 34
+ai3 has 35
+as1 has a
+as2 has b
+as2 has c
+as3 has d
+as3 has e
+as3 has f
+af1 has 1.1
+af2 has 2.1
+af2 has 2.2
+af3 has 3.1
+af3 has 3.2
+af3 has 3.3
+ai1 has 11.0
+ai2 has 22.0
+ai2 has 23.0
+ai3 has 33.0
+ai3 has 34.0
+ai3 has 35.0
+ac has 1,2,a
+ac has 11,22,aa
+ac has 111,222,aaa
+end
+"
+
+test loop-1.2.1 {foreach loops over arrays of arrays} -body {
+#lang L
+void
+fill2(int d1, int d2, int &a[][])
+{
+	int	i, j;
+
+	for (i = 0; i < d1; ++i) {
+		for (j = 0; j < d2; ++j) {
+			a[i][j] = i*10 + j;
+		}
+	}
+}
+
+void
+fill3(int d1, int d2, int d3, int &a[][][])
+{
+	int	i, j, k;
+
+	for (i = 0; i < d1; ++i) {
+		for (j = 0; j < d2; ++j) {
+			for (k = 0; k < d3; ++k) {
+				a[i][j][k] = i*100 + j*10 + k;
+			}
+		}
+	}
+}
+
+void
+loop_1_2_1()
+{
+	int	vi;
+	int	ai[3];
+	int	aii[4][3];
+	int	aiii[5][4][3];
+
+	fill2(4, 3, &aii);
+	fill3(5, 4, 3, &aiii);
+
+	printf("test 1\n");
+	foreach (ai in aii) {
+		foreach (vi in ai) {
+			printf("aii has %d\n", vi);
+		}
+	}
+
+	printf("test 2\n");
+	foreach (aii in aiii) {
+		foreach (ai in aii) {
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+
+	printf("end\n");
+}
+loop_1_2_1();
+} -output "test 1
+aii has 0
+aii has 1
+aii has 2
+aii has 10
+aii has 11
+aii has 12
+aii has 20
+aii has 21
+aii has 22
+aii has 30
+aii has 31
+aii has 32
+test 2
+aiii has 0
+aiii has 1
+aiii has 2
+aiii has 10
+aiii has 11
+aiii has 12
+aiii has 20
+aiii has 21
+aiii has 22
+aiii has 30
+aiii has 31
+aiii has 32
+aiii has 100
+aiii has 101
+aiii has 102
+aiii has 110
+aiii has 111
+aiii has 112
+aiii has 120
+aiii has 121
+aiii has 122
+aiii has 130
+aiii has 131
+aiii has 132
+aiii has 200
+aiii has 201
+aiii has 202
+aiii has 210
+aiii has 211
+aiii has 212
+aiii has 220
+aiii has 221
+aiii has 222
+aiii has 230
+aiii has 231
+aiii has 232
+aiii has 300
+aiii has 301
+aiii has 302
+aiii has 310
+aiii has 311
+aiii has 312
+aiii has 320
+aiii has 321
+aiii has 322
+aiii has 330
+aiii has 331
+aiii has 332
+aiii has 400
+aiii has 401
+aiii has 402
+aiii has 410
+aiii has 411
+aiii has 412
+aiii has 420
+aiii has 421
+aiii has 422
+aiii has 430
+aiii has 431
+aiii has 432
+end
+"
+
+test loop-1.2.2 {foreach with int variable lists} -body {
+#lang L
+void
+loop_1_2_2()
+{
+	int	i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11,i12;
+	int	a[12] = { 1,2,3,4,5,6,7,8,9,10,11,12 };
+
+	printf("test 1\n");
+	foreach (i1 in a) {
+		printf("a has %d\n", i1);
+	}
+	printf("test 2\n");
+	foreach (i1,i2 in a) {
+		printf("a has %d,%d\n", i1, i2);
+	}
+	printf("test 3\n");
+	foreach (i1,i2,i3 in a) {
+		printf("a has %d,%d,%d\n", i1, i2, i3);
+	}
+	printf("test 4\n");
+	foreach (i1,i2,i3,i4 in a) {
+		printf("a has %d,%d,%d,%d\n", i1, i2, i3, i4);
+	}
+	printf("test 5\n");
+	foreach (i1,i2,i3,i4,i5,i6 in a) {
+		printf("a has %d,%d,%d,%d,%d,%d\n", i1, i2, i3, i4, i5, i6);
+	}
+	printf("test 6\n");
+	foreach (i1,i2,i3,i4,i5,i6,i7,i8,i9,i10,i11,i12 in a) {
+		printf("a has %d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		       i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12);
+	}
+	printf("end\n");
+}
+loop_1_2_2();
+} -output "test 1
+a has 1
+a has 2
+a has 3
+a has 4
+a has 5
+a has 6
+a has 7
+a has 8
+a has 9
+a has 10
+a has 11
+a has 12
+test 2
+a has 1,2
+a has 3,4
+a has 5,6
+a has 7,8
+a has 9,10
+a has 11,12
+test 3
+a has 1,2,3
+a has 4,5,6
+a has 7,8,9
+a has 10,11,12
+test 4
+a has 1,2,3,4
+a has 5,6,7,8
+a has 9,10,11,12
+test 5
+a has 1,2,3,4,5,6
+a has 7,8,9,10,11,12
+test 6
+a has 1,2,3,4,5,6,7,8,9,10,11,12
+end
+"
+
+test loop-1.2.3 {foreach with string variable lists} -body {
+#lang L
+void
+loop_1_2_3()
+{
+	string	s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14;
+	string	a[12] = { "a","b","c","d","e","f","g","h","i","j","k","l" };
+
+	printf("test 1\n");
+	foreach (s1 in a) {
+		printf("a has %s\n", s1);
+	}
+	printf("test 2\n");
+	foreach (s1,s2 in a) {
+		printf("a has %s,%s\n", s1, s2);
+	}
+	printf("test 3\n");
+	foreach (s1,s2,s3 in a) {
+		printf("a has %s,%s,%s\n", s1, s2, s3);
+	}
+	printf("test 4\n");
+	foreach (s1,s2,s3,s4 in a) {
+		printf("a has %s,%s,%s,%s\n", s1, s2, s3, s4);
+	}
+	printf("test 5\n");
+	foreach (s1,s2,s3,s4,s5,s6 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s\n", s1, s2, s3, s4, s5, s6);
+	}
+	printf("test 6\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12);
+	}
+
+	/*
+	 * The current semantics is that extra vars get "", so test that.
+	 * This may eventually be changed to be a run-time error.
+	 */
+
+	printf("test 7\n");
+	foreach (s1,s2,s3,s4,s5 in a) {
+		printf("a has %s,%s,%s,%s,%s\n", s1, s2, s3, s4, s5);
+	}
+
+	printf("test 8\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7);
+	}
+
+	printf("test 9\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8);
+	}
+
+	printf("test 10\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9);
+	}
+
+	printf("test 11\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9, s10);
+	}
+
+	printf("test 12\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11);
+	}
+
+	printf("test 13\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13);
+	}
+
+	printf("test 14\n");
+	foreach (s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11,s12,s13,s14 in a) {
+		printf("a has %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+		       s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13,
+		       s14);
+	}
+
+	printf("end\n");
+}
+loop_1_2_3();
+} -output "test 1
+a has a
+a has b
+a has c
+a has d
+a has e
+a has f
+a has g
+a has h
+a has i
+a has j
+a has k
+a has l
+test 2
+a has a,b
+a has c,d
+a has e,f
+a has g,h
+a has i,j
+a has k,l
+test 3
+a has a,b,c
+a has d,e,f
+a has g,h,i
+a has j,k,l
+test 4
+a has a,b,c,d
+a has e,f,g,h
+a has i,j,k,l
+test 5
+a has a,b,c,d,e,f
+a has g,h,i,j,k,l
+test 6
+a has a,b,c,d,e,f,g,h,i,j,k,l
+test 7
+a has a,b,c,d,e
+a has f,g,h,i,j
+a has k,l,,,
+test 8
+a has a,b,c,d,e,f,g
+a has h,i,j,k,l,,
+test 9
+a has a,b,c,d,e,f,g,h
+a has i,j,k,l,,,,
+test 10
+a has a,b,c,d,e,f,g,h,i
+a has j,k,l,,,,,,
+test 11
+a has a,b,c,d,e,f,g,h,i,j
+a has k,l,,,,,,,,
+test 12
+a has a,b,c,d,e,f,g,h,i,j,k
+a has l,,,,,,,,,,
+test 13
+a has a,b,c,d,e,f,g,h,i,j,k,l,
+test 14
+a has a,b,c,d,e,f,g,h,i,j,k,l,,
+end
+"
+
+test loop-1.2.4 {foreach loops with large loop body (>127 bytes of bytecode)} -body {
+#lang L
+void
+loop_1_2_4()
+{
+	int	i, k, v;
+	int	a[3] = { 1,2,3 };
+	hash	h = { 1=>2, 2=>3, 3=>4 };
+
+	printf("start\n");
+	foreach (i in a) {
+		/* Just do whatever to rack up bytecodes. */
+		int	x = 1, y = 1, z = 1;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		printf("a has %d\n", i);
+	}
+	foreach (k=>v in h) {
+		/* Just do whatever to rack up bytecodes. */
+		int	x = 1, y = 1, z = 1;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		x = x+y*z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y+z+x*y;
+		printf("h has %d=>%d\n", k, v);
+	}
+	printf("end\n");
+}
+loop_1_2_4();
+} -output "start
+a has 1
+a has 2
+a has 3
+h has 1=>2
+h has 2=>3
+h has 3=>4
+end
 "
 
 test loop-1.3 {continue statements} -body {
@@ -1229,16 +1797,29 @@ loop_1_3_for_continue() {
 
 loop_1_3_foreach_continue() {
   hash h;
-  string k, v;
+  string k, v, l;
 
   h{"a"} = "x";
   h{"b"} = "y";
   h{"c"} = "z";
-  foreach (h as k => v) {
+
+  printf("foreach test 1\n");
+  foreach (k => v in h) {
     if (k == "b") {
       continue;
     }
     printf("%s => %s\n", k, v);
+  }
+
+  printf("foreach test 2\n");
+  foreach (l in h) {
+    if (l == "c") continue;
+    foreach (k => v in h) {
+      if (k == "b") {
+        continue;
+      }
+      printf("%s: %s => %s\n", l, k, v);
+    }
   }
 }
 #lang tcl
@@ -1247,8 +1828,14 @@ loop_1_3
 1
 3
 4
+foreach test 1
 a => x
 c => z
+foreach test 2
+a: a => x
+a: c => z
+b: a => x
+b: c => z
 }
 
 test loop-1.4 {break statements} -body {
@@ -1266,7 +1853,7 @@ loop_1_4_foreach_break() {
   h{"b"} = "y";
   h{"c"} = "z";
   foreach (l in h) {
-    foreach (h as k => v) {
+    foreach (k => v in h) {
       if (k == "b") {
         break;
       }
@@ -1300,7 +1887,297 @@ attempting to break
 at the end of the day, i is 5
 }
 
+test loop-1.5 {continues in nested foreach loops} -body {
+#lang L
+void
+fill3(int d1, int d2, int d3, int &a[][][])
+{
+	int	i, j, k;
 
+	for (i = 0; i < d1; ++i) {
+		for (j = 0; j < d2; ++j) {
+			for (k = 0; k < d3; ++k) {
+				a[i][j][k] = (i+1)*100 + (j+1)*10 + k+1;
+			}
+		}
+	}
+}
+
+void
+loop_1_5()
+{
+	int	d1, d2, vi;
+	int	ai[3];
+	int	aii[3][3];
+	int	aiii[3][3][3];
+
+	fill3(3, 3, 3, &aiii);
+
+	printf("test 1\n");
+	foreach (aii in aiii) {
+		foreach (ai in aii) {
+			foreach (vi in ai) {
+				// Omit all even numbers.
+				if ((vi%2) == 0) continue;
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 2\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		foreach (ai in aii) {
+			++d2;
+			// Omit 11x.
+			if (d2 == 1) continue;
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 3\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		// Omit 1xx.
+		if (d1 == 1) continue;
+		foreach (ai in aii) {
+			++d2;
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 4\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		// Omit 1xx.
+		if (d1 == 1) continue;
+		foreach (ai in aii) {
+			++d2;
+			// Omit 21x.
+			if (d2 == 1) continue;
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 5\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		// Omit 1xx.
+		if (d1 == 1) continue;
+		foreach (ai in aii) {
+			++d2;
+			// Omit 21x.
+			if (d2 == 1) continue;
+			foreach (vi in ai) {
+				// Omit 3xx.
+				if (vi >= 300) continue;
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("end\n");
+}
+
+loop_1_5();
+} -output "test 1
+aiii has 111
+aiii has 113
+aiii has 121
+aiii has 123
+aiii has 131
+aiii has 133
+aiii has 211
+aiii has 213
+aiii has 221
+aiii has 223
+aiii has 231
+aiii has 233
+aiii has 311
+aiii has 313
+aiii has 321
+aiii has 323
+aiii has 331
+aiii has 333
+test 2
+aiii has 121
+aiii has 122
+aiii has 123
+aiii has 131
+aiii has 132
+aiii has 133
+aiii has 211
+aiii has 212
+aiii has 213
+aiii has 221
+aiii has 222
+aiii has 223
+aiii has 231
+aiii has 232
+aiii has 233
+aiii has 311
+aiii has 312
+aiii has 313
+aiii has 321
+aiii has 322
+aiii has 323
+aiii has 331
+aiii has 332
+aiii has 333
+test 3
+aiii has 211
+aiii has 212
+aiii has 213
+aiii has 221
+aiii has 222
+aiii has 223
+aiii has 231
+aiii has 232
+aiii has 233
+aiii has 311
+aiii has 312
+aiii has 313
+aiii has 321
+aiii has 322
+aiii has 323
+aiii has 331
+aiii has 332
+aiii has 333
+test 4
+aiii has 221
+aiii has 222
+aiii has 223
+aiii has 231
+aiii has 232
+aiii has 233
+aiii has 311
+aiii has 312
+aiii has 313
+aiii has 321
+aiii has 322
+aiii has 323
+aiii has 331
+aiii has 332
+aiii has 333
+test 5
+aiii has 221
+aiii has 222
+aiii has 223
+aiii has 231
+aiii has 232
+aiii has 233
+end
+"
+
+test loop-1.6 {breaks in nested foreach loops} -body {
+#lang L
+void
+fill3(int d1, int d2, int d3, int &a[][][])
+{
+	int	i, j, k;
+
+	for (i = 0; i < d1; ++i) {
+		for (j = 0; j < d2; ++j) {
+			for (k = 0; k < d3; ++k) {
+				a[i][j][k] = (i+1)*100 + (j+1)*10 + k+1;
+			}
+		}
+	}
+}
+
+void
+loop_1_6()
+{
+	int	d1, d2, vi;
+	int	ai[3];
+	int	aii[3][3];
+	int	aiii[3][3][3];
+
+	fill3(3, 3, 3, &aiii);
+
+	printf("test 1\n");
+	foreach (aii in aiii) {
+		foreach (ai in aii) {
+			foreach (vi in ai) {
+				// Should have no output.
+				break;
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 2\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		foreach (ai in aii) {
+			++d2;
+			// Omit 13x.
+			if (d2 == 3) break;
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("test 3\n");
+	d1 = d2 = 0;
+	foreach (aii in aiii) {
+		++d1;
+		// Omit [23]xx.
+		if (d1 == 2) break;
+		foreach (ai in aii) {
+			++d2;
+			foreach (vi in ai) {
+				printf("aiii has %d\n", vi);
+			}
+		}
+	}
+	printf("end\n");
+}
+
+loop_1_6();
+} -output "test 1
+test 2
+aiii has 111
+aiii has 112
+aiii has 113
+aiii has 121
+aiii has 122
+aiii has 123
+aiii has 211
+aiii has 212
+aiii has 213
+aiii has 221
+aiii has 222
+aiii has 223
+aiii has 231
+aiii has 232
+aiii has 233
+aiii has 311
+aiii has 312
+aiii has 313
+aiii has 321
+aiii has 322
+aiii has 323
+aiii has 331
+aiii has 332
+aiii has 333
+test 3
+aiii has 111
+aiii has 112
+aiii has 113
+aiii has 121
+aiii has 122
+aiii has 123
+aiii has 131
+aiii has 132
+aiii has 133
+end
+"
 
 test struct-1.0 {structs} -body {
 #lang L
@@ -2490,6 +3367,89 @@ foo()
 .*17: L Error: Void type illegal in assignment or operator
 .*18: L Error: Void type illegal in assignment or operator
 .*19: L Error: type error, want L_TYPE_INT, got L_TYPE_VOID
+}
+
+test typehceck-3.13 {void illegal as foreach expr} -body {
+#lang L -nowarn
+void v() { return; }
+void
+foo()
+{
+	int	k;
+
+	foreach (k in v()) { }
+}
+foo();
+} -returnCodes error -match regexp -result {.*Illegal foreach expression}
+
+test typecheck-4.1 {type errors in foreach} -body {
+#lang L
+void
+foo()
+{
+	int	vi;
+	float	vf;
+	string	vs;
+	int	ai[2] = { 22, 23 };
+	string	as[2] = { "b", "c" };
+	float	af[2] = { 2.1, 2.2 };
+	hash	h = { 1=>2, 2=>3 };
+
+	foreach (vi in as) {}
+	foreach (vi in af) {}
+	foreach (vs in ai) {}
+	foreach (vs in af) {}
+	foreach (vf in as) {}
+	foreach (vi,vi in h) {}
+}
+} -returnCodes error -match regexp -result {.*12: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*13: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*14: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*15: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*16: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*17: L Error: multiple variables illegal in foreach over hash
+}
+
+test typecheck-4.2 {type errors in foreach with multiple variables} -body {
+#lang L
+void
+foo()
+{
+	int	i1,i2,i3;
+	float	f1,f2,f3;
+	string	s1,s2,s3;
+	int	ai[3] = { 22, 23, 24 };
+	string	as[3] = { "b", "c", "d" };
+	float	af[3] = { 2.1, 2.2, 2.3 };
+
+	foreach (i1,s2,s3 in as) {}
+	foreach (s1,i2,s3 in as) {}
+	foreach (s1,s2,i3 in as) {}
+	foreach (s1,i2,i3 in ai) {}
+	foreach (i1,s2,i3 in ai) {}
+	foreach (i1,i2,s3 in ai) {}
+	foreach (s1,f2,f3 in af) {}
+	foreach (f1,s2,f3 in af) {}
+	foreach (f1,f2,s3 in af) {}
+
+	/* Make sure that multiple type errors get caught. */
+	foreach (i1,i2,s3 in as) {}
+	foreach (i1,i2,i3 in as) {}
+}
+} -returnCodes error -match regexp -result {.*11: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*12: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*13: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*14: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*15: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*16: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*17: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*18: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*19: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*22: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*22: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
 }
 
 test backtrace-1.0 {backtracing in L} -setup {

@@ -83,7 +83,7 @@ pattern_funcall_rewrite(L_expression *funcall)
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
-%token T_FOREACH T_AS T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
+%token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_INCLUDE T_PATTERN T_PUSH
 
 %token T_RE T_SUBST T_RE_MODIFIER
@@ -334,11 +334,11 @@ iteration_statement:
 	;
 
 foreach_statement:
-	  T_FOREACH "(" expr T_AS T_ID T_ARROW T_ID ")" stmt
+	  T_FOREACH "(" T_ID T_ARROW T_ID T_IN expr ")" stmt
 	{
-		$$ = mk_foreach_loop($3, $5, $7, $9);
+		$$ = mk_foreach_loop($7, $3, $5, $9);
 	}
-	| T_FOREACH "(" T_ID T_IN expr ")" stmt
+	| T_FOREACH "(" id_list T_IN expr ")" stmt
 	{
 		$$ = mk_foreach_loop($5, $3, NULL, $7);
 	}
@@ -656,6 +656,13 @@ lvalue:
         }
         ;
 
+id_list:
+	T_ID
+	| T_ID "," id_list
+        {
+                ((L_expression *)$1)->next = $3;
+        }
+
 compound_statement:
 	  "{" "}"               
         { 
@@ -823,6 +830,7 @@ initializer:
                 REVERSE(L_initializer, next, $2);
                 $$ = mk_initializer(NULL, $2, NULL, NULL);
         }
+	| "{" "}"	{ $$ = NULL; }
         ;
 
 initializer_list:

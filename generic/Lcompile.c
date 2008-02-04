@@ -929,7 +929,7 @@ L_compile_statements(L_statement *stmt)
                  (stmt->u.expr)) {
             L_errorf(stmt, "Cannot return value from void function\n");
         } else {
-            L_check_type(L_enclosing_func->return_type, stmt->u.expr);
+            L_check_expr_type(L_enclosing_func->return_type, stmt->u.expr);
         }
         if (stmt->u.expr) {
             L_trace("    with return value");
@@ -1341,7 +1341,7 @@ void L_compile_binop(L_expression *expr)
     switch (expr->op) {
     case T_EQUALS:
 	if ((type = L_expression_type(expr->a))) {
-	    L_check_type(type, expr->b);
+	    L_check_expr_type(type, expr->b);
 	}
         L_compile_assignment(expr);
 	break;
@@ -1355,8 +1355,8 @@ void L_compile_binop(L_expression *expr)
     case T_EQBITXOR:
     case T_EQLSHIFT:
     case T_EQRSHIFT:
-	L_check_kind(L_TYPE_NUMBER, expr->a);
-	L_check_kind(L_TYPE_NUMBER, expr->b);
+	L_check_expr_kind(L_TYPE_NUMBER, expr->a);
+	L_check_expr_kind(L_TYPE_NUMBER, expr->b);
         L_compile_assignment(expr);
 	break;
     case T_ANDAND:
@@ -1364,7 +1364,7 @@ void L_compile_binop(L_expression *expr)
         L_compile_short_circuit_op(expr);
 	break;
     case T_EQTWID:
-	L_check_kind(L_TYPE_STRING, expr->a);
+	L_check_expr_kind(L_TYPE_STRING, expr->a);
         L_compile_twiddle(expr);
 	break;
     case T_EQ:
@@ -1373,8 +1373,8 @@ void L_compile_binop(L_expression *expr)
     case T_GE:
     case T_LT:
     case T_LE:
-	L_check_kind(L_TYPE_STRING, expr->a);
-	L_check_kind(L_TYPE_STRING, expr->b);
+	L_check_expr_kind(L_TYPE_STRING, expr->a);
+	L_check_expr_kind(L_TYPE_STRING, expr->b);
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
         TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
@@ -1399,8 +1399,8 @@ void L_compile_binop(L_expression *expr)
     case T_BITXOR:
     case T_LSHIFT:
     case T_RSHIFT:
-	L_check_kind(L_TYPE_NUMBER, expr->a);
-	L_check_kind(L_TYPE_NUMBER, expr->b);
+	L_check_expr_kind(L_TYPE_NUMBER, expr->a);
+	L_check_expr_kind(L_TYPE_NUMBER, expr->b);
         L_compile_expressions(expr->a);
         L_compile_expressions(expr->b);
         TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
@@ -1734,6 +1734,135 @@ fixup_jumps(
 void
 L_compile_foreach_loop(L_foreach_loop *loop)
 {
+    L_type	*type = L_expression_type(loop->expr);
+
+    if (!type) {
+	L_errorf(loop->expr, "Unknown type of foreach expression");
+	return;
+    }
+    switch (type->kind) {
+	case L_TYPE_ARRAY:
+	    L_compile_foreach_loop_array(loop);
+	    break;
+	case L_TYPE_HASH:
+	    L_compile_foreach_loop_hash(loop);
+	    break;
+	case L_TYPE_STRING:
+	    L_errorf(loop->expr, "Foreach over string not yet implemented");
+	    break;
+	case L_TYPE_POLY:
+	    L_errorf(loop->expr, "Foreach over poly not yet implemented");
+	    break;
+	default:
+	    L_errorf(loop->expr, "Illegal foreach expression"
+		     " (must be array, hash, string, or poly)");
+	    break;
+    }
+}
+
+/*
+ * Most of the following function came from tclCompCmds.c
+ * TclCompileForEachCmd(), modified in various ways for L.
+ */
+
+void
+L_compile_foreach_loop_array(L_foreach_loop *loop)
+{
+    int			i, continue_off, loopctr_idx, num_vars, val_idx;
+    L_expression	*var;
+    L_type		*expr_type;
+    ForeachInfo		*info;
+    ForeachVarList	*varlist;
+    unsigned char	*jumpPc;
+    JumpFixup		jumpFalseFixup;
+    JumpOffsetList	*break_jumps, *continue_jumps;
+    int			jumpBackDist, jumpBackOffset, infoIndex;
+
+    /*
+     * Type-check the value variables.  In "foreach (v1,v2,v3 in a)",
+     * v* are the value variables or variable list, and a is the value
+     * list, in tcl terminology.
+     */
+    expr_type = L_expression_type(loop->expr);
+    for (var = loop->key, num_vars = 0; var; var = var->next, ++num_vars) {
+	L_symbol *s = L_get_local_symbol(var, TRUE);
+	if (!s) return;
+	L_check_type(s->type, expr_type->next_dim, loop->expr);
+    }
+
+    /* Temps for value list value and loop counter. */
+    val_idx     = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
+    loopctr_idx = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
+
+    /*
+     * ForeachInfo and ForeachVarList are structures required by the
+     * bytecode interpreter for foreach bytecodes.  In our case, we
+     * have only one value and one variable list consisting of
+     * num_vars variables.
+     */
+    info = (ForeachInfo *)ckalloc(sizeof(ForeachInfo) +
+				  sizeof(ForeachVarList *));
+    info->numLists       = 1;
+    info->firstValueTemp = val_idx;
+    info->loopCtTemp     = loopctr_idx;
+    varlist = (ForeachVarList *)ckalloc(sizeof(ForeachVarList) +
+					num_vars * sizeof(int));
+    varlist->numVars = num_vars;
+    for (i = 0, var = loop->key; var; var = var->next, ++i) {
+	L_symbol *s = L_get_local_symbol(var, TRUE);
+	varlist->varIndexes[i] = s->localIndex;
+    }
+    info->varLists[0] = varlist;
+    infoIndex = TclCreateAuxData(info, &tclForeachInfoType, lframe->envPtr);
+
+    /* Evaluate the values to iterate through, and assign to the value temp. */
+    L_compile_expressions(loop->expr);
+    L_STORE_SCALAR(val_idx);
+    L_POP();
+
+    /* Initialize the loop state. */
+    TclEmitInstInt4(INST_FOREACH_START4, infoIndex, lframe->envPtr);
+
+    /* Top of the loop.  Step, and jump out if done. */
+    continue_off = CurrentOffset(lframe->envPtr);
+    TclEmitInstInt4(INST_FOREACH_STEP4, infoIndex, lframe->envPtr);
+    TclEmitForwardJump(lframe->envPtr, TCL_FALSE_JUMP, &jumpFalseFixup);
+
+    /* Loop body. */
+    L_frame_push(lframe->interp, lframe->envPtr, loop);
+    L_compile_statements(loop->body);
+    break_jumps    = lframe->break_jumps;
+    continue_jumps = lframe->continue_jumps;
+    L_frame_pop();
+    fixup_jumps(lframe->envPtr, continue_jumps, CurrentOffset(lframe->envPtr));
+
+    /* End of loop -- jump back to top. */
+    jumpBackOffset = CurrentOffset(lframe->envPtr);
+    jumpBackDist   = jumpBackOffset - continue_off;
+    if (jumpBackDist > 120) {
+	TclEmitInstInt4(INST_JUMP4, -jumpBackDist, lframe->envPtr);
+    } else {
+	TclEmitInstInt1(INST_JUMP1, -jumpBackDist, lframe->envPtr);
+    }
+
+    /* Fixup jumps. */
+    if (TclFixupForwardJumpToHere(lframe->envPtr, &jumpFalseFixup, 127)) {
+	/* Update the jump back to the loop top since it also moved down. */
+	jumpBackOffset += 3;
+	jumpPc = (lframe->envPtr->codeStart + jumpBackOffset);
+	jumpBackDist += 3;
+	if (jumpBackDist > 120) {
+	    TclUpdateInstInt4AtPc(INST_JUMP4, -jumpBackDist, jumpPc);
+	} else {
+	    TclUpdateInstInt1AtPc(INST_JUMP1, -jumpBackDist, jumpPc);
+	}
+    }
+    fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
+}
+
+void
+L_compile_foreach_loop_hash(L_foreach_loop *loop)
+{
     L_symbol *keyVar, *valueVar = NULL;
     int jumpWhenEmptyOffset, bodyTargetOffset, iteratorIndex, jumpDisplacement;
     JumpOffsetList *break_jumps, *continue_jumps;
@@ -1742,7 +1871,11 @@ L_compile_foreach_loop(L_foreach_loop *loop)
     if (loop->value) {
 	if (!(valueVar = L_get_local_symbol(loop->value, TRUE))) return;
     }
-    L_compile_expressions(loop->hash);
+    /* Ensure there is only one variable. */
+    if (loop->key->next) {
+	L_errorf(loop, "multiple variables illegal in foreach over hash");
+    }
+    L_compile_expressions(loop->expr);
     /* A temporary variable to hold the iterator state.*/
     iteratorIndex = TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
     /* Both DICT_FIRST and DICT_NEXT leave value, key, and done-p on the

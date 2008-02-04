@@ -61,25 +61,25 @@ static L_type *unop_expression_type(L_expression *expr);
 static void free_type_info();
 static L_expression *copy_index_expr(L_expression *expr);
 
-/* A convenience wrapper around L_check_type() that instantiates the type for
+/* A convenience wrapper around L_check_expr_type() that instantiates the type for
  * you. */
 void 
-L_check_kind(
+L_check_expr_kind(
     L_type_kind want, 		/* The kind of the expected type */
     L_expression *expr)		/* The expression from which we derive
 				 * the actual type */
 {
     if (lframe->options & L_OPT_POLY) return;
     L_type *type = mk_type(want, NULL, NULL, NULL, NULL, FALSE);
-    L_check_type(type, expr);
+    L_check_expr_type(type, expr);
 }
 
 /* Ensure that the type of :expr is compatible with the :want type.
  * If not, emit a type error.  In certain cases, such as when :expr is
- * a function call, L_check_type() queues up the check to be performed
+ * a function call, L_check_expr_type() queues up the check to be performed
  * by L_finish_typechecks(). */
 void 
-L_check_type(
+L_check_expr_type(
     L_type *want, 		/* The expected type */
     L_expression *expr)		/* The expression from which we derive
 				 * the actual type */
@@ -103,6 +103,30 @@ L_check_type(
 	new->expr = expr;
 	new->next = queued_checks;
 	queued_checks = new;
+	break;
+    default:
+	L_bomb("typecheck: bad retval from subtype()");
+    }
+}
+
+/* Ensure that the type of :expr is compatible with the :want type.
+ * If not, emit a type error. This form is useful when the "have" type
+ * is available only as a type structure, such as with arrays or
+ * hashes. */
+void
+L_check_type(
+    L_type *want, 		/* The expected type */
+    L_type *have,		/* The actual type */
+    L_expression *expr)		/* Expression to use for err msg */
+{
+    if (lframe->options & L_OPT_POLY) return;
+    if (!want) L_bomb("typecheck: Missing want type");
+    switch (subtype(have, want)) {
+    case NOT_SUBTYPE:
+	L_type_error(expr, have, want);
+	break;
+    case IS_SUBTYPE:
+    case UNKNOWN:
 	break;
     default:
 	L_bomb("typecheck: bad retval from subtype()");
@@ -197,7 +221,7 @@ L_store_fun_type(
     }
 }
 
-/* Perform type checks that have been queued up by L_check_type() and
+/* Perform type checks that have been queued up by L_check_expr_type() and
  * L_check_arg_type().  Emit an error for each type mismatch.  Also frees up
  * the memory allocated by the typechecker. */
 void 

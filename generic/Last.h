@@ -140,7 +140,7 @@ struct L_expression {
 
 struct L_foreach_loop {
 	L_ast_node node;
-	L_expression *hash;
+	L_expression *expr;
 	L_expression *key;
 	L_expression *value;
 	L_statement *body;

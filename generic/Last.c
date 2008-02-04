@@ -118,13 +118,13 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	return expression;
 }
 
-L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expression *value,L_statement *body) 
+L_foreach_loop *mk_foreach_loop(L_expression *expr,L_expression *key,L_expression *value,L_statement *body) 
 {
 	L_foreach_loop *foreach_loop;
 
 	foreach_loop = (L_foreach_loop *)ckalloc(sizeof(L_foreach_loop));
 	memset(foreach_loop, 0, sizeof(L_foreach_loop));
-	foreach_loop->hash = hash;
+	foreach_loop->expr = expr;
 	foreach_loop->key = key;
 	foreach_loop->value = value;
 	foreach_loop->body = body;

@@ -93,6 +93,8 @@ void L_compile_unop(L_expression *expr);
 void L_compile_short_circuit_op(L_expression *expr);
 void L_compile_loop(L_loop *loop);
 void L_compile_foreach_loop(L_foreach_loop *loop);
+void L_compile_foreach_loop_array(L_foreach_loop *loop);
+void L_compile_foreach_loop_hash(L_foreach_loop *loop);
 L_type *L_compile_index(L_type *index_type, L_expression *index);
 void L_compile_twiddle(L_expression *expr);
 void L_compile_interpolated_string(L_expression *expr);
@@ -119,8 +121,9 @@ Tcl_Obj *L_NewPointerObj(int callFrame, CONST char *varName,
 void L_error(char *s);
 
 /* in Ltypecheck.c */
-void L_check_kind(L_type_kind want, L_expression *expr);
-void L_check_type(L_type *want, L_expression *expr);
+void L_check_expr_kind(L_type_kind want, L_expression *expr);
+void L_check_expr_type(L_type *want, L_expression *expr);
+void L_check_type(L_type *want, L_type *have, L_expression *expr);
 void L_check_arg_type(char *funcname, int pos, L_expression *expr);
 void L_check_arg_count(char *funcname, int count, L_expression *expr);
 void L_store_fun_type(L_function_declaration *fun);

@@ -39,6 +39,9 @@ extern char *L_source_file;
 extern int L_token_offset;
 extern int L_prev_token_len;
 
+/* Omit needless routine to silence compiler warning. */
+#define YY_NO_TOP_STATE
+
 /* Keep track of the current offset in the input string: */
 #define YY_USER_ACTION	L_token_offset += L_prev_token_len; \
 			L_prev_token_len = yyleng;
@@ -147,7 +150,6 @@ tally_newlines(
 	"break"		return T_BREAK;
 	"continue"	return T_CONTINUE;
 	"push"		return T_PUSH;
-	"as"		return T_AS;
 	"in"		return T_IN;
         "=>"		return T_ARROW;
         "eq"		return T_EQ;
