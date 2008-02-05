@@ -3,6 +3,9 @@
 #ifndef L_AST_H
 #define L_AST_H
 
+#define	unless(p)	if (!(p))
+#define	private		static
+
 /* Defines */
 #define	L_WALK_CONTINUE		0x00000
 #define	L_WALK_PRE		0x00001
@@ -231,27 +234,16 @@ struct L_variable_declaration {
 /* Prototypes */
 typedef int (*LWalkFunc)(L_ast_node *node, void *data, int order);
 L_block *mk_block(L_variable_declaration *decls,L_statement *body);
-int L_walk_block(L_block* node, int order, LWalkFunc func, void *data);
 L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);
-int L_walk_expression(L_expression* node, int order, LWalkFunc func, void *data);
 L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expression *value,L_statement *body);
-int L_walk_foreach_loop(L_foreach_loop* node, int order, LWalkFunc func, void *data);
 L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p);
-int L_walk_function_declaration(L_function_declaration* node, int order, LWalkFunc func, void *data);
 L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);
-int L_walk_if_unless(L_if_unless* node, int order, LWalkFunc func, void *data);
 L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initializer *next_dim,L_initializer *next);
-int L_walk_initializer(L_initializer* node, int order, LWalkFunc func, void *data);
 L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
-int L_walk_loop(L_loop* node, int order, LWalkFunc func, void *data);
 L_statement *mk_statement(L_statement_kind kind,L_statement *next);
-int L_walk_statement(L_statement* node, int order, LWalkFunc func, void *data);
 L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next);
-int L_walk_toplevel_statement(L_toplevel_statement* node, int order, LWalkFunc func, void *data);
 L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p);
-int L_walk_type(L_type* node, int order, LWalkFunc func, void *data);
 L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_variable_declaration *next);
-int L_walk_variable_declaration(L_variable_declaration* node, int order, LWalkFunc func, void *data);
 int L_walk_ast(L_ast_node *node, int order, LWalkFunc func, void *data);
 
 #endif /* L_AST_H */

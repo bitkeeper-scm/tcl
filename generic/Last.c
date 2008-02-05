@@ -81,7 +81,8 @@ char *L_node_type_tostr[11] = {
 
 
 /* constructors for the L language */
-L_block *mk_block(L_variable_declaration *decls,L_statement *body) 
+L_block *
+mk_block(L_variable_declaration *decls,L_statement *body)
 {
 	L_block *block;
 
@@ -94,10 +95,12 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	((L_ast_node *)block)->line_no = L_line_number;
 	((L_ast_node *)block)->offset = L_token_offset;
 	((L_ast_node *)block)->type = L_NODE_BLOCK;
-	return block;
+	return (block);
 }
 
-L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next) 
+L_expression *
+mk_expression(L_expression_kind kind, int op, L_expression *a, L_expression *b,
+    L_expression *c, L_expression *indices, L_expression *next)
 {
 	L_expression *expression;
 
@@ -115,10 +118,12 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	((L_ast_node *)expression)->line_no = L_line_number;
 	((L_ast_node *)expression)->offset = L_token_offset;
 	((L_ast_node *)expression)->type = L_NODE_EXPRESSION;
-	return expression;
+	return (expression);
 }
 
-L_foreach_loop *mk_foreach_loop(L_expression *expr,L_expression *key,L_expression *value,L_statement *body) 
+L_foreach_loop *
+mk_foreach_loop(L_expression *expr, L_expression *key,
+    L_expression *value, L_statement *body)
 {
 	L_foreach_loop *foreach_loop;
 
@@ -133,14 +138,17 @@ L_foreach_loop *mk_foreach_loop(L_expression *expr,L_expression *key,L_expressio
 	((L_ast_node *)foreach_loop)->line_no = L_line_number;
 	((L_ast_node *)foreach_loop)->offset = L_token_offset;
 	((L_ast_node *)foreach_loop)->type = L_NODE_FOREACH_LOOP;
-	return foreach_loop;
+	return (foreach_loop);
 }
 
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p) 
+L_function_declaration *
+mk_function_declaration(L_expression *name, L_variable_declaration *params,
+    L_type *return_type, L_block *body, int pattern_p)
 {
 	L_function_declaration *function_declaration;
 
-	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
+	function_declaration =
+	    (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
 	memset(function_declaration, 0, sizeof(L_function_declaration));
 	function_declaration->body = body;
 	function_declaration->name = name;
@@ -151,11 +159,14 @@ L_function_declaration *mk_function_declaration(L_expression *name,L_variable_de
 	ast_trace_root = (void *)function_declaration;
 	((L_ast_node *)function_declaration)->line_no = L_line_number;
 	((L_ast_node *)function_declaration)->offset = L_token_offset;
-	((L_ast_node *)function_declaration)->type = L_NODE_FUNCTION_DECLARATION;
-	return function_declaration;
+	((L_ast_node *)function_declaration)->type =
+	    L_NODE_FUNCTION_DECLARATION;
+	return (function_declaration);
 }
 
-L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body) 
+L_if_unless *
+mk_if_unless(L_expression *condition, L_statement *if_body,
+    L_statement *else_body)
 {
 	L_if_unless *if_unless;
 
@@ -169,10 +180,12 @@ L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_stateme
 	((L_ast_node *)if_unless)->line_no = L_line_number;
 	((L_ast_node *)if_unless)->offset = L_token_offset;
 	((L_ast_node *)if_unless)->type = L_NODE_IF_UNLESS;
-	return if_unless;
+	return (if_unless);
 }
 
-L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initializer *next_dim,L_initializer *next) 
+L_initializer *
+mk_initializer(L_expression *key, L_expression *value,
+    L_initializer *next_dim, L_initializer *next)
 {
 	L_initializer *initializer;
 
@@ -187,10 +200,12 @@ L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initialize
 	((L_ast_node *)initializer)->line_no = L_line_number;
 	((L_ast_node *)initializer)->offset = L_token_offset;
 	((L_ast_node *)initializer)->type = L_NODE_INITIALIZER;
-	return initializer;
+	return (initializer);
 }
 
-L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body) 
+L_loop *
+mk_loop(L_loop_kind kind, L_expression *pre, L_expression *condition,
+    L_expression *post, L_statement *body)
 {
 	L_loop *loop;
 
@@ -206,10 +221,11 @@ L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_exp
 	((L_ast_node *)loop)->line_no = L_line_number;
 	((L_ast_node *)loop)->offset = L_token_offset;
 	((L_ast_node *)loop)->type = L_NODE_LOOP;
-	return loop;
+	return (loop);
 }
 
-L_statement *mk_statement(L_statement_kind kind,L_statement *next) 
+L_statement *
+mk_statement(L_statement_kind kind, L_statement *next)
 {
 	L_statement *statement;
 
@@ -222,14 +238,17 @@ L_statement *mk_statement(L_statement_kind kind,L_statement *next)
 	((L_ast_node *)statement)->line_no = L_line_number;
 	((L_ast_node *)statement)->offset = L_token_offset;
 	((L_ast_node *)statement)->type = L_NODE_STATEMENT;
-	return statement;
+	return (statement);
 }
 
-L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next) 
+L_toplevel_statement *
+mk_toplevel_statement(L_toplevel_statement_kind kind,
+    L_toplevel_statement *next)
 {
 	L_toplevel_statement *toplevel_statement;
 
-	toplevel_statement = (L_toplevel_statement *)ckalloc(sizeof(L_toplevel_statement));
+	toplevel_statement =
+	    (L_toplevel_statement *)ckalloc(sizeof(L_toplevel_statement));
 	memset(toplevel_statement, 0, sizeof(L_toplevel_statement));
 	toplevel_statement->next = next;
 	toplevel_statement->kind = kind;
@@ -238,10 +257,12 @@ L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_top
 	((L_ast_node *)toplevel_statement)->line_no = L_line_number;
 	((L_ast_node *)toplevel_statement)->offset = L_token_offset;
 	((L_ast_node *)toplevel_statement)->type = L_NODE_TOPLEVEL_STATEMENT;
-	return toplevel_statement;
+	return (toplevel_statement);
 }
 
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p) 
+L_type *
+mk_type(L_type_kind kind, L_expression *array_dim, L_expression *struct_tag,
+    L_type *next_dim, L_variable_declaration *members, int typedef_p)
 {
 	L_type *type;
 
@@ -258,14 +279,18 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 	((L_ast_node *)type)->line_no = L_line_number;
 	((L_ast_node *)type)->offset = L_token_offset;
 	((L_ast_node *)type)->type = L_NODE_TYPE;
-	return type;
+	return (type);
 }
 
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_variable_declaration *next) 
+L_variable_declaration *
+mk_variable_declaration(L_type *type, L_expression *name,
+    L_initializer *initial_value, int by_name, int extern_p, int rest_p,
+    L_variable_declaration *next)
 {
 	L_variable_declaration *variable_declaration;
 
-	variable_declaration = (L_variable_declaration *)ckalloc(sizeof(L_variable_declaration));
+	variable_declaration =
+	    (L_variable_declaration *)ckalloc(sizeof(L_variable_declaration));
 	memset(variable_declaration, 0, sizeof(L_variable_declaration));
 	variable_declaration->name = name;
 	variable_declaration->initial_value = initial_value;
@@ -278,7 +303,8 @@ L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,
 	ast_trace_root = (void *)variable_declaration;
 	((L_ast_node *)variable_declaration)->line_no = L_line_number;
 	((L_ast_node *)variable_declaration)->offset = L_token_offset;
-	((L_ast_node *)variable_declaration)->type = L_NODE_VARIABLE_DECLARATION;
-	return variable_declaration;
+	((L_ast_node *)variable_declaration)->type =
+	    L_NODE_VARIABLE_DECLARATION;
+	return (variable_declaration);
 }
 
