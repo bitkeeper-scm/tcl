@@ -1926,13 +1926,15 @@ L_compile_push(L_expression *expr)
 {
     L_symbol *symbol;
 
-    symbol = L_get_symbol(expr->a, FALSE);
+    if (!(symbol = L_get_local_symbol(expr->a, TRUE))) return;
 
     L_PUSH_STR(expr->a->u.string);
 
     L_compile_expressions(expr->b);
 
-    if (symbol->localIndex <= 255) {
+    if (symbol->localIndex < 0) {
+    	TclEmitOpcode(INST_LAPPEND_STK, lframe->envPtr);
+    } else if (symbol->localIndex <= 255) {
     	TclEmitInstInt1(INST_LAPPEND_SCALAR1, symbol->localIndex,
 		lframe->envPtr);
     } else {
