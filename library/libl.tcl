@@ -6,6 +6,15 @@
 #
 # Copyright (c) 2007 BitMover, Inc.
 
+#if {[info commands Tcl_rename] eq ""} {
+	#rename rename Tcl_rename
+#}
+
+if {[info commands Tcl_split] eq ""} {
+	#Tcl_rename split Tcl_split
+	rename split Tcl_split
+}
+
 proc printf {args} {
 	puts -nonewline [format {*}$args]
 }
@@ -25,8 +34,8 @@ set ::%%suppress_calling_main 0
 
 proc %%call_main_if_defined {} {
 	if {[llength [info proc main]] && !${::%%suppress_calling_main}} {
-		append L_argv $::argv0 " " $::argv
-		set L_envp [dict create {*}[array get ::env]]
+		incr ::argc
+		set  ::argv [linsert $::argv 0 $::argv0]
 		switch [llength [info args main]] {
 		    0 {
 			set ::%%suppress_calling_main 1
@@ -35,17 +44,17 @@ proc %%call_main_if_defined {} {
 		    }
 		    1 {
 			set ::%%suppress_calling_main 1
-			main [expr {$::argc + 1}]
+			main $::argc
 			set ::%%suppress_calling_main 0
 		    }
 		    2 {
 			set ::%%suppress_calling_main 1
-			main [expr {$::argc + 1}] $L_argv
+			main $::argc $::argv
 			set ::%%suppress_calling_main 0
 		    }
 		    3 {
 			set ::%%suppress_calling_main 1
-			main [expr {$::argc + 1}] $L_argv $L_envp
+			main $::argc $::argv [dict create {*}[array get ::env]]
 			set ::%%suppress_calling_main 0
 		    }
 		    default {
@@ -59,22 +68,17 @@ proc %%call_main_if_defined {} {
 # variables.  We can't easily emulate that with a dict, so we provide
 # setenv, unsetenv, and getenv for L.
 proc setenv {var val {overwrite 1}} {
-	global env
-	if {$overwrite == 0 && [info exists env($var)]} { return }
-	set env($var) $val
+	if {$overwrite == 0 && [info exists ::env($var)]} { return }
+	set ::env($var) $val
 }
 
 proc unsetenv {var} {
-	global env
-	unset env($var)
+	unset -nocomplain ::env($var)
 }
 
 proc getenv {var} {
-	global env
-	if {[info exists env($var)]} {
-	return $env($var);
-	} else {
-	return "";
+	if {[info exists ::env($var)]} {
+	    return $::env($var)
 	}
 }
 
@@ -89,13 +93,132 @@ proc extendingLset {listname index value} {
 	}
 }
 
-# Pop removes an element from the end of an array and returns it.  If
-# the array is empty, pop returns the empty string.
-proc pop {listname} {
-	upvar 1 $listname list
-	set last [lindex $list end]
-	set list [lrange $list 0 [expr {[llength $list] - 2}]]
-	return $last
+proc caller {{stacks 0}} {
+	return [uplevel 1 [list info level -$stacks]]
+}
+
+proc chdir {{dir ""}} {
+	if {[llength [info level 0]] == 1} {
+		cd
+	} else {
+		cd $dir
+	}
+}
+
+proc chmod {permissions files} {
+	foreach file $files {
+		file attributes $file -permissions $permissions
+	}
+}
+
+proc chown {owner group files} {
+	set opts {}
+	if {$owner ne ""} {
+		lappend opts -owner $owner
+	}
+	if {$group ne ""} {
+		lappend opts -group $group
+	}
+	if {[llength $opts]} {
+		foreach file $files {
+			file attributes $file {*}$opts
+		}
+	}
+}
+
+proc die {message {exitCode 0}} {
+	warn $message
+	::exit $exitCode
+}
+
+proc getdir {directory pattern} {
+	return [glob -nocomplain -directory $directory $pattern]
+}
+
+proc link {oldfile newfile} {
+	file link $oldfile $newfile
+}
+
+proc lstat {file} {
+	file lstat $file a
+	return [dict create {*}[array get a]]
+}
+
+proc mkdir {directory} {
+	file mkdir $directory
+}
+
+proc pop {arrayName} {
+	upvar 1 $arrayName list
+	set elem [lindex $list end]
+	set list [lrange $list 0 end-1]
+	return $elem
+}
+
+proc readlink {file} {
+	file readlink $file
+}
+
+proc frename {oldfile newfile} {
+	file rename -force $oldfile $newfile
+}
+
+proc rmdir {directory} {
+	if {[catch {file delete $directory} error]} {
+		return 0
+	}
+	return 1
+}
+
+proc shift {arrayName} {
+	upvar 1 $arrayName list
+	set elem [lindex $list 0]
+	set list [lrange $list 1 end]
+	return $elem
+}
+
+proc sleep {seconds} {
+	after [expr {$seconds * 1000}]
+}
+
+proc sort {list} {
+	return [lsort $list]
+}
+
+proc split {string {substr ""}} {
+	if {[llength [info level 0]] == 2} {
+		set string [string trim $string]
+		set substr {/\s+/}
+	}
+
+	if {[string match "/*/" $substr]} {
+		set pattern [string range $substr 1 end-1]
+		regsub -all -- $pattern $string \uFFFF string
+		set substr \uFFFF
+	}
+	return [Tcl_split $string $substr]
+}
+
+proc stat {file} {
+	file stat $file a
+	return [dict create {*}[array get a]]
+}
+
+proc symlink {oldfile newfile} {
+	file link -sym $oldfile $newfile
+}
+
+proc trim {string} {
+	return [string trim $string]
+}
+
+proc unlink {files} {
+	file delete {*}$files
+}
+
+proc warn {message} {
+	puts stderr $message
+	flush stderr
 }
 
 #lang L
@@ -111,9 +234,9 @@ string	stdio_lasterr;
 FILE
 fopen(string path, string mode)
 {
+	int	v;
 	FILE	f;
 	string	err;
-	int	v = 0;
 
 	/* new mode, v, means be verbose w/ errors */
 	if (mode =~ /v/) {
@@ -123,7 +246,7 @@ fopen(string path, string mode)
 	if (catch("set f [open {${path}} ${mode}]", &err)) {
 		stdio_lasterr = err;
 		if (v) fprintf(stderr, "fopen(%s, %s) = %s\n", path, mode, err);
-		return ("0");
+		return ((string)0);
 	} else {
 		return (f);
 	}
@@ -132,9 +255,9 @@ fopen(string path, string mode)
 FILE
 popen(string cmd, string mode)
 {
+	int	v;
 	FILE	f;
 	string	err;
-	int	v = 0;
 	
 	if (mode =~ /v/) {
 		mode =~ s/v//;
@@ -143,7 +266,7 @@ popen(string cmd, string mode)
 	if (catch("set f [open {|${cmd}} ${mode}]", &err)) {
 		stdio_lasterr = err;
 		if (v) fprintf(stderr, "popen(%s, %s) = %s\n", cmd, mode, err);
-		return ("0");
+		return ((string)0);
 	} else {
 		return (f);
 	}
@@ -152,7 +275,7 @@ popen(string cmd, string mode)
 int
 fclose(FILE f)
 {
-	string	err = "";
+	string	err;
 	
 	if (f eq "") return (0);
 	if (catch("close ${f}", &err)) {
@@ -168,7 +291,7 @@ int pclose(FILE f) { return (fclose(f)); }
 int
 fgetline(FILE f, string &buf)
 {
-	return (gets(f, &buf));
+	return (gets(f, &buf) > -1);
 }
 
 string
@@ -210,13 +333,6 @@ strlen(string s)
 	return (string("length", s));
 }
 
-// XXX - do we need this?
-void
-chomp(string &s)
-{
-	s = string("trimright", s, "\r\n");
-}
-
 /*
  * spawn like stuff.
  *
@@ -233,5 +349,5 @@ system(string cmd)
 		// XXX - this could be a lot nicer by digging into errorCode
 		return ("${cmd}: ${err}");
 	}
-	return ("0");
+	return ((string)0);
 }
