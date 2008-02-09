@@ -1,5 +1,7 @@
-/* This is an automatically generated file, please do not edit */
-/* use: tclsh gen-l-ast2.tcl to regenerate */
+/*
+ * used to be: tclsh gen-l-ast2.tcl to regenerate
+ * As of Feb 2008 it is maintained by hand.
+ */
 #include "tclInt.h"
 #include "Last.h"
 
@@ -7,22 +9,22 @@ extern void *ast_trace_root;
 extern int L_line_number;
 extern int L_token_offset;
 
-char *L_expression_tostr[15] = {
-	"L_EXPRESSION_ARRAY_INDEX",
-	"L_EXPRESSION_BINARY",
-	"L_EXPRESSION_FLOTE",
-	"L_EXPRESSION_FUNCALL",
-	"L_EXPRESSION_HASH_INDEX",
-	"L_EXPRESSION_INTEGER",
-	"L_EXPRESSION_INTERPOLATED_STRING",
-	"L_EXPRESSION_POST",
-	"L_EXPRESSION_PRE",
-	"L_EXPRESSION_REGEXP",
-	"L_EXPRESSION_STRING",
-	"L_EXPRESSION_STRUCT_INDEX",
-	"L_EXPRESSION_TERTIARY",
-	"L_EXPRESSION_UNARY",
-	"L_EXPRESSION_VARIABLE"
+char *L_expr_tostr[15] = {
+	"L_EXPR_ARRAY_INDEX",
+	"L_EXPR_BINARY",
+	"L_EXPR_FLOTE",
+	"L_EXPR_FUNCALL",
+	"L_EXPR_HASH_INDEX",
+	"L_EXPR_INTEGER",
+	"L_EXPR_INTERPOLATED_STRING",
+	"L_EXPR_POST",
+	"L_EXPR_PRE",
+	"L_EXPR_REGEXP",
+	"L_EXPR_STRING",
+	"L_EXPR_STRUCT_INDEX",
+	"L_EXPR_TERTIARY",
+	"L_EXPR_UNARY",
+	"L_EXPR_VAR"
 };
 
 char *L_loop_tostr[3] = {
@@ -31,25 +33,25 @@ char *L_loop_tostr[3] = {
 	"L_LOOP_WHILE"
 };
 
-char *L_statement_tostr[9] = {
-	"L_STATEMENT_BLOCK",
-	"L_STATEMENT_BREAK",
-	"L_STATEMENT_COND",
-	"L_STATEMENT_CONTINUE",
-	"L_STATEMENT_DECL",
-	"L_STATEMENT_EXPR",
-	"L_STATEMENT_FOREACH",
-	"L_STATEMENT_LOOP",
-	"L_STATEMENT_RETURN"
+char *L_stmt_tostr[9] = {
+	"L_STMT_BLOCK",
+	"L_STMT_BREAK",
+	"L_STMT_COND",
+	"L_STMT_CONTINUE",
+	"L_STMT_DECL",
+	"L_STMT_EXPR",
+	"L_STMT_FOREACH",
+	"L_STMT_LOOP",
+	"L_STMT_RETURN"
 };
 
-char *L_toplevel_statement_tostr[6] = {
-	"L_TOPLEVEL_STATEMENT_FUN",
-	"L_TOPLEVEL_STATEMENT_GLOBAL",
-	"L_TOPLEVEL_STATEMENT_INC",
-	"L_TOPLEVEL_STATEMENT_STMT",
-	"L_TOPLEVEL_STATEMENT_TYPE",
-	"L_TOPLEVEL_STATEMENT_TYPEDEF"
+char *L_toplevel_tostr[6] = {
+	"L_TOPLEVEL_FUN",
+	"L_TOPLEVEL_GLOBAL",
+	"L_TOPLEVEL_INC",
+	"L_TOPLEVEL_STMT",
+	"L_TOPLEVEL_TYPE",
+	"L_TOPLEVEL_TYPEDEF"
 };
 
 char *L_type_tostr[10] = {
@@ -67,21 +69,22 @@ char *L_type_tostr[10] = {
 
 char *L_node_type_tostr[11] = {
 	"L_NODE_BLOCK",
-	"L_NODE_EXPRESSION",
+	"L_NODE_EXPR",
 	"L_NODE_FOREACH_LOOP",
-	"L_NODE_FUNCTION_DECLARATION",
+	"L_NODE_FUNCTION_DECL",
 	"L_NODE_IF_UNLESS",
 	"L_NODE_INITIALIZER",
 	"L_NODE_LOOP",
-	"L_NODE_STATEMENT",
-	"L_NODE_TOPLEVEL_STATEMENT",
+	"L_NODE_STMT",
+	"L_NODE_TOPLEVEL",
 	"L_NODE_TYPE",
-	"L_NODE_VARIABLE_DECLARATION"
+	"L_NODE_VAR_DECL"
 };
 
 
 /* constructors for the L language */
-L_block *mk_block(L_variable_declaration *decls,L_statement *body) 
+L_block *
+mk_block(L_var_decl *decls,L_stmt *body)
 {
 	L_block *block;
 
@@ -89,20 +92,22 @@ L_block *mk_block(L_variable_declaration *decls,L_statement *body)
 	memset(block, 0, sizeof(L_block));
 	block->body = body;
 	block->decls = decls;
-	((L_ast_node *)block)->_trace = ast_trace_root;
+	((Ast *)block)->_trace = ast_trace_root;
 	ast_trace_root = (void *)block;
-	((L_ast_node *)block)->line_no = L_line_number;
-	((L_ast_node *)block)->offset = L_token_offset;
-	((L_ast_node *)block)->type = L_NODE_BLOCK;
-	return block;
+	((Ast *)block)->line_no = L_line_number;
+	((Ast *)block)->offset = L_token_offset;
+	((Ast *)block)->type = L_NODE_BLOCK;
+	return (block);
 }
 
-L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next) 
+L_expr *
+mk_expr(L_expr_kind kind, int op, L_expr *a, L_expr *b,
+    L_expr *c, L_expr *indices, L_expr *next)
 {
-	L_expression *expression;
+	L_expr *expression;
 
-	expression = (L_expression *)ckalloc(sizeof(L_expression));
-	memset(expression, 0, sizeof(L_expression));
+	expression = (L_expr *)ckalloc(sizeof(L_expr));
+	memset(expression, 0, sizeof(L_expr));
 	expression->a = a;
 	expression->b = b;
 	expression->c = c;
@@ -110,15 +115,17 @@ L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expr
 	expression->next = next;
 	expression->kind = kind;
 	expression->op = op;
-	((L_ast_node *)expression)->_trace = ast_trace_root;
+	((Ast *)expression)->_trace = ast_trace_root;
 	ast_trace_root = (void *)expression;
-	((L_ast_node *)expression)->line_no = L_line_number;
-	((L_ast_node *)expression)->offset = L_token_offset;
-	((L_ast_node *)expression)->type = L_NODE_EXPRESSION;
-	return expression;
+	((Ast *)expression)->line_no = L_line_number;
+	((Ast *)expression)->offset = L_token_offset;
+	((Ast *)expression)->type = L_NODE_EXPR;
+	return (expression);
 }
 
-L_foreach_loop *mk_foreach_loop(L_expression *expr,L_expression *key,L_expression *value,L_statement *body) 
+L_foreach_loop *
+mk_foreach_loop(L_expr *expr, L_expr *key,
+    L_expr *value, L_stmt *body)
 {
 	L_foreach_loop *foreach_loop;
 
@@ -128,34 +135,40 @@ L_foreach_loop *mk_foreach_loop(L_expression *expr,L_expression *key,L_expressio
 	foreach_loop->key = key;
 	foreach_loop->value = value;
 	foreach_loop->body = body;
-	((L_ast_node *)foreach_loop)->_trace = ast_trace_root;
+	((Ast *)foreach_loop)->_trace = ast_trace_root;
 	ast_trace_root = (void *)foreach_loop;
-	((L_ast_node *)foreach_loop)->line_no = L_line_number;
-	((L_ast_node *)foreach_loop)->offset = L_token_offset;
-	((L_ast_node *)foreach_loop)->type = L_NODE_FOREACH_LOOP;
-	return foreach_loop;
+	((Ast *)foreach_loop)->line_no = L_line_number;
+	((Ast *)foreach_loop)->offset = L_token_offset;
+	((Ast *)foreach_loop)->type = L_NODE_FOREACH_LOOP;
+	return (foreach_loop);
 }
 
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p) 
+L_function_decl *
+mk_function_decl(L_expr *name, L_var_decl *params,
+    L_type *return_type, L_block *body, int pattern_p)
 {
-	L_function_declaration *function_declaration;
+	L_function_decl *function_decl;
 
-	function_declaration = (L_function_declaration *)ckalloc(sizeof(L_function_declaration));
-	memset(function_declaration, 0, sizeof(L_function_declaration));
-	function_declaration->body = body;
-	function_declaration->name = name;
-	function_declaration->return_type = return_type;
-	function_declaration->params = params;
-	function_declaration->pattern_p = pattern_p;
-	((L_ast_node *)function_declaration)->_trace = ast_trace_root;
-	ast_trace_root = (void *)function_declaration;
-	((L_ast_node *)function_declaration)->line_no = L_line_number;
-	((L_ast_node *)function_declaration)->offset = L_token_offset;
-	((L_ast_node *)function_declaration)->type = L_NODE_FUNCTION_DECLARATION;
-	return function_declaration;
+	function_decl =
+	    (L_function_decl *)ckalloc(sizeof(L_function_decl));
+	memset(function_decl, 0, sizeof(L_function_decl));
+	function_decl->body = body;
+	function_decl->name = name;
+	function_decl->return_type = return_type;
+	function_decl->params = params;
+	function_decl->pattern_p = pattern_p;
+	((Ast *)function_decl)->_trace = ast_trace_root;
+	ast_trace_root = (void *)function_decl;
+	((Ast *)function_decl)->line_no = L_line_number;
+	((Ast *)function_decl)->offset = L_token_offset;
+	((Ast *)function_decl)->type =
+	    L_NODE_FUNCTION_DECL;
+	return (function_decl);
 }
 
-L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body) 
+L_if_unless *
+mk_if_unless(L_expr *condition, L_stmt *if_body,
+    L_stmt *else_body)
 {
 	L_if_unless *if_unless;
 
@@ -164,15 +177,17 @@ L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_stateme
 	if_unless->condition = condition;
 	if_unless->else_body = else_body;
 	if_unless->if_body = if_body;
-	((L_ast_node *)if_unless)->_trace = ast_trace_root;
+	((Ast *)if_unless)->_trace = ast_trace_root;
 	ast_trace_root = (void *)if_unless;
-	((L_ast_node *)if_unless)->line_no = L_line_number;
-	((L_ast_node *)if_unless)->offset = L_token_offset;
-	((L_ast_node *)if_unless)->type = L_NODE_IF_UNLESS;
-	return if_unless;
+	((Ast *)if_unless)->line_no = L_line_number;
+	((Ast *)if_unless)->offset = L_token_offset;
+	((Ast *)if_unless)->type = L_NODE_IF_UNLESS;
+	return (if_unless);
 }
 
-L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initializer *next_dim,L_initializer *next) 
+L_initializer *
+mk_initializer(L_expr *key, L_expr *value,
+    L_initializer *next_dim, L_initializer *next)
 {
 	L_initializer *initializer;
 
@@ -182,15 +197,17 @@ L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initialize
 	initializer->value = value;
 	initializer->next = next;
 	initializer->next_dim = next_dim;
-	((L_ast_node *)initializer)->_trace = ast_trace_root;
+	((Ast *)initializer)->_trace = ast_trace_root;
 	ast_trace_root = (void *)initializer;
-	((L_ast_node *)initializer)->line_no = L_line_number;
-	((L_ast_node *)initializer)->offset = L_token_offset;
-	((L_ast_node *)initializer)->type = L_NODE_INITIALIZER;
-	return initializer;
+	((Ast *)initializer)->line_no = L_line_number;
+	((Ast *)initializer)->offset = L_token_offset;
+	((Ast *)initializer)->type = L_NODE_INITIALIZER;
+	return (initializer);
 }
 
-L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body) 
+L_loop *
+mk_loop(L_loop_kind kind, L_expr *pre, L_expr *condition,
+    L_expr *post, L_stmt *body)
 {
 	L_loop *loop;
 
@@ -201,47 +218,53 @@ L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_exp
 	loop->pre = pre;
 	loop->kind = kind;
 	loop->body = body;
-	((L_ast_node *)loop)->_trace = ast_trace_root;
+	((Ast *)loop)->_trace = ast_trace_root;
 	ast_trace_root = (void *)loop;
-	((L_ast_node *)loop)->line_no = L_line_number;
-	((L_ast_node *)loop)->offset = L_token_offset;
-	((L_ast_node *)loop)->type = L_NODE_LOOP;
-	return loop;
+	((Ast *)loop)->line_no = L_line_number;
+	((Ast *)loop)->offset = L_token_offset;
+	((Ast *)loop)->type = L_NODE_LOOP;
+	return (loop);
 }
 
-L_statement *mk_statement(L_statement_kind kind,L_statement *next) 
+L_stmt *
+mk_stmt(L_stmt_kind kind, L_stmt *next)
 {
-	L_statement *statement;
+	L_stmt *statement;
 
-	statement = (L_statement *)ckalloc(sizeof(L_statement));
-	memset(statement, 0, sizeof(L_statement));
+	statement = (L_stmt *)ckalloc(sizeof(L_stmt));
+	memset(statement, 0, sizeof(L_stmt));
 	statement->next = next;
 	statement->kind = kind;
-	((L_ast_node *)statement)->_trace = ast_trace_root;
+	((Ast *)statement)->_trace = ast_trace_root;
 	ast_trace_root = (void *)statement;
-	((L_ast_node *)statement)->line_no = L_line_number;
-	((L_ast_node *)statement)->offset = L_token_offset;
-	((L_ast_node *)statement)->type = L_NODE_STATEMENT;
-	return statement;
+	((Ast *)statement)->line_no = L_line_number;
+	((Ast *)statement)->offset = L_token_offset;
+	((Ast *)statement)->type = L_NODE_STMT;
+	return (statement);
 }
 
-L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next) 
+L_toplevel *
+mk_toplevel(L_toplevel_kind kind,
+    L_toplevel *next)
 {
-	L_toplevel_statement *toplevel_statement;
+	L_toplevel *toplevel;
 
-	toplevel_statement = (L_toplevel_statement *)ckalloc(sizeof(L_toplevel_statement));
-	memset(toplevel_statement, 0, sizeof(L_toplevel_statement));
-	toplevel_statement->next = next;
-	toplevel_statement->kind = kind;
-	((L_ast_node *)toplevel_statement)->_trace = ast_trace_root;
-	ast_trace_root = (void *)toplevel_statement;
-	((L_ast_node *)toplevel_statement)->line_no = L_line_number;
-	((L_ast_node *)toplevel_statement)->offset = L_token_offset;
-	((L_ast_node *)toplevel_statement)->type = L_NODE_TOPLEVEL_STATEMENT;
-	return toplevel_statement;
+	toplevel =
+	    (L_toplevel *)ckalloc(sizeof(L_toplevel));
+	memset(toplevel, 0, sizeof(L_toplevel));
+	toplevel->next = next;
+	toplevel->kind = kind;
+	((Ast *)toplevel)->_trace = ast_trace_root;
+	ast_trace_root = (void *)toplevel;
+	((Ast *)toplevel)->line_no = L_line_number;
+	((Ast *)toplevel)->offset = L_token_offset;
+	((Ast *)toplevel)->type = L_NODE_TOPLEVEL;
+	return (toplevel);
 }
 
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p) 
+L_type *
+mk_type(L_type_kind kind, L_expr *array_dim, L_expr *struct_tag,
+    L_type *next_dim, L_var_decl *members, int typedef_p)
 {
 	L_type *type;
 
@@ -253,32 +276,37 @@ L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_ta
 	type->kind = kind;
 	type->members = members;
 	type->typedef_p = typedef_p;
-	((L_ast_node *)type)->_trace = ast_trace_root;
+	((Ast *)type)->_trace = ast_trace_root;
 	ast_trace_root = (void *)type;
-	((L_ast_node *)type)->line_no = L_line_number;
-	((L_ast_node *)type)->offset = L_token_offset;
-	((L_ast_node *)type)->type = L_NODE_TYPE;
-	return type;
+	((Ast *)type)->line_no = L_line_number;
+	((Ast *)type)->offset = L_token_offset;
+	((Ast *)type)->type = L_NODE_TYPE;
+	return (type);
 }
 
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_variable_declaration *next) 
+L_var_decl *
+mk_var_decl(L_type *type, L_expr *name,
+    L_initializer *initial_value, int by_name, int extern_p, int rest_p,
+    L_var_decl *next)
 {
-	L_variable_declaration *variable_declaration;
+	L_var_decl *variable_decl;
 
-	variable_declaration = (L_variable_declaration *)ckalloc(sizeof(L_variable_declaration));
-	memset(variable_declaration, 0, sizeof(L_variable_declaration));
-	variable_declaration->name = name;
-	variable_declaration->initial_value = initial_value;
-	variable_declaration->type = type;
-	variable_declaration->next = next;
-	variable_declaration->by_name = by_name;
-	variable_declaration->extern_p = extern_p;
-	variable_declaration->rest_p = rest_p;
-	((L_ast_node *)variable_declaration)->_trace = ast_trace_root;
-	ast_trace_root = (void *)variable_declaration;
-	((L_ast_node *)variable_declaration)->line_no = L_line_number;
-	((L_ast_node *)variable_declaration)->offset = L_token_offset;
-	((L_ast_node *)variable_declaration)->type = L_NODE_VARIABLE_DECLARATION;
-	return variable_declaration;
+	variable_decl =
+	    (L_var_decl *)ckalloc(sizeof(L_var_decl));
+	memset(variable_decl, 0, sizeof(L_var_decl));
+	variable_decl->name = name;
+	variable_decl->initial_value = initial_value;
+	variable_decl->type = type;
+	variable_decl->next = next;
+	variable_decl->by_name = by_name;
+	variable_decl->extern_p = extern_p;
+	variable_decl->rest_p = rest_p;
+	((Ast *)variable_decl)->_trace = ast_trace_root;
+	ast_trace_root = (void *)variable_decl;
+	((Ast *)variable_decl)->line_no = L_line_number;
+	((Ast *)variable_decl)->offset = L_token_offset;
+	((Ast *)variable_decl)->type =
+	    L_NODE_VAR_DECL;
+	return (variable_decl);
 }
 
