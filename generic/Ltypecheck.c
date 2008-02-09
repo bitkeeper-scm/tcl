@@ -17,27 +17,25 @@
 
 /* A delayed type check */
 typedef struct queued_check {
-	int flags;		/* Set for special cases, like
-				 * argument count checks */
-	L_type *want;		/* The required type */
-	L_type *have;		/* The actual type */
+	int	flags;		// Set for special cases, like
+				// argument count checks
+	L_type	*want;		// The required type
+	L_type	*have;		// The actual type
 	/* In case :want is unknown, these three will be set: */
-	char *name;		/* The function name */
-	int pos;		/* The argument position */
+	char	*name;		// The function name
+	int	pos;		// The argument position
 	/* In case :have is unknown, the expression to get it from */
-	L_expression *expr;
+	L_expr	*expr;
 	/* A pointer so we can link the checks together. */
 	struct queued_check *next;
 } queued_check;
 
 /* The type of a function */
 typedef struct function_type {
-	L_type *return_type;	/* The return type */
-	int param_count;	/* How many parameters */
-	int variable_arity_p;	/* True if number of args can be >=
-				 * param_count - 1 */
-	L_type **param_types;	/* An array of types, one for each
-				 * parameter. */
+	L_type	*return_type;	// The return type
+	int	param_count;	// How many parameters
+	int	var_arity_p;	// True if # of args can be >= param_count - 1
+	L_type	**param_types;	// An array of types, one for each parameter. 
 } function_type;
 
 /* A list of type checks to be performed later. */
@@ -52,21 +50,21 @@ extern L_compile_frame *lframe;
 typedef enum { NOT_SUBTYPE, UNKNOWN, IS_SUBTYPE } type_relation;
 
 private type_relation subtype(L_type *have, L_type *want);
-private L_type *parameter_type(char *name, int pos);
-private L_type *return_type(char *name);
+private L_type	*parameter_type(char *name, int pos);
+private L_type	*return_type(char *name);
 private function_type *get_function_type(char *name);
-private void L_type_error(L_expression *expr, L_type *have, L_type *want);
-private L_type *binop_expression_type(L_expression *expr);
-private L_type *unop_expression_type(L_expression *expr);
-private void free_type_info();
-private L_expression *copy_index_expr(L_expression *expr);
+private void	L_type_error(L_expr *expr, L_type *have, L_type *want);
+private L_type	*binop_expr_type(L_expr *expr);
+private L_type	*unop_expr_type(L_expr *expr);
+private void	free_type_info();
+private L_expr	*copy_index_expr(L_expr *expr);
 
 /* A convenience wrapper around L_check_expr_type() that instantiates
  * the type for you. */
 void
 L_check_expr_kind(
-    L_type_kind want,		/* The kind of the expected type */
-    L_expression *expr)		/* The expression from which we derive
+	L_type_kind want,	/* The kind of the expected type */
+	L_expr	*expr)		/* The expression from which we derive
 				 * the actual type */
 {
 	if (lframe->options & L_OPT_POLY) return;
@@ -80,16 +78,16 @@ L_check_expr_kind(
  * by L_finish_typechecks(). */
 void
 L_check_expr_type(
-    L_type *want,		/* The expected type */
-    L_expression *expr)		/* The expression from which we derive
+	L_type	*want,		/* The expected type */
+	L_expr	*expr)		/* The expression from which we derive
 				 * the actual type */
 {
-	L_type *have;
+	L_type	*have;
 	queued_check *new;
 
 	if (lframe->options & L_OPT_POLY) return;
-	if (!want) L_bomb("typecheck: Missing want type");
-	have = L_expression_type(expr);
+	unless (want) L_bomb("typecheck: Missing want type");
+	have = L_expr_type(expr);
 	switch (subtype(have, want)) {
 	    case NOT_SUBTYPE:
 		L_type_error(expr, have, want);
@@ -115,12 +113,12 @@ L_check_expr_type(
  * hashes. */
 void
 L_check_type(
-    L_type *want,		/* The expected type */
-    L_type *have,		/* The actual type */
-    L_expression *expr)		/* Expression to use for err msg */
+	L_type	*want,		/* The expected type */
+	L_type	*have,		/* The actual type */
+	L_expr	*expr)		/* Expression to use for err msg */
 {
 	if (lframe->options & L_OPT_POLY) return;
-	if (!want) L_bomb("typecheck: Missing want type");
+	unless (want) L_bomb("typecheck: Missing want type");
 	switch (subtype(have, want)) {
 	    case NOT_SUBTYPE:
 		L_type_error(expr, have, want);
@@ -138,18 +136,18 @@ L_check_type(
  * L_finish_typechecks() below will do the actual checks. */
 void
 L_check_arg_type(
-    char *funcname,		/* The name of the function being
+	char	*funcname,	/* The name of the function being
 				 * called. */
-    int pos,			/* The position of this argument in the
+	int	pos,		/* The position of this argument in the
 				 * arglist of the function being called.
 				 * Starts at 1.	 0 means no arguments. */
-    L_expression *expr)		/* The argument itself. */
+	L_expr	*expr)		/* The argument itself. */
 {
 	if (lframe->options & L_OPT_POLY) return;
 	queued_check *new;
 	new = (queued_check *)ckalloc(sizeof(queued_check));
 	memset(new, 0, sizeof(queued_check));
-	new->have = L_expression_type(expr);
+	new->have = L_expr_type(expr);
 	new->expr = expr;
 	new->name = funcname;
 	new->pos = pos;
@@ -161,10 +159,10 @@ L_check_arg_type(
  * parameters. */
 void
 L_check_arg_count(
-    char *funcname,		/* The name of the function being
+	char	*funcname,	/* The name of the function being
 				 * called. */
-    int count,			/* The number of args passed */
-    L_expression *expr)		/* An expression to grab location info from */
+	int	count,		/* The number of args passed */
+	L_expr	*expr)		/* An expression to grab location info from */
 {
 	queued_check *new;
 	new = (queued_check *)ckalloc(sizeof(queued_check));
@@ -182,12 +180,12 @@ L_check_arg_count(
  * they can be checked by L_finish_typechecks(). */
 void
 L_store_fun_type(
-    L_function_declaration *fun) /* The function declaration from
+	L_function_decl *fun) /* The function declaration from
 				  * which we get the type info. */
 {
 	function_type *fun_type;
-	L_variable_declaration *p;
-	int param_count, freshp;
+	L_var_decl *p;
+	int	param_count, freshp;
 	Tcl_HashEntry *hPtr;
 
 	fun_type = (function_type *)ckalloc(sizeof(function_type));
@@ -196,9 +194,7 @@ L_store_fun_type(
 	fun_type->return_type = fun->return_type;
 
 	for (param_count = 0, p = fun->params; p; param_count++, p = p->next) {
-		if (p->rest_p) {
-			fun_type->variable_arity_p = TRUE;
-		}
+		if (p->rest_p) fun_type->var_arity_p = TRUE;
 	}
 	fun_type->param_count = param_count;
 
@@ -215,7 +211,7 @@ L_store_fun_type(
 	}
 	hPtr = Tcl_CreateHashEntry(function_types,
 	    fun->name->u.string, &freshp);
-	if (!freshp) {
+	unless (freshp) {
 		L_bomb("typecheck: Redefinition of function type for %s",
 		    fun->name->u.string);
 	} else {
@@ -235,15 +231,15 @@ L_finish_typechecks(void)
 		if (q->flags == CHECK_ARG_COUNT) {
 			function_type *fun_type = get_function_type(q->name);
 			if (fun_type) {
-				if ((!fun_type->variable_arity_p &&
+				if ((!fun_type->var_arity_p &&
 					fun_type->param_count > q->pos) ||
-				    (fun_type->variable_arity_p &&
+				    (fun_type->var_arity_p &&
 					!(q->pos >=
 					    (fun_type->param_count - 1)))) {
 					L_errorf(q->expr, "Not enough arguments"
 					    " for function %s", q->name);
 				} else if (fun_type->param_count < q->pos &&
-				    !fun_type->variable_arity_p) {
+				    !fun_type->var_arity_p) {
 					L_errorf(q->expr, "Too many arguments"
 					    " for function %s", q->name);
 				}
@@ -252,9 +248,7 @@ L_finish_typechecks(void)
 				    q->name);
 			}
 		} else {
-			if (q->have == NULL) {
-				q->have = L_expression_type(q->expr);
-			}
+			if (q->have == NULL) q->have = L_expr_type(q->expr);
 			if (q->want == NULL) {
 				q->want = parameter_type(q->name, q->pos);
 			}
@@ -271,8 +265,7 @@ L_finish_typechecks(void)
 				    "Have is %s, want is %s. Line %d\n",
 				    q->have ? "set" : "NULL",
 				    q->want ? "set" : "NULL",
-				    q->expr ? ((L_ast_node *)q->expr)->line_no
-					    : -1);
+				    q->expr ? ((Ast *)q->expr)->line_no : -1);
 				break;
 			    default:
 				L_bomb("typecheck: bad retval from subtype()");
@@ -286,20 +279,19 @@ L_finish_typechecks(void)
  * unknown, don't call it a void since it could be a call to an
  * external function of unknown type. */
 int
-L_expr_is_void(L_expression *expr)
+L_expr_is_void(L_expr *expr)
 {
 	L_type	*type;
 
-	if (!expr || !(type = L_expression_type(expr))) return (0);
+	if (!expr || !(type = L_expr_type(expr))) return (0);
 	return (type->kind == L_TYPE_VOID);
 }
 
 private type_relation
 subtype(L_type *have, L_type *want)
 {
-	if (!have || !want) {
-		return (UNKNOWN);
-	}
+	if (!have || !want) return (UNKNOWN);
+
 	/* XXX Actually, once L_TYPE_VAR is implemented, we shouldn't
 	 * see it here. */
 	if (want->kind != L_TYPE_POLY && want->kind != L_TYPE_VAR) {
@@ -364,7 +356,7 @@ elucidate_type(L_type *type, int tabs)
 		elucidate_type(type->next_dim, tabs + 1);
 	}
 	if (type->kind == L_TYPE_STRUCT) {
-		L_variable_declaration *mem;
+		L_var_decl *mem;
 		tab(tabs);
 		fprintf(stderr, "type has struct members:\n");
 		for (mem = type->members;  mem; mem = mem->next) {
@@ -379,39 +371,39 @@ elucidate_type(L_type *type, int tabs)
 
 /* Return the type of an expression. */
 L_type *
-L_expression_type(L_expression *expr)
+L_expr_type(L_expr *expr)
 {
 	L_symbol *symbol;
-	L_type *type = NULL;
-	L_expression *index;
+	L_type	*type = NULL;
+	L_expr	*index;
 
 	unless (expr) return (NULL);
 	switch (expr->kind) {
-	    case L_EXPRESSION_FUNCALL:
-		if (!(symbol = L_get_symbol(expr->a, FALSE))) {
+	    case L_EXPR_FUNCALL:
+		unless (symbol = L_get_symbol(expr->a, FALSE)) {
 			type = return_type(expr->a->u.string);
 		}
 		break;
-	    case L_EXPRESSION_PRE:
-	    case L_EXPRESSION_POST:
-	    case L_EXPRESSION_INTEGER:
+	    case L_EXPR_PRE:
+	    case L_EXPR_POST:
+	    case L_EXPR_INTEGER:
 		type = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE);
 		break;
-	    case L_EXPRESSION_STRING:
-	    case L_EXPRESSION_INTERPOLATED_STRING:
-	    case L_EXPRESSION_REGEXP:
+	    case L_EXPR_STRING:
+	    case L_EXPR_INTERPOLATED_STRING:
+	    case L_EXPR_REGEXP:
 		type = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE);
 		break;
-	    case L_EXPRESSION_FLOTE:
+	    case L_EXPR_FLOTE:
 		type = mk_type(L_TYPE_FLOAT, NULL, NULL, NULL, NULL, FALSE);
 		break;
-	    case L_EXPRESSION_UNARY:
-		type = unop_expression_type(expr);
+	    case L_EXPR_UNARY:
+		type = unop_expr_type(expr);
 		break;
-	    case L_EXPRESSION_BINARY:
-		type = binop_expression_type(expr);
+	    case L_EXPR_BINARY:
+		type = binop_expr_type(expr);
 		break;
-	    case L_EXPRESSION_VARIABLE:
+	    case L_EXPR_VAR:
 		index = copy_index_expr(expr->indices);
 		if ((symbol = L_get_symbol(expr->a, FALSE))) {
 			type = symbol->type;
@@ -424,9 +416,9 @@ L_expression_type(L_expression *expr)
 		}
 		while (index) {
 			switch (index->kind) {
-			    case L_EXPRESSION_ARRAY_INDEX:
-			    case L_EXPRESSION_HASH_INDEX:
-				L_trace(index->kind == L_EXPRESSION_HASH_INDEX
+			    case L_EXPR_ARRAY_INDEX:
+			    case L_EXPR_HASH_INDEX:
+				L_trace(index->kind == L_EXPR_HASH_INDEX
 				    ? "hash index" : "array index");
 				if (type && type->next_dim) {
 					type = type->next_dim;
@@ -437,9 +429,9 @@ L_expression_type(L_expression *expr)
 					    NULL, NULL, NULL, NULL, FALSE);
 				}
 				break;
-			    case L_EXPRESSION_STRUCT_INDEX: {
+			    case L_EXPR_STRUCT_INDEX: {
 				    L_trace("struct index");
-				    L_variable_declaration *member;
+				    L_var_decl *member;
 				    int memberOffset;
 
 				    member = L_get_struct_member(type,
@@ -456,7 +448,7 @@ L_expression_type(L_expression *expr)
 				    break;
 			    }
 			    default:
-				L_bomb("malformed AST in L_expression_type()");
+				L_bomb("malformed AST in L_expr_type()");
 			}
 			index = index->indices;
 		}
@@ -467,28 +459,27 @@ L_expression_type(L_expression *expr)
 	return (type);
 }
 
-private L_expression *
-copy_index_expr(L_expression *expr)
+private L_expr *
+copy_index_expr(L_expr *expr)
 {
-	L_expression *copy, *runner;
+	L_expr	*copy, *runner;
 
 	unless (expr) return (0);
-	copy = (L_expression *)ckalloc(sizeof(L_expression));
-	memcpy(copy, expr, sizeof(L_expression));
+	copy = (L_expr *)ckalloc(sizeof(L_expr));
+	memcpy(copy, expr, sizeof(L_expr));
 	for (runner = copy, expr = expr->indices; expr;
 	     expr = expr->indices, runner = runner->indices) {
-		runner->indices =
-		    (L_expression *)ckalloc(sizeof(L_expression));
-		memcpy(runner->indices, expr, sizeof(L_expression));
+		runner->indices = (L_expr *)ckalloc(sizeof(L_expr));
+		memcpy(runner->indices, expr, sizeof(L_expr));
 	}
 	return (copy);
 }
 
 /* Return the type of an expression with a unary operator in it. */
 private L_type *
-unop_expression_type(L_expression *expr)
+unop_expr_type(L_expr *expr)
 {
-	L_type *type, *type1;
+	L_type	*type, *type1;
 
 	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
 	switch (expr->op) {
@@ -512,12 +503,12 @@ unop_expression_type(L_expression *expr)
 		type->kind = L_TYPE_INT;
 		break;
 	    case T_BITAND:
-		type = L_expression_type(expr->a);
+		type = L_expr_type(expr->a);
 		break;
 	    case T_PLUS:
 	    case T_MINUS:
-		type1 = L_expression_type(expr->a);
-		if (!type1) return NULL;
+		type1 = L_expr_type(expr->a);
+		unless (type1) return NULL;
 		if (type1->kind == L_TYPE_FLOAT) {
 			type->kind = L_TYPE_FLOAT;
 		} else {
@@ -532,14 +523,14 @@ unop_expression_type(L_expression *expr)
 
 /* Return the type of an expression with a binary operator in it. */
 private L_type *
-binop_expression_type(L_expression *expr)
+binop_expr_type(L_expr *expr)
 {
-	L_type *type, *type1, *type2;
+	L_type	*type, *type1, *type2;
 
 	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
 	switch (expr->op) {
 	    case T_EQUALS:
-		type = L_expression_type(expr->b);
+		type = L_expr_type(expr->b);
 		break;
 	    case T_PLUS:
 	    case T_PLUSPLUS:
@@ -551,8 +542,8 @@ binop_expression_type(L_expression *expr)
 	    case T_EQSTAR:
 	    case T_SLASH:
 	    case T_EQSLASH:
-		type1 = L_expression_type(expr->a);
-		type2 = L_expression_type(expr->b);
+		type1 = L_expr_type(expr->a);
+		type2 = L_expr_type(expr->b);
 		if (!type1 || !type2) return (NULL);
 		if (type1->kind == L_TYPE_FLOAT ||
 		    type2->kind == L_TYPE_FLOAT) {
@@ -603,14 +594,14 @@ binop_expression_type(L_expression *expr)
  * known about the parameter, or it is out of bounds. */
 private L_type *
 parameter_type(
-    char *name,			/* The name of the function */
-    int pos)			/* The position in the argument list, starting
+	char	*name,		/* The name of the function */
+	int	pos)		/* The position in the argument list, starting
 				 * at 1 -- 0 means no arguments. */
 {
 	function_type *fun_type;
 
 	unless (fun_type = get_function_type(name)) return (0);
-	if (fun_type->variable_arity_p && pos >= (fun_type->param_count - 1)) {
+	if (fun_type->var_arity_p && pos >= (fun_type->param_count - 1)) {
 		/* for rest parameters, return a type that always succeeds: */
 		return (mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE));
 	} else if (pos < fun_type->param_count) {
@@ -686,9 +677,9 @@ free_type_info(void)
 /* Generate a type error */
 private void
 L_type_error(
-    L_expression *expr,		/* The erroneous expression */
-    L_type *have,		/* The expected type */
-    L_type *want)		/* The erroneous type */
+	L_expr	*expr,		/* The erroneous expression */
+	L_type	*have,		/* The expected type */
+	L_type	*want)		/* The erroneous type */
 {
 	L_errorf(expr, "type error, want %s, got %s",
 	    L_type_tostr[want->kind], L_type_tostr[have->kind]);

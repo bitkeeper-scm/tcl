@@ -180,7 +180,7 @@ static const CmdInfo builtInCmds[] = {
      */
 
     {"L",		Tcl_LObjCmd,		TclCompileLCmd,		1},
-    {"pointer",		Tcl_PointerObjCmd,	TclCompilePointerCmd,	1},
+    {"pointer",		Tcl_PtrObjCmd,		TclCompilePtrCmd,	1},
     /*
      * Commands in the OS-interface. Note that many of these are unsafe.
      */

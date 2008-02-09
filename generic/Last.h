@@ -1,5 +1,7 @@
-/* This is an automatically generated file, please do not edit */
-/* use: tclsh gen-l-ast2.tcl to regenerate */
+/*
+ * used to be: tclsh gen-l-ast2.tcl to regenerate
+ * As of Feb 2008 it is maintained by hand.
+ */
 #ifndef L_AST_H
 #define L_AST_H
 
@@ -16,40 +18,40 @@
 #define	L_WALK_ERROR		0x8000C
 
 /* Typedefs */
-typedef struct L_ast_node L_ast_node;
+typedef struct Ast Ast;
 typedef struct L_block L_block;
-typedef struct L_variable_declaration L_variable_declaration;
-typedef struct L_function_declaration L_function_declaration;
-typedef struct L_statement L_statement;
-typedef struct L_toplevel_statement L_toplevel_statement;
+typedef struct L_var_decl L_var_decl;
+typedef struct L_function_decl L_function_decl;
+typedef struct L_stmt L_stmt;
+typedef struct L_toplevel L_toplevel;
 typedef struct L_if_unless L_if_unless;
 typedef struct L_loop L_loop;
 typedef struct L_foreach_loop L_foreach_loop;
-typedef struct L_expression L_expression;
+typedef struct L_expr L_expr;
 typedef struct L_type L_type;
 typedef struct L_initializer L_initializer;
 
 /* Enums */
-typedef enum L_expression_kind {
-	L_EXPRESSION_ARRAY_INDEX,
-	L_EXPRESSION_BINARY,
-	L_EXPRESSION_FLOTE,
-	L_EXPRESSION_FUNCALL,
-	L_EXPRESSION_HASH_INDEX,
-	L_EXPRESSION_INTEGER,
-	L_EXPRESSION_INTERPOLATED_STRING,
-	L_EXPRESSION_POST,
-	L_EXPRESSION_PRE,
-	L_EXPRESSION_REGEXP,
-	L_EXPRESSION_STRING,
-	L_EXPRESSION_STRUCT_INDEX,
-	L_EXPRESSION_TERTIARY,
-	L_EXPRESSION_UNARY,
-	L_EXPRESSION_VARIABLE,
-	L_EXPRESSION_PUSH
-} L_expression_kind;
+typedef enum L_expr_kind {
+	L_EXPR_ARRAY_INDEX,
+	L_EXPR_BINARY,
+	L_EXPR_FLOTE,
+	L_EXPR_FUNCALL,
+	L_EXPR_HASH_INDEX,
+	L_EXPR_INTEGER,
+	L_EXPR_INTERPOLATED_STRING,
+	L_EXPR_POST,
+	L_EXPR_PRE,
+	L_EXPR_REGEXP,
+	L_EXPR_STRING,
+	L_EXPR_STRUCT_INDEX,
+	L_EXPR_TERTIARY,
+	L_EXPR_UNARY,
+	L_EXPR_VAR,
+	L_EXPR_PUSH
+} L_expr_kind;
 
-extern char *L_expression_tostr[15];
+extern char *L_expr_tostr[15];
 typedef enum L_loop_kind {
 	L_LOOP_DO,
 	L_LOOP_FOR,
@@ -57,30 +59,30 @@ typedef enum L_loop_kind {
 } L_loop_kind;
 
 extern char *L_loop_tostr[3];
-typedef enum L_statement_kind {
-	L_STATEMENT_BLOCK,
-	L_STATEMENT_BREAK,
-	L_STATEMENT_COND,
-	L_STATEMENT_CONTINUE,
-	L_STATEMENT_DECL,
-	L_STATEMENT_EXPR,
-	L_STATEMENT_FOREACH,
-	L_STATEMENT_LOOP,
-	L_STATEMENT_RETURN,
-	L_STATEMENT_PUSH
-} L_statement_kind;
+typedef enum L_stmt_kind {
+	L_STMT_BLOCK,
+	L_STMT_BREAK,
+	L_STMT_COND,
+	L_STMT_CONTINUE,
+	L_STMT_DECL,
+	L_STMT_EXPR,
+	L_STMT_FOREACH,
+	L_STMT_LOOP,
+	L_STMT_RETURN,
+	L_STMT_PUSH
+} L_stmt_kind;
 
-extern char *L_statement_tostr[9];
-typedef enum L_toplevel_statement_kind {
-	L_TOPLEVEL_STATEMENT_FUN,
-	L_TOPLEVEL_STATEMENT_GLOBAL,
-	L_TOPLEVEL_STATEMENT_INC,
-	L_TOPLEVEL_STATEMENT_STMT,
-	L_TOPLEVEL_STATEMENT_TYPE,
-	L_TOPLEVEL_STATEMENT_TYPEDEF
-} L_toplevel_statement_kind;
+extern char *L_stmt_tostr[9];
+typedef enum L_toplevel_kind {
+	L_TOPLEVEL_FUN,
+	L_TOPLEVEL_GLOBAL,
+	L_TOPLEVEL_INC,
+	L_TOPLEVEL_STMT,
+	L_TOPLEVEL_TYPE,
+	L_TOPLEVEL_TYPEDEF
+} L_toplevel_kind;
 
-extern char *L_toplevel_statement_tostr[6];
+extern char *L_toplevel_tostr[6];
 typedef enum L_type_kind {
 	L_TYPE_ARRAY,
 	L_TYPE_FLOAT,
@@ -98,41 +100,41 @@ typedef enum L_type_kind {
 extern char *L_type_tostr[10];
 typedef enum L_node_type {
 	L_NODE_BLOCK,
-	L_NODE_EXPRESSION,
+	L_NODE_EXPR,
 	L_NODE_FOREACH_LOOP,
-	L_NODE_FUNCTION_DECLARATION,
+	L_NODE_FUNCTION_DECL,
 	L_NODE_IF_UNLESS,
 	L_NODE_INITIALIZER,
 	L_NODE_LOOP,
-	L_NODE_STATEMENT,
-	L_NODE_TOPLEVEL_STATEMENT,
+	L_NODE_STMT,
+	L_NODE_TOPLEVEL,
 	L_NODE_TYPE,
-	L_NODE_VARIABLE_DECLARATION
+	L_NODE_VAR_DECL
 } L_node_type;
 extern char *L_node_type_tostr[11];
 
 /* Struct declarations */
-struct L_ast_node {
-	L_ast_node *_trace;
+struct Ast {
+	Ast *_trace;
 	L_node_type type;
 	int line_no;
 	int offset;
 };
 
 struct L_block {
-	L_ast_node node;
-	L_statement *body;
-	L_variable_declaration *decls;
+	Ast node;
+	L_stmt *body;
+	L_var_decl *decls;
 };
 
-struct L_expression {
-	L_ast_node node;
-	L_expression *a;
-	L_expression *b;
-	L_expression *c;
-	L_expression *indices;
-	L_expression *next;
-	L_expression_kind kind;
+struct L_expr {
+	Ast node;
+	L_expr *a;
+	L_expr *b;
+	L_expr *c;
+	L_expr *indices;
+	L_expr *next;
+	L_expr_kind kind;
 	int op;
 	union {
 		char *string;
@@ -142,89 +144,89 @@ struct L_expression {
 };
 
 struct L_foreach_loop {
-	L_ast_node node;
-	L_expression *expr;
-	L_expression *key;
-	L_expression *value;
-	L_statement *body;
+	Ast node;
+	L_expr *expr;
+	L_expr *key;
+	L_expr *value;
+	L_stmt *body;
 };
 
-struct L_function_declaration {
-	L_ast_node node;
+struct L_function_decl {
+	Ast node;
 	L_block *body;
-	L_expression *name;
+	L_expr *name;
 	L_type *return_type;
-	L_variable_declaration *params;
+	L_var_decl *params;
 	int pattern_p;
 };
 
 struct L_if_unless {
-	L_ast_node node;
-	L_expression *condition;
-	L_statement *else_body;
-	L_statement *if_body;
+	Ast node;
+	L_expr *condition;
+	L_stmt *else_body;
+	L_stmt *if_body;
 };
 
 struct L_initializer {
-	L_ast_node node;
-	L_expression *key;
-	L_expression *value;
+	Ast node;
+	L_expr *key;
+	L_expr *value;
 	L_initializer *next;
 	L_initializer *next_dim;
 };
 
 struct L_loop {
-	L_ast_node node;
-	L_expression *condition;
-	L_expression *post;
-	L_expression *pre;
+	Ast node;
+	L_expr *condition;
+	L_expr *post;
+	L_expr *pre;
 	L_loop_kind kind;
-	L_statement *body;
+	L_stmt *body;
 };
 
-struct L_statement {
-	L_ast_node node;
-	L_statement *next;
-	L_statement_kind kind;
+struct L_stmt {
+	Ast node;
+	L_stmt *next;
+	L_stmt_kind kind;
 	union {
 		L_block *block;
-		L_expression *expr;
+		L_expr *expr;
 		L_foreach_loop *foreach;
 		L_if_unless *cond;
 		L_loop *loop;
-		L_variable_declaration *decl;
+		L_var_decl *decl;
 	} u;
 };
 
-struct L_toplevel_statement {
-	L_ast_node node;
-	L_toplevel_statement *next;
-	L_toplevel_statement_kind kind;
+struct L_toplevel {
+	Ast node;
+	L_toplevel *next;
+	L_toplevel_kind kind;
 	union {
-		L_expression *inc;
-		L_function_declaration *fun;
-		L_statement *stmt;
+		L_expr *inc;
+		L_function_decl *fun;
+		L_stmt *stmt;
 		L_type *type;
-		L_variable_declaration *global;
+		L_var_decl *global;
 	} u;
 };
 
 struct L_type {
-	L_ast_node node;
-	L_expression *array_dim;
-	L_expression *struct_tag;
+	Ast node;
+	L_expr *array_dim;
+	L_expr *struct_tag;
 	L_type *next_dim;
 	L_type_kind kind;
-	L_variable_declaration *members;
+	L_var_decl *members;
 	int typedef_p;
 };
 
-struct L_variable_declaration {
-	L_ast_node node;
-	L_expression *name;
+struct L_var_decl {
+	Ast node;
+	L_expr *name;
 	L_initializer *initial_value;
 	L_type *type;
-	L_variable_declaration *next;
+	L_var_decl *next;
 	int by_name;
 	int extern_p;
 	int rest_p;
@@ -232,18 +234,18 @@ struct L_variable_declaration {
 
 
 /* Prototypes */
-typedef int (*LWalkFunc)(L_ast_node *node, void *data, int order);
-L_block *mk_block(L_variable_declaration *decls,L_statement *body);
-L_expression *mk_expression(L_expression_kind kind,int op,L_expression *a,L_expression *b,L_expression *c,L_expression *indices,L_expression *next);
-L_foreach_loop *mk_foreach_loop(L_expression *hash,L_expression *key,L_expression *value,L_statement *body);
-L_function_declaration *mk_function_declaration(L_expression *name,L_variable_declaration *params,L_type *return_type,L_block *body,int pattern_p);
-L_if_unless *mk_if_unless(L_expression *condition,L_statement *if_body,L_statement *else_body);
-L_initializer *mk_initializer(L_expression *key,L_expression *value,L_initializer *next_dim,L_initializer *next);
-L_loop *mk_loop(L_loop_kind kind,L_expression *pre,L_expression *condition,L_expression *post,L_statement *body);
-L_statement *mk_statement(L_statement_kind kind,L_statement *next);
-L_toplevel_statement *mk_toplevel_statement(L_toplevel_statement_kind kind,L_toplevel_statement *next);
-L_type *mk_type(L_type_kind kind,L_expression *array_dim,L_expression *struct_tag,L_type *next_dim,L_variable_declaration *members,int typedef_p);
-L_variable_declaration *mk_variable_declaration(L_type *type,L_expression *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_variable_declaration *next);
-int L_walk_ast(L_ast_node *node, int order, LWalkFunc func, void *data);
+typedef int (*LWalkFunc)(Ast *node, void *data, int order);
+L_block *mk_block(L_var_decl *decls,L_stmt *body);
+L_expr *mk_expr(L_expr_kind kind,int op,L_expr *a,L_expr *b,L_expr *c,L_expr *indices,L_expr *next);
+L_foreach_loop *mk_foreach_loop(L_expr *hash,L_expr *key,L_expr *value,L_stmt *body);
+L_function_decl *mk_function_decl(L_expr *name,L_var_decl *params,L_type *return_type,L_block *body,int pattern_p);
+L_if_unless *mk_if_unless(L_expr *condition,L_stmt *if_body,L_stmt *else_body);
+L_initializer *mk_initializer(L_expr *key,L_expr *value,L_initializer *next_dim,L_initializer *next);
+L_loop *mk_loop(L_loop_kind kind,L_expr *pre,L_expr *condition,L_expr *post,L_stmt *body);
+L_stmt *mk_stmt(L_stmt_kind kind,L_stmt *next);
+L_toplevel *mk_toplevel(L_toplevel_kind kind,L_toplevel *next);
+L_type *mk_type(L_type_kind kind,L_expr *array_dim,L_expr *struct_tag,L_type *next_dim,L_var_decl *members,int typedef_p);
+L_var_decl *mk_var_decl(L_type *type,L_expr *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_var_decl *next);
+int L_walk_ast(Ast *node, int order, LWalkFunc func, void *data);
 
 #endif /* L_AST_H */

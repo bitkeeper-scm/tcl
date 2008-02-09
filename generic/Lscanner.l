@@ -167,7 +167,7 @@ tally_newlines(
 	{ID}[ \t\n\r]*:	{
 				int i, j;
 				MK_STRING_NODE(L_lval, yytext);
-				((L_expression *)L_lval)->u.string[0] = '-';
+				((L_expr *)L_lval)->u.string[0] = '-';
 				/* strip the whitespace */
 				for (i=0, j=1; i<yyleng-1; i++) {
 					switch (yytext[i]) {
@@ -177,10 +177,10 @@ tally_newlines(
 					case '\r':
 						break;
 					default:
-						((L_expression *)L_lval)->u.string[j++] = yytext[i];
+						((L_expr *)L_lval)->u.string[j++] = yytext[i];
 					}
 				}
-				((L_expression *)L_lval)->u.string[j] = '\0';
+				((L_expr *)L_lval)->u.string[j] = '\0';
 				return T_KEYWORD;
 			}
 	{ID}		{
