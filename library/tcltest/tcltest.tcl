@@ -863,8 +863,8 @@ proc tcltest::DebugPArray {level arrayvar} {
 # defined in ::tcltest.  NOTE: Ought to construct with [info args] and
 # [info default], but can't be bothered now.  If [parray] changes, then
 # this will need changing too.
-auto_load ::parray
-proc tcltest::parray {a {pattern *}} [info body ::parray]
+#auto_load ::parray
+#proc tcltest::parray {a {pattern *}} [info body ::parray]
 
 # tcltest::DebugDo --
 #
