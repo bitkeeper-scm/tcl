@@ -1,16 +1,20 @@
 2008-02-28  Joe English  <jenglish@users.sourceforge.net>
 
 	* unix/tclPort.h, unix/tclCompat.h, unix/tclUnixChan.h:
-	Reduce scope of <sys/filio.h> and <sys/ioctl.h> #includes.
+	Reduce scope of <sys/filio.h> and <sys/ioctl.h> #includes
+	[Patch 1903339].
 
 2008-02-28  Joe English  <jenglish@users.sourceforge.net>
 
 	* unix/tclUnixChan.c, unix/tclUnixNotfy.c, unix/tclUnixPipe.c:
 	Consolidate all code conditionalized on -DUSE_FIONBIO into one place.
 	* unix/tclUnixPort.h, unix/tclUnixCompat.c: New routine
-	TclUnixSetBlockingMode().
+	TclUnixSetBlockingMode() [Patch 1903339].
 
 2008-02-28  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/tclCompExpr.c (ParseExpr):	Plug memory leak in error
+	message generation.
 
 	* generic/tclStringObj.c (Tcl_AppendFormatToObj): [format %llx $big]
 	leaked an mp_int.
