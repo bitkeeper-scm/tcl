@@ -757,7 +757,6 @@ Tcl_ExprObjCmd(
     int objc,			/* Number of arguments. */
     Tcl_Obj *CONST objv[])	/* Argument objects. */
 {
-    register Tcl_Obj *objPtr;
     Tcl_Obj *resultPtr;
     int result;
 
@@ -766,10 +765,14 @@ Tcl_ExprObjCmd(
 	return TCL_ERROR;
     }
 
-    objPtr = Tcl_ConcatObj(objc-1, objv+1);
-    Tcl_IncrRefCount(objPtr);
-    result = Tcl_ExprObj(interp, objPtr, &resultPtr);
-    Tcl_DecrRefCount(objPtr);
+    if (objc == 2) {
+	result = Tcl_ExprObj(interp, objv[1], &resultPtr);
+    } else {
+	Tcl_Obj *objPtr = Tcl_ConcatObj(objc-1, objv+1);
+	Tcl_IncrRefCount(objPtr);
+	result = Tcl_ExprObj(interp, objPtr, &resultPtr);
+	Tcl_DecrRefCount(objPtr);
+    }
 
     if (result == TCL_OK) {
 	Tcl_SetObjResult(interp, resultPtr);
@@ -1796,7 +1799,7 @@ Tcl_ForeachObjCmd(
 			valuePtr, TCL_LEAVE_ERR_MSG);
 		if (varValuePtr == NULL) {
 		    Tcl_AppendObjToErrorInfo(interp, Tcl_ObjPrintf(
-			    "\n    (setting foreach loop variable \"%s\"",
+			    "\n    (setting foreach loop variable \"%s\")",
 			    TclGetString(varvList[i][v])));
 		    result = TCL_ERROR;
 		    goto done;

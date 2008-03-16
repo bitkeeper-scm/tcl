@@ -909,6 +909,22 @@ test regexpComp-24.9 {regexp command compiling tests} -body {
 	list [catch {regexp -- $re dogfod} msg] $msg
     }
 } -match glob -result {1 {couldn't compile*}}
+test regexpComp-24.10 {regexp command compiling tests} {
+    # Bug 1902436 - last * escaped
+    evalInProc {
+	set text {this is *bold* !}
+	set re {\*bold\*}
+	regexp -- $re $text
+    }
+} 1
+test regexpComp-24.11 {regexp command compiling tests} {
+    # Bug 1902436 - last * escaped
+    evalInProc {
+	set text {this is *bold* !}
+	set re {\*bold\*.*!}
+	regexp -- $re $text
+    }
+} 1
 
 # cleanup
 ::tcltest::cleanupTests

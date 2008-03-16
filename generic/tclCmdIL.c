@@ -3665,8 +3665,7 @@ Tcl_LsortObjCmd(
      * begins sorting it into the sublists as it appears.
      */
 
-    elementArray = (SortElement *)
-	    TclStackAlloc(interp, length * sizeof(SortElement));
+    elementArray = (SortElement *) ckalloc( length * sizeof(SortElement));
 
     for (i=0; i < length; i++){
 	if (indexc) {
@@ -3769,7 +3768,7 @@ Tcl_LsortObjCmd(
     }
 
   done1:
-    TclStackFree(interp, elementArray);
+    ckfree((char *)elementArray);
 
   done:
     if (sortInfo.sortMode == SORTMODE_COMMAND) {

@@ -3121,8 +3121,7 @@ OldMathFuncProc(
      * Convert arguments from Tcl_Obj's to Tcl_Value's.
      */
 
-    args = (Tcl_Value *)
-	    TclStackAlloc(interp, dataPtr->numArgs * sizeof(Tcl_Value));
+    args = (Tcl_Value *) ckalloc(dataPtr->numArgs * sizeof(Tcl_Value));
     for (j = 1, k = 0; j < objc; ++j, ++k) {
 
 	/* TODO: Convert to TclGetNumberFromObj() ? */
@@ -3142,7 +3141,7 @@ OldMathFuncProc(
 	    Tcl_SetObjResult(interp, Tcl_NewStringObj(
 		    "argument to math function didn't have numeric value",-1));
 	    TclCheckBadOctal(interp, Tcl_GetString(valuePtr));
-	    TclStackFree(interp, args);
+	    ckfree((char *)args);
 	    return TCL_ERROR;
 	}
 
@@ -3174,7 +3173,7 @@ OldMathFuncProc(
 	    break;
 	case TCL_INT:
 	    if (ExprIntFunc(NULL, interp, 2, &(objv[j-1])) != TCL_OK) {
-		TclStackFree(interp, args);
+		ckfree((char *)args);
 		return TCL_ERROR;
 	    }
 	    valuePtr = Tcl_GetObjResult(interp);
@@ -3183,7 +3182,7 @@ OldMathFuncProc(
 	    break;
 	case TCL_WIDE_INT:
 	    if (ExprWideFunc(NULL, interp, 2, &(objv[j-1])) != TCL_OK) {
-		TclStackFree(interp, args);
+		ckfree((char *)args);
 		return TCL_ERROR;
 	    }
 	    valuePtr = Tcl_GetObjResult(interp);
@@ -3199,7 +3198,7 @@ OldMathFuncProc(
 
     errno = 0;
     result = (*dataPtr->proc)(dataPtr->clientData, interp, args, &funcResult);
-    TclStackFree(interp, args);
+    ckfree((char *)args);
     if (result != TCL_OK) {
 	return result;
     }
@@ -3622,6 +3621,9 @@ TclEvalObjvInternal(
 
 	if (cmdEpoch != newEpoch) {
 	    checkTraces = 0;
+	    if (commandPtr) {
+		Tcl_DecrRefCount(commandPtr);
+	    }
 	    goto reparseBecauseOfTraces;
 	}
     }
@@ -5297,6 +5299,7 @@ Tcl_AppendObjToErrorInfo(
     int length;
     const char *message = TclGetStringFromObj(objPtr, &length);
 
+    Tcl_IncrRefCount(objPtr);
     Tcl_AddObjErrorInfo(interp, message, length);
     Tcl_DecrRefCount(objPtr);
 }
@@ -5972,7 +5975,7 @@ ExprAbsFunc(
 
     if (type == TCL_NUMBER_LONG) {
 	long l = *((const long *) ptr);
-	if (l < (long)0) {
+	if (l <= (long)0) {
 	    if (l == LONG_MIN) {
 		TclBNInitBignumFromLong(&big, l);
 		goto tooLarge;
@@ -5986,7 +5989,7 @@ ExprAbsFunc(
 
     if (type == TCL_NUMBER_DOUBLE) {
 	double d = *((const double *) ptr);
-	if (d < 0.0) {
+	if (d <= 0.0) {
 	    Tcl_SetObjResult(interp, Tcl_NewDoubleObj(-d));
 	} else {
 	    Tcl_SetObjResult(interp, objv[1]);

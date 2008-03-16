@@ -1,8 +1,288 @@
+2008-03-16  Donal K. Fellows  <dkf@users.sf.net>
+
+	* doc/lreplace.n: Clarified documentation of what happens with
+	negative indices. [Bug 1905809] Added example, tidied up formatting.
+
+2008-03-14  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/tclBasic.c (OldMathFuncProc):	Same workaround protection
+	from bad TclStackAlloc() alignment. Thanks George Peter Staplin.
+
+	* generic/tclCmdIL.c (Tcl_LsortObjCmd):	Use ckalloc() to allocate
+	SortElement arrays instead of TclStackAlloc() which isn't getting
+	alignment right. Workaround for [Bug 1914503].
+
+2008-03-14  Reinhard Max  <max@suse.de>
+
+	* generic/tclTest.c:  Ignore the return value of write() when we are
+	* unix/tclUnixPipe.c: about to exit anyways.
+
+2008-03-13  Daniel Steffen  <das@users.sourceforge.net>
+
+	* unix/configure.in:	Use backslash-quoting instead of double-quoting
+	* unix/tcl.m4:		for lib paths in tclConfig.sh. [Bug 1913622]
+	* unix/configure:	autoconf-2.59
+
+2008-03-13  Don Porter	<dgp@users.sourceforge.net>
+
+	* changes:		Updated for 8.5.2 release.
+
+	* generic/tclStrToD.c:	Resolve identifier conflict over "pow10" with
+	libm in Cygwin and DJGPP. Thanks to Gordon Schumacher and Philip
+	Moore. [Patch 1800636]
+
+2008-03-12  Daniel Steffen  <das@users.sourceforge.net>
+
+	* macosx/Tcl.xcodeproj/project.pbxproj:	Add support for Xcode 3.1
+	* macosx/Tcl.xcodeproj/default.pbxuser:	CODE_SIGN_IDENTITY and
+	* macosx/Tcl-Common.xcconfig:		'xcodebuild install'.
+
+2008-03-12  Andreas Kupries <andreask@activestate.com>
+
+	* doc/info.n: Replaced {expand} with {*}.
+
+2008-03-12  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* unix/Makefile.in (install-libraries):	Bump http to 2.7
+	* win/Makefile.in (install-libraries):	Added -myaddr option to allow
+	* library/http/http.tcl (http::geturl):	control of selected socket
+	* library/http/pkgIndex.tcl:		interface. [Bug 559898]
+	* doc/http.n, tests/http.test:		Added -keepalive and
+	-protocol 1.1 with chunked transfer encoding support. [Bug 1063703,
+	1470377, 219225] (default keepalive is 0)
+	Added ability to override Host in -headers. [Bug 928154]
+	Added -strict option to control URL validation on per-call basis.
+	[Bug 1560506]
+
+2008-03-11  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/http/http.tcl (http::geturl): Add -method option to support
+	* tests/http.test (http-3.1):		http PUT and DELETE requests.
+	* doc/http.n:				[Bug 1599901, 862554]
+
+	* library/http/http.tcl: whitespace changes, code cleanup. Allow http
+	to be re-sourced without overwriting http state.
+
+2008-03-11  Daniel Steffen  <das@users.sourceforge.net>
+
+	* generic/tclEncoding.c (LoadEscapeEncoding): Avoid leaking escape
+	sub-encodings, fixes encoding-11.1 failing after iso2022-jp loaded.
+	[Bug 1893053]
+
+	* macosx/tclMacOSXNotify.c: Avoid using CoreFoundation after fork() on
+	Darwin 9 even when TclpCreateProcess() uses vfork().
+
+	* macosx/Tcl.xcodeproj/project.pbxproj:	Add support for Xcode 3.1 and
+	* macosx/Tcl.xcodeproj/default.pbxuser:	targets for building with
+	* macosx/Tcl-Common.xcconfig:		gcc-4.2 and llvm-gcc-4.2.
+
+	* unix/tclUnixPort.h:			Workaround vfork() problems
+						in llvm-gcc-4.2.1 -O4 build.
+
+	* unix/tclUnixPort.h:			Move MODULE_SCOPE compat define
+						to top [Bug 1911102].
+
+	* macosx/GNUmakefile:			Fix quoting to allow paths to
+	* macosx/Tcl-Common.xcconfig:		${builddir} and ${INSTALL_ROOT}
+	* unix/Makefile.in:			to contain spaces.
+	* unix/configure.in:
+	* unix/install-sh:
+	* unix/tcl.m4:
+	* tests/ioCmd.test:
+
+	* unix/configure:			autoconf-2.59
+
+	* unix/Makefile.in (install-strip):	Strip non-global symbols from
+						dynamic library.
+
+	* unix/tclUnixNotfy.c:			Fix warning.
+
+	* tests/exec.test (exec-9.7):		Reduce timing sensitivity
+	* tests/socket.test (socket-2.11):	(esp. on multi-proc machines).
+
+	* tests/fCmd.test (fCmd-9.4):		Skip on Darwin 9 (xfail).
+
+2008-03-11  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclVar.c (TclDeleteNamespaceVars):
+	* tests/var.test (var-8.2): unset traces on vars should be called with
+	a FQ named during namespace deletion. This was causing infinite loops
+	when unset traces recreated the var, as reported by Julian Noble. [Bug
+	1911919]
+
+2008-03-10  Don Porter	<dgp@users.sourceforge.net>
+
+	* changes:		Updated for 8.5.2 release.
+
+	* doc/http.n:	Revised to indicate that [package require http 2.5.5]
+	is needed to get all the documented commands ([http::meta]).
+
+	* generic/tclEvent.c (TclDefaultBgErrorHandlerObjCmd):  Added error
+	* tests/event.test (event-5.*):	checking to protect against callers
+	passing invalid return options dictionaries. [Bug 1901113]
+
+	* generic/tclBasic.c (ExprAbsFunc):	Revised so that the abs()
+	* tests/expr.test:	function and the [::tcl::mathfunc::abs]
+	command do not return the value of -0, or equivalent values with more
+	alarming string reps like -1e-350. [Bug 1893815]
+
+2008-03-07  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclResult.c (ReleaseKeys): Workaround for [Bug 1904907].
+	Reset the return option keys to NULL to allow full re-initialization
+	by GetKeys(). This introduces a memory leak for the key objects, but
+	gets us around a crash in the finalization of reflected channels when
+	handling returns, either at compile- or runtime. In both cases we
+	access the keys after they have been released by their thread exit
+	handler. A proper fix is entangled with the untangling of the
+	finalization ordering and attendant issues. For now we choose the
+	lesser evil.
+
+2008-03-07  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/tclExecute.c (Tcl_ExprObj):	Revised expression bytecode
+	compiling so that bytecodes invalid due to changing context or due to
+	the difference between expressions and scripts are not reused. [Bug
+	1899164]
+
+	* generic/tclCmdAH.c:	Revised direct evaluation implementation of
+	[expr] so that [expr $e] caches compiled bytecodes for the expression
+	as the intrep of $e.
+
+	* tests/execute.test (execute-6.*):	More tests checking that
+	script bytecode is invalidated in the right situations.
+
+2008-03-07  Donal K. Fellows  <donal.k.fellows@man.ac.uk>
+
+	* win/configure.in: Add AC_HEADER_STDC to support msys/win64.
+
+2008-03-06  Donal K. Fellows  <dkf@users.sf.net>
+
+	* doc/namespace.n: Minor tidying up. [Bug 1909019]
+
+2008-03-04  Don Porter	<dgp@users.sourceforge.net>
+
+	* tests/execute.test (6.3,4):	Added tests for [Bug 1899164].
+
+2008-03-03  Reinhard Max  <max@suse.de>
+
+	* unix/tclUnixChan.c: Fix mark and space parity on Linux, which uses
+	CMSPAR instead of PAREXT.
+
+2008-03-02  Miguel Sofer  <msofer@users.sf.net>
+
+	* generic/tclNamesp.c (GetNamespaceFromObj):
+	* tests/interp.test (interp-28.2): spoil the intrep of an nsNameType
+	obj when the reference crosses interpreter boundaries.
+
+2008-02-29  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/tclResult.c (Tcl_SetReturnOptions):	Revised the refcount
+	management of Tcl_SetReturnOptions to become that of a conventional
+	Consumer routine.  Thanks to Peter Spjuth for pointing out the
+	difficulties calling Tcl_SetReturnOptions with non-0-count value for
+	options.
+	* generic/tclExecute.c (INST_RETURN_STK): Revised the one caller
+	within Tcl itself which passes a non-0-count value to
+	Tcl_SetReturnOptions().
+
+	* generic/tclBasic.c (Tcl_AppendObjToErrorInfo):	Revised the
+	refcount management of Tcl_AppendObjToErrorInfo to become that of a
+	conventional Consumer routine. This preserves the ease of use for the
+	overwhelming common callers who pass in a 0-count value, but makes the
+	proper call with a non-0-count value less surprising.
+	* generic/tclEvent.c (TclDefaultBgErrorHandlerObjCmd):	Revised the
+	one caller within Tcl itself which passes a non-0-count value to
+	Tcl_AppendObjToErrorInfo().
+
+2008-02-28  Joe English  <jenglish@users.sourceforge.net>
+
+	* unix/tclPort.h, unix/tclCompat.h, unix/tclUnixChan.h: Reduce scope
+	of <sys/filio.h> and <sys/ioctl.h> #includes. [Patch 1903339]
+
+2008-02-28  Joe English  <jenglish@users.sourceforge.net>
+
+	* unix/tclUnixChan.c, unix/tclUnixNotfy.c, unix/tclUnixPipe.c:
+	Consolidate all code conditionalized on -DUSE_FIONBIO into one place.
+	* unix/tclUnixPort.h, unix/tclUnixCompat.c: New routine
+	TclUnixSetBlockingMode() [Patch 1903339].
+
+2008-02-28  Don Porter	<dgp@users.sourceforge.net>
+
+	* generic/tclBasic.c (TclEvalObjvInternal):	Plug memory leak when
+	an enter trace deletes or changes the command, prompting a reparsing.
+	Don't let the second pass lose commandPtr value allocated during the
+	first pass.
+
+	* generic/tclCompExpr.c (ParseExpr):	Plug memory leak in error
+	message generation.
+
+	* generic/tclStringObj.c (Tcl_AppendFormatToObj): [format %llx $big]
+	leaked an mp_int.
+
+	* generic/tclCompCmds.c (TclCompileReturnCmd):	The 2007-10-18 commit
+	to optimize compiled [return -level 0 $x] [RFE 1794073] introduced a
+	memory leak of the return options dictionary. Fixing that.
+
+2008-02-27  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* library/http/http.tcl: [Bug 705956] - fix inverted logic when
+	cleaning up socket error in geturl.
+
+2008-02-27  Kevin B. Kenny  <kennykb@acm.org>
+
+	* doc/clock.n: Corrected minor indentation gaffe in the penultimate
+	paragraph. [Bug 1898025]
+	* generic/tclClock.c (ParseClockFormatArgs): Changed to check that the
+	clock value is in the range of a 64-bit integer. [Bug 1862555]
+	* library/clock.tcl (::tcl::clock::format, ::tcl::clock::scan,
+	(::tcl::clock::add, ::tcl::clock::LocalizeFormat): Fixed bugs in
+	caching of localized strings that caused weird results when localized
+	date/time formats were used. [Bug 1902423]
+	* tests/clock.test (clock-61.*, clock-62.1): Regression tests for [Bug
+	1862555] and [Bug 1902423].
+
+2008-02-26  Joe English  <jenglish@users.sourceforge.net>
+
+	* generic/tclIOUtil.c, unix/tclUnixPort.h, unix/tclUnixChan.c:
+	Remove dead/unused portability-related #defines and unused conditional
+	code.  See [Patch 1901828] for discussion.
+
+2008-02-26  Joe English  <jenglish@users.sourceforge.net>
+
+	* generic/tclIORChan.c (enum MethodName),
+	* generic/tclCompExpr.c (enum Marks): More stray trailing ","s
+
+2008-02-26  Joe English  <jenglish@users.sourceforge.net>
+
+	* unix/configure.in(socklen_t test): Define socklen_t as "int" if
+	missing, not "unsigned". Use AC_TRY_COMPILE instead of
+	AC_EGREP_HEADER.
+	* unix/configure: regenerated.
+
+2008-02-26  Joe English  <jenglish@users.sourceforge.net>
+
+	* generic/tclCompile.h: Remove stray trailing "," from enum
+	InstOperandType definition (C99ism).
+
+2008-02-26  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tclUtil.c (TclReToGlob): Fix the handling of the last star
+	* tests/regexpComp.test:	   possibly being escaped in
+	determining right anchor. [Bug 1902436]
+
+2008-02-26  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* library/http/pkgIndex.tcl: Set version 2.5.5
+	* library/http/http.tcl:     It is better to do the [eof] check after
+	trying to read from the socket. No clashes found in testing. Added
+	http::meta command to access the http headers. [Bug 1868845]
+
 2008-02-22  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* library/http/pkgIndex.tcl: Set version 2.5.4
-	* library/http/http.tcl:     Fix for bug #1818565. Always check that
-	the state array exists in the http::status command.
+	* library/http/http.tcl:     Always check that the state array exists
+	in the http::status command. [Bug 1818565]
 
 2008-02-13  Don Porter	<dgp@users.sourceforge.net>
 

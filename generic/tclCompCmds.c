@@ -3359,6 +3359,7 @@ TclCompileReturnCmd(
     /* Optimize [return -level 0 $x]. */
     Tcl_DictObjSize(NULL, returnOpts, &size);
     if (size == 0 && level == 0 && code == TCL_OK) {
+	Tcl_DecrRefCount(returnOpts);
 	return TCL_OK;
     }
 
