@@ -815,7 +815,9 @@ TclCompileDictForCmd(
     int keyVarIndex, valueVarIndex, nameChars, loopRange, catchRange;
     int infoIndex, jumpDisplacement, bodyTargetOffset, emptyTargetOffset;
     int numVars, endTargetOffset;
-    int savedStackDepth = envPtr->currStackDepth; /* is this necessary? */
+    int savedStackDepth = envPtr->currStackDepth;
+				/* Needed because jumps confuse the stack
+				 * space calculator. */
     const char **argv;
     Tcl_DString buffer;
 
@@ -922,9 +924,7 @@ TclCompileDictForCmd(
 
     envPtr->line = mapPtr->loc[eclIndex].line[4];
     CompileBody(envPtr, bodyTokenPtr, interp);
-    envPtr->currStackDepth = savedStackDepth + 1;
     TclEmitOpcode(   INST_POP,					envPtr);
-    envPtr->currStackDepth = savedStackDepth;
 
     /*
      * Both exception target ranges (error and loop) end here.
@@ -978,6 +978,7 @@ TclCompileDictForCmd(
      * easy!) Note that we skip the END_CATCH. [Bug 1382528]
      */
 
+    envPtr->currStackDepth = savedStackDepth+2;
     jumpDisplacement = CurrentOffset(envPtr) - emptyTargetOffset;
     TclUpdateInstInt4AtPc(INST_JUMP_TRUE4, jumpDisplacement,
 	    envPtr->codeStart + emptyTargetOffset);
