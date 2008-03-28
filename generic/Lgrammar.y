@@ -408,6 +408,7 @@ parameter_decl:
 
 argument_expr_list:
 	  expr
+	| regexp_literal	{ REVERSE(L_expr, c, $1); }
 	| T_KEYWORD
 	| T_KEYWORD expr
 	{
@@ -416,6 +417,12 @@ argument_expr_list:
 	}
 	| argument_expr_list "," expr
 	{
+		((L_expr *)$3)->next = $1;
+		$$ = $3;
+	}
+	| argument_expr_list "," regexp_literal
+	{
+		REVERSE(L_expr, c, $3);
 		((L_expr *)$3)->next = $1;
 		$$ = $3;
 	}

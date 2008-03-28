@@ -212,5 +212,7 @@ void	L_start_lexer(void);
 MODULE_SCOPE Tcl_ObjType LdeepPtrType;
 MODULE_SCOPE Tcl_Obj ** L_DeepDiveIntoStruct(Tcl_Interp *interp,
 	Tcl_Obj *valuePtr, Tcl_Obj **idxPtr, Tcl_Obj *countPtr, int flags);
+MODULE_SCOPE Tcl_Obj *L_split(Tcl_Interp *interp, Tcl_Obj *strobj,
+			      Tcl_Obj *reobj, Tcl_Obj *limobj);
 
 #endif /* L_COMPILE_H */

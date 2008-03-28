@@ -411,7 +411,11 @@ InstructionDesc tclInstructionTable[] = {
         /* Write value contained at stackTop to the location pointed to right
 	 * below. The opnd indicates if this is a "post-incr" operation: if
 	 * !=0 return the old (instead of the new) value at the pointed
-	 * location*/  
+	 * location*/
+    {"lsplit",           2,    INT_MIN,   1,    {OPERAND_UINT1}},
+	/* Perl-like string split. op1 is the number of arguments;
+	 * stack contains the limit (optional), then the regexp
+	 * (optional) then the string to split. */
     {0}
 };
 

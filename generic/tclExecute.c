@@ -7229,6 +7229,33 @@ TclExecuteByteCode(
 	    Tcl_DecrRefCount(oldPtr);
 	}
 	NEXT_INST_F(2,0,0);
+
+	case INST_L_SPLIT: {
+	    Tcl_Obj *strObj = NULL;
+	    Tcl_Obj *regexpObj = NULL;
+	    Tcl_Obj *limitObj = NULL;
+	    int opnd = TclGetUInt1AtPtr(pc+1);
+
+	    switch (opnd) {
+		case 1:
+		    strObj = OBJ_AT_DEPTH(0);
+		    break;
+		case 2:
+		    strObj = OBJ_AT_DEPTH(1);
+		    regexpObj = OBJ_AT_DEPTH(0);
+		    break;
+		case 3:
+		    strObj = OBJ_AT_DEPTH(2);
+		    regexpObj = OBJ_AT_DEPTH(1);
+		    limitObj = OBJ_AT_DEPTH(0);
+		    break;
+		default:
+		    Tcl_Panic("illegal operand to INST_L_SPLIT");
+		    break;
+	    }
+	    objResultPtr = L_split(interp, strObj, regexpObj, limitObj);
+	    NEXT_INST_V(2,opnd,1);
+	}
     }
 
     default:
