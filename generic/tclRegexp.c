@@ -491,9 +491,9 @@ Tcl_RegExpExecObj(
 	int match, pcreeflags, nm = (regexpPtr->re.re_nsub + 1) * 3;
 
 	if (textObj->typePtr == &tclByteArrayType) {
-	    matchstr = Tcl_GetByteArrayFromObj(textObj, &length);
+	    matchstr = (const char*)Tcl_GetByteArrayFromObj(textObj, &length);
 	} else {
-	    matchstr = Tcl_GetStringFromObj(textObj, &length);
+	    matchstr = (const char*)Tcl_GetStringFromObj(textObj, &length);
 	}
 
 	if (offset > length) {
@@ -1520,9 +1520,9 @@ TclRegexpPCRE(
 
     objPtr = objv[1];
     if (objPtr->typePtr == &tclByteArrayType) {
-	matchstr = Tcl_GetByteArrayFromObj(objPtr, &stringLength);
+	matchstr = (const char*)Tcl_GetByteArrayFromObj(objPtr, &stringLength);
     } else {
-	matchstr = Tcl_GetStringFromObj(objPtr, &stringLength);
+	matchstr = (const char*)Tcl_GetStringFromObj(objPtr, &stringLength);
     }
 
     eflags = PCRE_NO_UTF8_CHECK;

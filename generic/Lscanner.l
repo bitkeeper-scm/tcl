@@ -112,7 +112,7 @@ tally_newlines(
 	"^"		return T_BITXOR;
 	"~"		return T_BITNOT;
 	"<<"		return T_LSHIFT;
-	">>"		 return T_RSHIFT;
+	">>"		return T_RSHIFT;
 	"="		return T_EQUALS;
 	";"		return T_SEMI;
 	"."		return T_DOT;
@@ -201,9 +201,18 @@ tally_newlines(
 				MK_STRING_NODE(L_lval, yytext);
 				return T_ID;
 			}
-	/* XXX no hex literals like 0xff, etc., yet */
-	[0-9]*		{
+	[0-9]+		{
+				// XXX - we don't handle constants > 32 bits
 				MK_INT_NODE(L_lval, atoi(yytext));
+				return T_INT_LITERAL;
+			}
+	0o[0-7]+	{
+				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 8));
+				return T_INT_LITERAL;
+			}
+	0x[0-9a-fA-F]+	{
+				// XXX - we don't handle constants > 32 bits
+				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 16));
 				return T_INT_LITERAL;
 			}
 	[0-9]*\.[0-9]+	{

@@ -933,7 +933,8 @@ clean:
 
 distclean: clean
 	rm -rf Makefile config.status config.cache config.log tclConfig.sh \
-		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework
+		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework \
+		Lgrammar.c Lgrammar.h
 	cd dltest ; $(MAKE) distclean
 
 depend:

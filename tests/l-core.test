@@ -3806,6 +3806,29 @@ split_1_0()
 split_1_0
 } -output ""
 
+test consts-1.0 {test constants function} -body {
+#lang L
+void
+constants_1_0()
+{
+	int	i;
+	float	f;
+
+	i = 1234;
+	printf("%u\n", i);
+	i = 0xdeadbeef;
+	printf("%x\n", i);
+	i = 0o755;
+	printf("%o\n", i);
+
+	f = 1234.5678;
+	printf("%.4f\n", f);
+}
+#lang tcl
+constants_1_0
+} -output "1234\ndeadbeef\n755\n1234.5678\n"
+
+
 # cleanup
 ::tcltest::cleanupTests
 return
