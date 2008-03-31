@@ -10,11 +10,6 @@
 	#rename rename Tcl_rename
 #}
 
-if {[info commands Tcl_split] eq ""} {
-	#Tcl_rename split Tcl_split
-	rename split Tcl_split
-}
-
 proc printf {args} {
 	puts -nonewline [format {*}$args]
 }
@@ -183,20 +178,6 @@ proc sleep {seconds} {
 
 proc sort {list} {
 	return [lsort $list]
-}
-
-proc split {string {substr ""}} {
-	if {[llength [info level 0]] == 2} {
-		set string [string trim $string]
-		set substr {/\s+/}
-	}
-
-	if {[string match "/*/" $substr]} {
-		set pattern [string range $substr 1 end-1]
-		regsub -all -- $pattern $string \uFFFF string
-		set substr \uFFFF
-	}
-	return [Tcl_split $string $substr]
 }
 
 proc stat {file} {

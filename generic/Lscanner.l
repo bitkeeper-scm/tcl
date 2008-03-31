@@ -239,6 +239,20 @@ tally_newlines(
 		re_quote_char = *(yytext + yyleng - 1);
 		return T_EQTWID;
 	}
+	/* A regexp used as first arg in an argument list. */
+	"("[ \t\r\n]*"/"	{
+		yy_push_state(glob_re);
+		STRBUF_START();
+		re_quote_char = '/';
+		return T_LPAREN;
+	}
+	/* A regexp used as non-first arg in an argument list. */
+	","[ \t\r\n]*"/"	{
+		yy_push_state(glob_re);
+		STRBUF_START();
+		re_quote_char = '/';
+		return T_COMMA;
+	}
 }
 
 <INITIAL>{
@@ -296,10 +310,7 @@ tally_newlines(
 }
 
 <glob_re,subst_re>{
-	\\n		STRBUF_ADD("\n", 1);
-	\\t		STRBUF_ADD("\t", 1);
-	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
-	"$"		STRBUF_ADD("$", 1);
+	\\"$"		STRBUF_ADD("$", 1);
 	"${"		{
 				yy_push_state(interpol);
 				MK_STRING_NODE(L_lval, STRBUF_STRING());

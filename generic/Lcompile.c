@@ -194,7 +194,8 @@ private void L_compile_struct_decl(L_type *decl);
 private void L_compile_global_decls(L_var_decl *decl);
 private void L_compile_stmts(L_stmt *stmt);
 private void L_compile_var_decls(L_var_decl *var);
-private void L_compile_exprs(L_expr *expr);
+private void L_compile_expr(L_expr *expr);
+private int L_compile_exprs(L_expr *expr);
 private void L_compile_if_unless(L_if_unless *cond);
 private void L_compile_loop(L_loop *loop);
 private void L_compile_foreach_loop(L_foreach_loop *loop);
@@ -1114,7 +1115,7 @@ param_passed_by_name_p(L_var_decl *p)
 }
 
 private void
-L_compile_exprs(L_expr *expr)
+L_compile_expr(L_expr *expr)
 {
 	int	len, param_count, startOffset;
 	char	*p, *name;
@@ -1128,6 +1129,15 @@ L_compile_exprs(L_expr *expr)
 	    case L_EXPR_FUNCALL:
 		name = expr->a->u.string;
 		L_trace("compiling a call to %s", name);
+		/* Check for a built-in function. */
+		if (!strcmp(name, "split")) {
+			int n = L_compile_exprs(expr->b);
+			if ((n < 1) || (n > 3)) {
+				L_errorf(expr, "incorrect # args for split");
+			}
+			TclEmitInstInt1(INST_L_SPLIT, n, lframe->envPtr);
+			break;
+		}
 		if ((symbol = L_get_local_symbol(expr->a, FALSE))) {
 			/* looks like the function name is in a variable */
 			L_push_var(expr);
@@ -1204,7 +1214,18 @@ L_compile_exprs(L_expr *expr)
 	    default:
 		L_bomb("Unknown expression type %d", expr->kind);
 	}
-	L_compile_exprs(expr->next);
+}
+
+
+private int
+L_compile_exprs(L_expr *expr)
+{
+	int	num_exprs;
+
+	for (num_exprs = 0; expr; expr = expr->next, ++num_exprs) {
+		L_compile_expr(expr);
+	}
+	return (num_exprs);
 }
 
 /* Push the parameters of a function call on the evaluation stack and return
@@ -3709,4 +3730,161 @@ L_DeepDiveIntoStruct(
 	    "autoextending nested arrays not implemented yet", NULL);
 	resultPtrPtr = NULL;
 	goto done;
+}
+
+/*
+ * This function executes the INST_L_SPLIT bytecode and is based on
+ * pieces from tclCmdMZ.c.
+ *
+ * For edge cases, some of Perl's "split" semantics are obeyed:
+ *
+ * - A limit <= 0 means no limit.
+ *
+ * - If the regexp is ' ', we split on white space but leading
+ *   white space does not produce a null first field.
+ *
+ * - No regexp means split on white space.
+ */
+Tcl_Obj *
+L_split(Tcl_Interp *interp, Tcl_Obj *strobj, Tcl_Obj *reobj, Tcl_Obj *limobj)
+{
+	int		end, lim, matches, off, ret, start;
+	int		ondefault=0, onspace=0;
+	Tcl_RegExp	regExpr;
+	Tcl_RegExpInfo	info;
+	Tcl_Obj		*resultPtr, *objPtr, *listPtr;
+	char		*str;
+	int		len;
+
+	if (limobj) {
+		Tcl_GetIntFromObj(interp, limobj, &lim);
+		if (lim <= 0) {
+			lim = INT_MAX;
+		} else {
+			/* The lim is the max # fields to return,
+			 * which is one less than the max # matches to
+			 * allow. */
+			--lim;
+		}
+	} else {
+		lim = INT_MAX;
+	}
+
+	/*
+	 * Check for the cases of no regexpr (split on white space) or
+	 * splitting on ' ' (split on white space but don't return a
+	 * null field for any leading white space).
+	 */
+	if (reobj) {
+		unless (strcmp(" ", Tcl_GetString(reobj))) onspace = 1;
+	} else {
+		ondefault = 1;
+	}
+
+	/*
+	 * Make sure to avoid problems where the objects are shared. This can
+	 * cause RegExpObj <> UnicodeObj shimmering that causes data corruption.
+	 * [Bug #461322]
+	 */
+	if (strobj == reobj) {
+		objPtr = Tcl_DuplicateObj(strobj);
+	} else {
+		objPtr = strobj;
+	}
+	str = TclGetStringFromObj(objPtr, &len);
+
+	listPtr = Tcl_NewObj();
+	matches = 0;
+	off     = 0;
+
+	/*
+	 * Split on white space if no regexp or ' ' was specified.  No
+	 * need for the regexp engine here.
+	 */
+	if (ondefault || onspace) {
+		int letters = 0, skip = 0;
+		for (start = 0; (off < len) && (matches < lim); ++off) {
+			if (skip) {
+				unless (isspace(str[off])) {
+					start   = off;
+					letters = 1;
+					skip    = 0;
+					++matches;
+				}
+			} else {
+				if (isspace(str[off])) {
+					/* When regexp is ' ', create no null
+					 * field for leading white space. */
+					unless (onspace && !off && !start) {
+						resultPtr = Tcl_NewStringObj(
+								str+start,
+								off-start);
+						Tcl_ListObjAppendElement(
+								NULL, listPtr,
+								resultPtr);
+					}
+					skip = 1;
+				} else letters = 1;
+			}
+		}
+		unless (skip) {
+			resultPtr = Tcl_NewStringObj(str+start, len-start);
+			Tcl_ListObjAppendElement(NULL, listPtr, resultPtr);
+		}
+		/* If input was all whitespace, return empty list. */
+		unless (letters || !lim) listPtr = Tcl_NewObj();
+		goto done;
+	}
+
+	/*
+	 * Split on the specified regular expression.
+	 */
+	regExpr = Tcl_GetRegExpFromObj(interp, reobj,
+				       TCL_REG_ADVANCED | TCL_REG_PCRE);
+	if (regExpr == NULL) {
+		listPtr = Tcl_NewObj();
+		goto done;
+	}
+	while ((off < len) && (matches < lim)) {
+		ret = Tcl_RegExpExecObj(interp, regExpr, objPtr, off,
+				10 /* matches */,
+				((off > 0 && (str[off-1] != '\n'))
+				? TCL_REG_NOTBOL : 0));
+		if (ret < 0) goto done;
+		if (ret == 0) break;
+
+		Tcl_RegExpGetInfo(regExpr, &info);
+		start = info.matches[0].start;
+		end   = info.matches[0].end;
+		matches++;
+
+		/*
+		 * Copy to the result list the portion of the source
+		 * string before the match. If we matched the empty
+		 * string, split after the current char.
+		 */
+		if (start == end) {
+			/* Note: start will always be 0 if start==end. */
+			resultPtr = Tcl_NewStringObj(str+off, 1);
+			++off;
+		} else {
+			resultPtr = Tcl_NewStringObj(str+off, start);
+		}
+		Tcl_ListObjAppendElement(NULL, listPtr, resultPtr);
+		off += end;
+	}
+	/*
+	 * Copy to the result list the portion of the source string after
+	 * the last match, unless we matched the last char.
+	 */
+	if (off < len) {
+		resultPtr = Tcl_NewStringObj(str+off, len-off);
+		Tcl_ListObjAppendElement(NULL, listPtr, resultPtr);
+	}
+
+ done:
+	if (objPtr && (strobj == reobj)) {
+		Tcl_DecrRefCount(objPtr);
+	}
+	return listPtr;
 }

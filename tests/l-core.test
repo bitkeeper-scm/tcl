@@ -2503,6 +2503,50 @@ regexp_1_4() {
 regexp_1_4
 } -output "baa\nbbb\nbbb\nabb\naaa\nworks\n"
 
+test regexp-1.5 {regexp quoting} -body {
+#lang L
+void
+regexp_1_5()
+{
+	string	r, s;
+
+	s = "a b c d";
+	s =~ s/\s//;
+	unless (s eq "ab c d") puts("bad 1");
+
+	s = "a  b    c     d";
+	s =~ s/\s+//g;
+	unless (s eq "abcd") puts("bad 2");
+
+	r = "\\s+";
+	s = "a  b    c     d";
+	s =~ s/${r}//g;
+	unless (s eq "abcd") puts("bad 3");
+
+	r = "\\s+";
+	s = "a  b    c     d";
+	s =~ s/\${r}//g;
+	unless (s eq "a  b    c     d") puts("bad 4");
+
+	/*
+	 * The next two are a little unintuitive.  The pattern like s/\\$//
+	 * is a \ followed by an escaped $.  Using just \$ isn't
+	 * enough since $ is a regexp meta-character, hence the double \.
+	 */
+
+	s = "$a$b";
+	s =~ s/\\$//g;  // should match a dollar sign
+	unless (s eq "ab") puts("bad 5");
+
+ 	r = "\\s+";
+	s = '${r} ${r}';
+	s =~ s/\\${r}//g;  // should match '${r}' literally
+	unless (s eq " ") puts("bad 6");
+}
+#lang tcl
+regexp_1_5
+} -output ""
+
 test reference-1.0 {L references} -body {
 #lang L -nowarn
 reference_1_0() {
@@ -3597,6 +3641,170 @@ main() {
 	removeFile foo.l
 	removeFile bar.l
 } -result "included foo.l\n\$1 is baz and b is 5\n5"
+
+test split-1.0 {test split function} -body {
+#lang L
+void
+split_1_0()
+{
+	string	s;
+	string	r[];
+
+	/* These are all white space. */
+	string	allspace[] = {
+		"",
+		" ",
+		"  ",
+		"   ",
+		"    ",
+		"\n",
+		"\t",
+		"\n\n" };
+
+	foreach (s in allspace) {
+		r = split(s);
+		if (defined(r[0])) printf("bad 1: '%s'\n", s);
+	}
+
+	/*
+	 * A split followed by a join should give the string back
+	 * (modulo a trailing delimeter).
+	 */
+
+	s = "This is not a test. This is really not a test.";
+	r = split(s);
+	unless (s eq join(r, " ")) puts("bad 2.1");
+
+	s = " This is not a test. This is really not a test.";
+	r = split(s);
+	unless (s eq join(r, " ")) puts("bad 2.2");
+
+	s = "This:is:not:a:test.:This:is:really:not:a:test.";
+	r = split(s, ":");
+	unless (s eq join(r, ":")) puts("bad 2.3");
+
+	s = ":This:is:not:a:test.:This:is:really:not:a:test.";
+	r = split(s, ":");
+	unless (s eq join(r, ":")) puts("bad 2.4");
+
+	/*
+	 * A split on ' ' should split on white space but return
+	 * no null field for any initial white space.
+	 */
+
+	r = split("has none", " ");
+	unless ((r[0] eq "has") && (r[1] eq "none")) puts("bad 3.1");
+	if (defined(r[2])) puts("bad 3.2");
+
+	r = split(" has one", " ");
+	unless ((r[0] eq "has") && (r[1] eq "one")) puts("bad 3.3");
+	if (defined(r[2])) puts("bad 3.4");
+
+	r = split(" has one");
+	unless ((r[0] eq "") && (r[1] eq "has") && (r[2] eq "one")) {
+		puts("bad 3.5");
+	}
+	if (defined(r[3])) puts("bad 3.6");
+
+	/* Trailing white space never produces a null field. */
+
+	r = split("trail ");
+	unless (r[0] eq "trail") puts("bad 4.1");
+	if (defined(r[1])) puts("bad 4.2");
+
+	r = split("trail ", " ");
+	unless (r[0] eq "trail") puts("bad 4.3");
+	if (defined(r[1])) puts("bad 4.4");
+
+	/* Check split on a regexp. */
+
+	r = split("XaXbXcX", "[abc]");
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+		puts("bad 5.1");
+	}
+	if (defined(r[4])) puts("bad 5.2");
+
+	r = split("XaXbXcX", /[abc]/);
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+		puts("bad 5.3");
+	}
+	if (defined(r[4])) puts("bad 5.4");
+
+	r = split("XaaXbXcX", "[abc]");
+	unless ((r[0] eq "X") && (r[1] eq "") && (r[2] eq "X") &&
+	        (r[3] eq "X")) {
+		puts("bad 5.5");
+	}
+	if (defined(r[5])) puts("bad 5.6");
+
+	/* A regexp match on the last char never produces a null field. */
+
+	r = split("abcd", /[d]/);
+	unless (r[0] eq "abc") puts("bad 5.7");
+	if (defined(r[1])) puts("bad 5.8");
+
+	/* A regexp match on the first char produces a  null field. */
+
+	r = split("abcd", /[a]/);
+	unless ((r[0] eq "") && (r[1] eq "bcd")) puts("bad 5.9");
+	if (defined(r[2])) puts("bad 5.10");
+
+	/* Test interpolated regexp. */
+
+	s = "abc";
+	r = split("XaXbXcX", /[${s}]/);
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+		puts("bad 6.1");
+	}
+	if (defined(r[4])) puts("bad 6.2");
+
+	/* Test limits. */
+
+	r = split("1 2 3 4", " ", 5);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3") &&
+	        (r[3] eq "4")) {
+		puts("bad 7.1");
+	}
+	if (defined(r[4])) puts("bad 7.2");
+
+	r = split("1 2 3 4", " ", 4);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3") &&
+	        (r[3] eq "4")) {
+		puts("bad 7.3");
+	}
+	if (defined(r[4])) puts("bad 7.4");
+
+	r = split("1 2 3 4", " ", 3);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3 4")) {
+		puts("bad 7.5");
+	}
+	if (defined(r[3])) puts("bad 7.6");
+
+	r = split("1 2 3 4", " ", 2);
+	unless ((r[0] eq "1") && (r[1] eq "2 3 4")) puts("bad 7.7");
+	if (defined(r[2])) puts("bad 7.8");
+
+	r = split("1 2 3 4", " ", 1);
+	unless (r[0] eq "1 2 3 4") puts("bad 7.9");
+	if (defined(r[1])) puts("bad 7.10");
+
+	r = split("1 2 3 4", " ", 0);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3") &&
+	        (r[3] eq "4")) {
+		puts("bad 7.11");
+	}
+	if (defined(r[4])) puts("bad 7.12");
+
+	r = split("1 2 3 4", " ", -1);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3") &&
+	        (r[3] eq "4")) {
+		puts("bad 7.12");
+	}
+	if (defined(r[4])) puts("bad 7.13");
+}
+#lang tcl
+split_1_0
+} -output ""
 
 # cleanup
 ::tcltest::cleanupTests
