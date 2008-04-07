@@ -28,6 +28,60 @@ Tcl_ObjType LdeepPtrType = {
 };
 
 /*
+ * To implement the defined() operator, we have an L-specific type to
+ * represent the undefined value of array, hash, or struct members
+ * when they dynamically are brought into life by an array
+ * auto-extend.  We create one object of this type and dup it as the
+ * value of all undefined objects.
+ */
+
+private void
+undef_free_internal_rep(Tcl_Obj *o)
+{
+	o->bytes  = NULL;
+	o->length = 0;
+}
+
+/*
+ * Return an error if someone tries to convert a value of undef type
+ * to anything else.
+ */
+private int
+undef_set_from_any(Tcl_Interp *interp, Tcl_Obj *o)
+{
+	Tcl_SetObjResult(interp,
+			 Tcl_NewStringObj("cannot read undefined value", -1));
+	return (TCL_ERROR);
+}
+
+/*
+ * Get a pointer to the "undefined" object pointer, allocating it the
+ * first time it is needed.
+ */
+static Tcl_Obj *undef_obj = NULL;
+
+private Tcl_Obj **
+get_undef_obj()
+{
+	unless (undef_obj) {
+		undef_obj = Tcl_NewObj();
+		Tcl_InvalidateStringRep(undef_obj);
+		undef_obj->bytes = "";
+		undef_obj->typePtr = &L_UndefType;
+		Tcl_IncrRefCount(undef_obj);
+	}
+	return (&undef_obj);
+}
+
+Tcl_ObjType L_UndefType = {
+	"undef",
+	undef_free_internal_rep,
+	NULL,
+	NULL,
+	undef_set_from_any
+};
+
+/*
  * WARNING: this may break if dicts change their internal rep!
  * Dicts do not expose their guts; we need access to the hash table here.
  * LMXXX - can someone tell me what the #if 0 part is?
@@ -148,11 +202,9 @@ void	L__delete_buffer(void *buf);
 private void L_free_ast(Ast *ast);
 private int global_symbol_p(L_symbol *symbol);
 private void fixup_struct_type(L_type *type);
-private int auto_extending_array_p(L_type *t);
 private L_type *lookup_struct_type(char *tag);
 private int L_push_set_of_indices(L_expr *expr, L_type *type,
 	int *depthPtr, Tcl_Obj **countsPtr);
-private char *atomic_initial_value(L_type *type);
 private L_symbol *import_global_symbol(L_symbol *var);
 private char *gensym(char *name);
 private void L_write_index(L_symbol *var, L_expr *index,
@@ -163,7 +215,6 @@ private int param_passed_by_name_p(L_var_decl *p);
 private L_symbol *L_get_local_symbol(L_expr *name, int error_p);
 private void compile_initializer(L_initializer *init, L_type *type);
 private void compile_blank_initializer(L_type *type);
-private char *blank_initializer_code(L_type *type, int *needs_eval);
 private int LDumpAstNodes(Ast *node, void *data, int order);
 private int push_parameters(char *funcname, L_expr *parameters);
 private void L_push_pointer(L_expr *lval);
@@ -719,7 +770,10 @@ compile_initializer(
 	/*
 	 * XXX: this is not finished.  We only handle a single
 	 * dimension, and we don't check the field count for
-	 * structs. */
+	 * structs.
+	 * Addtl note 4/7/08: this function will go away once we
+	 * support composite constants, since array & hash
+	 * initializers will then come for free. */
 	switch (type->kind) {
 	    case L_TYPE_STRUCT:
 	    case L_TYPE_ARRAY:
@@ -735,6 +789,29 @@ compile_initializer(
 					    "in array initializers.");
 				}
 				L_compile_exprs(i->value);
+			}
+			if ((type->kind == L_TYPE_ARRAY) &&
+			    (type->array_dim->u.integer > count)) {
+				int left = type->array_dim->u.integer - count;
+				while (left--) {
+				    switch (type->next_dim->kind) {
+					case L_TYPE_INT:
+						L_PUSH_STR("0");
+						break;
+					case L_TYPE_FLOAT:
+						L_PUSH_STR("0.0");
+						break;
+					case L_TYPE_STRING:
+						L_PUSH_OBJ(Tcl_NewObj());
+						break;
+					default:
+						L_errorf(i,
+							 "composite intializers"
+							 " not yet supported");
+						break;
+				    }
+				}
+				count = type->array_dim->u.integer;
 			}
 			L_INVOKE(count+1);
 		} else {
@@ -773,128 +850,35 @@ private void
 compile_blank_initializer(
 	L_type *type)
 {
-	char	*code;
-	int	needs_eval;
-
-	/* array or struct */
-	code = blank_initializer_code(type, &needs_eval);
-	if (needs_eval) {
-		L_PUSH_STR("::eval");
-		L_PUSH_STR(code);
-		L_INVOKE(2);
-	} else {
-		L_PUSH_STR(code);
-	}
-}
-
-/*
- * Return the default value for an atomic type, such as 0 for an int
- * or "" for a string.  If the type is not atomic or has no special
- * default initial value, defaults to a Tcl_Obj with an empty string
- * rep and no type.  The reference count on the return value is 0.
- */
-private char *
-atomic_initial_value(L_type *type)
-{
 	switch (type->kind) {
+	    case L_TYPE_ARRAY:
+	    case L_TYPE_STRUCT:
+		L_PUSH_STR("::eval");
+		L_PUSH_STR("list");
+		L_INVOKE(2);
+		break;
+	    case L_TYPE_HASH:
+		L_PUSH_STR("::eval");
+		L_PUSH_STR("dict create");
+		L_INVOKE(2);
+		break;
+		break;
 	    case L_TYPE_INT:
-		return "0";
+		L_PUSH_STR("0");
+		break;
 	    case L_TYPE_FLOAT:
-		return "0.0";
-	    case L_TYPE_STRING:
+		L_PUSH_STR("0.0");
+		break;
 	    default:
-		return "";
+		L_PUSH_OBJ(Tcl_NewObj());
+		break;
 	}
-}
-
-/* Generate code to initialize an array or struct.  If name is passed,
-   generate a set into a variable of that name.  needs_eval will be set to
-   true if the code must be evaluated, false if the code is constant.  */
-private char *
-blank_initializer_code(L_type *type, int *needs_eval)
-{
-	Tcl_Obj *code = Tcl_NewObj();
-	int	brackets = 0, i;
-	L_expr	*retval;
-
-	*needs_eval = FALSE;
-	if (auto_extending_array_p(type)) {
-		MK_STRING_NODE(retval, "");
-		return retval->u.string;
-	}
-	Tcl_IncrRefCount(code);
-	while (type->kind == L_TYPE_ARRAY) {
-		if (type->array_dim->kind != L_EXPR_INTEGER) {
-			L_errorf(type->array_dim,
-			    "Bad dimension for an array: must be an int.");
-			break;
-		}
-		if (type->array_dim->u.integer > 0) {
-			*needs_eval = TRUE;
-			/* skip the outermost set of brackets  */
-			if (brackets > 0) {
-				Tcl_AppendPrintfToObj(code, "[");
-			}
-			brackets++;
-			Tcl_AppendPrintfToObj(code, "lrepeat %d ",
-			    type->array_dim->u.integer);
-			type = type->next_dim;
-		} else {
-			break;
-		}
-	}
-	/* the base type */
-	if (type->kind != L_TYPE_STRUCT) {
-		if (brackets > 0) {
-			Tcl_AppendPrintfToObj(code, "{%s}",
-			    atomic_initial_value(type));
-		} else {
-			Tcl_AppendPrintfToObj(code, "%s",
-			    atomic_initial_value(type));
-		}
-	} else {
-		L_var_decl *mem;
-
-		fixup_struct_type(type);
-		*needs_eval = TRUE;
-		if (brackets > 0) {
-			Tcl_AppendPrintfToObj(code, "[");
-		}
-		Tcl_AppendPrintfToObj(code, "list ");
-		for (mem = type->members; mem; mem = mem->next) {
-			if (mem->type->kind == L_TYPE_ARRAY) {
-				int needs_eval1;
-				char *code1 =
-				    blank_initializer_code(mem->type,
-					&needs_eval1);
-				if (needs_eval1) {
-					Tcl_AppendPrintfToObj(code, "[%s] ",
-					    code1);
-				} else {
-					Tcl_AppendPrintfToObj(code, "%s ",
-					    code1);
-				}
-			} else {
-				Tcl_AppendPrintfToObj(code, " {%s} ",
-				    atomic_initial_value(mem->type));
-			}
-		}
-		if (brackets > 0) Tcl_AppendPrintfToObj(code, "]");
-	}
-	for (i = 1; i < brackets; i++) Tcl_AppendPrintfToObj(code, "]");
-	MK_STRING_NODE(retval, Tcl_GetString(code));
-	Tcl_DecrRefCount(code);
-	L_trace("blank value: %s", retval->u.string);
-	return (retval->u.string);
 }
 
 private void
 fixup_struct_type(L_type *type)
 {
-	/*     Tcl_Obj *val = NULL; */
-	/*     int i; */
 	L_type	*struct_type = type;
-	/*     L_var_decl *member; */
 
 	/* if we have a struct tag without the struct definition, lookup the
 	   definition. */
@@ -917,29 +901,6 @@ fixup_struct_type(L_type *type)
 		 */
 		type->members = struct_type->members;
 	}
-#if 0
-	// LMXXX - what is this?
-	val = Tcl_NewListObj(0, NULL);
-	/* initialize the struct fields */
-	for (member = type->members; member; member = member->next, i++) {
-		Tcl_Obj *el =
-		    create_array_or_struct(member->type->next_dim, member->type);
-		unless (el) return NULL;
-		Tcl_ListObjAppendElement(NULL, val, el);
-	}
-	return (val);
-#endif
-}
-
-private int
-auto_extending_array_p(L_type *t)
-{
-	return (t->kind == L_TYPE_ARRAY) &&
-	    (t->array_dim->kind == L_EXPR_INTEGER) &&
-	    (t->array_dim->u.integer == 0) &&
-	    /* rule out struct arrays and n-dimensional arrays */
-	    !(t->next_dim && t->next_dim->array_dim) &&
-	    !(t->next_dim && t->next_dim->kind == L_TYPE_STRUCT);
 }
 
 private int
@@ -1327,9 +1288,9 @@ l_push_literal(L_expr *expr)
 		break;
 	    case L_EXPR_UNARY:
 		if (expr->op == T_PLUS) {
-			snprintf(buf, 128, "%i", expr->a->u.integer);
+			snprintf(buf, sizeof(buf), "%i", expr->a->u.integer);
 		} else if (expr->op == T_MINUS) {
-			snprintf(buf, 128, "%i", -expr->a->u.integer);
+			snprintf(buf, sizeof(buf), "%i", -expr->a->u.integer);
 		} else {
 			L_errorf(expr, "Illegal initializer");
 			return;
@@ -1413,7 +1374,7 @@ L_compile_unop(L_expr *expr)
 		L_compile_exprs(expr->a->a);
 		break;
 	    case T_DEFINED:
-		L_compile_defined(expr->a);;
+		L_compile_defined(expr->a);
 		break;
 	    default:
 		L_bomb("Unknown unary operator %d", expr->op);
@@ -2205,44 +2166,10 @@ L_return(int value_on_stack_p)
 }
 
 private void
-L_compile_defined(L_expr *lval)
+L_compile_defined(L_expr *expr)
 {
-	L_expr	*idx, *last_index;
-
-	if ((lval->kind != L_EXPR_VAR) || !lval->indices) {
-		L_errorf(lval,
-		    "defined is only defined for array and hash entries");
-		return;
-	}
-	/* walk idx down to the second-to-last index */
-	for (idx = lval;
-	     idx->indices && idx->indices->indices; idx = idx->indices);
-	/* trim the last index off and save it in last_index */
-	last_index = idx->indices;
-	idx->indices = NULL;
-	/* now check for the presence of the last index in the list or
-	   dict */
-	if (last_index->kind == L_EXPR_HASH_INDEX) {
-		L_PUSH_STR("::dict");
-		L_PUSH_STR("exists");
-		L_compile_exprs(lval);
-		L_compile_exprs(last_index->a);
-		L_INVOKE(4);
-	} else {
-		L_compile_exprs(last_index->a);
-		TclEmitOpcode(INST_DUP, lframe->envPtr);
-		/* grab the length of the list */
-		L_compile_exprs(lval);
-		TclEmitOpcode(INST_LIST_LENGTH, lframe->envPtr);
-		/* check if the index is within bounds */
-		TclEmitOpcode(INST_LT, lframe->envPtr);
-		TclEmitInstInt1(INST_ROT, 1, lframe->envPtr);
-		L_PUSH_STR("0");
-		TclEmitOpcode(INST_GE, lframe->envPtr);
-		TclEmitOpcode(INST_LAND, lframe->envPtr);
-	}
-	/* put the AST back the way it was */
-	idx->indices = last_index;
+	L_compile_exprs(expr);
+	TclEmitOpcode(INST_L_DEFINED, lframe->envPtr);
 }
 
 private void
@@ -2286,25 +2213,7 @@ L_write_index(
 	int	depth, flags;
 	Tcl_Obj *counts;
 
-	/* auto-extending array special case */
-	if (auto_extending_array_p(var->type) && (expr->op == T_EQUALS)) {
-		if (index->indices) {
-			L_errorf(index->indices,
-			    "Autoextending in multiple dimensions "
-			    "is not implemented yet");
-		}
-		L_PUSH_STR("::extendingLset");
-		L_PUSH_STR(var->name);
-		L_compile_index(var->type, index);
-		L_compile_exprs(rval);
-		L_INVOKE(4);
-		return;
-	}
-
-	/*
-	 * FIXME: should we use direct code for lset/dict-set when
-	 * there is only one level? Only if it is much faster?
-	 */
+	/* XXX to do: special case for single dimensions */
 
 	/* push the RHS first */
 	L_compile_exprs(rval);
@@ -2566,15 +2475,20 @@ L_compile_index(
 			L_errorf(index,
 			    "Index into something that's not an array");
 		}
+		L_check_expr_kind(L_TYPE_INT, index->a);
 		L_compile_exprs(index->a);
 		t = t->next_dim ? t->next_dim :
 		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
 		break;
-	    case L_EXPR_HASH_INDEX:
+	    case L_EXPR_HASH_INDEX: {
+		L_type *elt_type = (L_type *)t->array_dim;
 		L_trace("Spitting out a hash index\n");
+		L_check_expr_type(elt_type, index->a);
 		L_compile_exprs(index->a);
-		t = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+		t = t->next_dim ? t->next_dim :
+		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
 		break;
+	    }
 	    default:
 		L_bomb("Invalid kind of index, %d", index->kind);
 	}
@@ -2926,7 +2840,7 @@ L_warningf(void *node, const char *format, ...)
 
 /* L_error is yyerror */
 void
-L_error(char *s)
+L_error(const char *s)
 {
 	unless (L_errors) {
 		L_errors = Tcl_NewObj();
@@ -3412,7 +3326,239 @@ ckstrndup(const char *str, int len)
 	return (newStr);
 }
 
-
+/*
+ * This function is based on TclLindexFlat and is specialized for use
+ * by the L deep-dive execution engine.  It returns a pointer to the
+ * list element Tcl_Obj* referenced by the index, and returns NULL if
+ * the index is out of range (TclLindexFlat returns a pointer to an
+ * empty object).
+ */
+private Tcl_Obj **
+L_LindexFlat(
+    Tcl_Interp *interp,		/* Tcl interpreter. */
+    Tcl_Obj *listPtr,		/* Tcl object representing the list. */
+    int indexCount,		/* Count of indices. */
+    Tcl_Obj *const indexArray[])/* Array of pointers to Tcl objects that
+				 * represent the indices in the list. */
+{
+	int	i, index, listLen;
+	Tcl_Obj	**elemPtrs;
+
+	Tcl_IncrRefCount(listPtr);
+	for (i=0 ; i<indexCount && listPtr ; i++) {
+		if (TclGetIntFromObj(NULL, indexArray[i], &index) != TCL_OK) {
+			Tcl_DecrRefCount(listPtr);
+			return NULL;
+		}
+		TclListObjGetElements(NULL, listPtr, &listLen, &elemPtrs);
+		if (index<0 || index>=listLen) {
+			/* Index is out of range. */
+			Tcl_DecrRefCount(listPtr);
+			return NULL;
+		} else {
+			/* Extract the pointer to the appropriate element. */
+			Tcl_DecrRefCount(listPtr);
+			listPtr = elemPtrs[index];
+			Tcl_IncrRefCount(listPtr);
+		}
+	}
+	return (&elemPtrs[index]);
+}
+
+/*
+ * This function is based on TclLsetFlat and is specialized for use by
+ * the L deep-dive execution engine.  It returns a pointer to the list
+ * element Tcl_Obj* referenced by the index, allowing it to be written
+ * in place.  Unlike TclLsetFlat, it does not write to the element.
+ * Also, any list in the dive that is shorter than the given index is
+ * auto-extended up to the index value.
+ */
+private Tcl_Obj **
+L_LsetFlatExtend(
+    Tcl_Interp *interp,		/* Tcl interpreter. */
+    Tcl_Obj *listPtr,		/* Pointer to the list being modified. */
+    int indexCount,		/* Number of index args. */
+    Tcl_Obj *const indexArray[])
+				/* Index args. */
+{
+    int elemCount, i, index, result;
+    int panic = 0;
+    Tcl_Obj *parentList = NULL, *subListPtr, *chainPtr, **elemPtrs;
+
+    /*
+     * Error if there are no indices.
+     */
+
+    unless (indexCount) {
+	L_bomb("L deep-dive internal error");
+    }
+
+    /*
+     * If the list is shared, make a copy we can modify (copy-on-write).
+     * We use Tcl_DuplicateObj() instead of TclListObjCopy() for a few
+     * reasons: 1) we have not yet confirmed listPtr is actually a list;
+     * 2) We make a verbatim copy of any existing string rep, and when
+     * we combine that with the delayed invalidation of string reps of
+     * modified Tcl_Obj's implemented below, the outcome is that any
+     * error condition that causes this routine to return NULL, will
+     * leave the string rep of listPtr and all elements to be unchanged.
+     */
+
+    subListPtr = Tcl_IsShared(listPtr) ? Tcl_DuplicateObj(listPtr) : listPtr;
+
+    /*
+     * Anchor the linked list of Tcl_Obj's whose string reps must be
+     * invalidated if the operation succeeds.
+     */
+
+    chainPtr = NULL;
+
+    /*
+     * Loop through all the index arguments, and for each one dive
+     * into the appropriate sublist.
+     */
+
+    do {
+	/* Check for the possible error conditions... */
+	result = TCL_ERROR;
+	if (TclListObjGetElements(interp, subListPtr, &elemCount, &elemPtrs)
+		!= TCL_OK) {
+	    /* ...the sublist we're indexing into isn't a list at all. */
+	    panic = 1;
+	    break;
+	}
+
+	/*
+	 * WARNING: the macro TclGetIntForIndexM is not safe for
+	 * post-increments, avoid '*indexArray++' here.
+	 */
+
+	if (TclGetIntForIndexM(interp, *indexArray, elemCount - 1, &index)
+		!= TCL_OK)  {
+	    /* ...the index we're trying to use isn't an index at all. */
+	    indexArray++;
+	    panic = 1;
+	    break;
+	}
+	indexArray++;
+
+	if (index < 0) {
+	    panic = 0;
+	    break;
+	}
+	if (index >= elemCount) {
+	    /* Auto extend. */
+	    Tcl_Obj **pad;
+	    int n = index - elemCount + 1;
+	    pad = (Tcl_Obj **)ckalloc(n * sizeof(Tcl_Obj *));
+	    for (i = 0; i < n; ++i) {
+		    pad[i] = Tcl_DuplicateObj(*get_undef_obj());
+	    }
+	    result = Tcl_ListObjReplace(interp, subListPtr,
+					elemCount, 0, n, pad);
+	    ckfree((char *)pad);
+	    if (result != TCL_OK) {
+		panic = 1;
+		break;
+	    }
+	    result = TclListObjGetElements(interp, subListPtr, &elemCount,
+					   &elemPtrs);
+	    if (result != TCL_OK) {
+		panic = 1;
+		break;
+	    }
+	}
+
+	/*
+	 * No error conditions. Determine the next sublist for the
+	 * next pass through the loop, and take steps to make sure it
+	 * is an unshared copy, as we intend to modify it.
+	 */
+
+	result = TCL_OK;
+	--indexCount;
+	parentList = subListPtr;
+	subListPtr = elemPtrs[index];
+	if (Tcl_IsShared(subListPtr)) {
+		subListPtr = Tcl_DuplicateObj(subListPtr);
+	}
+
+	/*
+	 * Replace the original elemPtr[index] in parentList with a copy
+	 * we know to be unshared.  This call will also deal with the
+	 * situation where parentList shares its intrep with other
+	 * Tcl_Obj's.  Dealing with the shared intrep case can cause
+	 * subListPtr to become shared again, so detect that case and
+	 * make and store another copy.
+	 */
+
+	TclListObjSetElement(NULL, parentList, index, subListPtr);
+	if (Tcl_IsShared(subListPtr)) {
+		subListPtr = Tcl_DuplicateObj(subListPtr);
+		TclListObjSetElement(NULL, parentList, index, subListPtr);
+	}
+
+	/*
+	 * The TclListObjSetElement() calls do not spoil the string
+	 * rep of parentList, and that's fine for now, since all we've
+	 * done so far is replace a list element with an unshared copy.
+	 * The list value remains the same, so the string rep. is still
+	 * valid, and unchanged, which is good because if this whole
+	 * routine returns NULL, we'd like to leave no change to the
+	 * value of the lset variable.  Later on, when we set valuePtr
+	 * in its proper place, then all containing lists will have
+	 * their values changed, and will need their string reps spoiled.
+	 * We maintain a list of all those Tcl_Obj's (via a little intrep
+	 * surgery) so we can spoil them at that time.
+	 */
+
+	parentList->internalRep.twoPtrValue.ptr2 = (void *) chainPtr;
+	chainPtr = parentList;
+    } while (indexCount > 0);
+
+    /*
+     * Either we've detected and error condition, and exited the loop
+     * with result == TCL_ERROR, or we've successfully reached the last
+     * index, and we're ready to store valuePtr.  In either case, we
+     * need to clean up our string spoiling list of Tcl_Obj's.
+     */
+
+    while (chainPtr) {
+	Tcl_Obj *objPtr = chainPtr;
+
+	if (result == TCL_OK) {
+
+	    /*
+	     * We're going to store valuePtr, so spoil string reps
+	     * of all containing lists.
+	     */
+
+	    Tcl_InvalidateStringRep(objPtr);
+	}
+
+	/* Clear away our intrep surgery mess */
+	chainPtr = (Tcl_Obj *) objPtr->internalRep.twoPtrValue.ptr2;
+	objPtr->internalRep.twoPtrValue.ptr2 = NULL;
+    }
+
+    /*
+     * We're bailing out either because of an internal error (bug), or
+     * because of a negative array index.  Panic on the former, return
+     * NULL on the latter.
+     */
+    if (result != TCL_OK) {
+	if (panic) {
+	    L_bomb("L deep-dive internal error");
+	}
+	return NULL;
+    }
+
+    if (TclListObjGetElements(interp, parentList, &elemCount, &elemPtrs)
+		!= TCL_OK) {
+	return NULL;
+    }
+    return (&elemPtrs[index]);
+}
 
 /*
  * L_DeepDiveIntoStruct is adapted from TclLSetFlat, DictObjGet and friends.
@@ -3442,13 +3588,12 @@ L_DeepDiveIntoStruct(
 	int	typeIsHash = (flags & L_FIRST_IS_HASH);
 	int	result, numLevels, i;
 	Tcl_Obj **levelCountPtr, *currValuePtr = valuePtr;
-	Tcl_Obj **resultPtrPtr, *lastPtr;
+	Tcl_Obj **resultPtrPtr = NULL, *lastPtr;
 	int	create = (flags & L_DEEP_CREATE);
 	int	write = (flags & L_DEEP_WRITE);
 
 	/*
 	 * TODO:
-	 *   - negative indices for lists
 	 *   - special case for just 1 level? Standard dict and list commands
 	 *     handle this. Note that the dict opcode for dict-set requires a
 	 *     var!
@@ -3456,9 +3601,6 @@ L_DeepDiveIntoStruct(
 	 *     values fair game too?
 	 *   - make sure (in the compiler) that struct offsets are always
 	 *     literals.
-	 *   - auto-extend: need to know (at the prober nesting levels) if the
-	 *     level is extensible, and access to the level's initialiser. For
-	 *     dict levels extensibility is easy (always extensible).
 	 */
 	if (write && (valuePtr->refCount != 1)) {
 		Tcl_Panic(
@@ -3513,7 +3655,7 @@ L_DeepDiveIntoStruct(
 			Tcl_HashEntry *hPtr;
 			Dict	*dict;
 			Tcl_Obj *objPtr;
-			void	**tmpPtrPtr; /* to avoid type punning */
+			void	**tmpPtrPtr;  // to avoid type punning
 
 			if (write && Tcl_IsShared(currValuePtr)) {
 				Tcl_Panic("A shared dict in the path\n");
@@ -3539,12 +3681,7 @@ L_DeepDiveIntoStruct(
 				lastPtr = TclTraceDictPath(interp,
 				    currValuePtr, idxCount-1, idxPtr,
 				    traceFlags);
-				unless (lastPtr) {
-					/* FIXME: error message ok?
-					   What if error before the
-					   last step? */
-					goto dictErr;
-				}
+				unless (lastPtr) goto undef;
 				if (write && Tcl_IsShared(lastPtr)) {
 					Tcl_Panic(
 					    "Shared lastPtr of dict type");
@@ -3565,134 +3702,50 @@ L_DeepDiveIntoStruct(
 				/*
 				 * lastPtr is not a dict!
 				 */
-				goto dictErr;
+				goto undef;
 			}
 			dict = (Dict *) lastPtr->internalRep.otherValuePtr;
 			hPtr = Tcl_FindHashEntry(&dict->table,
 			    (char *)idxPtr[idxCount-1]);
 			unless (hPtr) {
-				unless (create) goto dictErr;
+				unless (create) goto undef;
 				objPtr = Tcl_NewObj();
 				Tcl_IncrRefCount(objPtr);
 				result = Tcl_DictObjPut(interp, lastPtr,
 				    idxPtr[idxCount-1], objPtr);
 				Tcl_DecrRefCount(objPtr);
-				if (result != TCL_OK) goto dictErr;
+				if (result != TCL_OK) goto undef;
 				hPtr = Tcl_FindHashEntry(&dict->table,
 				    (char *)idxPtr[idxCount-1]);
+				tmpPtrPtr = &Tcl_GetHashValue(hPtr);
+				resultPtrPtr = (Tcl_Obj **)tmpPtrPtr;
 			}
-
 			tmpPtrPtr = &Tcl_GetHashValue(hPtr);
-			resultPtrPtr = (Tcl_Obj **) tmpPtrPtr;
+			resultPtrPtr = (Tcl_Obj **)tmpPtrPtr;
+			if (write && Tcl_IsShared(*resultPtrPtr) &&
+			    (i != numLevels-1)) {
+				Tcl_DecrRefCount(*resultPtrPtr);
+				*resultPtrPtr = Tcl_DuplicateObj(*resultPtrPtr);
+				Tcl_IncrRefCount(*resultPtrPtr);
+			}
 		} else {
-			int	idx, len;
-
-			if (idxCount == 1) {
-				/*
-				 * This is unshared when writing: a
-				 * loop invariant.
-				 */
-				lastPtr = currValuePtr;
+			if (write) {
+				resultPtrPtr = L_LsetFlatExtend(interp,
+					currValuePtr, idxCount, idxPtr);
+				unless (resultPtrPtr) goto neg;
 			} else {
-				lastPtr = TclLindexFlat(interp, currValuePtr,
-				    idxCount-1, idxPtr);
-				unless (lastPtr) goto listErr;
-				if (lastPtr->refCount < 2) {
-					int	len;
-
-					Tcl_ListObjLength(NULL, currValuePtr,
-					    &len);
-					if ((idxCount-1) >= len) {
-						goto autoErr;
-					} else if ((idxCount-1) < 0) {
-						goto listErr;
-					}
-					/*
-					 * Is this really a good test
-					 * for "autoextending along
-					 * the path"? Does that case
-					 * always return an unshared
-					 * {}?
-					 */
-					Tcl_Panic("lastPtr has refCount %i<2, "
-					    "how come?\n");
-				}
-				Tcl_DecrRefCount(lastPtr);
-				if (write) {
-					/*
-					 * Insure an unshared path: use lset
-					 */
-
-					if (Tcl_IsShared(lastPtr)) {
-						lastPtr = TclListObjCopy(NULL,
-						    lastPtr);
-						unless (lastPtr) goto listErr;
-					}
-					TclLsetFlat(NULL, currValuePtr,
-					    idxCount-1, idxPtr, lastPtr);
-					Tcl_DecrRefCount(currValuePtr);
-					if (Tcl_IsShared(lastPtr)) {
-						lastPtr = TclListObjCopy(NULL,
-						    lastPtr);
-						TclLsetFlat(NULL, currValuePtr,
-						    idxCount-1, idxPtr,
-						    lastPtr);
-						Tcl_DecrRefCount(currValuePtr);
-					}
-				}
+				resultPtrPtr = L_LindexFlat(interp,
+					currValuePtr, idxCount, idxPtr);
+				unless (resultPtrPtr) goto undef;
 			}
-
-			if (TCL_OK != TclListObjGetElements(interp, lastPtr,
-				&len, &resultPtrPtr)) {
-				goto listErr;
-			}
-			if (TCL_OK != TclGetIntFromObj(NULL,
-				idxPtr[idxCount-1], &idx)  || (idx < 0)) {
-				goto listErr;
-			}
-
-			if (idx >= len) {
-				/*
-				 * FIXME: auto-extending arrays GO
-				 * HERE? This code assume the depth is
-				 * there ... do initialise for
-				 * auto-extending.
-				 */
-				goto autoErr;
-			}
-			if (write &&
-			    (((List *)(lastPtr->internalRep.otherValuePtr))->refCount != 1)) {
-				/*
-				 * Force a copy of the List internal
-				 * rep: we do need it unshared!
-				 */
-				Tcl_Obj *objPtr = resultPtrPtr[idx];
-
-				TclListObjSetElement(NULL, lastPtr, idx,
-				    objPtr);
-				TclListObjGetElements(interp, lastPtr, &len,
-				    &resultPtrPtr);
-			}
-			if (write &&
-			    (((List *)(lastPtr->internalRep.otherValuePtr))->refCount != 1)) {
-				Tcl_Panic("internal rep refCount?\n");
-			}
-			resultPtrPtr = &(resultPtrPtr[idx]);
 		}
 
 		if (write) {
 			Tcl_InvalidateStringRep(currValuePtr);
-			Tcl_InvalidateStringRep(lastPtr);
 		}
 		currValuePtr = *resultPtrPtr;
-		unless (currValuePtr) goto autoErr;
-		if (write) {
-			if (Tcl_IsShared(currValuePtr)  && (i != numLevels-1)) {
-				Tcl_DecrRefCount(currValuePtr);
-				currValuePtr = Tcl_DuplicateObj(currValuePtr);
-				Tcl_IncrRefCount(currValuePtr);
-				*resultPtrPtr = currValuePtr;
-			}
+		if (write && Tcl_IsShared(currValuePtr) && (i != numLevels-1)) {
+			Tcl_Panic("L deep-dive internal error 2");
 		}
 		idxPtr += idxCount;
 		levelCountPtr++;
@@ -3712,23 +3765,15 @@ L_DeepDiveIntoStruct(
 	Tcl_DecrRefCount(countPtr);
 	return resultPtrPtr;
 
- listErr:
+ neg:
 	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp, "index not present in array", NULL);
+	Tcl_AppendResult(interp, "cannot write to negative array index", NULL);
 	resultPtrPtr = NULL;
 	goto done;
 
- dictErr:
-	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp, "key not known in dictionary", NULL);
-	resultPtrPtr = NULL;
-	goto done;
-
- autoErr:
-	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp,
-	    "autoextending nested arrays not implemented yet", NULL);
-	resultPtrPtr = NULL;
+ undef:
+	if (write) L_bomb("L deep-dive internal error");
+	resultPtrPtr = get_undef_obj();
 	goto done;
 }
 

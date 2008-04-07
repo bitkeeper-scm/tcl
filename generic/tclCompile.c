@@ -416,6 +416,8 @@ InstructionDesc tclInstructionTable[] = {
 	/* Perl-like string split. op1 is the number of arguments;
 	 * stack contains the limit (optional), then the regexp
 	 * (optional) then the string to split. */
+    {"l-defined",	 1,    0,         0,	{OPERAND_NONE}},
+	/* Test whether value at stackTop is the L undefined value. */
     {0}
 };
 

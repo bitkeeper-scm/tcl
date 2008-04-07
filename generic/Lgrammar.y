@@ -63,6 +63,42 @@ pattern_funcall_rewrite(L_expr *funcall)
 
 %}
 
+/*
+ * We need a GLR parser because of a shift/reduce conflict introduced
+ * by hash-element types.  This production is the culprit:
+ *
+ * fundecl_hasharray: "{" scalar_type_specifier "}"
+ *
+ * This introduced a shift/reduce conflict on "{" due to "{" being in
+ * the FOLLOW set of scalar_type_specifier because "{" can follow
+ * type_specifier in function_declaration.  For example, after you
+ * have seen
+ *
+ *    struct s
+ *
+ * and "{" is the next token, the parser can't tell whether to shift
+ * and proceed to parse a struct_specifier that declares a struct:
+ *
+ *    struct s { int x,y; }
+ *
+ * or whether to reduce and proceed in to a fundecl_hasharray:
+ *
+ *    struct s { int } f() {}
+ *
+ * To make this grammar LALR(1) seemed difficult.  The grammar seems
+ * to want to be LALR(3) perhaps(?).  The best we could do was to extend
+ * the language by pushing the fundecl_hasharray syntax down into
+ * scalar_type_specifier and struct_specifier.  This would allow
+ * inputs that should be syntax errors, so extra checking would have
+ * been needed to detect these cases.
+ *
+ * The GLR parser has no problem with this type of conflict and keeps
+ * the grammar nice.
+ *
+ */
+%glr-parser
+%expect 1
+
 %token T_LPAREN "("
 %token T_RPAREN ")"
 %token T_LBRACE "{"
@@ -84,7 +120,7 @@ pattern_funcall_rewrite(L_expr *funcall)
 %token T_ARROW "=>" T_LEFT_INTERPOL T_RIGHT_INTERPOL T_KEYWORD
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_TYPE T_DEFINED
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
-%token T_HASH T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
+%token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_INCLUDE T_PATTERN T_PUSH
 
@@ -153,7 +189,7 @@ toplevel_code:
 	;
 
 function_decl:
-	  type_specifier fundecl_arrays fundecl_tail
+	  type_specifier fundecl_hasharray fundecl_tail
 	{
 		((L_type *)$2)->next_dim = $1;
 		((L_function_decl *)$3)->return_type = $2;
@@ -178,8 +214,8 @@ function_decl:
 	}
 	;
 
-fundecl_arrays:
-	fundecl_arrays "[" "]"
+fundecl_hasharray:
+	  fundecl_hasharray "[" "]"
 	{
 		L_expr *zero;
 
@@ -192,6 +228,14 @@ fundecl_arrays:
 
 		MK_INT_NODE(zero, 0);
 		$$ = mk_type(L_TYPE_ARRAY, zero, NULL, NULL, NULL, FALSE);
+	}
+	| fundecl_hasharray "{" scalar_type_specifier "}"
+	{
+		$$ = mk_type(L_TYPE_HASH, $3, NULL, $1, NULL, FALSE);
+	}
+	| "{" scalar_type_specifier "}"
+	{
+		$$ = mk_type(L_TYPE_HASH, $2, NULL, NULL, NULL, FALSE);
 	}
 	;
 
@@ -639,9 +683,8 @@ expr:
 		REVERSE(L_expr, indices, $1);
 		$$ = mk_expr(L_EXPR_BINARY, T_EQRSHIFT, $1, $3, NULL, NULL, NULL);
 	}
-	| T_DEFINED "(" lvalue ")"
+	| T_DEFINED "(" expr ")"
 	{
-		REVERSE(L_expr, indices, $3);
 		$$ = mk_expr(L_EXPR_UNARY, T_DEFINED, $3, NULL, NULL, NULL, NULL);
 	}
 	;
@@ -768,6 +811,14 @@ declarator:
 			    FALSE);
 		$$ = $1;
 	}
+	| declarator "{" scalar_type_specifier "}"
+        {
+                ((L_var_decl *)$1)->type =
+                    mk_type(L_TYPE_HASH, $3, NULL,
+                            ((L_var_decl *)$1)->type, NULL,
+                            FALSE);
+                $$ = $1;
+        }
 	;
 
 typedef_specifier:
@@ -779,15 +830,18 @@ typedef_specifier:
 	;
 
 type_specifier:
+	  scalar_type_specifier
+        | struct_specifier
+	;
+
+scalar_type_specifier:
 	  T_STRING	{ $$ = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE); }
 	| T_INT		{ $$ = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE); }
 	| T_FLOAT	{ $$ = mk_type(L_TYPE_FLOAT, NULL, NULL, NULL, NULL, FALSE); }
-	| T_HASH	{ $$ = mk_type(L_TYPE_HASH, NULL, NULL, NULL, NULL, FALSE); }
 	| T_POLY	{ $$ = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE); }
 	| T_VAR		{ $$ = mk_type(L_TYPE_VAR, NULL, NULL, NULL, NULL, FALSE); }
 	| T_WIDGET	{ $$ = mk_type(L_TYPE_WIDGET, NULL, NULL, NULL, NULL, FALSE); }
 	| T_TYPE	{ $$ = L_lookup_typedef($1, TRUE); }
-	| struct_specifier
 	;
 
 struct_specifier:

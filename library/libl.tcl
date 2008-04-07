@@ -77,17 +77,6 @@ proc getenv {var} {
 	}
 }
 
-# Extending lset is like lset except when the index is 1 past the end
-# of the list then it will lappend instead of lset.
-proc extendingLset {listname index value} {
-	upvar 1 $listname list
-	if {[expr {[llength $list] == $index}]} {
-		lappend list $value
-	} else {
-		lset list $index $value
-	}
-}
-
 proc caller {{stacks 0}} {
 	return [uplevel 1 [list info level -$stacks]]
 }
@@ -203,6 +192,11 @@ proc warn {message} {
 }
 
 #lang L
+/*
+ * Types for compatibility with older versions of the compiler.
+ */
+typedef	poly	hash{poly};
+
 /*
  * stdio stuff (some above because we don't have {*} yet).
  */

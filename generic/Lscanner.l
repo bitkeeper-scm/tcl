@@ -125,7 +125,6 @@ tally_newlines(
 	"string"	return T_STRING;
 	"int"		return T_INT;
 	"float"		return T_FLOAT;
-	"hash"		return T_HASH;
 	"poly"		return T_POLY;
 	"var"		return T_VAR;
 	"widget"	return T_WIDGET;
