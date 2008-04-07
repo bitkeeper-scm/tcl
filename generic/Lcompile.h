@@ -69,7 +69,6 @@ void	L_bomb(const char *format, ...);
 void	L_trace(const char *format, ...);
 void	L_warning(char *s);
 void	L_warningf(void *node, const char *format, ...);
-void	L_error(char *s);
 void	L_errorf(void *node, const char *format, ...);
 L_symbol *L_get_symbol(L_expr *name, int error_p);
 L_type	*L_lookup_typedef(L_expr *name, int error_p);
@@ -81,7 +80,7 @@ char	*ckstrdup(const char *str);
 char	*ckstrndup(const char *str, int len);
 
 /* L_error is yyerror (for parse errors) */
-void	L_error(char *s);
+void	L_error(const char *s);
 
 /* in Ltypecheck.c */
 void	L_check_expr_kind(L_type_kind want, L_expr *expr);
@@ -139,7 +138,7 @@ void	L_start_lexer(void);
     for (a = NULL, b = node, c = (node ? ((type *)node)->ptr : NULL); \
 	 b != NULL; \
 	 b->ptr = a, a = b, b = c, c = (c ? c->ptr : NULL)); \
-    node = a; \
+    *(type **)&(node) = a; \
 }
 
 /* APPEND() starts at a, walks ptr until the end, and then attaches b to a.
@@ -208,6 +207,14 @@ void	L_start_lexer(void);
 #define L_FIRST_IS_HASH   1
 #define L_DEEP_WRITE      2
 #define L_DEEP_CREATE     4
+
+/*
+ * An L-specific type to represent the undefined value of array, hash,
+ * or struct members when they dynamically are brought into life by an
+ * array auto-extend.  We create one object of this type and dup it
+ * as the value of all undefined objects.
+ */
+Tcl_ObjType L_UndefType;
 
 MODULE_SCOPE Tcl_ObjType LdeepPtrType;
 MODULE_SCOPE Tcl_Obj ** L_DeepDiveIntoStruct(Tcl_Interp *interp,

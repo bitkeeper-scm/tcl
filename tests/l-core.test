@@ -250,7 +250,7 @@ var_1_3_aux(int i)
 }
 #lang tcl
 var_1_3
-} -output "{0 0} {0 0} {0 0} {0 0} {0 0}
+} -output "
 {0 0} {10 20} {20 40} {30 60} {40 80}
 {0 0} {10 20} {20 40} {105 135} {40 80}
 "
@@ -376,6 +376,108 @@ decl_1_4 () {
 #lang tcl
 decl_1_4
 } -output "4 5 6\nfoo 4 bar 5 baz 6\n1024 768\n"
+
+test decl-1.5 {test one-dimensional partial array initializers} -body {
+#lang L
+void
+decl_1_5()
+{
+	/*
+	 * Check that partial array initializers get padded out with
+	 * 0/0.0/"" (based on the type).
+	 */
+
+	int	vi;
+	string	vs;
+	float	vf;
+	int	a1[];
+	int	a2[]  = {0, 1, 2};
+	int	a3[3] = {0, 1, 2};
+	int	a4[9] = {0, 1, 2};
+	float	f1[];
+	float	f2[]  = {0.1, 1.1, 2.1};
+	float	f3[3] = {0.1, 1.1, 2.1};
+	float	f4[9] = {0.1, 1.1, 2.1};
+	string	s1[];
+	string	s2[]  = {"zero", "one", "two"};
+	string	s3[3] = {"zero", "one", "two"};
+	string	s4[9] = {"zero", "one", "two"};
+
+	foreach (vi in a1) printf("a1 has %d\n", vi);
+	foreach (vi in a2) printf("a2 has %d\n", vi);
+	foreach (vi in a3) printf("a3 has %d\n", vi);
+	foreach (vi in a4) printf("a4 has %d\n", vi);
+	if (defined(a1[3])) puts("bad 1.1");
+	if (defined(a2[3])) puts("bad 1.2");
+	if (defined(a3[3])) puts("bad 1.3");
+	if (defined(a4[9])) puts("bad 1.4");
+
+	foreach (vf in f1) printf("f1 has %3.1f\n", vf);
+	foreach (vf in f2) printf("f2 has %3.1f\n", vf);
+	foreach (vf in f3) printf("f3 has %3.1f\n", vf);
+	foreach (vf in f4) printf("f4 has %3.1f\n", vf);
+	if (defined(f1[3])) puts("bad 2.1");
+	if (defined(f2[3])) puts("bad 2.2");
+	if (defined(f3[3])) puts("bad 2.3");
+	if (defined(f4[9])) puts("bad 2.4");
+
+	foreach (vs in s1) printf("s1 has '%s'\n", vs);
+	foreach (vs in s2) printf("s2 has '%s'\n", vs);
+	foreach (vs in s3) printf("s3 has '%s'\n", vs);
+	foreach (vs in s4) printf("s4 has '%s'\n", vs);
+	if (defined(s1[3])) puts("bad 3.1");
+	if (defined(s2[3])) puts("bad 3.2");
+	if (defined(s3[3])) puts("bad 3.3");
+	if (defined(s4[9])) puts("bad 3.4");
+}
+#lang tcl
+decl_1_5
+} -output "a2 has 0
+a2 has 1
+a2 has 2
+a3 has 0
+a3 has 1
+a3 has 2
+a4 has 0
+a4 has 1
+a4 has 2
+a4 has 0
+a4 has 0
+a4 has 0
+a4 has 0
+a4 has 0
+a4 has 0
+f2 has 0.1
+f2 has 1.1
+f2 has 2.1
+f3 has 0.1
+f3 has 1.1
+f3 has 2.1
+f4 has 0.1
+f4 has 1.1
+f4 has 2.1
+f4 has 0.0
+f4 has 0.0
+f4 has 0.0
+f4 has 0.0
+f4 has 0.0
+f4 has 0.0
+s2 has 'zero'
+s2 has 'one'
+s2 has 'two'
+s3 has 'zero'
+s3 has 'one'
+s3 has 'two'
+s4 has 'zero'
+s4 has 'one'
+s4 has 'two'
+s4 has ''
+s4 has ''
+s4 has ''
+s4 has ''
+s4 has ''
+s4 has ''
+"
 
 test if-1.0 {If statements} -body {
 #lang L
@@ -973,7 +1075,7 @@ op_1_8
 test op-1.9 {compound assignment operators, array lvalues} -body {
 #lang L
 op_1_9() {
-  int foo[4];
+  int foo[4] = {0};
 
   puts(foo[2] += 2);
   puts(foo[2]);
@@ -1058,14 +1160,14 @@ array_1_0() {
 }
 #lang tcl
 array_1_0
-} -output "{{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}} {{0 0} {0 0} {0 0}}
-{{1 0} {0 0} {0 0}} {{0 0} {0 2} {0 0}} {{0 0} {0 0} {3 0}} {{0 4} {0 0} {0 0}}\n"
+} -output "
+1 {{} {{} 2}} {{} {} 3} {{{} 4}}\n"
 
 
 test array-1.2 {increment and decrement on array elements} -body {
 #lang L
 array_1_2() {
-  int foo[5];
+  int foo[5] = {0};
 
   foo[3] = 0;
   for (foo[3]=0; foo[3]<5; foo[3]++);
@@ -1133,21 +1235,6 @@ array_1_4
 } -output "1 2 3\n3\n1 2\n2\n1\n1\n\n\n\n"
 
 
-test array_1_3 {1d arrays with no length auto-extend by one at a time} -body {
-#lang L
-array_1_3() {
-  int foo[];
-
-  foo[0] = 4;
-  foo[1] = 5;
-  foo[2] = 6;
-  puts(foo);
-}
-#lang tcl
-array_1_3
-} -output "4 5 6\n"
-
-
 test loop-1.0 {while loops} -body {
 #lang L
 loop_1_0() {
@@ -1187,11 +1274,6 @@ struct s {
 void
 loop_1_2_0()
 {
-	/*
-	 * Since we aren't yet typing hash elements, just test a hash
-	 * of ints.  This will change once hash types are enhanced.
-	 */
-
 	int	k, vi;
 	string	vs;
 	float	vf;
@@ -2273,16 +2355,16 @@ struct_1_2() {
 }
 #lang tcl
 struct_1_2
-} -output "42 0 {10 cows} {0 0 0 0}
-43 1 {9 cows} {0 1 0 0}
-44 2 {8 cows} {0 0 2 0}
-45 3 {7 cows} {0 0 0 3}
-46 4 {6 cows} {4 0 0 0}
-47 5 {5 cows} {0 5 0 0}
-48 6 {4 cows} {0 0 6 0}
-49 7 {3 cows} {0 0 0 7}
-50 8 {2 cows} {8 0 0 0}
-51 9 {1 cows} {0 9 0 0}
+} -output "42 0 {10 cows} 0
+43 1 {9 cows} {{} 1}
+44 2 {8 cows} {{} {} 2}
+45 3 {7 cows} {{} {} {} 3}
+46 4 {6 cows} 4
+47 5 {5 cows} {{} 5}
+48 6 {4 cows} {{} {} 6}
+49 7 {3 cows} {{} {} {} 7}
+50 8 {2 cows} 8
+51 9 {1 cows} {{} 9}
 "
 
 test struct-1.3 {increment and decrement on struct fields} -body {
@@ -2402,8 +2484,933 @@ hash_1_3() {
 }
 #lang tcl
 hash_1_3
-} -output "18\n2 {{{foo 1} {foo moo} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {}} {{} {} {} {} {asdf 17}}}\n"
+} -output "18\n2 {{{foo 1} {foo moo}} {} {} {{} {} {} {} {asdf 17}}}\n"
 
+test hash-1.4 {basic hash element types} -body {
+#lang L
+struct s {
+	int	x;
+	int	y;
+};
+void
+hash_1_4()
+{
+	int		ki, vi;
+	string		ks, vs;
+	float		kf, vf;
+	poly		kp, vp;
+	struct s	vst;
+	int		ihi{int};
+	int		ihs{string};
+	int		ihf{float};
+	int		ihp{poly};
+	string		shi{int};
+	string		shs{string};
+	string		shf{float};
+	string		shp{poly};
+	float		fhi{int};
+	float		fhs{string};
+	float		fhf{float};
+	float		fhp{poly};
+	poly		phi{int};
+	poly		phs{string};
+	poly		phf{float};
+	poly		php{poly};
+	struct s	sthi{int};
+	struct s	sths{string};
+	struct s	sthf{float};
+	struct s	sthp{poly};
+
+	printf("start\n");
+
+	ihi{0} = 100;
+	ihi{1} = 101;
+	ihi{2} = 102;
+	foreach (ki=>vi in ihi) {
+		printf("ihi has %d=>%d\n", ki, vi);
+	}
+
+	ihs{"zero"} = 100;
+	ihs{"one"}  = 101;
+	ihs{"two"}  = 102;
+	foreach (ks=>vi in ihs) {
+		printf("ihs has %s=>%d\n", ks, vi);
+	}
+
+	ihf{1.1} = 100;
+	ihf{2.2} = 101;
+	ihf{3.3} = 102;
+	foreach (kf=>vi in ihf) {
+		printf("ihf has %3.1f=>%d\n", kf, vi);
+	}
+
+	ihp{0}     = 100;
+	ihp{"two"} = 101;
+	ihp{3.3}   = 102;
+	foreach (kp=>vi in ihp) {
+		printf("ihp has %s=>%d\n", kp, vi);
+	}
+
+	shi{0} = "zero";
+	shi{1} = "one";
+	shi{2} = "two";
+	foreach (ki=>vs in shi) {
+		printf("shi has %d=>%s\n", ki, vs);
+	}
+
+	shs{"zero"} = "zero0";
+	shs{"one"}  = "one1";
+	shs{"two"}  = "two2";
+	foreach (ks=>vs in shs) {
+		printf("shs has %s=>%s\n", ks, vs);
+	}
+
+	shf{1.1} = "one.one";
+	shf{2.2} = "two.two";
+	shf{3.3} = "three.three";
+	foreach (kf=>vs in shf) {
+		printf("shf has %3.1f=>%s\n", kf, vs);
+	}
+
+	shp{0}     = "zero";
+	shp{1.1}   = "one.one";
+	shp{"two"} = "two2";
+	foreach (kp=>vs in shp) {
+		printf("shp has %s=>%s\n", kp, vs);
+	}
+
+	fhi{0} = 1.1;
+	fhi{1} = 2.2;
+	fhi{2} = 3.3;
+	foreach (ki=>vf in fhi) {
+		printf("fhi has %d=>%3.1f\n", ki, vf);
+	}
+
+	fhs{"zero"} = 1.1;
+	fhs{"one"}  = 2.2;
+	fhs{"two"}  = 3.3;
+	foreach (ks=>vf in fhs) {
+		printf("fhs has %s=>%3.1f\n", ks, vf);
+	}
+
+	fhf{1.1} = 11.1;
+	fhf{2.2} = 22.2;
+	fhf{3.3} = 33.3;
+	foreach (kf=>vf in fhf) {
+		printf("fhf has %3.1f=>%3.1f\n", kf, vf);
+	}
+
+	fhp{0}     = 1.1;
+	fhp{1.1}   = 2.2;
+	fhp{"two"} = 3.3;
+	foreach (kp=>vf in fhp) {
+		printf("fhp has %s=>%3.1f\n", kp, vf);
+	}
+
+	phi{0} = 1;
+	phi{1} = "two";
+	phi{2} = 3.3;
+	foreach (ki=>vp in phi) {
+		printf("phi has %d=>%s\n", ki, vp);
+	}
+
+	phs{"zero"} = 1;
+	phs{"one"}  = "two";
+	phs{"two"}  = 3.3;
+	foreach (ks=>vp in phs) {
+		printf("phs has %s=>%s\n", ks, vp);
+	}
+
+	phf{1.1} = 1;
+	phf{2.2} = "two";
+	phf{3.3} = 33.33;
+	foreach (kf=>vp in phf) {
+		printf("phf has %3.1f=>%s\n", kf, vp);
+	}
+
+	php{"one"} = 1;
+	php{1.1}   = "two";
+	php{2}     = 3.3;
+	foreach (kp=>vp in php) {
+		printf("php has %s=>%s\n", kp, vp);
+	}
+
+	sthi{0}.x = 100;
+	sthi{0}.y = 101;
+	sthi{1}.x = 200;
+	sthi{1}.y = 201;
+	sthi{2}.x = 300;
+	sthi{2}.y = 301;
+	foreach (ki=>vst in sthi) {
+		printf("sthi has %d=>(%d,%d)\n", ki, vst.x, vst.y);
+	}
+
+	sths{"zero"}.x = 100;
+	sths{"zero"}.y = 101;
+	sths{"one"}.x  = 200;
+	sths{"one"}.y  = 201;
+	sths{"two"}.x  = 300;
+	sths{"two"}.y  = 301;
+	foreach (ks=>vst in sths) {
+		printf("sths has %s=>(%d,%d)\n", ks, vst.x, vst.y);
+	}
+
+	sthf{1.1}.x = 100;
+	sthf{1.1}.y = 101;
+	sthf{2.2}.x = 200;
+	sthf{2.2}.y = 201;
+	sthf{3.3}.x = 300;
+	sthf{3.3}.y = 301;
+	foreach (kf=>vst in sthf) {
+		printf("sthf has %3.1f=>(%d,%d)\n", kf, vst.x, vst.y);
+	}
+
+	sthp{0}.x     = 100;
+	sthp{0}.y     = 101;
+	sthp{1.1}.x   = 200;
+	sthp{1.1}.y   = 201;
+	sthp{"two"}.x = 300;
+	sthp{"two"}.y = 301;
+	foreach (kp=>vst in sthp) {
+		printf("sthp has %s=>(%d,%d)\n", kp, vst.x, vst.y);
+	}
+
+	printf("end\n");
+}
+#lang tcl
+hash_1_4
+} -output "start
+ihi has 0=>100
+ihi has 1=>101
+ihi has 2=>102
+ihs has zero=>100
+ihs has one=>101
+ihs has two=>102
+ihf has 1.1=>100
+ihf has 2.2=>101
+ihf has 3.3=>102
+ihp has 0=>100
+ihp has two=>101
+ihp has 3.300000=>102
+shi has 0=>zero
+shi has 1=>one
+shi has 2=>two
+shs has zero=>zero0
+shs has one=>one1
+shs has two=>two2
+shf has 1.1=>one.one
+shf has 2.2=>two.two
+shf has 3.3=>three.three
+shp has 0=>zero
+shp has 1.100000=>one.one
+shp has two=>two2
+fhi has 0=>1.1
+fhi has 1=>2.2
+fhi has 2=>3.3
+fhs has zero=>1.1
+fhs has one=>2.2
+fhs has two=>3.3
+fhf has 1.1=>11.1
+fhf has 2.2=>22.2
+fhf has 3.3=>33.3
+fhp has 0=>1.1
+fhp has 1.100000=>2.2
+fhp has two=>3.3
+phi has 0=>1
+phi has 1=>two
+phi has 2=>3.300000
+phs has zero=>1
+phs has one=>two
+phs has two=>3.300000
+phf has 1.1=>1
+phf has 2.2=>two
+phf has 3.3=>33.330000
+php has one=>1
+php has 1.100000=>two
+php has 2=>3.300000
+sthi has 0=>(100,101)
+sthi has 1=>(200,201)
+sthi has 2=>(300,301)
+sths has zero=>(100,101)
+sths has one=>(200,201)
+sths has two=>(300,301)
+sthf has 1.1=>(100,101)
+sthf has 2.2=>(200,201)
+sthf has 3.3=>(300,301)
+sthp has 0=>(100,101)
+sthp has 1.100000=>(200,201)
+sthp has two=>(300,301)
+end
+"
+
+test hash-1.5 {hashes of hashes and arrays} -body {
+#lang L
+// "keys" eventually will be a built-in, but do an integer one
+// here for fun.
+int[]
+ikeys(poly h{int})
+{
+	int	k, thekeys[];
+
+	foreach (k in h) push(&thekeys, k);
+	return (thekeys);
+}
+
+// This is basically a cast since "sort" isn't yet a built-in so
+// the compiler doesn't see it as having the proper return type.
+int[]
+isort(int a[])
+{
+	int	sorted[] = sort(a);
+	return (sorted);
+}
+
+void
+hash_1_5()
+{
+	int	k1, k2;
+	string	vs;
+	string	hai[3]{int};
+	string	hia{int}[3];
+	string	hii{int}{int};
+	string	hi{int};
+
+	printf("start\n");
+
+	// Array of hashes.
+	hai[0]{1} = "01";
+	hai[0]{6} = "06";
+	hai[0]{5} = "05";
+	hai[1]{2} = "12";
+	hai[1]{3} = "13";
+	hai[1]{0} = "10";
+	hai[2]{0} = "20";
+	hai[2]{1} = "21";
+	hai[2]{2} = "22";
+	foreach (hi in hai) {
+		foreach (k1 in isort(ikeys(hi))) {
+			printf("hai has %d=>%s\n", k1, hi{k1});
+		}
+	}
+
+	// Hash of arrays.
+	hia{1}[0] = "10";
+	hia{1}[1] = "11";
+	hia{1}[2] = "12";
+	hia{0}[0] = "00";
+	hia{0}[1] = "01";
+	hia{0}[2] = "02";
+	hia{2}[0] = "20";
+	hia{2}[1] = "21";
+	hia{2}[2] = "22";
+	foreach (k1 in isort(ikeys(hia))) {
+		foreach (vs in hia{k1}) {
+			printf("hia{%d} has %s\n", k1, vs);
+		}
+	}
+
+	// Hash of hashes.
+	hii{0}{2} = "02";
+	hii{1}{0} = "10";
+	hii{0}{0} = "00";
+	hii{2}{1} = "21";
+	hii{1}{2} = "12";
+	hii{1}{1} = "11";
+	hii{0}{1} = "01";
+	hii{2}{0} = "20";
+	hii{2}{2} = "22";
+	foreach (k1 in isort(ikeys(hii))) {
+		foreach (k2 in isort(ikeys(hii{k1}))) {
+			printf("hii{%d}{%d} has %s\n", k1, k2, hii{k1}{k2});
+		}
+	}
+
+	printf("end\n");
+}
+#lang tcl
+hash_1_5
+} -output "start
+hai has 1=>01
+hai has 5=>05
+hai has 6=>06
+hai has 0=>10
+hai has 2=>12
+hai has 3=>13
+hai has 0=>20
+hai has 1=>21
+hai has 2=>22
+hia{0} has 00
+hia{0} has 01
+hia{0} has 02
+hia{1} has 10
+hia{1} has 11
+hia{1} has 12
+hia{2} has 20
+hia{2} has 21
+hia{2} has 22
+hii{0}{0} has 00
+hii{0}{1} has 01
+hii{0}{2} has 02
+hii{1}{0} has 10
+hii{1}{1} has 11
+hii{1}{2} has 12
+hii{2}{0} has 20
+hii{2}{1} has 21
+hii{2}{2} has 22
+end
+"
+
+test deep-1.1 {deep dive 1} -body {
+#lang L
+struct xy {
+	string		x;
+	string		y;
+};
+struct s {
+	string		a;
+	string		b;
+	struct xy	h{int};
+};
+
+void
+deep_1_1()
+{
+	int		k1, k2;
+	struct s	s;
+	struct xy	xy;
+	struct s	h{int};
+
+	printf("start\n");
+
+	/*
+	 * Test a hash that has a struct that has another hash.
+	 */
+
+	h{0}.a = "h{0}.a";
+	h{0}.b = "h{0}.b";
+	h{0}.h{0}.x = "h{0}.h{0}.x";
+	h{0}.h{0}.y = "h{0}.h{0}.y";
+	h{1}.a = "h{1}.a";
+	h{1}.b = "h{1}.b";
+	h{1}.h{0}.x = "h{1}.h{0}.x";
+	h{1}.h{0}.y = "h{1}.h{0}.y";
+	h{1}.h{2}.x = "h{1}.h{2}.x";
+	h{1}.h{2}.y = "h{1}.h{2}.y";
+
+	foreach (k1=>s in h) {
+		printf("h{%d}.a = %s\n", k1, s.a);
+		printf("h{%d}.b = %s\n", k1, s.b);
+		foreach (k2=>xy in s.h) {
+			printf("h{%d}.h{%d}.x = %s\n", k1, k2, xy.x);
+			printf("h{%d}.h{%d}.y = %s\n", k1, k2, xy.y);
+		}
+	}
+
+	printf("end\n");
+}
+#lang tcl
+deep_1_1
+} -output "start
+h{0}.a = h{0}.a
+h{0}.b = h{0}.b
+h{0}.h{0}.x = h{0}.h{0}.x
+h{0}.h{0}.y = h{0}.h{0}.y
+h{1}.a = h{1}.a
+h{1}.b = h{1}.b
+h{1}.h{0}.x = h{1}.h{0}.x
+h{1}.h{0}.y = h{1}.h{0}.y
+h{1}.h{2}.x = h{1}.h{2}.x
+h{1}.h{2}.y = h{1}.h{2}.y
+end
+"
+
+test deep-1.2 {deep dive with consecutive hash indices} -body {
+#lang L
+void
+deep_1_2()
+{
+	int	k1, k2, k3, k4;
+	string	v;
+	string	h{int};
+	string	hh{int}{int};
+	string	hhh{int}{int}{int};
+	string	hhhh{int}{int}{int}{int};
+
+	printf("start\n");
+
+	/*
+	 * Test various cases with consecutive hash indices.
+	 */
+
+	hh{0}{0} = "00";
+	hh{0}{1} = "01";
+	hh{1}{0} = "10";
+	foreach (k1=>h in hh) {
+		foreach (k2=>v in h) {
+			unless (hh{k1}{k2} eq h{k2}) {
+				printf("bad 1\n");
+			}
+			printf("hh{%d}{%d} has %s\n", k1, k2, hh{k1}{k2});
+		}
+	}
+
+	hhh{0}{0}{0} = "000";
+	hhh{0}{0}{1} = "001";
+	hhh{0}{1}{0} = "010";
+	hhh{1}{0}{0} = "100";
+	foreach (k1=>hh in hhh) {
+		foreach (k2=>h in hh) {
+			foreach (k3=>v in h) {
+				unless (hhh{k1}{k2}{k3} eq hh{k2}{k3}) {
+					printf("bad 2\n");
+				}
+				unless (hh{k2}{k3} eq h{k3}) {
+					printf("bad 3\n");
+				}
+				printf("hhh{%d}{%d}{%d} has %s\n", k1, k2, k3,
+				       hhh{k1}{k2}{k3});
+			}
+		}
+	}
+
+	hhhh{0}{0}{0}{0} = "0000";
+	hhhh{0}{0}{0}{1} = "0001";
+	hhhh{0}{0}{1}{0} = "0010";
+	hhhh{0}{1}{0}{0} = "0100";
+	hhhh{1}{0}{0}{0} = "1000";
+	foreach (k1=>hhh in hhhh) {
+		foreach (k2=>hh in hhh) {
+			foreach (k3=>h in hh) {
+				foreach (k4=>v in h) {
+					unless (hhhh{k1}{k2}{k3}{k4} eq
+						hhh{k2}{k3}{k4}) {
+						printf("bad 4\n");
+					}
+					unless (hhh{k2}{k3}{k4} eq hh{k3}{k4}) {
+						printf("bad 5\n");
+					}
+					unless (hh{k3}{k4} eq h{k4}) {
+						printf("bad 6\n");
+					}
+					printf("hhhh{%d}{%d}{%d}{%d} has %s\n",
+					       k1, k2, k3, k4,
+					       hhhh{k1}{k2}{k3}{k4});
+				}
+			}
+		}
+	}
+
+	printf("end\n");
+}
+#lang tcl
+deep_1_2
+} -output "start
+hh{0}{0} has 00
+hh{0}{1} has 01
+hh{1}{0} has 10
+hhh{0}{0}{0} has 000
+hhh{0}{0}{1} has 001
+hhh{0}{1}{0} has 010
+hhh{1}{0}{0} has 100
+hhhh{0}{0}{0}{0} has 0000
+hhhh{0}{0}{0}{1} has 0001
+hhhh{0}{0}{1}{0} has 0010
+hhhh{0}{1}{0}{0} has 0100
+hhhh{1}{0}{0}{0} has 1000
+end
+"
+
+test deep-1.3 {deep dive with consecutive array indices} -body {
+#lang L
+void
+deep_1_3()
+{
+	string	v;
+	string	a[3];
+	string	aa[2][2];
+	string	aaa[2][2][2];
+	string	aaaa[2][2][2][2];
+
+	printf("start\n");
+
+	/*
+	 * Test various cases with consecutive array indices.
+	 */
+
+	a[0] = "0";
+	a[1] = "1";
+	a[2] = "2";
+	foreach (v in a) {
+		printf("a has '%s'\n", v);
+	}
+
+	aa[0][0] = "00";
+	aa[0][1] = "01";
+	aa[0][2] = "02";
+	aa[1][0] = "10";
+	foreach (a in aa) {
+		foreach (v in a) {
+			printf("aa has '%s'\n", v);
+		}
+	}
+
+	aaa[0][0][0] = "000";
+	aaa[0][0][1] = "001";
+	aaa[0][1][0] = "010";
+	aaa[0][1][1] = "011";
+	aaa[1][0][0] = "100";
+	foreach (aa in aaa) {
+		foreach (a in aa) {
+			foreach (v in a) {
+				printf("aaa has '%s'\n", v);
+			}
+		}
+	}
+
+	aaaa[0][0][0][0] = "0000";
+	aaaa[0][0][0][1] = "0001";
+	aaaa[0][0][1][0] = "0010";
+	aaaa[0][1][0][0] = "0100";
+	aaaa[1][0][0][0] = "1000";
+	foreach (aaa in aaaa) {
+		foreach (aa in aaa) {
+			foreach (a in aa) {
+				foreach (v in a) {
+					printf("aaaa has '%s'\n", v);
+				}
+			}
+		}
+	}
+
+	printf("end\n");
+}
+#lang tcl
+deep_1_3
+} -output "start
+a has '0'
+a has '1'
+a has '2'
+aa has '00'
+aa has '01'
+aa has '02'
+aa has '10'
+aaa has '000'
+aaa has '001'
+aaa has '010'
+aaa has '011'
+aaa has '100'
+aaaa has '0000'
+aaaa has '0001'
+aaaa has '0010'
+aaaa has '0100'
+aaaa has '1000'
+end
+"
+
+test deep-1.4 {deep dive with alternating hash and array indices} -body {
+#lang L
+void
+deep_1_4()
+{
+	/*
+	 * Note that, because of the array auto-extend semantics, if
+	 * you write to a[i] but there are values before index i not
+	 * yet written, those get automatically set to an undefined
+	 * value, which the foreach's will iterate through.  When used
+	 * as a string, the undefined value shows up as "".  (Tcl
+	 * doesn't let you use it as an integer, which is why the
+	 * hashes are string hashes in these tests.)
+	 */
+
+	int	i, j, ki, k1, k2;
+	string	vs;
+	string	a[3];
+	string	aa[3][3];
+	string	h{int};
+	string	hh{int}{int};
+	string	ah[3]{int};
+	string	ha{int}[3];
+	string	aah[3][3]{int};
+	string	aha[3]{int}[3];
+	string	ahh[3]{int}{int};
+	string	haa{int}[3][3];
+	string	hah{int}[3]{int};
+	string	hha{int}{int}[3];
+
+	printf("start\n");
+
+	ah[0]{0} = "ah[0]{0}";
+	ah[2]{0} = "ah[2]{0}";
+	ah[2]{1} = "ah[2]{1}";
+	i = 0;
+	foreach (h in ah) {
+		foreach (ki=>vs in h) {
+			unless (ah[i]{ki} eq vs) printf("bad 1\n");
+			printf("ah[%d]{%d} = '%s'\n", i, ki, vs);
+		}
+		++i;
+	}
+
+	ha{0}[0] = "ha{0}[0]";
+	ha{0}[1] = "ha{0}[1]";
+	ha{1}[1] = "ha{1}[1]";
+	foreach (ki=>a in ha) {
+		i = 0;
+		foreach (vs in a) {
+			unless (ha{ki}[i] eq vs) printf("bad 2\n");
+			printf("ha{%d}[%d] = '%s'\n", ki, i, vs);
+			++i;
+		}
+	}
+
+	aah[0][0]{0} = "aah[0][0]{0}";
+	aah[0][1]{1} = "aah[0][1]{1}";
+	aah[1][0]{2} = "aah[1][0]{2}";
+	aah[1][0]{3} = "aah[1][0]{3}";
+	i = 0;
+	foreach (ah in aah) {
+		j = 0;
+		foreach (h in ah) {
+			foreach (ki=>vs in h) {
+				unless (aah[i][j]{ki} eq vs) printf("bad 3\n");
+				unless (ah[j]{ki} eq vs) printf("bad 4\n");
+				unless (h{ki} eq vs) printf("bad 5\n");
+				printf("aah[%d][%d]{%d} = '%s'\n", i, j, ki,
+				       aah[i][j]{ki});
+			}
+			++j;
+		}
+		++i;
+	}
+
+	aha[0]{0}[0] = "aha[0]{0}[0]";
+	aha[0]{1}[1] = "aha[0]{1}[1]";
+	aha[1]{2}[0] = "aha[1]{2}[0]";
+	aha[0]{3}[2] = "aha[0]{3}[2]";
+	i = 0;
+	foreach (ha in aha) {
+		foreach (ki=>a in ha) {
+			j = 0;
+			foreach (vs in a) {
+				unless (aha[i]{ki}[j] eq vs) printf("bad 6\n");
+				unless (ha{ki}[j] eq vs) printf("bad 7\n");
+				unless (a[j] eq vs) printf("bad 7\n");
+				printf("aha[%d]{%d}[%d] = '%s'\n", i, ki, j,
+				       aha[i]{ki}[j]);
+				++j;
+			}
+		}
+		++i;
+	}
+
+	ahh[0]{0}{1} = "ahh[0]{0}{1}";
+	ahh[0]{2}{3} = "ahh[0]{2}{3}";
+	ahh[1]{4}{5} = "ahh[1]{4}{5}";
+	ahh[2]{6}{7} = "ahh[2]{6}{7}";
+	i = 0;
+	foreach (hh in ahh) {
+		foreach (k1=>h in hh) {
+			foreach (k2=>vs in h) {
+				unless (ahh[i]{k1}{k2} eq vs) printf("bad 7\n");
+				unless (hh{k1}{k2} eq vs) printf("bad 8\n");
+				unless (h{k2} eq vs) printf("bad 9\n");
+			printf("ahh[%d]{%d}{%d} = '%s'\n", i, k1, k2,
+			       ahh[i]{k1}{k2});
+			}
+		}
+		++i;
+	}
+
+	haa{0}[0][0] = "haa{0}[0][0]";
+	haa{0}[1][0] = "haa{0}[1][0]";
+	haa{1}[0][0] = "haa{1}[0][0]";
+	haa{2}[0][1] = "haa{2}[0][1]";
+	foreach (ki=>aa in haa) {
+		i = 0;
+		foreach (a in aa) {
+			j = 0;
+			foreach (vs in a) {
+				unless (haa{ki}[i][j] eq vs) printf("bad 10\n");
+				unless (aa[i][j] eq vs) printf("bad 11\n");
+				unless (a[j] eq vs) printf("bad 12\n");
+				printf("haa{%d}[%d][%d] = '%s'\n", ki, i, j,
+				       haa{ki}[i][j]);
+				++j;
+			}
+			++i;
+		}
+	}
+
+	hha{0}{1}[0] = "hha{0}{1}[0]";
+	hha{2}{3}[0] = "hha{2}{3}[0]";
+	hha{4}{5}[1] = "hha{4}{5}[1]";
+	hha{6}{7}[2] = "hha{6}{7}[2]";
+	foreach (k1=>ha in hha) {
+		foreach (k2=>a in ha) {
+			i = 0;
+			foreach (vs in a) {
+				unless (hha{k1}{k2}[i] eq vs) printf("bad13\n");
+				unless (ha{k2}[i] eq vs) printf("bad 14n");
+				unless (a[i] eq vs) printf("bad 15\n");
+				printf("hha{%d}{%d}[%d] = '%s'\n", k1, k2, i,
+				       hha{k1}{k2}[i]);
+				++i;
+			}
+		}
+	}
+
+	hah{0}[0]{0} = "hah{0}[0]{0}";
+	hah{1}[0]{2} = "hah{1}[0]{2}";
+	hah{3}[1]{4} = "hah{3}[1]{4}";
+	hah{5}[2]{6} = "hah{5}[2]{6}";
+	foreach (k1=>ah in hah) {
+		i = 0;
+		foreach (h in ah) {
+			foreach (k2=>vs in h) {
+				unless (hah{k1}[i]{k2} eq vs) printf("bad16\n");
+				unless (ah[i]{k2} eq vs) printf("bad 17\n");
+				unless (h{k2} eq vs) printf("bad 18\n");
+				printf("hah{%d}[%d]{%d} = '%s'\n", k1, i, k2,
+				       hah{k1}[i]{k2});
+			}
+			++i;
+		}
+	}
+
+	printf("end\n");
+}
+
+#lang tcl
+deep_1_4
+} -output {start
+ah[0]{0} = 'ah[0]{0}'
+ah[2]{0} = 'ah[2]{0}'
+ah[2]{1} = 'ah[2]{1}'
+ha{0}[0] = 'ha{0}[0]'
+ha{0}[1] = 'ha{0}[1]'
+ha{1}[0] = ''
+ha{1}[1] = 'ha{1}[1]'
+aah[0][0]{0} = 'aah[0][0]{0}'
+aah[0][1]{1} = 'aah[0][1]{1}'
+aah[1][0]{2} = 'aah[1][0]{2}'
+aah[1][0]{3} = 'aah[1][0]{3}'
+aha[0]{0}[0] = 'aha[0]{0}[0]'
+aha[0]{1}[0] = ''
+aha[0]{1}[1] = 'aha[0]{1}[1]'
+aha[0]{3}[0] = ''
+aha[0]{3}[1] = ''
+aha[0]{3}[2] = 'aha[0]{3}[2]'
+aha[1]{2}[0] = 'aha[1]{2}[0]'
+ahh[0]{0}{1} = 'ahh[0]{0}{1}'
+ahh[0]{2}{3} = 'ahh[0]{2}{3}'
+ahh[1]{4}{5} = 'ahh[1]{4}{5}'
+ahh[2]{6}{7} = 'ahh[2]{6}{7}'
+haa{0}[0][0] = 'haa{0}[0][0]'
+haa{0}[1][0] = 'haa{0}[1][0]'
+haa{1}[0][0] = 'haa{1}[0][0]'
+haa{2}[0][0] = ''
+haa{2}[0][1] = 'haa{2}[0][1]'
+hha{0}{1}[0] = 'hha{0}{1}[0]'
+hha{2}{3}[0] = 'hha{2}{3}[0]'
+hha{4}{5}[0] = ''
+hha{4}{5}[1] = 'hha{4}{5}[1]'
+hha{6}{7}[0] = ''
+hha{6}{7}[1] = ''
+hha{6}{7}[2] = 'hha{6}{7}[2]'
+hah{0}[0]{0} = 'hah{0}[0]{0}'
+hah{1}[0]{2} = 'hah{1}[0]{2}'
+hah{3}[1]{4} = 'hah{3}[1]{4}'
+hah{5}[2]{6} = 'hah{5}[2]{6}'
+end
+}
+
+test deep-2.1 {deep dive array auto-extend} -body {
+#lang L
+void
+deep_2_1()
+{
+	int	i, j;
+	int	a1[];
+	int	a2[];
+	int	aa1[][];
+	int	aa2[][];
+
+	/*
+	 * Test that arrays auto-extend properly.
+	 */
+
+	a1[0] = 0;
+	a1[1] = 1;
+	a1[2] = 2;
+	unless ((a1[0] == 0) && (a1[1] == 1) && (a1[2] == 2)) {
+		puts("a1 bad 1");
+	}
+	if (defined(a1[3])) puts("a1 bad 2");
+
+	a2[1]  = 1;
+	a2[3]  = 3;
+	a2[6]  = 6;
+	a2[10] = 10;
+	unless ((a2[1] == 1) && (a2[3] == 3) && (a2[6] == 6) && (a2[10] == 10)) {
+		puts("a2 bad 1");
+	}
+	if (defined(a2[0])) puts("a2 bad 2");
+	if (defined(a2[2])) puts("a2 bad 3");
+	if (defined(a2[4])) puts("a2 bad 4");
+	if (defined(a2[5])) puts("a2 bad 5");
+	if (defined(a2[7])) puts("a2 bad 6");
+	if (defined(a2[8])) puts("a2 bad 7");
+	if (defined(a2[9])) puts("a2 bad 8");
+	if (defined(a2[11])) puts("a2 bad 9");
+
+	aa1[0][0] = 100;
+	aa1[0][1] = 101;
+	aa1[0][2] = 102;
+	aa1[1][0] = 110;
+	aa1[1][1] = 111;
+	aa1[2][0] = 120;
+	unless ((aa1[0][0] == 100) && (aa1[0][1] == 101) && (aa1[0][2] == 102) &&
+		(aa1[1][0] == 110) && (aa1[1][1] == 111) && (aa1[2][0] == 120)) {
+		puts("aa1 bad 1");
+	}
+	if (defined(aa1[0][3])) puts("aa1 bad 2");
+	if (defined(aa1[1][3])) puts("aa1 bad 3");
+	if (defined(aa1[2][1])) puts("aa1 bad 4");
+
+	aa2[1][1]   = 111;
+	aa2[3][3]   = 133;
+	aa2[6][6]   = 166;
+	aa2[10][10] = 1010;
+	unless ((aa2[1][1] == 111) && (aa2[3][3] == 133) && (aa2[6][6] == 166) &&
+		(aa2[10][10] == 1010)) {
+		puts("aa2 bad 2");
+	}
+	for (i = 0; i <= 10; ++i) {
+		for (j = 0; j <= i; ++j) {
+			if ((i == 1)  && (j == 1))  continue;
+			if ((i == 3)  && (j == 3))  continue;
+			if ((i == 6)  && (j == 6))  continue;
+			if ((i == 10) && (j == 10)) continue;
+			if (defined(aa2[i][j])) printf("aa2[%d][%d] defined\n",
+						       i, j);
+		}
+	}
+}
+#lang tcl
+deep_2_1
+} -output ""
+
+test deep-2.2 {check that a negative array index is an error} -body {
+#lang L
+void
+deep_2_2()
+{
+	int	a[3];
+	a[-1] = 0;
+}
+#lang tcl
+deep_2_2
+} -returnCodes error -match regexp -result {cannot write to negative array index}
 
 test regexp-1.0 {regular expression support} -body {
 #lang L
@@ -2539,8 +3546,8 @@ reference_1_1_tweak(struct reference_1_1_point &foo) {
 }
 #lang tcl
 reference_1_1
-} -output "0 0
-2 0
+} -output "
+2
 "
 test reference-1.2 {widget pointer thingys} -body {
 #lang L
@@ -2617,18 +3624,8 @@ defined_1_0() {
 }
 #lang tcl
 defined_1_0
-} -output "0, 0
-0, 1
-1, 0
-1, 1
-2, 0
-2, 1
-3, 0
-3, 1
-4, 0
-4, 1
--*-
-1
+} -output "-*-
+0
 0
 "
 
@@ -2664,6 +3661,169 @@ test main-1.0 {test that main gets called} -setup {
 } -cleanup {
 	removeFile test-1.0.l
 } -result {main got called}
+
+test defined-1.2 {defined operator on scalars} -body {
+#lang L
+int fint() { return 0; }
+float ffloat() { return 0.0; }
+string fstring() { return "0"; }
+void fvoid() { return; }
+void
+defined_1_2()
+{
+	int	i;
+	int	ii = 0;
+	string	s;
+	string	ss = "";
+	float	f;
+	float	ff = 3.14159;
+
+	unless (defined(i))  puts("err 1");
+	unless (defined(ii)) puts("err 2");
+	unless (defined(s))  puts("err 3");
+	unless (defined(ss)) puts("err 4");
+	unless (defined(f))  puts("err 5");
+	unless (defined(ff)) puts("err 6");
+	unless (defined(0))  puts("err 7");
+	unless (defined(1))  puts("err 7");
+	unless (defined("")) puts("err 8");
+	unless (defined("x")) puts("err 9");
+	unless (defined(0.0)) puts("err 10");
+	unless (defined(1.0)) puts("err 11");
+	unless (defined(fint()))    puts("err 12");
+	unless (defined(ffloat()))  puts("err 13");
+	unless (defined(fstring())) puts("err 14");
+	unless (defined(1-0))     puts("err 16");
+	unless (defined(1+2+3+4)) puts("err 17");
+}
+#lang tcl
+defined_1_2
+} -output ""
+
+test defined-1.3 {defined operator on auto-extended arrays} -body {
+#lang L
+void
+defined_1_3()
+{
+	int	i;
+	int	a[];
+	int	a3[3] = {0};
+	string	s[];
+	string	s3[3] = {""};
+	float	f[];
+	float	f3[3] = {0.0};
+	string	h{int}[];
+
+	a[3] = 3;
+	a[5] = 5;
+	a[6] = 6;
+	a[8] = 8;
+	if (defined(a[0]))     puts("err 1.1");
+	if (defined(a[1]))     puts("err 1.2");
+	if (defined(a[2]))     puts("err 1.3");
+	unless (defined(a[3])) puts("err 1.4");
+	if (defined(a[4]))     puts("err 1.5");
+	unless (defined(a[5])) puts("err 1.6");
+	unless (defined(a[6])) puts("err 1.7");
+	if (defined(a[7]))     puts("err 1.8");
+	unless (defined(a[8])) puts("err 1.9");
+	for (i = 9; i < 1000; ++i) {
+		if (defined(a[i])) printf("err 1.10 i=%d\n", i);
+	}
+
+	unless (defined(a3[0])) puts("err 2.1");
+	unless (defined(a3[1])) puts("err 2.2");
+	unless (defined(a3[2])) puts("err 2.3");
+	for (i = 3; i < 1000; ++i) {
+		if (defined(a3[i])) printf("err 2.4 i=%d\n", i);
+	}
+
+	s[3] = "3";
+	s[5] = "5";
+	s[6] = "6";
+	s[8] = "8";
+	if (defined(s[0]))     puts("err 3.1");
+	if (defined(s[1]))     puts("err 3.2");
+	if (defined(s[2]))     puts("err 3.3");
+	unless (defined(s[3])) puts("err 3.4");
+	if (defined(s[4]))     puts("err 3.5");
+	unless (defined(s[5])) puts("err 3.6");
+	unless (defined(s[6])) puts("err 3.7");
+	if (defined(s[7]))     puts("err 3.8");
+	unless (defined(s[8])) puts("err 3.9");
+	for (i = 9; i < 1000; ++i) {
+		if (defined(s[i])) printf("err 3.10 i=%d\n", i);
+	}
+
+	unless (defined(s3[0])) puts("err 4.1");
+	unless (defined(s3[1])) puts("err 4.2");
+	unless (defined(s3[2])) puts("err 4.3");
+	for (i = 3; i < 1000; ++i) {
+		if (defined(s3[i])) printf("err 4.4 i=%d\n", i);
+	}
+
+	f[3] = 3.0;
+	f[5] = 5.0;
+	f[6] = 6.0;
+	f[8] = 8.0;
+	if (defined(f[0]))     puts("err 5.1");
+	if (defined(f[1]))     puts("err 5.2");
+	if (defined(f[2]))     puts("err 5.3");
+	unless (defined(f[3])) puts("err 5.4");
+	if (defined(f[4]))     puts("err 5.5");
+	unless (defined(f[5])) puts("err 5.6");
+	unless (defined(f[6])) puts("err 5.7");
+	if (defined(f[7]))     puts("err 5.8");
+	unless (defined(f[8])) puts("err 5.9");
+	for (i = 9; i < 1000; ++i) {
+		if (defined(f[i])) printf("err 5.10 i=%d\n", i);
+	}
+
+	unless (defined(f3[0])) puts("err 5.1");
+	unless (defined(f3[1])) puts("err 5.2");
+	unless (defined(f3[2])) puts("err 5.3");
+	for (i = 3; i < 1000; ++i) {
+		if (defined(f3[i])) printf("err 5.4 i=%d\n", i);
+	}
+
+	h{0}[2] = "2";
+	if (defined(h{0}[0]))     puts("err 6.1");
+	if (defined(h{0}[1]))     puts("err 6.2");
+	unless (defined(h{0}[2])) puts("err 6.3");
+	if (defined(h{0}[3]))     puts("err 6.4");
+}
+#lang tcl
+defined_1_3
+} -output ""
+
+test defined-1.4 {check propagation of undefined values} -body {
+#lang L
+int
+f(int i)
+{
+	return (i);
+}
+void
+defined_1_4()
+{
+	int	i, j;
+	int	a[];
+
+	a[1] = 1;  // a[0] is now undefined
+	i = a[0];  // i is now undefined
+	j = f(i);  // j is now undefined
+
+	if (defined(a[0])) puts("err 1");
+	if (defined(i)) puts("err 2");
+	if (defined(j)) puts("err 3");
+	if (defined(f(i))) puts("err 4");
+	if (defined(f(j))) puts("err 5");
+	if (defined(f(f(j)))) puts("err 6");
+	if (defined(f(f(f(j))))) puts("err 7");
+}
+#lang tcl
+defined_1_4
+} -output ""
 
 
 test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
@@ -3450,6 +4610,266 @@ foo()
 .*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
 .*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
 .*23: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+}
+
+test typecheck-5.1 {type errors in hash elements} -body {
+#lang L
+struct s {
+	int	x;
+	int	y;
+};
+void
+typecheck_5_1()
+{
+	int		a[3], i;
+	string		s;
+	float		f;
+	poly		p;
+	struct s	st = {0,0};
+
+	int		ihi{int};
+	int		ihs{string};
+	int		ihf{float};
+
+	string		shi{int};
+	string		shs{string};
+	string		shf{float};
+
+	float		fhi{int};
+	float		fhs{string};
+	float		fhf{float};
+
+	poly		phi{int};
+	poly		phs{string};
+	poly		phf{float};
+
+	ihi{1.1} = 0;	// These want an index of type int.
+	ihi{"s"} = 0;
+	ihi{st}  = 0;
+	ihi{a}   = 0;
+	ihi{shi} = 0;
+	shi{1.1} = "s";
+	shi{"s"} = "s";
+	shi{st}  = "s";
+	shi{a}   = "s";
+	shi{shi} = "s";
+	fhi{1.1} = 0.0;
+	fhi{"s"} = 0.0;
+	fhi{st}  = 0.0;
+	fhi{a}   = 0.0;
+	fhi{shi} = 0.0;
+	phi{1.1} = 0.0;
+	phi{"s"} = 0.0;
+	phi{st}  = 0.0;
+	phi{a}   = 0.0;
+	phi{shi} = 0.0;
+	i = ihi{1.1};
+	i = ihi{"s"};
+	i = ihi{st};
+	i = ihi{a};
+	i = ihi{shi};
+	s = shi{1.1};
+	s = shi{"s"};
+	s = shi{st};
+	s = shi{a};
+	s = shi{shi};
+	f = fhi{1.1};
+	f = fhi{"s"};
+	f = fhi{st};
+	f = fhi{a};
+	f = fhi{shi};
+	p = phi{1.1};
+	p = phi{"s"};
+	p = phi{st};
+	p = phi{a};
+	p = phi{shi};
+	ihs{1.1} = 0;	// These want an index of type string.
+	ihs{0}   = 0;
+	ihs{st}  = 0;
+	ihs{a}   = 0;
+	ihs{shi} = 0;
+	shs{1.1} = "s";
+	shs{0}   = "s";
+	shs{st}  = "s";
+	shs{a}   = "s";
+	shs{shi} = "s";
+	fhs{1.1} = 0.0;
+	fhs{0}   = 0.0;
+	fhs{st}  = 0.0;
+	fhs{a}   = 0.0;
+	fhs{shi} = 0.0;
+	phs{1.1} = 0.0;
+	phs{0}   = 0.0;
+	phs{st}  = 0.0;
+	phs{a}   = 0.0;
+	phs{shi} = 0.0;
+	i = ihs{1.1};
+	i = ihs{0};
+	i = ihs{st};
+	i = ihs{a};
+	i = ihs{shi};
+	s = shs{1.1};
+	s = shs{0};
+	s = shs{st};
+	s = shs{a};
+	s = shs{shi};
+	f = fhs{1.1};
+	f = fhs{0};
+	f = fhs{st};
+	f = fhs{a};
+	f = fhs{shi};
+	p = phs{1.1};
+	p = phs{0};
+	p = phs{st};
+	p = phs{a};
+	p = phs{shi};
+	ihf{"s"} = 0;	// These want an index of type float (but int is OK).
+	ihf{st}  = 0;
+	ihf{a}   = 0;
+	ihf{shi} = 0;
+	shf{"s"} = "s";
+	shf{st}  = "s";
+	shf{a}   = "s";
+	shf{shi} = "s";
+	fhf{"s"} = 0.0;
+	fhf{st}  = 0.0;
+	fhf{a}   = 0.0;
+	fhf{shi} = 0.0;
+	phf{"s"} = 0.0;
+	phf{st}  = 0.0;
+	phf{a}   = 0.0;
+	phf{shi} = 0.0;
+	i = ihf{"s"};
+	i = ihf{st};
+	i = ihf{a};
+	i = ihf{shi};
+	s = shf{"s"};
+	s = shf{st};
+	s = shf{a};
+	s = shf{shi};
+	f = fhf{"s"};
+	f = fhf{st};
+	f = fhf{a};
+	f = fhf{shi};
+	p = phf{"s"};
+	p = phf{st};
+	p = phf{a};
+	p = phf{shi};
+}
+#lang tcl
+typecheck_5_1
+} -returnCodes error -match regexp -result {.*30: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*31: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*32: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*33: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*34: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*35: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*36: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*37: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*38: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*39: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*40: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*41: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*42: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*43: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*44: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*45: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*46: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*47: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*48: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*49: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*50: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*51: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*52: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*53: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*54: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*55: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*56: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*57: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*58: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*59: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*60: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*61: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*62: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*63: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*64: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*65: L Error: type error, want L_TYPE_INT, got L_TYPE_FLOAT
+.*66: L Error: type error, want L_TYPE_INT, got L_TYPE_STRING
+.*67: L Error: type error, want L_TYPE_INT, got L_TYPE_STRUCT
+.*68: L Error: type error, want L_TYPE_INT, got L_TYPE_ARRAY
+.*69: L Error: type error, want L_TYPE_INT, got L_TYPE_HASH
+.*70: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*71: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*72: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*73: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*74: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*75: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*76: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*77: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*78: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*79: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*80: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*81: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*82: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*83: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*84: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*85: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*86: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*87: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*88: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*89: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*90: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*91: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*92: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*93: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*94: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*95: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*96: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*97: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*98: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*99: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*100: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*101: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*102: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*103: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*104: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*105: L Error: type error, want L_TYPE_STRING, got L_TYPE_FLOAT
+.*106: L Error: type error, want L_TYPE_STRING, got L_TYPE_INT
+.*107: L Error: type error, want L_TYPE_STRING, got L_TYPE_STRUCT
+.*108: L Error: type error, want L_TYPE_STRING, got L_TYPE_ARRAY
+.*109: L Error: type error, want L_TYPE_STRING, got L_TYPE_HASH
+.*110: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*111: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*112: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*113: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*114: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*115: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*116: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*117: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*118: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*119: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*120: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*121: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*122: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*123: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*124: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*125: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*126: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*127: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*128: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*129: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*130: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*131: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*132: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*133: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*134: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*135: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*136: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*137: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
+.*138: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRING
+.*139: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_STRUCT
+.*140: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_ARRAY
+.*141: L Error: type error, want L_TYPE_FLOAT, got L_TYPE_HASH
 }
 
 test backtrace-1.0 {backtracing in L} -setup {

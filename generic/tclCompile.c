@@ -411,7 +411,9 @@ InstructionDesc tclInstructionTable[] = {
         /* Write value contained at stackTop to the location pointed to right
 	 * below. The opnd indicates if this is a "post-incr" operation: if
 	 * !=0 return the old (instead of the new) value at the pointed
-	 * location*/  
+	 * location*/
+    {"l-defined",	 1,    0,         0,	{OPERAND_NONE}},
+	/* Test whether value at stackTop is the L undefined value. */
     {0}
 };
 

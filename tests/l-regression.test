@@ -162,20 +162,6 @@ cast_1_0
 } -output "asdf\n"
 
 
-test autoextend-1.0 {autoextending arrays of hashes don't work} -body {
-#lang L
-autoextend_1_0() {
-	hash h[];
-
-	h[0]{"asdf"} = "foo";
-	puts(h);
-}
-#lang tcl
-autoextend_1_0
-} -returnCodes {error} -match glob -result \
-	"*:4: L Error: Autoextending in multiple dimensions is not implemented yet\n"
-
-
 test typecheck-1.0 {typechecker segfaults on unop check that must be queued} -body {
 #lang L
 typecheck_1_0() {
@@ -198,12 +184,14 @@ test decl-1.0 {don't drop array dimensions from typedef when declaring multiple 
 typedef int atype[2];
 decl_1_0() {
 	atype foo[3], bar;
+	foo[2][1] = 0;
+	bar[1] = 0;
 	puts(foo);
 	puts(bar);
 }
 #lang tcl
 decl_1_0
-} -output "{0 0} {0 0} {0 0}\n0 0\n"
+} -output "{} {} {{} 0}\n{} 0\n"
 
 test if-1.0 {jump target is wrong when else block gets too big} -body {
 #lang L -nowarn
@@ -338,21 +326,7 @@ foo()
     printf("%s", xys);
 }
 foo();
-} -output "{1 0} {0 0}"
-
-test crash-1.1 {crashing in some interim versions} -body {
-#lang L
-struct xy { int x,y; };
-void
-foo()
-{
-    struct xy xys[];
-    xys[0].x = 1;
-    xys[1].y = 2;
-    printf("%s", xys);	
-}
-foo();
-} -returnCodes error -result {autoextending nested arrays not implemented yet}
+} -output "1"
 
 
 test pattern-1.2 {L widget pattern functions} -body {

@@ -7231,6 +7231,16 @@ TclExecuteByteCode(
 	NEXT_INST_F(2,0,0);
     }
 
+    case INST_L_DEFINED: {
+	Tcl_Obj *valuePtr = OBJ_AT_TOS;
+
+	TRACE_WITH_OBJ(("=> %d ", valuePtr->typePtr != &L_UndefType),
+		       valuePtr);
+
+	objResultPtr = constants[valuePtr->typePtr != &L_UndefType];
+	NEXT_INST_F(1, 1, 1);
+    }
+
     default:
 	Tcl_Panic("TclExecuteByteCode: unrecognized opCode %u", *pc);
     } /* end of switch on opCode */
