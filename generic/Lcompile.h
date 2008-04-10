@@ -214,7 +214,7 @@ void	L_start_lexer(void);
  * array auto-extend.  We create one object of this type and dup it
  * as the value of all undefined objects.
  */
-Tcl_ObjType L_UndefType;
+extern	Tcl_ObjType L_UndefType;
 
 MODULE_SCOPE Tcl_ObjType LdeepPtrType;
 MODULE_SCOPE Tcl_Obj ** L_DeepDiveIntoStruct(Tcl_Interp *interp,

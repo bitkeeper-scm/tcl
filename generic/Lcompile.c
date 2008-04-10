@@ -155,6 +155,7 @@ L_compile_frame *lframe = NULL;
 static	Tcl_HashTable *L_struct_types = NULL;
 static	L_function_decl *L_enclosing_func = NULL;
 Tcl_Obj *L_errors = NULL;
+Tcl_Obj	*stringBuf;
 int	L_line_number = 0;
 char	*L_source_file = "";
 void	*L_current_ast = NULL;

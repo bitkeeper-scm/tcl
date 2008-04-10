@@ -13,7 +13,7 @@ int	L_lex (void);
 extern int L_interactive;
 extern void *L_current_ast;
 
-Tcl_Obj *stringBuf;
+extern	Tcl_Obj *stringBuf;
 
 #define YYERROR_VERBOSE
 
