@@ -3,19 +3,19 @@ wordsplit(string str)
 {
 	string	chars[];
 	string	list[];
-	string	word;
+	string	c, word;
 	int	i;
 
 	word = "";
 	chars = split(str, "");
-	for (i = 0; defined(chars[i]); i++) {
-		if (string("is", "space", chars[i])) {
+	foreach (c in chars) {
+		if (string("is", "space", c)) {
 			if (String_length(word) > 0) {
 				push(&list, word);
 			}
 			word = "";
 		} else {
-			append(&word, chars[i]);
+			append(&word, c);
 		}
 	}
 	if (String_length(word) > 0) {
