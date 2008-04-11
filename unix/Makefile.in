@@ -1279,7 +1279,8 @@ Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
 Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS) $(L_HDRS)
-	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing Lgrammar.c
+	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing Lgrammar.c || \
+	$(CC) -c $(CC_SWITCHES) Lgrammar.c
 
 Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
