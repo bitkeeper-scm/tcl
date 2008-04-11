@@ -67,8 +67,10 @@ L_check_expr_kind(
 	L_expr	*expr)		/* The expression from which we derive
 				 * the actual type */
 {
+	L_type *type;
+
 	if (lframe->options & L_OPT_POLY) return;
-	L_type *type = mk_type(want, NULL, NULL, NULL, NULL, FALSE);
+	type = mk_type(want, NULL, NULL, NULL, NULL, FALSE);
 	L_check_expr_type(type, expr);
 }
 
@@ -143,8 +145,9 @@ L_check_arg_type(
 				 * Starts at 1.	 0 means no arguments. */
 	L_expr	*expr)		/* The argument itself. */
 {
-	if (lframe->options & L_OPT_POLY) return;
 	queued_check *new;
+
+	if (lframe->options & L_OPT_POLY) return;
 	new = (queued_check *)ckalloc(sizeof(queued_check));
 	memset(new, 0, sizeof(queued_check));
 	new->have = L_expr_type(expr);
@@ -430,10 +433,10 @@ L_expr_type(L_expr *expr)
 				}
 				break;
 			    case L_EXPR_STRUCT_INDEX: {
-				    L_trace("struct index");
 				    L_var_decl *member;
 				    int memberOffset;
 
+				    L_trace("struct index");
 				    member = L_get_struct_member(type,
 					index, &memberOffset);
 				    if (member) {

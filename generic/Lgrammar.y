@@ -442,9 +442,10 @@ parameter_decl:
 	| T_ELLIPSIS T_ID
 	{
 		L_expr *zero;
+		L_type *type;
 
 		MK_INT_NODE(zero, 0);
-		L_type *type = mk_type(L_TYPE_ARRAY, zero, NULL,
+		type = mk_type(L_TYPE_ARRAY, zero, NULL,
 		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE), NULL, FALSE);
 		$$ = mk_var_decl(type, $2, NULL, FALSE, FALSE, TRUE, NULL);
 	}
