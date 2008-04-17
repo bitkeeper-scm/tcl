@@ -765,6 +765,9 @@ test: binaries $(TCLTEST)
 	-load "set ::ddelib [file normalize ${DDE_DLL_FILE}]; \
 	set ::reglib [file normalize ${REG_DLL_FILE}]" | ./$(CAT32)
 
+l-test l-tests:
+	$(MAKE) test TESTFLAGS="-file l-*"
+
 # Useful target to launch a built tcltest with the proper path,...
 runtest: binaries $(TCLTEST)
 	@TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
