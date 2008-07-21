@@ -19,20 +19,27 @@ ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 
 /* String collection buffer */
 Tcl_Obj *str;
+int str_beg;
 
-#define STRBUF_START()	{	\
-    str = Tcl_NewObj();		\
-    Tcl_IncrRefCount(str);	\
-}				\
+#define STRBUF_START(beg)			\
+	do {					\
+		str = Tcl_NewObj();		\
+		Tcl_IncrRefCount(str);		\
+		str_beg = (beg);		\
+	} while (0)
+
 
 #define STRBUF_STRING()		Tcl_GetString(str)
 
 #define STRBUF_ADD(s, len)	Tcl_AppendToObj(str, s, len)
 
-#define STRBUF_STOP()  {	\
-    Tcl_DecrRefCount(str);	\
-    str = NULL;			\
-}				\
+#define STRBUF_STOP(e)				\
+	do {					\
+		Tcl_DecrRefCount(str);		\
+		str = NULL;			\
+		L_lloc.beg = str_beg;		\
+		L_lloc.end = (e);		\
+	} while (0)
 
 extern int L_line_number;
 extern char *L_source_file;
@@ -42,9 +49,18 @@ extern int L_prev_token_len;
 /* Omit needless routine to silence compiler warning. */
 #define YY_NO_TOP_STATE
 
-/* Keep track of the current offset in the input string: */
-#define YY_USER_ACTION	L_token_offset += L_prev_token_len; \
-			L_prev_token_len = yyleng;
+/*
+ * Keep track of the current offset in the input string.
+ * YY_USER_ACTION is run before each action.  Note that some actions
+ * further modify L_lloc.
+ */
+#define YY_USER_ACTION					\
+	do {						\
+		L_token_offset += L_prev_token_len;	\
+		L_prev_token_len = yyleng;		\
+		L_lloc.beg = L_token_offset;		\
+		L_lloc.end = L_token_offset + yyleng;	\
+	} while (0);
 
 /* The character that began the current regexp, so in m|foo| this is
  * '|'.
@@ -52,7 +68,6 @@ extern int L_prev_token_len;
  * XXX: since regexps are interpolated, they can nest, which
  * will fail unless they all use the same quote char. */
 char re_quote_char;
-
 
 /* In case of errors, the start condition stack will be left in an
    unknown state.  This function gives us a way to reset it. */
@@ -165,7 +180,9 @@ tally_newlines(
 	"<="		return T_LESSTHANEQ;
 	{ID}[ \t\n\r]*:	{
 				int i, j;
-				MK_STRING_NODE(L_lval, yytext);
+				tally_newlines(yytext, yyleng);
+				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
+					       L_lloc.end);
 				((L_expr *)L_lval)->u.string[0] = '-';
 				/* strip the whitespace */
 				for (i=0, j=1; i<yyleng-1; i++) {
@@ -183,7 +200,8 @@ tally_newlines(
 				return T_KEYWORD;
 			}
 	{ID}		{
-				MK_STRING_NODE(L_lval, yytext);
+				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
+					       L_lloc.end);
 
 				if (L_lookup_typedef(L_lval, FALSE)) {
 					return T_TYPE;
@@ -192,73 +210,89 @@ tally_newlines(
 				}
 			}
 	([A-Z]|::)([0-9a-zA-Z]|::)*_\*	{
-				MK_STRING_NODE(L_lval, yytext);
+				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
+					       L_lloc.end);
 				return T_PATTERN;
 			}
 	$[0-9]+		{
 				/* Regular expression submatches */
-				MK_STRING_NODE(L_lval, yytext);
+				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
+					       L_lloc.end);
 				return T_ID;
 			}
 	[0-9]+		{
 				// XXX - we don't handle constants > 32 bits
-				MK_INT_NODE(L_lval, atoi(yytext));
+				MK_INT_NODE(L_lval, atoi(yytext), L_lloc.beg,
+					    L_lloc.end);
 				return T_INT_LITERAL;
 			}
 	0o[0-7]+	{
-				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 8));
+				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 8),
+					    L_lloc.beg, L_lloc.end);
 				return T_INT_LITERAL;
 			}
 	0x[0-9a-fA-F]+	{
 				// XXX - we don't handle constants > 32 bits
-				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 16));
+				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 16),
+					    L_lloc.beg, L_lloc.end);
 				return T_INT_LITERAL;
 			}
 	[0-9]*\.[0-9]+	{
-				MK_FLOAT_NODE(L_lval, atof(yytext));
+				MK_FLOAT_NODE(L_lval, atof(yytext),
+					      L_lloc.beg, L_lloc.end);
 				return T_FLOAT_LITERAL;
 			}
 	"//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
 	[ \t\n\r]+	tally_newlines(yytext, yyleng);
-	\"		yy_push_state(str_double); STRBUF_START();
-	\'		yy_push_state(str_single); STRBUF_START();
+	\"		yy_push_state(str_double); STRBUF_START(L_token_offset);
+	\'		yy_push_state(str_single); STRBUF_START(L_token_offset);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
+		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
-		STRBUF_START();
+		STRBUF_START(L_lloc.end - 2);  // next token starts at the "m"
 		re_quote_char = *(yytext + yyleng - 1);
+		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
 		return T_EQTWID;
 	}
 	/* if / is used to delimit the regexp, the m can be omitted */
 	"=~"[ \t\r\n]*"/"	{
+		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
-		STRBUF_START();
+		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
 		re_quote_char = '/';
+		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
 		return T_EQTWID;
 	}
 	/* a substitution pattern */
 	"=~"[ \t\r\n]*"s".	{
+		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
 		yy_push_state(glob_re);
-		STRBUF_START();
+		STRBUF_START(L_lloc.end - 2);  // next token starts at the "s"
 		re_quote_char = *(yytext + yyleng - 1);
+		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
 		return T_EQTWID;
 	}
 	/* A regexp used as first arg in an argument list. */
 	"("[ \t\r\n]*"/"	{
+		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
-		STRBUF_START();
+		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
 		re_quote_char = '/';
+		L_lloc.end = L_lloc.beg + 1;    // this token spans the "("
 		return T_LPAREN;
 	}
 	/* A regexp used as non-first arg in an argument list. */
 	","[ \t\r\n]*"/"	{
+		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
-		STRBUF_START();
+		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
 		re_quote_char = '/';
+		L_lloc.end = L_lloc.beg + 1;    // this token spans the ","
 		return T_COMMA;
 	}
 }
@@ -269,7 +303,7 @@ tally_newlines(
 
 <interpol>{
 	"}"		{
-				STRBUF_START();
+				STRBUF_START(L_lloc.end);
 				yy_pop_state();
 				return T_RIGHT_INTERPOL;
 			}
@@ -285,15 +319,17 @@ tally_newlines(
 	[^\\\"$]+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
 	"${"		{
 				yy_push_state(interpol);
-				MK_STRING_NODE(L_lval, STRBUF_STRING());
-				STRBUF_STOP();
+				MK_STRING_NODE(L_lval, STRBUF_STRING(),
+					       str_beg, L_lloc.end);
+				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
 	\"[ \t\r\n]*\"	tally_newlines(yytext, yyleng);
 	\"		{
 				yy_pop_state();
-				MK_STRING_NODE(L_lval, STRBUF_STRING());
-				STRBUF_STOP();
+				MK_STRING_NODE(L_lval, STRBUF_STRING(),
+					       str_beg, L_lloc.end);
+				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
 			}
 }
@@ -305,8 +341,9 @@ tally_newlines(
 	[^\\\']+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
 	\'		{
 				yy_pop_state();
-				MK_STRING_NODE(L_lval, STRBUF_STRING());
-				STRBUF_STOP();
+				MK_STRING_NODE(L_lval, STRBUF_STRING(),
+					       str_beg, L_lloc.end);
+				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
 			}
 }
@@ -321,21 +358,23 @@ tally_newlines(
 	\\"$"		STRBUF_ADD("$", 1);
 	"${"		{
 				yy_push_state(interpol);
-				MK_STRING_NODE(L_lval, STRBUF_STRING());
-				STRBUF_STOP();
+				MK_STRING_NODE(L_lval, STRBUF_STRING(),
+					       str_beg, L_lloc.beg);
+				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
 	.		{
 				if (*(yytext) == re_quote_char) {
-					MK_STRING_NODE(L_lval, STRBUF_STRING());
-					STRBUF_STOP();
+					MK_STRING_NODE(L_lval, STRBUF_STRING(),
+						       str_beg, L_lloc.end);
+					STRBUF_STOP(L_lloc.end);
 					if (YYSTATE == subst_re) {
 						yy_pop_state();
 						return T_SUBST;
 					} else {
 						yy_pop_state();
 						if (YYSTATE == subst_re) {
-							STRBUF_START();
+							STRBUF_START(L_lloc.end);
 						}
 						return T_RE;
 					}
@@ -348,12 +387,25 @@ tally_newlines(
 }
 <re_modifier>{
 	[ig]+		{
-				MK_STRING_NODE(L_lval, yytext);
+				MK_STRING_NODE(L_lval, yytext, L_lloc.beg, L_lloc.end);
 				yy_pop_state();
 				return T_RE_MODIFIER;
 			}
 	.		{
 				unput(yytext[0]);
+				/*
+				 * This is ugly, but since we just
+				 * unput a character, we have to undo
+				 * the effects of the YY_USER_ACTION
+				 * rule to keep the source-file
+				 * offsets correct.  We rely on the
+				 * fact that the previous token must
+				 * have been a single character,
+				 * matched by the "." rule in
+				 * <glob_re,subst_re> above.
+				 */
+				--L_token_offset;
+				--L_lloc.end;  // now, L_lloc.beg == L_lloc.end
 				yy_pop_state();
 				L_lval = NULL;
 				return T_RE_MODIFIER;

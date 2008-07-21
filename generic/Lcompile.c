@@ -144,7 +144,6 @@ typedef struct Dict {
 /* Grab the offset of the next instruction to be issued.  Stolen from
    tclCompCmds.c. */
 #define CurrentOffset(envPtr)	((envPtr)->codeNext - (envPtr)->codeStart)
-#define SourceOffset(node)	((Ast *)node)->offset
 
 #define looks_like_pattern_func(name, len, p) \
     (((len = strlen(name)) > 0) &&					\
@@ -246,8 +245,8 @@ private void L_compile_struct_decl(L_type *decl);
 private void L_compile_global_decls(L_var_decl *decl);
 private void L_compile_stmts(L_stmt *stmt);
 private void L_compile_var_decls(L_var_decl *var);
-private void L_compile_expr(L_expr *expr);
-private int L_compile_exprs(L_expr *expr);
+private void L_compile_expr(L_expr *expr, int discard);
+private int L_compile_exprs(L_expr *expr, int discard);
 private void L_compile_if_unless(L_if_unless *cond);
 private void L_compile_loop(L_loop *loop);
 private void L_compile_foreach_loop(L_foreach_loop *loop);
@@ -734,6 +733,7 @@ L_compile_var_decls(L_var_decl *var)
 	} else {
 		/* if the variable isn't extern, then we must create
 		   it, so we emit code to initialize it */
+		int	startOffset = CurrentOffset(lframe->envPtr);
 		if (lframe->toplevel_p) {
 			symbol = L_get_local_symbol(var->name, FALSE);
 			unless (symbol) {
@@ -755,6 +755,8 @@ L_compile_var_decls(L_var_decl *var)
 		}
 		L_STORE_SCALAR(symbol->localIndex);
 		L_POP();
+		track_lineInfo(startOffset, var->node.beg,
+			       var->node.end - var->node.beg);
 	}
 	L_compile_var_decls(var->next);
 }
@@ -789,7 +791,7 @@ compile_initializer(
 					    "Keys are not allowed "
 					    "in array initializers.");
 				}
-				L_compile_exprs(i->value);
+				L_compile_exprs(i->value, FALSE);
 			}
 			if ((type->kind == L_TYPE_ARRAY) &&
 			    (type->array_dim->u.integer > count)) {
@@ -816,7 +818,7 @@ compile_initializer(
 			}
 			L_INVOKE(count+1);
 		} else {
-			L_compile_exprs(init->value);
+			L_compile_exprs(init->value, FALSE);
 		}
 		break;
 	    case L_TYPE_HASH:
@@ -831,18 +833,18 @@ compile_initializer(
 					    "Keys are required "
 					    "for hash initializers.");
 				} else {
-					L_compile_exprs(i->key);
+					L_compile_exprs(i->key, FALSE);
 				}
-				L_compile_exprs(i->next_dim->value);
+				L_compile_exprs(i->next_dim->value, FALSE);
 			}
 			L_INVOKE((count * 2) + 1);
 		} else {
-			L_compile_exprs(init->value);
+			L_compile_exprs(init->value, FALSE);
 		}
 		break;
 	    default:
 		/* atomic type */
-		L_compile_exprs(init->value);
+		L_compile_exprs(init->value, FALSE);
 	}
 }
 
@@ -913,6 +915,8 @@ global_symbol_p(L_symbol *symbol)
 private void
 L_compile_stmts(L_stmt *stmt)
 {
+	int	startOffset = CurrentOffset(lframe->envPtr);
+
 	unless (stmt) return;
 	switch (stmt->kind) {
 	    case L_STMT_BLOCK:
@@ -921,12 +925,7 @@ L_compile_stmts(L_stmt *stmt)
 		L_frame_pop();
 		break;
 	    case L_STMT_EXPR:
-		L_compile_exprs(stmt->u.expr);
-		/*
-		 * Expressions leave a value on the evaluation stack,
-		 * but statements don't. So pop the value.
-		 */
-		L_POP();
+		L_compile_exprs(stmt->u.expr, TRUE);
 		break;
 	    case L_STMT_COND:
 		L_compile_if_unless(stmt->u.cond);
@@ -957,7 +956,7 @@ L_compile_stmts(L_stmt *stmt)
 		if (stmt->u.expr) {
 			L_trace("    with return value");
 			/* compile the return value */
-			L_compile_exprs(stmt->u.expr);
+			L_compile_exprs(stmt->u.expr, FALSE);
 		} else {
 			L_trace("    without return value");
 			/* Leave a NULL (an Tcl_Obj with the string
@@ -982,6 +981,16 @@ L_compile_stmts(L_stmt *stmt)
 		break;
 	    default:
 		L_bomb("Malformed AST in L_compile_stmts");
+	}
+	switch (stmt->kind) {
+		case L_STMT_BLOCK:
+		case L_STMT_COND:
+		case L_STMT_EXPR:
+			break;
+		default:
+			track_lineInfo(startOffset, stmt->node.beg,
+				       stmt->node.end - stmt->node.beg);
+			break;
 	}
 	L_compile_stmts(stmt->next);
 }
@@ -1077,7 +1086,7 @@ param_passed_by_name_p(L_var_decl *p)
 }
 
 private void
-L_compile_expr(L_expr *expr)
+L_compile_expr(L_expr *expr, int discard)
 {
 	int	len, param_count, startOffset;
 	char	*p, *name;
@@ -1093,7 +1102,7 @@ L_compile_expr(L_expr *expr)
 		L_trace("compiling a call to %s", name);
 		/* Check for a built-in function. */
 		if (!strcmp(name, "split")) {
-			int n = L_compile_exprs(expr->b);
+			int n = L_compile_exprs(expr->b, FALSE);
 			if ((n < 1) || (n > 3)) {
 				L_errorf(expr, "incorrect # args for split");
 			}
@@ -1107,12 +1116,14 @@ L_compile_expr(L_expr *expr)
 		    && !(hPtr = Tcl_FindHashEntry(L_func_table(), name))) {
 			L_expr	*newArg;
 
-			MK_STRING_NODE(newArg, p+1);
+			MK_STRING_NODE(newArg, p+1,
+				       expr->a->node.beg + (p+1-name),
+				       expr->a->node.end);
 			if ((type = L_expr_type(expr->b))
 			    && (type->kind == L_TYPE_WIDGET)) {
 				newArg->next = expr->b->next;
 				expr->b->next = NULL;
-				L_compile_exprs(expr->b);
+				L_compile_exprs(expr->b, FALSE);
 			} else {
 				*p = '\0';
 				Tcl_UtfToLower(name);
@@ -1130,31 +1141,17 @@ L_compile_expr(L_expr *expr)
 		unless (symbol) {
 			L_check_arg_count(expr->a->u.string, param_count, expr);
 		}
-		L_trace("tracking lineinfo for call to %s", expr->a->u.string);
-		/* Since the function call node is created after all
-		 * of its child nodes have been created, its offset is
-		 * at the end of the complete expression. Hence
-		 * subtracting the offset of the first child gives you
-		 * the length of the whole expression. */
-		track_lineInfo(startOffset, ((Ast *)expr->a)->offset,
-		    (((Ast *)expr)->offset - ((Ast *)expr->a)->offset)+1);
 		break;
 	    case L_EXPR_PRE:
 	    case L_EXPR_POST:
 		L_compile_incdec(expr);
-		track_lineInfo(startOffset, ((Ast *)expr->a)->offset,
-		    (((Ast *)expr)->offset - ((Ast *)expr->a)->offset));
 		break;
 	    case L_EXPR_UNARY:
 		L_compile_unop(expr);
-		track_lineInfo(startOffset, ((Ast *)expr->a)->offset,
-		    (((Ast *)expr)->offset - ((Ast *)expr->a)->offset));
 		break;
 	    case L_EXPR_BINARY:
 		L_trace("Binary expression");
 		L_compile_binop(expr);
-		track_lineInfo(startOffset, ((Ast *)expr->a)->offset,
-		    (((Ast *)expr)->offset - ((Ast *)expr->a)->offset));
 		break;
 	    case L_EXPR_INTEGER:
 	    case L_EXPR_STRING:
@@ -1163,12 +1160,10 @@ L_compile_expr(L_expr *expr)
 		break;
 	    case L_EXPR_REGEXP:
 		/* for a regexp, just handle the match part */
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		break;
 	    case L_EXPR_INTERPOLATED_STRING:
 		L_compile_interpolated_string(expr);
-		track_lineInfo(startOffset, ((Ast *)expr->a)->offset,
-		    (((Ast *)expr)->offset - ((Ast *)expr->a)->offset));
 		break;
 	    case L_EXPR_VAR:
 		L_push_var(expr);
@@ -1176,16 +1171,34 @@ L_compile_expr(L_expr *expr)
 	    default:
 		L_bomb("Unknown expression type %d", expr->kind);
 	}
+
+	/* Throw away the value if requested by the caller. This is
+	 * done for expressions that are statements, and in some other
+	 * cases. */
+	if (discard) L_POP();
+
+	switch (expr->kind) {
+	    case L_EXPR_INTEGER:
+	    case L_EXPR_STRING:
+	    case L_EXPR_FLOTE:
+	    case L_EXPR_VAR:
+	    case L_EXPR_REGEXP:
+		break;
+	    default:
+		track_lineInfo(startOffset, expr->node.beg,
+			       expr->node.end - expr->node.beg);
+		break;
+	}
 }
 
 
 private int
-L_compile_exprs(L_expr *expr)
+L_compile_exprs(L_expr *expr, int discard)
 {
 	int	num_exprs;
 
 	for (num_exprs = 0; expr; expr = expr->next, ++num_exprs) {
-		L_compile_expr(expr);
+		L_compile_expr(expr, discard);
 	}
 	return (num_exprs);
 }
@@ -1223,7 +1236,7 @@ push_parameters(
 			/* compile just one parameter for its value */
 			L_expr *next = p->next;
 			p->next = NULL;
-			L_compile_exprs(p);
+			L_compile_exprs(p, FALSE);
 			p->next = next;
 		}
 		/* if we see a parameter that looks like -foovariable,
@@ -1330,7 +1343,7 @@ L_compile_unop(L_expr *expr)
 		} else {
 			/* we don't do anything special if it's not a
 			   plain jane variable */
-			L_compile_exprs(expr->a);
+			L_compile_exprs(expr->a, FALSE);
 		}
 		break;
 	    case T_STRING_CAST:
@@ -1338,41 +1351,41 @@ L_compile_unop(L_expr *expr)
 		/* no conversion -- it's all a string. However, we
 		   might have to do something here to make the future
 		   type checker happy. */
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		break;
 	    case T_INT_CAST:
 		L_PUSH_STR("::tcl::mathfunc::int");
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		L_INVOKE(2);
 		break;
 	    case T_FLOAT_CAST:
 		L_PUSH_STR("::tcl::mathfunc::double");
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		L_INVOKE(2);
 		break;
 	    case T_HASH_CAST:
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		break;
 	    case T_BANG:
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		TclEmitOpcode(INST_LNOT, lframe->envPtr);
 		break;
 	    case T_BITNOT:
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		TclEmitOpcode(INST_BITNOT, lframe->envPtr);
 		break;
 	    case T_PLUS:
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		TclEmitOpcode(INST_UPLUS, lframe->envPtr);
 		break;
 	    case T_MINUS:
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		TclEmitOpcode(INST_UMINUS, lframe->envPtr);
 		break;
 	    case T_BITAND:
 		/* &, address-of operator */
 		L_get_local_symbol(expr->a->a, TRUE);
-		L_compile_exprs(expr->a->a);
+		L_compile_exprs(expr->a->a, FALSE);
 		break;
 	    case T_DEFINED:
 		L_compile_defined(expr->a);
@@ -1429,14 +1442,14 @@ L_compile_binop(L_expr *expr)
 	    case T_LE:
 		L_check_expr_kind(L_TYPE_STRING, expr->a);
 		L_check_expr_kind(L_TYPE_STRING, expr->b);
-		L_compile_exprs(expr->a);
-		L_compile_exprs(expr->b);
+		L_compile_exprs(expr->a, FALSE);
+		L_compile_exprs(expr->b, FALSE);
 		TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
 		break;
 	    case T_EQUALEQUAL:
 	    case T_NOTEQUAL:
-		L_compile_exprs(expr->a);
-		L_compile_exprs(expr->b);
+		L_compile_exprs(expr->a, FALSE);
+		L_compile_exprs(expr->b, FALSE);
 		TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
 		break;
 	    case T_GREATER:
@@ -1455,8 +1468,8 @@ L_compile_binop(L_expr *expr)
 	    case T_RSHIFT:
 		L_check_expr_kind(L_TYPE_NUMBER, expr->a);
 		L_check_expr_kind(L_TYPE_NUMBER, expr->b);
-		L_compile_exprs(expr->a);
-		L_compile_exprs(expr->b);
+		L_compile_exprs(expr->a, FALSE);
+		L_compile_exprs(expr->b, FALSE);
 		TclEmitOpcode(instruction_for_l_op(expr->op), lframe->envPtr);
 		break;
 	    default:
@@ -1471,18 +1484,18 @@ L_compile_interpolated_string(L_expr *expr)
 
 	if ((expr->a->kind != L_EXPR_STRING)
 	    || (expr->a->u.string[0] != '\0')) {
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		count++;
 	}
 	if ((expr->b->kind != L_EXPR_STRING)
 	    || (expr->b->u.string[0] != '\0')) {
-		L_compile_exprs(expr->b);
+		L_compile_exprs(expr->b, FALSE);
 		count++;
 	}
 	if (expr->c) {
 		if ((expr->c->kind != L_EXPR_STRING)
 		    || (expr->c->u.string[0] != '\0')) {
-			L_compile_exprs(expr->c);
+			L_compile_exprs(expr->c, FALSE);
 			count++;
 		}
 	} else {
@@ -1556,14 +1569,14 @@ L_compile_twiddle(L_expr *expr)
 		L_symbol *s;
 
 		snprintf(buf, 128, "$%d", i);
-		MK_STRING_NODE(name, buf);
+		MK_STRING_NODE(name, buf, 0, 0);
 		unless (L_get_symbol(name, FALSE)) {
 			int localIndex =
 			    TclFindCompiledLocal(name->u.string,
 				strlen(name->u.string), 1,
 				lframe->envPtr->procPtr);
 			s = L_make_symbol(name, mk_type(L_TYPE_STRING, NULL,
-			    NULL, NULL, NULL, FALSE), localIndex);
+			    NULL, NULL, NULL, FALSE, 0, 0), localIndex);
 			s->used_p = TRUE;     /* suppress unused var warning */
 		}
 	}
@@ -1598,9 +1611,9 @@ L_compile_twiddle(L_expr *expr)
 				Tcl_DStringFree(&ds);
 			}
 		}
-		unless (simple) L_compile_exprs(regexp->a);
+		unless (simple) L_compile_exprs(regexp->a, FALSE);
 		/* the target string */
-		L_compile_exprs(expr->a);
+		L_compile_exprs(expr->a, FALSE);
 		if (simple) {
 			if (exact && !nocase) {
 				TclEmitOpcode(INST_STR_EQ, lframe->envPtr);
@@ -1620,9 +1633,9 @@ L_compile_twiddle(L_expr *expr)
 	modCount = push_regexp_modifiers(regexp);
 	L_PUSH_STR("--");
 	/* the regexp */
-	L_compile_exprs(regexp);
+	L_compile_exprs(regexp, FALSE);
 	/* the target string */
-	L_compile_exprs(expr->a);
+	L_compile_exprs(expr->a, FALSE);
 	/* match/submatch vars. NB: this loop always goes around at
 	   least once. */
 	for (i = 0; i <= submatchCount; i++) {
@@ -1648,7 +1661,7 @@ L_compile_short_circuit_op(L_expr *expr)
 	int	jumpOffset;
 	unsigned char op;
 
-	L_compile_exprs(expr->a);
+	L_compile_exprs(expr->a, FALSE);
 	/* In case the operator short-circuits, we need one value on
 	   the evaluation stack for the jump and one for the value of
 	   the expression. */
@@ -1660,7 +1673,7 @@ L_compile_short_circuit_op(L_expr *expr)
 	   value of the second expression on the stack, so remove the
 	   value that we DUPed above. */
 	L_POP();
-	L_compile_exprs(expr->b);
+	L_compile_exprs(expr->b, FALSE);
 	TclUpdateInstInt4AtPc(op, CurrentOffset(lframe->envPtr) - jumpOffset,
 	    lframe->envPtr->codeStart + jumpOffset);
 }
@@ -1677,7 +1690,7 @@ L_compile_if_unless(L_if_unless *cond)
 	if (L_expr_is_void(cond->condition)) {
 		L_errorf(cond->condition, "Void not a legal predicate");
 	}
-	L_compile_exprs(cond->condition);
+	L_compile_exprs(cond->condition, FALSE);
 	unless (EXPR_IS_VALID_BOOLEAN(cond->condition)) {
 		L_PUSH_STR("0");
 		TclEmitOpcode(INST_NEQ, lframe->envPtr);
@@ -1732,8 +1745,7 @@ L_compile_loop(L_loop *loop)
 
 	startOffset = CurrentOffset(lframe->envPtr);
 	if ((loop->kind == L_LOOP_FOR) && loop->pre) {
-		L_compile_exprs(loop->pre);
-		L_POP();
+		L_compile_exprs(loop->pre, TRUE);
 	}
 	/* XXX: need optimization for null conditions and infinite
 	 * loops See TclCompileWhileComd() for the stuff Tcl does.
@@ -1750,8 +1762,7 @@ L_compile_loop(L_loop *loop)
 	fixup_jumps(lframe->envPtr, continue_jumps,
 	    CurrentOffset(lframe->envPtr));
 	if ((loop->kind == L_LOOP_FOR) && loop->post) {
-		L_compile_exprs(loop->post);
-		L_POP();
+		L_compile_exprs(loop->post, TRUE);
 	}
 	TclUpdateInstInt4AtPc(INST_JUMP4,
 	    CurrentOffset(lframe->envPtr) - jumpToCond,
@@ -1759,7 +1770,7 @@ L_compile_loop(L_loop *loop)
 	if (L_expr_is_void(loop->condition)) {
 		L_errorf(loop->condition, "Void not a legal predicate");
 	}
-	L_compile_exprs(loop->condition);
+	L_compile_exprs(loop->condition, FALSE);
 	unless (EXPR_IS_VALID_BOOLEAN(loop->condition)) {
 		L_PUSH_STR("0");
 		TclEmitOpcode(INST_NEQ, lframe->envPtr);
@@ -1771,10 +1782,6 @@ L_compile_loop(L_loop *loop)
 		TclEmitInstInt1(INST_JUMP_TRUE1, -jumpDist, lframe->envPtr);
 	}
 	fixup_jumps(lframe->envPtr, break_jumps, CurrentOffset(lframe->envPtr));
-	track_lineInfo(startOffset,
-	    (loop->pre ? SourceOffset(loop->pre)
-		       : SourceOffset(loop->condition)) - 8,
-	    SourceOffset(loop));
 }
 
 /* Fix the jump target for a list of INST_JUMP4 jumps and free the
@@ -1881,7 +1888,7 @@ L_compile_foreach_loop_array(L_foreach_loop *loop)
 
 	/* Evaluate the values to iterate through, and assign to the
 	   value temp. */
-	L_compile_exprs(loop->expr);
+	L_compile_exprs(loop->expr, FALSE);
 	L_STORE_SCALAR(val_idx);
 	L_POP();
 
@@ -1946,7 +1953,7 @@ L_compile_foreach_loop_hash(L_foreach_loop *loop)
 		L_errorf(loop,
 		    "multiple variables illegal in foreach over hash");
 	}
-	L_compile_exprs(loop->expr);
+	L_compile_exprs(loop->expr, FALSE);
 	/* A temporary variable to hold the iterator state.*/
 	iteratorIndex =
 	    TclFindCompiledLocal(NULL, 0, 1, lframe->envPtr->procPtr);
@@ -2006,7 +2013,7 @@ L_compile_push(L_expr *expr)
 
 	L_PUSH_STR(expr->a->u.string);
 
-	L_compile_exprs(expr->b);
+	L_compile_exprs(expr->b, FALSE);
 
 	if (symbol->localIndex < 0) {
 		TclEmitOpcode(INST_LAPPEND_STK, lframe->envPtr);
@@ -2128,7 +2135,7 @@ import_global_symbol(L_symbol *var)
 	   symbol table */
 	localIndex = TclFindCompiledLocal(var->name, strlen(var->name),
 	    1, lframe->envPtr->procPtr);
-	MK_STRING_NODE(name, var->name);
+	MK_STRING_NODE(name, var->name, var->node->beg, var->node->end);
 	local = L_make_symbol(name, var->type, localIndex);
 	local->used_p = TRUE;
 	/* XXX: This might be bogus.  We attempt to detect whether L
@@ -2169,7 +2176,7 @@ L_return(int value_on_stack_p)
 private void
 L_compile_defined(L_expr *expr)
 {
-	L_compile_exprs(expr);
+	L_compile_exprs(expr, FALSE);
 	TclEmitOpcode(INST_L_DEFINED, lframe->envPtr);
 }
 
@@ -2189,11 +2196,11 @@ L_compile_assignment(L_expr *expr)
 	if (lval->indices) {
 		L_write_index(var, lval->indices, expr, rval, FALSE);
 	} else if (expr->op == T_EQTWID) {
-		L_compile_exprs(rval);
+		L_compile_exprs(rval, FALSE);
 		regsub_for_assignment(var->name, var->localIndex, rval);
 	} else {
 		if (expr->op != T_EQUALS) L_LOAD_SCALAR(var->localIndex);
-		L_compile_exprs(rval);
+		L_compile_exprs(rval, FALSE);
 		if (expr->op != T_EQUALS) {
 			TclEmitOpcode(instruction_for_l_op(expr->op),
 			    lframe->envPtr);
@@ -2217,7 +2224,7 @@ L_write_index(
 	/* XXX to do: special case for single dimensions */
 
 	/* push the RHS first */
-	L_compile_exprs(rval);
+	L_compile_exprs(rval, FALSE);
 	/* <rval> */
 
 	flags = L_push_set_of_indices(expr->a, var->type, &depth, &counts);
@@ -2332,7 +2339,7 @@ regsub_for_assignment(
 	TclEmitInstInt1(INST_ROT, 3+modCount, lframe->envPtr);
 
 	/* the substitution */
-	L_compile_exprs(regexp->b);
+	L_compile_exprs(regexp->b, FALSE);
 
 	/* the target string: push *after* everything else has been
 	 * compiled to insure that possible substitutions occur before
@@ -2477,17 +2484,17 @@ L_compile_index(
 			    "Index into something that's not an array");
 		}
 		L_check_expr_kind(L_TYPE_INT, index->a);
-		L_compile_exprs(index->a);
+		L_compile_exprs(index->a, FALSE);
 		t = t->next_dim ? t->next_dim :
-		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 		break;
 	    case L_EXPR_HASH_INDEX: {
 		L_type *elt_type = (L_type *)t->array_dim;
 		L_trace("Spitting out a hash index\n");
 		L_check_expr_type(elt_type, index->a);
-		L_compile_exprs(index->a);
+		L_compile_exprs(index->a, FALSE);
 		t = t->next_dim ? t->next_dim :
-		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+		    mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 		break;
 	    }
 	    default:
@@ -2533,7 +2540,7 @@ L_compile_incdec(L_expr *expr)
 
 	unless (var = L_get_local_symbol(lval->a, TRUE)) return;
 	if (lval->indices) {
-		MK_INT_NODE(rval, 1);
+		MK_INT_NODE(rval, 1, 0, 0);
 		L_write_index(var, lval->indices, expr, rval,
 		    (expr->kind == L_EXPR_POST));
 	} else {
@@ -2688,7 +2695,7 @@ reference_mangle(char *name)
 	char	*mangled_name = ckalloc(strlen(name) + 2);
 
 	sprintf(mangled_name, "&%s", name);
-	MK_STRING_NODE(node, mangled_name);
+	MK_STRING_NODE(node, mangled_name, 0, 0);
 	ckfree(mangled_name);
 	return (node);
 }
@@ -2718,7 +2725,7 @@ gensym(char *name)
 	sprintf(gensym, "%d%s", gensym_counter++, name);
 	/* exploit the property of AST nodes that they'll free the string after
 	   compilation has finished. */
-	MK_STRING_NODE(node, gensym);
+	MK_STRING_NODE(node, gensym, 0, 0);
 	ckfree(gensym);
 	return (node->u.string);
 }
@@ -2985,7 +2992,7 @@ LDumpAstNodes(Ast *node, void *data, int order)
 		}
 	}
 	if (order & L_WALK_POST) {
-		fprintf(stderr, ")");
+		fprintf(stderr, ")\n");
 	}
 	return (L_WALK_CONTINUE);
 }
@@ -3108,8 +3115,8 @@ L_lookup_pattern_func(
 		hPtr = Tcl_FindHashEntry(L_func_table(), buf);
 		*p = '_';
 		if (hPtr) {
-			MK_STRING_NODE(*newName, buf);
-			MK_STRING_NODE(*firstArg, p+1);
+			MK_STRING_NODE(*newName, buf, 0, 0);
+			MK_STRING_NODE(*firstArg, p+1, 0, 0);
 			L_trace("Pattern function for %s found!", name);
 			return (TRUE);
 		}
@@ -3174,11 +3181,7 @@ track_lineInfo(
 
 	cmdLocPtr = &(envPtr->cmdMapPtr[cmdIndex]);
 	cmdLocPtr->codeOffset = codeOffset;
-	/* XXX there seems to be an off-by-one someplace in Tcl, to
-	 * whit: fprintf(stderr, "KKK: %.*s\n", len,
-	 * lframe->envPtr->source + srcOffset);
-	 */
-	cmdLocPtr->srcOffset = srcOffset -1;
+	cmdLocPtr->srcOffset = srcOffset;
 	cmdLocPtr->numSrcBytes = len;
 	cmdLocPtr->numCodeBytes = CurrentOffset(envPtr) - codeOffset;
 

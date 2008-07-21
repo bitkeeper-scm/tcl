@@ -107,25 +107,33 @@ void	L_start_lexer(void);
 #define YYSTYPE void *
 
 /* AST convenience macros */
-#define MK_STRING_NODE(var,str) do {\
-    var = mk_expr(L_EXPR_STRING, -1, NULL, NULL, NULL, NULL, NULL);\
-    ((L_expr *)var)->u.string = ckalloc(strlen(str) + 1);\
-    strcpy(((L_expr *)var)->u.string, str);\
-} while(0);
+#define MK_STRING_NODE(var,str,beg,end)						\
+	do {									\
+		var = mk_expr(L_EXPR_STRING, -1, NULL, NULL, NULL, NULL,	\
+			      NULL, beg, end);					\
+		((L_expr *)var)->u.string = ckalloc(strlen(str) + 1);		\
+		strcpy(((L_expr *)var)->u.string, str);				\
+	} while(0);
 
-#define MK_INT_NODE(var,int) do {\
-    var = mk_expr(L_EXPR_INTEGER, -1, NULL,NULL, NULL, NULL, NULL);\
-    ((L_expr *)var)->u.integer = int;\
-} while(0);
+#define MK_INT_NODE(var,int,beg,end)						\
+	do {									\
+		var = mk_expr(L_EXPR_INTEGER, -1, NULL,NULL, NULL, NULL,	\
+			      NULL, beg, end);					\
+		((L_expr *)var)->u.integer = int;				\
+	} while(0);
 
-#define MK_FLOAT_NODE(var,float) do {\
-    var = mk_expr(L_EXPR_FLOTE, -1, NULL, NULL, NULL, NULL, NULL);\
-    ((L_expr *)var)->u.flote = float;\
-} while(0);
+#define MK_FLOAT_NODE(var,float,beg,end)				\
+	do {								\
+		var = mk_expr(L_EXPR_FLOTE, -1, NULL, NULL, NULL, NULL,	\
+			      NULL, beg, end);				\
+		((L_expr *)var)->u.flote = float;			\
+	} while(0);
 
-#define MK_BINOP_NODE(var,op,e1,e2) do {\
-    var = mk_expr(L_EXPR_BINARY, op, e1, e2, NULL, NULL, NULL);\
-} while(0);
+#define MK_BINOP_NODE(var,op,e1,e2,beg,end)				\
+	do {								\
+		var = mk_expr(L_EXPR_BINARY, op, e1, e2, NULL, NULL,	\
+			      NULL, beg, end);				\
+	} while(0);
 
 #define L_NODE_TYPE(node) ((Ast*)node)->node_type
 
@@ -196,7 +204,7 @@ void	L_start_lexer(void);
     }\
 }
 
-#define L_POP()	TclEmitOpcode(INST_POP, lframe->envPtr)
+#define L_POP()  do { TclEmitOpcode(INST_POP, lframe->envPtr) } while (0)
 
 
 /*
@@ -221,5 +229,28 @@ MODULE_SCOPE Tcl_Obj ** L_DeepDiveIntoStruct(Tcl_Interp *interp,
 	Tcl_Obj *valuePtr, Tcl_Obj **idxPtr, Tcl_Obj *countPtr, int flags);
 MODULE_SCOPE Tcl_Obj *L_split(Tcl_Interp *interp, Tcl_Obj *strobj,
 			      Tcl_Obj *reobj, Tcl_Obj *limobj);
+
+/*
+ * These are for maintaining source-file offsets of tokens and
+ * nonterminals.  The YYLOC_DEFAULT macro is used by the
+ * bison-generated parser to update locations before each reduction.
+ */
+typedef struct {
+	int	beg;
+	int	end;
+} L_YYLTYPE;
+#define YYLTYPE L_YYLTYPE
+#define YYLLOC_DEFAULT(c,r,n)				\
+	do {						\
+		if (n) {				\
+			(c).beg = YYRHSLOC(r,1).beg;	\
+			(c).end = YYRHSLOC(r,n).end;	\
+		} else {				\
+			(c).beg = YYRHSLOC(r,0).beg;	\
+			(c).end = YYRHSLOC(r,0).end;	\
+		}					\
+	} while (0)
+
+extern YYLTYPE yylloc;
 
 #endif /* L_COMPILE_H */

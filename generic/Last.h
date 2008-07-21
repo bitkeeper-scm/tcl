@@ -118,7 +118,8 @@ struct Ast {
 	Ast *_trace;
 	L_node_type type;
 	int line_no;
-	int offset;
+	int beg;
+	int end;
 };
 
 struct L_block {
@@ -235,17 +236,17 @@ struct L_var_decl {
 
 /* Prototypes */
 typedef int (*LWalkFunc)(Ast *node, void *data, int order);
-L_block *mk_block(L_var_decl *decls,L_stmt *body);
-L_expr *mk_expr(L_expr_kind kind,int op,L_expr *a,L_expr *b,L_expr *c,L_expr *indices,L_expr *next);
-L_foreach_loop *mk_foreach_loop(L_expr *hash,L_expr *key,L_expr *value,L_stmt *body);
-L_function_decl *mk_function_decl(L_expr *name,L_var_decl *params,L_type *return_type,L_block *body,int pattern_p);
-L_if_unless *mk_if_unless(L_expr *condition,L_stmt *if_body,L_stmt *else_body);
-L_initializer *mk_initializer(L_expr *key,L_expr *value,L_initializer *next_dim,L_initializer *next);
-L_loop *mk_loop(L_loop_kind kind,L_expr *pre,L_expr *condition,L_expr *post,L_stmt *body);
-L_stmt *mk_stmt(L_stmt_kind kind,L_stmt *next);
-L_toplevel *mk_toplevel(L_toplevel_kind kind,L_toplevel *next);
-L_type *mk_type(L_type_kind kind,L_expr *array_dim,L_expr *struct_tag,L_type *next_dim,L_var_decl *members,int typedef_p);
-L_var_decl *mk_var_decl(L_type *type,L_expr *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_var_decl *next);
+L_block *mk_block(L_var_decl *decls,L_stmt *body, int beg, int end);
+L_expr *mk_expr(L_expr_kind kind,int op,L_expr *a,L_expr *b,L_expr *c,L_expr *indices,L_expr *next, int beg, int end);
+L_foreach_loop *mk_foreach_loop(L_expr *hash,L_expr *key,L_expr *value,L_stmt *body, int beg, int end);
+L_function_decl *mk_function_decl(L_expr *name,L_var_decl *params,L_type *return_type,L_block *body,int pattern_p, int beg, int end);
+L_if_unless *mk_if_unless(L_expr *condition,L_stmt *if_body,L_stmt *else_body, int beg, int end);
+L_initializer *mk_initializer(L_expr *key,L_expr *value,L_initializer *next_dim,L_initializer *next, int beg, int end);
+L_loop *mk_loop(L_loop_kind kind,L_expr *pre,L_expr *condition,L_expr *post,L_stmt *body, int beg, int end);
+L_stmt *mk_stmt(L_stmt_kind kind,L_stmt *next, int beg, int end);
+L_toplevel *mk_toplevel(L_toplevel_kind kind,L_toplevel *next, int beg, int end);
+L_type *mk_type(L_type_kind kind,L_expr *array_dim,L_expr *struct_tag,L_type *next_dim,L_var_decl *members,int typedef_p, int beg, int end);
+L_var_decl *mk_var_decl(L_type *type,L_expr *name,L_initializer *initial_value,int by_name,int extern_p,int rest_p,L_var_decl *next, int beg, int end);
 int L_walk_ast(Ast *node, int order, LWalkFunc func, void *data);
 
 #endif /* L_AST_H */

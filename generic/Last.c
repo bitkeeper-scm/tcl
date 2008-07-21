@@ -84,7 +84,7 @@ char *L_node_type_tostr[11] = {
 
 /* constructors for the L language */
 L_block *
-mk_block(L_var_decl *decls,L_stmt *body)
+mk_block(L_var_decl *decls,L_stmt *body, int beg, int end)
 {
 	L_block *block;
 
@@ -95,14 +95,15 @@ mk_block(L_var_decl *decls,L_stmt *body)
 	((Ast *)block)->_trace = ast_trace_root;
 	ast_trace_root = (void *)block;
 	((Ast *)block)->line_no = L_line_number;
-	((Ast *)block)->offset = L_token_offset;
 	((Ast *)block)->type = L_NODE_BLOCK;
+	((Ast *)block)->beg = beg;
+	((Ast *)block)->end = end;
 	return (block);
 }
 
 L_expr *
 mk_expr(L_expr_kind kind, int op, L_expr *a, L_expr *b,
-    L_expr *c, L_expr *indices, L_expr *next)
+    L_expr *c, L_expr *indices, L_expr *next, int beg, int end)
 {
 	L_expr *expression;
 
@@ -118,14 +119,15 @@ mk_expr(L_expr_kind kind, int op, L_expr *a, L_expr *b,
 	((Ast *)expression)->_trace = ast_trace_root;
 	ast_trace_root = (void *)expression;
 	((Ast *)expression)->line_no = L_line_number;
-	((Ast *)expression)->offset = L_token_offset;
 	((Ast *)expression)->type = L_NODE_EXPR;
+	((Ast *)expression)->beg = beg;
+	((Ast *)expression)->end = end;
 	return (expression);
 }
 
 L_foreach_loop *
 mk_foreach_loop(L_expr *expr, L_expr *key,
-    L_expr *value, L_stmt *body)
+    L_expr *value, L_stmt *body, int beg, int end)
 {
 	L_foreach_loop *foreach_loop;
 
@@ -138,14 +140,15 @@ mk_foreach_loop(L_expr *expr, L_expr *key,
 	((Ast *)foreach_loop)->_trace = ast_trace_root;
 	ast_trace_root = (void *)foreach_loop;
 	((Ast *)foreach_loop)->line_no = L_line_number;
-	((Ast *)foreach_loop)->offset = L_token_offset;
 	((Ast *)foreach_loop)->type = L_NODE_FOREACH_LOOP;
+	((Ast *)foreach_loop)->beg = beg;
+	((Ast *)foreach_loop)->end = end;
 	return (foreach_loop);
 }
 
 L_function_decl *
 mk_function_decl(L_expr *name, L_var_decl *params,
-    L_type *return_type, L_block *body, int pattern_p)
+    L_type *return_type, L_block *body, int pattern_p, int beg, int end)
 {
 	L_function_decl *function_decl;
 
@@ -160,15 +163,16 @@ mk_function_decl(L_expr *name, L_var_decl *params,
 	((Ast *)function_decl)->_trace = ast_trace_root;
 	ast_trace_root = (void *)function_decl;
 	((Ast *)function_decl)->line_no = L_line_number;
-	((Ast *)function_decl)->offset = L_token_offset;
 	((Ast *)function_decl)->type =
 	    L_NODE_FUNCTION_DECL;
+	((Ast *)function_decl)->beg = beg;
+	((Ast *)function_decl)->end = end;
 	return (function_decl);
 }
 
 L_if_unless *
 mk_if_unless(L_expr *condition, L_stmt *if_body,
-    L_stmt *else_body)
+    L_stmt *else_body, int beg, int end)
 {
 	L_if_unless *if_unless;
 
@@ -180,14 +184,15 @@ mk_if_unless(L_expr *condition, L_stmt *if_body,
 	((Ast *)if_unless)->_trace = ast_trace_root;
 	ast_trace_root = (void *)if_unless;
 	((Ast *)if_unless)->line_no = L_line_number;
-	((Ast *)if_unless)->offset = L_token_offset;
 	((Ast *)if_unless)->type = L_NODE_IF_UNLESS;
+	((Ast *)if_unless)->beg = beg;
+	((Ast *)if_unless)->end = end;
 	return (if_unless);
 }
 
 L_initializer *
 mk_initializer(L_expr *key, L_expr *value,
-    L_initializer *next_dim, L_initializer *next)
+    L_initializer *next_dim, L_initializer *next, int beg, int end)
 {
 	L_initializer *initializer;
 
@@ -200,14 +205,15 @@ mk_initializer(L_expr *key, L_expr *value,
 	((Ast *)initializer)->_trace = ast_trace_root;
 	ast_trace_root = (void *)initializer;
 	((Ast *)initializer)->line_no = L_line_number;
-	((Ast *)initializer)->offset = L_token_offset;
 	((Ast *)initializer)->type = L_NODE_INITIALIZER;
+	((Ast *)initializer)->beg = beg;
+	((Ast *)initializer)->end = end;
 	return (initializer);
 }
 
 L_loop *
 mk_loop(L_loop_kind kind, L_expr *pre, L_expr *condition,
-    L_expr *post, L_stmt *body)
+    L_expr *post, L_stmt *body, int beg, int end)
 {
 	L_loop *loop;
 
@@ -221,13 +227,14 @@ mk_loop(L_loop_kind kind, L_expr *pre, L_expr *condition,
 	((Ast *)loop)->_trace = ast_trace_root;
 	ast_trace_root = (void *)loop;
 	((Ast *)loop)->line_no = L_line_number;
-	((Ast *)loop)->offset = L_token_offset;
 	((Ast *)loop)->type = L_NODE_LOOP;
+	((Ast *)loop)->beg = beg;
+	((Ast *)loop)->end = end;
 	return (loop);
 }
 
 L_stmt *
-mk_stmt(L_stmt_kind kind, L_stmt *next)
+mk_stmt(L_stmt_kind kind, L_stmt *next, int beg, int end)
 {
 	L_stmt *statement;
 
@@ -238,14 +245,15 @@ mk_stmt(L_stmt_kind kind, L_stmt *next)
 	((Ast *)statement)->_trace = ast_trace_root;
 	ast_trace_root = (void *)statement;
 	((Ast *)statement)->line_no = L_line_number;
-	((Ast *)statement)->offset = L_token_offset;
 	((Ast *)statement)->type = L_NODE_STMT;
+	((Ast *)statement)->beg = beg;
+	((Ast *)statement)->end = end;
 	return (statement);
 }
 
 L_toplevel *
 mk_toplevel(L_toplevel_kind kind,
-    L_toplevel *next)
+    L_toplevel *next, int beg, int end)
 {
 	L_toplevel *toplevel;
 
@@ -257,14 +265,15 @@ mk_toplevel(L_toplevel_kind kind,
 	((Ast *)toplevel)->_trace = ast_trace_root;
 	ast_trace_root = (void *)toplevel;
 	((Ast *)toplevel)->line_no = L_line_number;
-	((Ast *)toplevel)->offset = L_token_offset;
 	((Ast *)toplevel)->type = L_NODE_TOPLEVEL;
+	((Ast *)toplevel)->beg = beg;
+	((Ast *)toplevel)->end = end;
 	return (toplevel);
 }
 
 L_type *
 mk_type(L_type_kind kind, L_expr *array_dim, L_expr *struct_tag,
-    L_type *next_dim, L_var_decl *members, int typedef_p)
+    L_type *next_dim, L_var_decl *members, int typedef_p, int beg, int end)
 {
 	L_type *type;
 
@@ -279,15 +288,16 @@ mk_type(L_type_kind kind, L_expr *array_dim, L_expr *struct_tag,
 	((Ast *)type)->_trace = ast_trace_root;
 	ast_trace_root = (void *)type;
 	((Ast *)type)->line_no = L_line_number;
-	((Ast *)type)->offset = L_token_offset;
 	((Ast *)type)->type = L_NODE_TYPE;
+	((Ast *)type)->beg = beg;
+	((Ast *)type)->end = end;
 	return (type);
 }
 
 L_var_decl *
 mk_var_decl(L_type *type, L_expr *name,
     L_initializer *initial_value, int by_name, int extern_p, int rest_p,
-    L_var_decl *next)
+    L_var_decl *next, int beg, int end)
 {
 	L_var_decl *variable_decl;
 
@@ -304,9 +314,10 @@ mk_var_decl(L_type *type, L_expr *name,
 	((Ast *)variable_decl)->_trace = ast_trace_root;
 	ast_trace_root = (void *)variable_decl;
 	((Ast *)variable_decl)->line_no = L_line_number;
-	((Ast *)variable_decl)->offset = L_token_offset;
 	((Ast *)variable_decl)->type =
 	    L_NODE_VAR_DECL;
+	((Ast *)variable_decl)->beg = beg;
+	((Ast *)variable_decl)->end = end;
 	return (variable_decl);
 }
 

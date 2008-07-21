@@ -70,7 +70,7 @@ L_check_expr_kind(
 	L_type *type;
 
 	if (lframe->options & L_OPT_POLY) return;
-	type = mk_type(want, NULL, NULL, NULL, NULL, FALSE);
+	type = mk_type(want, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 	L_check_expr_type(type, expr);
 }
 
@@ -390,15 +390,17 @@ L_expr_type(L_expr *expr)
 	    case L_EXPR_PRE:
 	    case L_EXPR_POST:
 	    case L_EXPR_INTEGER:
-		type = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE);
+		type = mk_type(L_TYPE_INT, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 		break;
 	    case L_EXPR_STRING:
 	    case L_EXPR_INTERPOLATED_STRING:
 	    case L_EXPR_REGEXP:
-		type = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE);
+		type = mk_type(L_TYPE_STRING, NULL, NULL, NULL, NULL, FALSE,
+			       0, 0);
 		break;
 	    case L_EXPR_FLOTE:
-		type = mk_type(L_TYPE_FLOAT, NULL, NULL, NULL, NULL, FALSE);
+		type = mk_type(L_TYPE_FLOAT, NULL, NULL, NULL, NULL, FALSE,
+			       0, 0);
 		break;
 	    case L_EXPR_UNARY:
 		type = unop_expr_type(expr);
@@ -414,7 +416,7 @@ L_expr_type(L_expr *expr)
 			L_trace("unable to find definition for symbol %s, "
 			    "giving up", expr->a->u.string);
 			type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL,
-			    FALSE);
+			    FALSE, 0, 0);
 			break;
 		}
 		while (index) {
@@ -428,8 +430,8 @@ L_expr_type(L_expr *expr)
 				} else {
 					L_trace("not enough dimensions "
 					    "in type for index, giving up");
-					type = mk_type(L_TYPE_POLY,
-					    NULL, NULL, NULL, NULL, FALSE);
+					type = mk_type(L_TYPE_POLY, NULL, NULL,
+						       NULL, NULL, FALSE, 0, 0);
 				}
 				break;
 			    case L_EXPR_STRUCT_INDEX: {
@@ -445,8 +447,9 @@ L_expr_type(L_expr *expr)
 					    L_trace("not enough dimensions in "
 						"type for struct index, "
 						"giving up");
-					    type = mk_type(L_TYPE_POLY,
-						NULL, NULL, NULL, NULL, FALSE);
+					    type = mk_type(L_TYPE_POLY, NULL,
+							   NULL, NULL, NULL,
+							   FALSE, 0, 0);
 				    }
 				    break;
 			    }
@@ -484,7 +487,7 @@ unop_expr_type(L_expr *expr)
 {
 	L_type	*type, *type1;
 
-	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 	switch (expr->op) {
 	    case T_TCL_CAST:
 	    case T_STRING_CAST:
@@ -530,7 +533,7 @@ binop_expr_type(L_expr *expr)
 {
 	L_type	*type, *type1, *type2;
 
-	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE);
+	type = mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE, 0, 0);
 	switch (expr->op) {
 	    case T_EQUALS:
 		type = L_expr_type(expr->b);
@@ -606,7 +609,8 @@ parameter_type(
 	unless (fun_type = get_function_type(name)) return (0);
 	if (fun_type->var_arity_p && pos >= (fun_type->param_count - 1)) {
 		/* for rest parameters, return a type that always succeeds: */
-		return (mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE));
+		return (mk_type(L_TYPE_POLY, NULL, NULL, NULL, NULL, FALSE,
+				0, 0));
 	} else if (pos < fun_type->param_count) {
 		return (fun_type->param_types[pos]);
 	} else {

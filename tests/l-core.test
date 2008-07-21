@@ -5248,6 +5248,459 @@ constants_1_0()
 constants_1_0
 } -output "1234\ndeadbeef\n755\n1234.5678\n"
 
+# These tests check the L compiler's mapping between the source-file
+# offsets of each "command" and the tcl bytecodes generated for it.
+# Generally speaking, a command is a statement or expression, although
+# some statements don't generate a mapping per-se (like "if"
+# statements).  This is tested by generating a bytecode disassembly
+# and checking that the text of the commands were identified properly
+# in various syntactic contexts.  This seems like the only way to get
+# at the mappings easily for testing.
+
+test src-mappings-1 {test bytecode <-> source-file-offset mappings 1} -body {
+#lang L -nowarn
+struct s {
+	int	i;
+};
+void
+src_mappings_1()
+{
+	/*
+	 * This test checks the mappings for declarations.
+	 * Note: avoid tabs in the source to make the test regexp clearer.
+	 */
+
+	int i1;
+	int i2 = 2;
+	int i3, i4;
+	int i5, i6 = 6, i7;
+	string s1;
+	string s2 = "str2";
+	string s3, s4;
+	string s5, s6 = "str6", s7;
+	float f1;
+	float f2 = 2.0;
+	float f3, f4;
+	float f5, f6 = 6.0, f7;
+	/* The hash ones test typedef names (hash is a typedef). */
+	hash h1;
+	hash h2 = {2=>2};
+	hash h3, h4;
+	hash h5, h6 = {6=>6}, h7;
+	struct s st1;
+	struct s st2 = {2};
+	struct s st3, st4;
+	struct s st5, st6 = {6}, st7;
+	poly p1;
+	poly p2 = 2;
+	poly p3, p4;
+	poly p5, p6 = 6, p7;
+	widget w1;
+	widget w2 = "w2";
+	widget w3, w4;
+	widget w5, w6 = "w6", w7;
+	int ai1[];
+	int ai2[2];
+	int ai3[] = {3};
+	int ai4[], ai5[5];
+	int ai6[], ai7[] = {7}, ai8[];
+	string as1[];
+	string as2[2];
+	string as3[] = {"3"};
+	string as4[], as5[5];
+	string as6[], as7[] = {"7"}, as8[];
+	float af1[];
+	float af2[2];
+	float af3[] = {3.0};
+	float af4[], af5[5];
+	float af6[], af7[] = {7.0}, af8[];
+	hash ah1[];
+	hash ah2[2];
+	hash ah3[], ah4[4], ah5[];
+	struct s ast1[];
+	struct s ast2[2];
+	struct s ast3[], ast4[4], ast5[];
+
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_1"));
+	return;
+}
+#lang tcl
+src_mappings_1
+} -match regexp -output {.*Command \d+: "int i1"
+.*Command \d+: "int i2 = 2"
+.*Command \d+: "int i3"
+.*Command \d+: "i4"
+.*Command \d+: "int i5"
+.*Command \d+: "i6 = 6"
+.*Command \d+: "i7"
+.*Command \d+: "string s1"
+.*Command \d+: "string s2 = \\"str2\\""
+.*Command \d+: "string s3"
+.*Command \d+: "s4"
+.*Command \d+: "string s5"
+.*Command \d+: "s6 = \\"str6\\""
+.*Command \d+: "s7"
+.*Command \d+: "float f1"
+.*Command \d+: "float f2 = 2.0"
+.*Command \d+: "float f3"
+.*Command \d+: "f4"
+.*Command \d+: "float f5"
+.*Command \d+: "f6 = 6.0"
+.*Command \d+: "f7"
+.*Command \d+: "hash h1"
+.*Command \d+: "hash h2 = \{2=>2\}"
+.*Command \d+: "hash h3"
+.*Command \d+: "h4"
+.*Command \d+: "hash h5"
+.*Command \d+: "h6 = \{6=>6\}"
+.*Command \d+: "h7"
+.*Command \d+: "struct s st1"
+.*Command \d+: "struct s st2 = \{2\}"
+.*Command \d+: "struct s st3"
+.*Command \d+: "st4"
+.*Command \d+: "struct s st5"
+.*Command \d+: "st6 = \{6\}"
+.*Command \d+: "st7"
+.*Command \d+: "poly p1"
+.*Command \d+: "poly p2 = 2"
+.*Command \d+: "poly p3"
+.*Command \d+: "p4"
+.*Command \d+: "poly p5"
+.*Command \d+: "p6 = 6"
+.*Command \d+: "p7"
+.*Command \d+: "widget w1"
+.*Command \d+: "widget w2 = \\"w2\\""
+.*Command \d+: "widget w3"
+.*Command \d+: "w4"
+.*Command \d+: "widget w5"
+.*Command \d+: "w6 = \\"w6\\""
+.*Command \d+: "w7"
+.*Command \d+: "int ai1\[\]"
+.*Command \d+: "int ai2\[2\]"
+.*Command \d+: "int ai3\[\] = \{3\}"
+.*Command \d+: "int ai4\[\]"
+.*Command \d+: "ai5\[5\]"
+.*Command \d+: "int ai6\[\]"
+.*Command \d+: "ai7\[\] = \{7\}"
+.*Command \d+: "ai8\[\]"
+.*Command \d+: "string as1\[\]"
+.*Command \d+: "string as2\[2\]"
+.*Command \d+: "string as3\[\] = \{\\"3\\"\}"
+.*Command \d+: "string as4\[\]"
+.*Command \d+: "as5\[5\]"
+.*Command \d+: "string as6\[\]"
+.*Command \d+: "as7\[\] = \{\\"7\\"\}"
+.*Command \d+: "as8\[\]"
+.*Command \d+: "float af1\[\]"
+.*Command \d+: "float af2\[2\]"
+.*Command \d+: "float af3\[\] = \{3.0\}"
+.*Command \d+: "float af4\[\]"
+.*Command \d+: "af5\[5\]"
+.*Command \d+: "float af6\[\]"
+.*Command \d+: "af7\[\] = \{7.0\}"
+.*Command \d+: "af8\[\]"
+.*Command \d+: "hash ah1\[\]"
+.*Command \d+: "hash ah2\[2\]"
+.*Command \d+: "hash ah3\[\]"
+.*Command \d+: "ah4\[4\]"
+.*Command \d+: "ah5\[\]"
+.*Command \d+: "struct s ast1\[\]"
+.*Command \d+: "struct s ast2\[2\]"
+.*Command \d+: "struct s ast3\[\]"
+.*Command \d+: "ast4\[4\]"
+.*Command \d+: "ast5\[\]"
+}
+
+test src-mappings-2 {test bytecode <-> source-file-offset mappings 2} -body {
+#lang L -nowarn
+int f0() { return (0); }
+int f1(int i) { return (1); }
+int f2(int i, int j) { return (2); }
+void
+src_mappings_2()
+{
+	/*
+	 * This test checks the mappings for expressions.
+	 * Note: avoid tabs in the source to make the test regexp clearer.
+	 */
+
+	int i, j;
+	int i1 = 1+2;
+	int i2 = i1+2*3;
+	int i3, i4, i5;
+	string s, t;
+	float f;
+	int ai[];
+	int aii[][];
+	int ah{int};
+	int ahh{int}{int};
+
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_2"));
+	return;
+
+	/* Check assignments. */
+	i1 = 1;
+	f = 3.14;
+	s = "str";
+
+	/* Check array and hash subscripts. */
+	i = ai[i1 - i2 - i3];
+	i = aii[i1][i2];
+	i = ah{i3 - i4};
+	i = ahh{i3}{i4 - i5};
+
+	/* Check that each sub-expression has a mapping. */
+	i3 = 3;
+	i4 = 4 + 3;
+	i5 = i3 + i4 * i5 - 5;
+
+	/* Check parameters. */
+	f0();
+	f1(i1);
+	f2(i1, i2);
+	f2(i1, i2 + f1(2));
+
+	/* Check that each binary and unary operator gets a mapping. */
+	(tcl)i;
+	(string)i;
+	(widget)i;
+	(float)i;
+	!i;
+	~i;
+	+i;
+	-i;
+	&i;
+	defined(i);
+	i = j;
+	i += j;	
+	i -= j;	
+	i *= j;	
+	i /= j;	
+	i %= j;	
+	i &= j;	
+	i |= j;	
+	i <<= j;	
+	i >>= j;	
+	i && j;	
+	i || j;
+	s eq t;
+	s ne t;
+	s gt t;
+	s ge t;
+	s lt t;
+	s le t;
+	i == j;
+	i != j;
+	i > j;
+	i >= j;
+	i < j;
+	i <= j;
+	i + j;
+	i - j;
+	i * j;
+	i / j;
+	i % j;
+	i & j;
+	i | j;
+	i ^ j;
+	i << j;
+	i >> j;
+	s =~ /x/;
+	s =~ /x/i;
+	s =~ /x/g;
+	s =~ /x/ig;
+	s =~ m|x|;
+	s =~ m|x|i;
+	s =~ m|x|g;
+	s =~ m|x|ig;
+	s =~ s/x/y/;
+	s =~ s/x/y/i;
+	s =~ s/x/y/g;
+	s =~ s/x/y/ig;
+
+	/* Check interpolated strings. */
+	s = "abc${t}";
+	s = "${t}xyz";
+	s = "abc${t}xyz";
+	s = "abc${"${t}"}xyz";
+}
+#lang tcl
+src_mappings_2
+} -match regexp -output {.*Command \d+: "1\+2"
+.*Command \d+: "int i1 = 1\+2"
+.*Command \d+: "i1\+2\*3"
+.*Command \d+: "int i2 = i1\+2\*3"
+.*Command \d+: "2\*3"
+.*Command \d+: "i1 = 1"
+.*Command \d+: "f = 3.14"
+.*Command \d+: "s = \\"str\\""
+.*Command \d+: "i1 - i2"
+.*Command \d+: "i1 - i2 - i3"
+.*Command \d+: "i = ai\[i1 - i2 - i3\]"
+.*Command \d+: "i = aii\[i1\]\[i2\]"
+.*Command \d+: "i3 - i4"
+.*Command \d+: "i = ah\{i3 - i4\}"
+.*Command \d+: "i = ahh\{i3\}\{i4 - i5\}"
+.*Command \d+: "i4 - i5"
+.*Command \d+: "i3 = 3"
+.*Command \d+: "4 \+ 3"
+.*Command \d+: "i4 = 4 \+ 3"
+.*Command \d+: "i3 \+ i4 \* i5"
+.*Command \d+: "i3 \+ i4 \* i5 - 5"
+.*Command \d+: "i5 = i3 \+ i4 \* i5 - 5"
+.*Command \d+: "i4 \* i5"
+.*Command \d+: "f0\(\)"
+.*Command \d+: "f1\(i1\)"
+.*Command \d+: "f2\(i1, i2\)"
+.*Command \d+: "f2\(i1, i2 \+ f1\(2\)\)"
+.*Command \d+: "i2 \+ f1\(2\)"
+.*Command \d+: "f1\(2\)"
+.*Command \d+: "\(tcl\)i"
+.*Command \d+: "\(string\)i"
+.*Command \d+: "\(widget\)i"
+.*Command \d+: "\(float\)i"
+.*Command \d+: "!i"
+.*Command \d+: "~i"
+.*Command \d+: "\+i"
+.*Command \d+: "-i"
+.*Command \d+: "&i"
+.*Command \d+: "defined\(i\)"
+.*Command \d+: "i = j"
+.*Command \d+: "i \+= j"
+.*Command \d+: "i -= j"
+.*Command \d+: "i \*= j"
+.*Command \d+: "i /= j"
+.*Command \d+: "i %= j"
+.*Command \d+: "i <<= j"
+.*Command \d+: "i >>= j"
+.*Command \d+: "i && j"
+.*Command \d+: "i \|\| j"
+.*Command \d+: "s eq t"
+.*Command \d+: "s ne t"
+.*Command \d+: "s gt t"
+.*Command \d+: "s ge t"
+.*Command \d+: "s lt t"
+.*Command \d+: "s le t"
+.*Command \d+: "i == j"
+.*Command \d+: "i != j"
+.*Command \d+: "i > j"
+.*Command \d+: "i >= j"
+.*Command \d+: "i < j"
+.*Command \d+: "i <= j"
+.*Command \d+: "i \+ j"
+.*Command \d+: "i - j"
+.*Command \d+: "i \* j"
+.*Command \d+: "i / j"
+.*Command \d+: "i % j"
+.*Command \d+: "i & j"
+.*Command \d+: "i \| j"
+.*Command \d+: "i \^ j"
+.*Command \d+: "i << j"
+.*Command \d+: "i >> j"
+.*Command \d+: "s =~ /x/"
+.*Command \d+: "s =~ /x/i"
+.*Command \d+: "s =~ /x/g"
+.*Command \d+: "s =~ /x/ig"
+.*Command \d+: "s =~ m\|x\|"
+.*Command \d+: "s =~ m\|x\|i"
+.*Command \d+: "s =~ m\|x\|g"
+.*Command \d+: "s =~ m\|x\|ig"
+.*Command \d+: "s =~ s/x/y/"
+.*Command \d+: "s =~ s/x/y/i"
+.*Command \d+: "s =~ s/x/y/g"
+.*Command \d+: "s =~ s/x/y/ig"
+.*Command \d+: "\\"abc\$\{t\}\\""
+.*Command \d+: "s = \\"abc\$\{t\}\\""
+.*Command \d+: "\\"\$\{t\}xyz\\""
+.*Command \d+: "s = \\"\$\{t\}xyz\\""
+.*Command \d+: "\\"abc\$\{t\}xyz\\""
+.*Command \d+: "s = \\"abc\$\{t\}xyz\\""
+.*Command \d+: "\\"abc\$\{\\"\$\{t\}\\"\}xyz\\""
+.*Command \d+: "s = \\"abc\$\{\\"\$\{t\}\\"\}xyz\\""
+.*Command \d+: "\\"\$\{t\}\\""
+}
+
+test src-mappings-3 {test bytecode <-> source-file-offset mappings 3} -body {
+#lang L -nowarn
+int
+f()
+{
+	return (0);
+}
+void
+fv()
+{
+	return;
+}
+int{int}
+fh()
+{
+	int h{int};
+	return (h);
+}
+int[]
+fa()
+{
+	int a[5];
+	return (a);
+}
+int
+src_mappings_3()
+{
+	/*
+	 * This test checks the mappings for statements.
+	 * Note: avoid tabs in the source to make the test regexp clearer.
+	 */
+
+	int i, j, k, v;
+	int a[5];
+	int h{int};
+
+	/* Disassemble fv() to get its "return" stmt w/no arg. */
+	puts(::tcl::unsupported::disassemble("proc", "fv"));
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_3"));
+	return(0);
+
+	while (0) f();
+	do f(); while (0);
+	for (i = 0; i < 10;) f();
+	for (i = 0; i < 10; ++i) f();
+	foreach (k => v in fh()) f();
+	foreach (i,j in fa()) f();
+	push (&a, f());
+	/* Check break and continue. */
+	do {
+		break;
+		continue;
+	} while (0);
+}
+#lang tcl
+src_mappings_3
+} -match regexp -output {.*Command \d+: "return"
+.*Command \d+: "return\(0\)"
+.*Command \d+: "while \(0\) f\(\);"
+.*Command \d+: "do f\(\); while \(0\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "i = 0"
+.*Command \d+: "for \(i = 0; i < 10;\) f\(\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "i < 10"
+.*Command \d+: "i = 0"
+.*Command \d+: "for \(i = 0; i < 10; \+\+i\) f\(\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "\+\+i"
+.*Command \d+: "i < 10"
+.*Command \d+: "fh\(\)"
+.*Command \d+: "foreach \(k => v in fh\(\)\) f\(\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "fa\(\)"
+.*Command \d+: "foreach \(i,j in fa\(\)\) f\(\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "push \(&a, f\(\)\);"
+.*Command \d+: "f\(\)"
+.*Command \d+: "break"
+.*Command \d+: "continue"
+}
 
 # cleanup
 ::tcltest::cleanupTests
