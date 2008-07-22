@@ -122,7 +122,7 @@ pattern_funcall_rewrite(L_expr *funcall)
 %token T_ID T_STR_LITERAL T_INT_LITERAL T_FLOAT_LITERAL
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_INCLUDE T_PATTERN T_PUSH
+%token T_INCLUDE T_PATTERN T_PUSH T_SPLIT
 
 %token T_RE T_SUBST T_RE_MODIFIER
 
@@ -619,6 +619,24 @@ expr:
 		$$ = mk_expr(L_EXPR_FUNCALL, -1, $1, NULL, NULL, NULL, NULL);
 		pattern_funcall_rewrite($$);
 	}
+	/*
+	 * L_lex_start_re_arg() and L_lex_end_re_arg() tell the
+	 * scanner to start or stop recognizing a regexp.
+	 */
+	| T_SPLIT "(" expr
+	  { L_lex_start_re_arg(); }
+	  "," re_or_string
+	  { L_lex_end_re_arg(); }
+	  opt_arg ")"
+	{
+		((L_expr *)$3)->next = $6;
+		((L_expr *)$6)->next = $8;
+		$$ = mk_expr(L_EXPR_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
+	}
+	| T_SPLIT "(" expr ")"
+	{
+		$$ = mk_expr(L_EXPR_FUNCALL, -1, $1, $3, NULL, NULL, NULL);
+	}
 	/* this is to allow calling Tk widget functions */
 	| dotted_id "(" argument_expr_list ")"
 	{
@@ -688,6 +706,16 @@ expr:
 	{
 		$$ = mk_expr(L_EXPR_UNARY, T_DEFINED, $3, NULL, NULL, NULL, NULL);
 	}
+	;
+
+opt_arg:
+	 "," expr	{ $$ = $2; }
+	|		{ $$ = NULL; }
+	;
+
+re_or_string:
+	  regexp_literal	{ REVERSE(L_expr, c, $1); $$ = $1; }
+	| string_literal	{ REVERSE(L_expr, c, $1); $$ = $1; }
 	;
 
 lvalue:

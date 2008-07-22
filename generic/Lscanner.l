@@ -1,6 +1,7 @@
 %option	noyywrap
 %option stack
 %x re_modifier
+%s re_arg
 %x glob_re
 %x subst_re
 %x comment
@@ -80,7 +81,7 @@ tally_newlines(
 
 %}
 %%
-<INITIAL,interpol>{
+<INITIAL,interpol,re_arg>{
 	"("		return T_LPAREN;
 	")"		return T_RPAREN;
 	"{"		return T_LBRACE;
@@ -128,6 +129,10 @@ tally_newlines(
 	"poly"		return T_POLY;
 	"var"		return T_VAR;
 	"widget"	return T_WIDGET;
+	"split"		{
+		MK_STRING_NODE(L_lval, yytext);
+		return T_SPLIT;
+	}
 
 	"("[ \t]*"string"[ \t]*")"	return T_STRING_CAST;
 	"("[ \t]*"tcl"[ \t]*")"		return T_TCL_CAST;
@@ -247,19 +252,20 @@ tally_newlines(
 		re_quote_char = *(yytext + yyleng - 1);
 		return T_EQTWID;
 	}
-	/* A regexp used as first arg in an argument list. */
-	"("[ \t\r\n]*"/"	{
+}
+
+<re_arg>{
+	/* A regexp used as a function argument (e.g., in
+	 * the "split" built-in). */
+	[ \t\r\n]*"/"	{
 		yy_push_state(glob_re);
 		STRBUF_START();
 		re_quote_char = '/';
-		return T_LPAREN;
 	}
-	/* A regexp used as non-first arg in an argument list. */
-	","[ \t\r\n]*"/"	{
+	[ \t\r\n]*"m"[^a-zA-Z \t\r\n]	{
 		yy_push_state(glob_re);
 		STRBUF_START();
-		re_quote_char = '/';
-		return T_COMMA;
+		re_quote_char = *(yytext + yyleng - 1);
 	}
 }
 
@@ -318,12 +324,18 @@ tally_newlines(
 }
 
 <glob_re,subst_re>{
-	\\"$"		STRBUF_ADD("$", 1);
 	"${"		{
 				yy_push_state(interpol);
 				MK_STRING_NODE(L_lval, STRBUF_STRING());
 				STRBUF_STOP();
 				return T_LEFT_INTERPOL;
+			}
+	\\.		{
+				if (yytext[1] == re_quote_char) {
+					STRBUF_ADD(yytext+1, 1);
+				} else {
+					STRBUF_ADD(yytext, yyleng);
+				}
 			}
 	.		{
 				if (*(yytext) == re_quote_char) {
@@ -361,7 +373,7 @@ tally_newlines(
 }
 	\f		/* ignore page breaks */
 	.		{	/* this is essentially an "else" */
-				fprintf(stderr, "%s:%d: L error: illegal character %c",
+				fprintf(stderr, "%s:%d: L error: illegal character '%c'",
 				    L_source_file, L_line_number, *yytext);
 				exit(1);
 			}

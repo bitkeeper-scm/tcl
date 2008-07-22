@@ -98,6 +98,8 @@ int	L_expr_is_void(L_expr *expr);
 int	L_parse(void);
 
 void	L_start_lexer(void);
+void	L_lex_start_re_arg();
+void	L_lex_end_re_arg();
 
 /* A special value that marks a pointer as having no offset.  */
 #define LPOINTER_NO_OFFSET -1

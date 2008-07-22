@@ -3535,20 +3535,20 @@ regexp_1_5()
 	s =~ s/\${r}//g;
 	unless (s eq "a  b    c     d") puts("bad 4");
 
-	/*
-	 * The next two are a little unintuitive.  The pattern like s/\\$//
-	 * is a \ followed by an escaped $.  Using just \$ isn't
-	 * enough since $ is a regexp meta-character, hence the double \.
-	 */
-
 	s = "$a$b";
-	s =~ s/\\$//g;  // should match a dollar sign
+	s =~ s/\$//g;  // should match a dollar sign
 	unless (s eq "ab") puts("bad 5");
 
  	r = "\\s+";
 	s = '${r} ${r}';
-	s =~ s/\\${r}//g;  // should match '${r}' literally
+	s =~ s/\${r}//g;  // should match '${r}' literally
 	unless (s eq " ") puts("bad 6");
+
+	s = "(in parens)";
+	s =~ s/\(//;
+	unless (s eq "in parens)") puts("bad 7");
+	s =~ s/(in)//;
+	unless (s eq " parens)") puts("bad 8");
 }
 #lang tcl
 regexp_1_5
@@ -5067,6 +5067,7 @@ test split-1.0 {test split function} -body {
 void
 split_1_0()
 {
+	int	m;
 	string	s;
 	string	r[];
 
@@ -5139,20 +5140,22 @@ split_1_0()
 	/* Check split on a regexp. */
 
 	r = split("XaXbXcX", "[abc]");
-	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X") &&
+		(r[3] eq "X")) {
 		puts("bad 5.1");
 	}
 	if (defined(r[4])) puts("bad 5.2");
 
 	r = split("XaXbXcX", /[abc]/);
-	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X") &&
+		(r[3] eq "X")) {
 		puts("bad 5.3");
 	}
 	if (defined(r[4])) puts("bad 5.4");
 
 	r = split("XaaXbXcX", "[abc]");
 	unless ((r[0] eq "X") && (r[1] eq "") && (r[2] eq "X") &&
-	        (r[3] eq "X")) {
+	        (r[3] eq "X") && (r[4] eq "X")) {
 		puts("bad 5.5");
 	}
 	if (defined(r[5])) puts("bad 5.6");
@@ -5173,7 +5176,8 @@ split_1_0()
 
 	s = "abc";
 	r = split("XaXbXcX", /[${s}]/);
-	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X")) {
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X") &&
+		(r[3] eq "X")) {
 		puts("bad 6.1");
 	}
 	if (defined(r[4])) puts("bad 6.2");
@@ -5218,9 +5222,50 @@ split_1_0()
 	r = split("1 2 3 4", " ", -1);
 	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3") &&
 	        (r[3] eq "4")) {
-		puts("bad 7.12");
+		puts("bad 7.13");
 	}
-	if (defined(r[4])) puts("bad 7.13");
+	if (defined(r[4])) puts("bad 7.14");
+
+	/* Test that an escape of the regexp delimeter works. */
+
+	r = split("/this/is/a/pathname", /\//);
+	unless ((r[0] eq "") && (r[1] eq "this") && (r[2] eq "is") &&
+		(r[3] eq "a") && (r[4] eq "pathname")) {
+		puts("bad 8.1");
+	}
+	if (defined(r[5])) puts("bad 8.2");
+
+	/* Test alternate form of regexp. */
+
+	r = split("/this/is/a/pathname", m|/|);
+	unless ((r[0] eq "") && (r[1] eq "this") && (r[2] eq "is") &&
+		(r[3] eq "a") && (r[4] eq "pathname")) {
+		puts("bad 9.1");
+	}
+	if (defined(r[5])) puts("bad 9.2");
+
+	s = "abc";
+	r = split("XaXbXcX", m|[${s}]|);
+	unless ((r[0] eq "X") && (r[1] eq "X") && (r[2] eq "X") &&
+		(r[3] eq "X")) {
+		puts("bad 9.3");
+	}
+	if (defined(r[4])) puts("bad 9.4");
+
+	r = split("1 2 3 4", m| |, 3);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3 4")) {
+		puts("bad 9.5");
+	}
+	if (defined(r[3])) puts("bad 9.6");
+
+	/* Ensure third arg is not parsed as a regexp. */
+
+	m = 3;
+	r = split("1 2 3 4", m| |, m);
+	unless ((r[0] eq "1") && (r[1] eq "2") && (r[2] eq "3 4")) {
+		puts("bad 9.7");
+	}
+	if (defined(r[3])) puts("bad 9.8");
 }
 #lang tcl
 split_1_0
