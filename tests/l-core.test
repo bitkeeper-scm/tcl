@@ -3653,6 +3653,129 @@ typedef_1_0_nike typedef_1_0_aux() {
 typedef_1_0
 } -output "1 2\n2\npegasus\npegasus\n"
 
+test typedef-1.1 {test redefining identical typedefs} -body {
+#lang L
+typedef int t1;
+typedef int t1;
+typedef int t1;
+
+typedef float t2;
+typedef float t2;
+typedef float t2;
+
+typedef string t3;
+typedef string t3;
+typedef string t3;
+
+typedef widget t4;
+typedef widget t4;
+typedef widget t4;
+
+typedef poly t5;
+typedef poly t5;
+typedef poly t5;
+
+typedef int a11_1[];
+typedef int a11_1[];
+typedef int a11_1[];
+
+typedef int a11_2[2];
+typedef int a11_2[2];
+typedef int a11_2[2];
+
+typedef int a11_3{int};
+typedef int a11_3{int};
+typedef int a11_3{int};
+
+typedef int a11_4[2][3];
+typedef int a11_4a[3];
+typedef a11_4a a11_4[2];
+
+typedef struct { int x,y; } s11_1;
+typedef struct { int x,y; } s11_1;
+typedef struct { int x,y; } s11_1;
+
+typedef int int_typedef;
+
+typedef int h11_1{int};
+typedef int h11_1{int_typedef};
+typedef int_typedef h11_1{int};
+typedef int_typedef h11_1{int_typedef};
+
+typedef int h11_2{int}{int};
+typedef int h11_2a{int};
+typedef h11_2a h11_2{int};
+} -output ""
+
+test typedef-1.2 {test redefining different typedefs} -body {
+#lang L
+typedef int t12;
+typedef float t12;
+typedef string t12;
+typedef widget t12;
+typedef poly t12;
+typedef int t12[];
+typedef int t12[2];
+typedef int t12{int};
+typedef struct { int i; } t12;
+
+typedef int a12_1[];
+typedef int a12_1[2];
+
+typedef int a12_2[2];
+typedef int a12_2[];
+
+typedef int a12_3[2];
+typedef string a12_3[2];
+
+typedef int h12_1{int};
+typedef int h12_1{string};
+
+typedef int h12_2{int};
+typedef string h12_2{int};
+
+typedef int h12_3{int};
+typedef string h12_3{string};
+
+typedef struct { int x; } s12_1;
+typedef struct { string x; } s12_1;
+
+typedef struct { int x; } s12_2;
+typedef struct { int x,y; } s12_2;
+
+typedef struct { int x,y; } s12_3;
+typedef struct { int x; } s12_3;
+
+typedef struct s { int x; } s12_4;
+typedef struct s { string x; } s12_4;
+
+typedef struct s { int x; } s12_5;
+typedef struct s { int x,y; } s12_5;
+
+typedef struct s { int x,y; } s12_6;
+typedef struct s { int x; } s12_6;
+} -returnCodes error -match regexp -result {.*2: L Error: Cannot redefine type: t12
+.*3: L Error: Cannot redefine type: t12
+.*4: L Error: Cannot redefine type: t12
+.*5: L Error: Cannot redefine type: t12
+.*6: L Error: Cannot redefine type: t12
+.*7: L Error: Cannot redefine type: t12
+.*8: L Error: Cannot redefine type: t12
+.*9: L Error: Cannot redefine type: t12
+.*12: L Error: Cannot redefine type: a12_1
+.*15: L Error: Cannot redefine type: a12_2
+.*18: L Error: Cannot redefine type: a12_3
+.*21: L Error: Cannot redefine type: h12_1
+.*24: L Error: Cannot redefine type: h12_2
+.*27: L Error: Cannot redefine type: h12_3
+.*30: L Error: Cannot redefine type: s12_1
+.*33: L Error: Cannot redefine type: s12_2
+.*36: L Error: Cannot redefine type: s12_3
+.*39: L Error: Cannot redefine type: s12_4
+.*42: L Error: Cannot redefine type: s12_5
+.*45: L Error: Cannot redefine type: s12_6
+}
+
 test defined-1.0 {interesting defined form support} -body {
 #lang L
 defined_1_0() {
