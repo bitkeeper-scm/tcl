@@ -873,6 +873,8 @@ Optional Packages:
   --with-encoding         encoding for configuration values (default:
                           iso8859-1)
   --with-pcre             directory containing pcre headers and libraries
+  --with-pcre-include     directory containing pcre headers
+  --with-pcre-lib         directory containing pcre libraries
   --with-tzdata           install timezone data (default: autodetect)
 
 Some influential environment variables:
@@ -7759,7 +7761,6 @@ fi
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS=""
-
 	    echo "$as_me:$LINENO: checking for ELF" >&5
 echo $ECHO_N "checking for ELF... $ECHO_C" >&6
 if test "${tcl_cv_ld_elf+set}" = set; then
@@ -13988,6 +13989,21 @@ if test "${with_pcre+set}" = set; then
   withval="$with_pcre"
   with_pcre=${withval}
 fi;
+
+
+# Check whether --with-pcre-include or --without-pcre-include was given.
+if test "${with_pcre_include+set}" = set; then
+  withval="$with_pcre_include"
+  with_pcre_include=${withval}
+fi;
+
+
+# Check whether --with-pcre-lib or --without-pcre-lib was given.
+if test "${with_pcre_lib+set}" = set; then
+  withval="$with_pcre_lib"
+  with_pcre_lib=${withval}
+fi;
+
     echo "$as_me:$LINENO: checking for PCRE configuration" >&5
 echo $ECHO_N "checking for PCRE configuration... $ECHO_C" >&6
 
@@ -13995,6 +14011,7 @@ echo $ECHO_N "checking for PCRE configuration... $ECHO_C" >&6
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
+	    PCRE_CONFIG="pcre-config"
 	    # First check to see if --with-pcre was specified.
 	    if test x"${with_pcre}" != x ; then
 		if test -f "${with_pcre}/include/pcre.h" -a \
@@ -14003,6 +14020,7 @@ else
 		    ac_cv_c_pcre=`(cd ${with_pcre}; pwd)`
 		    PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
 		    PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
+		    PCRE_CONFIG="${ac_cv_c_pcre}/bin/pcre-config"
 		else
 		    { { echo "$as_me:$LINENO: error: ${with_pcre} directory doesn't contain pcre header and/or library" >&5
 echo "$as_me: error: ${with_pcre} directory doesn't contain pcre header and/or library" >&2;}
@@ -14010,44 +14028,66 @@ echo "$as_me: error: ${with_pcre} directory doesn't contain pcre header and/or l
 		fi
 	    fi
 
-	    if test x"${ac_cv_c_pcre}" = x ; then
-		# Try pcre-config if it exists
-		ac_cv_c_pcre=`pcre-config --prefix 2>/dev/null`
-		if test "$?" -eq 0; then
-		    PCRE_INCLUDE=`pcre-config --cflags 2>/dev/null`
-		    PCRE_LIBS=`pcre-config --libs 2>/dev/null`
+	    if test x"${with_pcre_include}" != x ; then
+	        if test -f "${with_pcre_include}/pcre.h" ; then
+	       	    PCRE_INCLUDE="-I${with_pcre_include}"
+		else
+	            { { echo "$as_me:$LINENO: error: ${with_pcre_include} directory doesn't contain pcre.h" >&5
+echo "$as_me: error: ${with_pcre_include} directory doesn't contain pcre.h" >&2;}
+   { (exit 1); exit 1; }; }
+	        fi
+	    fi
+
+	    if test x"${with_pcre_lib}" != x ; then
+	        if test -f "${with_pcre_lib}/libpcre.a" ; then
+		    PCRE_LIBS="-L${with_pcre_lib} -lpcre"
+		else
+		    { { echo "$as_me:$LINENO: error: ${with_pcre_lib} directory doesn't contain libpcre.a" >&5
+echo "$as_me: error: ${with_pcre_lib} directory doesn't contain libpcre.a" >&2;}
+   { (exit 1); exit 1; }; }
 		fi
 	    fi
 
-	    # check in a few common install locations
-	    if test x"${ac_cv_c_pcre}" = x ; then
-		for i in \
-			`ls -d ${exec_prefix} 2>/dev/null` \
-			`ls -d ${prefix} 2>/dev/null` \
-			`ls -d /usr/local 2>/dev/null` \
-			`ls -d /usr/contrib 2>/dev/null` \
-			`ls -d /usr 2>/dev/null` \
-			; do
-		    if test -f "${i}/include/pcre.h" -a \
-			\( -f "${i}/lib/libpcre.so" -o \
-			   -f "${i}/lib/libpcre.a" \); then
-			ac_cv_c_pcre=`(cd $i; pwd)`
-			PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
-			PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
-			break
-		    fi
-		done
+	    if test x"${PCRE_INCLUDE}" = x -o x"${PCRE_LIBS}" = x ; then
+	        if test x"${ac_cv_c_pcre}" = x ; then
+	        	# Try pcre-config if it exists
+	        	ac_cv_c_pcre=`${PCRE_CONFIG} --prefix 2>/dev/null`
+	        	if test "$?" -eq 0; then
+	        	    PCRE_INCLUDE=`${PCRE_CONFIG} --cflags 2>/dev/null`
+	        	    PCRE_LIBS=`${PCRE_CONFIG} --libs 2>/dev/null`
+	        	fi
+	        fi
+
+	        # check in a few common install locations
+	        if test x"${ac_cv_c_pcre}" = x ; then
+	        	for i in \
+	        		`ls -d ${exec_prefix} 2>/dev/null` \
+	        		`ls -d ${prefix} 2>/dev/null` \
+	        		`ls -d /usr/local 2>/dev/null` \
+	        		`ls -d /usr/contrib 2>/dev/null` \
+	        		`ls -d /usr 2>/dev/null` \
+	        		; do
+	        	    if test -f "${i}/include/pcre.h" -a \
+	        		\( -f "${i}/lib/libpcre.so" -o \
+	        		   -f "${i}/lib/libpcre.a" \); then
+	        		ac_cv_c_pcre=`(cd $i; pwd)`
+	        		PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
+	        		PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
+	        		break
+	        	    fi
+	        	done
+	        fi
 	    fi
 
 fi
 
 
-    if test x"${ac_cv_c_pcre}" = x ; then
+    if test x"${PCRE_INCLUDE}" = x -o x"${PCRE_LIBS}" = x ; then
 	{ echo "$as_me:$LINENO: WARNING: Can't find PCRE configuration, PCRE won't be used" >&5
 echo "$as_me: WARNING: Can't find PCRE configuration, PCRE won't be used" >&2;}
     else
-	echo "$as_me:$LINENO: result: found PCRE configuration at ${ac_cv_c_pcre}" >&5
-echo "${ECHO_T}found PCRE configuration at ${ac_cv_c_pcre}" >&6
+	echo "$as_me:$LINENO: result: found" >&5
+echo "${ECHO_T}found" >&6
     fi
 
 
@@ -14071,7 +14111,7 @@ fi;
 	enable_pcre=yes
     fi
 
-    if test x"${ac_cv_c_pcre}" = x ; then
+    if test x"${ac_cv_c_pcre}" = x -a x"${PCRE_INCLUDE}" = x -a x"${PCRE_LIBS}" = x ; then
 	echo "$as_me:$LINENO: result: pcre configuration not found" >&5
 echo "${ECHO_T}pcre configuration not found" >&6
     else

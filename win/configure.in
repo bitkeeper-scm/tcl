@@ -351,6 +351,12 @@ SC_ENABLE_SHARED
 
 SC_CONFIG_CFLAGS
 
+#------------------------------------------------------------------------------
+#       Check if we want to use pcre
+#------------------------------------------------------------------------------
+
+SC_ENABLE_PCRE
+
 #--------------------------------------------------------------------
 # Set the default compiler switches based on the --enable-symbols 
 # option.  This macro depends on C flags, and should be called

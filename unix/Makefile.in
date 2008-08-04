@@ -227,13 +227,13 @@ TOOL_DIR		= $(TOP_DIR)/tools
 UNIX_DIR		= $(TOP_DIR)/unix
 MAC_OSX_DIR		= $(TOP_DIR)/macosx
 BK_DIR			= @BK_DIR@
-BK_INCLUDES		= @BK_INCLUDES@
+BK_INCLUDES		= @BK_INCLUDES@ @PCRE_INCLUDE@
 @BK_LIBS@
 @BK_OBJS@
 @BK_HDRS@
 @BK_SRCS@
 ifdef BK_DIR
-BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
+BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a $(BK_DIR)/gui/tcltk/pcre/.libs/libpcre.a
 endif
 # Must be absolute because of the cd dltest $(DLTEST_DIR)/configure below.
 DLTEST_DIR		= @TCL_SRC_DIR@/unix/dltest

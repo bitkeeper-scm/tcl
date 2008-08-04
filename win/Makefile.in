@@ -100,12 +100,12 @@ TOMMATH_DIR		= @srcdir@/../libtommath
 WIN_DIR			= @srcdir@
 COMPAT_DIR		= @srcdir@/../compat
 BK_DIR			= @BK_DIR@
-BK_INCLUDES		= @BK_INCLUDES@
+BK_INCLUDES		= @BK_INCLUDES@ @PCRE_INCLUDE@
 @BK_LIBS@
 @BK_OBJS@
 @BK_HDRS@
 ifdef BK_DIR
-BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
+BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a $(BK_DIR)/gui/tcltk/pcre/.libs/libpcre.a
 endif
 
 # Converts a POSIX path to a Windows native path.
