@@ -196,8 +196,6 @@ AC_DEFUN([SC_LOAD_TKCONFIG], [
 #
 #	Adds the following arguments to configure:
 #		--with-pcre=/path/to/pcre
-#		--with-pcre-include=/path/to/pcre/inlcude
-#		--with-pcre-lib=/path/to/pcre/lib
 #
 #	Sets the following vars:
 #		PCRE_DIR
@@ -208,17 +206,6 @@ AC_DEFUN([SC_WITH_PCRE], [
 	AC_HELP_STRING([--with-pcre],
 	    [directory containing pcre headers and libraries]),
 	[with_pcre=${withval}])
-
-    AC_ARG_WITH(pcre-include,
-        AC_HELP_STRING([--with-pcre-include],
-	    [directory containing pcre headers]),
-	[with_pcre_include=${withval}])
-
-    AC_ARG_WITH(pcre-lib,
-        AC_HELP_STRING([--with-pcre-lib],
-	    [directory containing pcre libraries]),
-	[with_pcre_lib=${withval}])
-
     AC_MSG_CHECKING([for PCRE configuration])
 
     AC_CACHE_VAL(ac_cv_c_pcre,[
@@ -237,58 +224,40 @@ AC_DEFUN([SC_WITH_PCRE], [
 		fi
 	    fi
 
-	    if test x"${with_pcre_include}" != x ; then
-	        if test -f "${with_pcre_include}/pcre.h" ; then
-	       	    PCRE_INCLUDE="-I${with_pcre_include}"
-		else
-	            AC_MSG_ERROR([${with_pcre_include} directory doesn't contain pcre.h])
-	        fi
-	    fi
-
-	    if test x"${with_pcre_lib}" != x ; then
-	        if test -f "${with_pcre_lib}/libpcre.a" ; then
-		    PCRE_LIBS="-L${with_pcre_lib} -lpcre"
-		else
-		    AC_MSG_ERROR([${with_pcre_lib} directory doesn't contain libpcre.a])
+	    if test x"${ac_cv_c_pcre}" = x ; then
+		# Try pcre-config if it exists
+		ac_cv_c_pcre=`${PCRE_CONFIG} --prefix 2>/dev/null`
+		if test "$?" -eq 0; then
+		    PCRE_INCLUDE=`${PCRE_CONFIG} --cflags 2>/dev/null`
+		    PCRE_LIBS=`${PCRE_CONFIG} --libs 2>/dev/null`
 		fi
 	    fi
 
-	    if test x"${PCRE_INCLUDE}" = x -o x"${PCRE_LIBS}" = x ; then
-	        if test x"${ac_cv_c_pcre}" = x ; then
-	        	# Try pcre-config if it exists
-	        	ac_cv_c_pcre=`${PCRE_CONFIG} --prefix 2>/dev/null`
-	        	if test "$?" -eq 0; then
-	        	    PCRE_INCLUDE=`${PCRE_CONFIG} --cflags 2>/dev/null`
-	        	    PCRE_LIBS=`${PCRE_CONFIG} --libs 2>/dev/null`
-	        	fi
-	        fi
-
-	        # check in a few common install locations
-	        if test x"${ac_cv_c_pcre}" = x ; then
-	        	for i in \
-	        		`ls -d ${exec_prefix} 2>/dev/null` \
-	        		`ls -d ${prefix} 2>/dev/null` \
-	        		`ls -d /usr/local 2>/dev/null` \
-	        		`ls -d /usr/contrib 2>/dev/null` \
-	        		`ls -d /usr 2>/dev/null` \
-	        		; do
-	        	    if test -f "${i}/include/pcre.h" -a \
-	        		\( -f "${i}/lib/libpcre.so" -o \
-	        		   -f "${i}/lib/libpcre.a" \); then
-	        		ac_cv_c_pcre=`(cd $i; pwd)`
-	        		PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
-	        		PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
-	        		break
-	        	    fi
-	        	done
-	        fi
+	    # check in a few common install locations
+	    if test x"${ac_cv_c_pcre}" = x ; then
+		for i in \
+			`ls -d ${exec_prefix} 2>/dev/null` \
+			`ls -d ${prefix} 2>/dev/null` \
+			`ls -d /usr/local 2>/dev/null` \
+			`ls -d /usr/contrib 2>/dev/null` \
+			`ls -d /usr 2>/dev/null` \
+			; do
+		    if test -f "${i}/include/pcre.h" -a \
+			\( -f "${i}/lib/libpcre.so" -o \
+			   -f "${i}/lib/libpcre.a" \); then
+			ac_cv_c_pcre=`(cd $i; pwd)`
+			PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
+			PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
+			break
+		    fi
+		done
 	    fi
 	])
 
-    if test x"${PCRE_INCLUDE}" = x -o x"${PCRE_LIBS}" = x ; then
+    if test x"${ac_cv_c_pcre}" = x ; then
 	AC_MSG_WARN([Can't find PCRE configuration, PCRE won't be used])
     else
-	AC_MSG_RESULT([found])
+	AC_MSG_RESULT([found PCRE configuration at ${ac_cv_c_pcre}])
     fi
     AC_SUBST([PCRE_INCLUDE])
     AC_SUBST([PCRE_LIBS])
