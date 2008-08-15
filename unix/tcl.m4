@@ -3112,13 +3112,14 @@ AC_DEFUN([SC_TCL_GETHOSTBYNAME_R], [AC_CHECK_FUNC(gethostbyname_r, [
 
 AC_DEFUN([SC_TCL_GETADDRINFO], [AC_CHECK_FUNC(getaddrinfo, [
     AC_CACHE_CHECK([for working getaddrinfo], tcl_cv_api_getaddrinfo, [
-    AC_TRY_COMPILE([
+    AC_TRY_LINK([
 	#include <netdb.h>
     ], [
 	const char *name, *port;
 	struct addrinfo *aiPtr, hints;
 	(void)getaddrinfo(name,port, &hints, &aiPtr);
 	(void)freeaddrinfo(aiPtr);
+	(void)gai_strerror(0);
     ], tcl_cv_api_getaddrinfo=yes, tcl_cv_getaddrinfo=no)])
     tcl_ok=$tcl_cv_api_getaddrinfo
     if test "$tcl_ok" = yes; then
