@@ -341,6 +341,62 @@ subtype(L_type *have, L_type *want)
 	return (IS_SUBTYPE);
 }
 
+/* Using structure type equivalence, determine whether two types
+ * are the same. */
+int
+L_same_type(L_type *a, L_type *b)
+{
+	int		na, nb;
+	L_type		*ta, *tb;
+	L_var_decl	*ma, *mb;
+
+	unless (a && b) return (0);
+
+	switch (a->kind) {
+	    case L_TYPE_INT:
+	    case L_TYPE_FLOAT:
+	    case L_TYPE_STRING:
+	    case L_TYPE_NUMBER:
+	    case L_TYPE_WIDGET:
+	    case L_TYPE_VOID:
+	    case L_TYPE_POLY:
+	    case L_TYPE_VAR:
+		return (a->kind == b->kind);
+	    case L_TYPE_ARRAY:
+		/* Array dimensions and element type must match. */
+		if (a->array_dim && b->array_dim) {
+			na = a->array_dim->u.integer;
+			nb = b->array_dim->u.integer;
+			unless (na == nb) return (0);
+		} else {
+			/* If one has no dimension so must the other. */
+			if (a->array_dim || b->array_dim) return (0);
+		}
+		return (L_same_type(a->next_dim, b->next_dim));
+	    case L_TYPE_HASH:
+		/* Element types and index types must match. */
+		ta = (L_type *)a->array_dim;
+		tb = (L_type *)b->array_dim;
+		return (L_same_type(ta, tb) &&
+			L_same_type(a->next_dim, b->next_dim));
+	    case L_TYPE_STRUCT:
+		/* Struct members must match in type and number
+		 * but names can be different. */
+		ma = a->members;
+		mb = b->members;
+		while (ma && mb) {
+			unless (L_same_type(ma->type, mb->type)) return 0;
+			ma = ma->next;
+			mb = mb->next;
+		}
+		/* Not the same if one has more members. */
+		return (!ma && !mb);
+	    default:
+		L_bomb("bad type kind in L_same_type");
+		return (0);
+	}
+}
+
 private void
 tab(int tabs)
 {

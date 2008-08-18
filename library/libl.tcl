@@ -195,7 +195,7 @@ proc warn {message} {
 /*
  * Types for compatibility with older versions of the compiler.
  */
-//typedef	poly	hash{poly};
+typedef	poly	hash{poly};
 
 /*
  * stdio stuff (some above because we don't have {*} yet).
