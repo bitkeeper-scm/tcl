@@ -524,6 +524,7 @@ AC_DEFUN([SC_WITH_PCRE], [
     AC_MSG_CHECKING([for PCRE configuration])
 
     AC_CACHE_VAL(ac_cv_c_pcre,[
+	    PCRE_CONFIG="pcre-config"
 	    # First check to see if --with-pcre was specified.
 	    if test x"${with_pcre}" != x ; then
 		if test -f "${with_pcre}/include/pcre.h" -a \
@@ -532,6 +533,7 @@ AC_DEFUN([SC_WITH_PCRE], [
 		    ac_cv_c_pcre=`(cd ${with_pcre}; pwd)`
 		    PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
 		    PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
+		    PCRE_CONFIG="${ac_cv_c_pcre}/bin/pcre-config"
 		else
 		    AC_MSG_ERROR([${with_pcre} directory doesn't contain pcre header and/or library])
 		fi
@@ -539,10 +541,10 @@ AC_DEFUN([SC_WITH_PCRE], [
 
 	    if test x"${ac_cv_c_pcre}" = x ; then
 		# Try pcre-config if it exists
-		ac_cv_c_pcre=`pcre-config --prefix 2>/dev/null`
+		ac_cv_c_pcre=`${PCRE_CONFIG} --prefix 2>/dev/null`
 		if test "$?" -eq 0; then
-		    PCRE_INCLUDE=`pcre-config --cflags 2>/dev/null`
-		    PCRE_LIBS=`pcre-config --libs 2>/dev/null`
+		    PCRE_INCLUDE=`${PCRE_CONFIG} --cflags 2>/dev/null`
+		    PCRE_LIBS=`${PCRE_CONFIG} --libs 2>/dev/null`
 		fi
 	    fi
 
@@ -3110,13 +3112,14 @@ AC_DEFUN([SC_TCL_GETHOSTBYNAME_R], [AC_CHECK_FUNC(gethostbyname_r, [
 
 AC_DEFUN([SC_TCL_GETADDRINFO], [AC_CHECK_FUNC(getaddrinfo, [
     AC_CACHE_CHECK([for working getaddrinfo], tcl_cv_api_getaddrinfo, [
-    AC_TRY_COMPILE([
+    AC_TRY_LINK([
 	#include <netdb.h>
     ], [
 	const char *name, *port;
 	struct addrinfo *aiPtr, hints;
 	(void)getaddrinfo(name,port, &hints, &aiPtr);
 	(void)freeaddrinfo(aiPtr);
+	(void)gai_strerror(0);
     ], tcl_cv_api_getaddrinfo=yes, tcl_cv_getaddrinfo=no)])
     tcl_ok=$tcl_cv_api_getaddrinfo
     if test "$tcl_ok" = yes; then

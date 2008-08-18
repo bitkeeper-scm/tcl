@@ -7759,7 +7759,6 @@ fi
 	    SHLIB_SUFFIX=".so"
 	    DL_OBJS="tclLoadDl.o"
 	    DL_LIBS=""
-
 	    echo "$as_me:$LINENO: checking for ELF" >&5
 echo $ECHO_N "checking for ELF... $ECHO_C" >&6
 if test "${tcl_cv_ld_elf+set}" = set; then
@@ -10916,14 +10915,15 @@ main ()
 	struct addrinfo *aiPtr, hints;
 	(void)getaddrinfo(name,port, &hints, &aiPtr);
 	(void)freeaddrinfo(aiPtr);
+	(void)gai_strerror(0);
 
   ;
   return 0;
 }
 _ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
   ac_status=$?
   grep -v '^ *+' conftest.er1 >conftest.err
   rm -f conftest.er1
@@ -10937,7 +10937,7 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
+	 { ac_try='test -s conftest$ac_exeext'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -10950,7 +10950,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
 
 tcl_cv_getaddrinfo=no
 fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $tcl_cv_api_getaddrinfo" >&5
 echo "${ECHO_T}$tcl_cv_api_getaddrinfo" >&6
@@ -13995,6 +13996,7 @@ echo $ECHO_N "checking for PCRE configuration... $ECHO_C" >&6
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
 
+	    PCRE_CONFIG="pcre-config"
 	    # First check to see if --with-pcre was specified.
 	    if test x"${with_pcre}" != x ; then
 		if test -f "${with_pcre}/include/pcre.h" -a \
@@ -14003,6 +14005,7 @@ else
 		    ac_cv_c_pcre=`(cd ${with_pcre}; pwd)`
 		    PCRE_INCLUDE="-I${ac_cv_c_pcre}/include"
 		    PCRE_LIBS="-L${ac_cv_c_pcre}/lib -lpcre"
+		    PCRE_CONFIG="${ac_cv_c_pcre}/bin/pcre-config"
 		else
 		    { { echo "$as_me:$LINENO: error: ${with_pcre} directory doesn't contain pcre header and/or library" >&5
 echo "$as_me: error: ${with_pcre} directory doesn't contain pcre header and/or library" >&2;}
@@ -14012,10 +14015,10 @@ echo "$as_me: error: ${with_pcre} directory doesn't contain pcre header and/or l
 
 	    if test x"${ac_cv_c_pcre}" = x ; then
 		# Try pcre-config if it exists
-		ac_cv_c_pcre=`pcre-config --prefix 2>/dev/null`
+		ac_cv_c_pcre=`${PCRE_CONFIG} --prefix 2>/dev/null`
 		if test "$?" -eq 0; then
-		    PCRE_INCLUDE=`pcre-config --cflags 2>/dev/null`
-		    PCRE_LIBS=`pcre-config --libs 2>/dev/null`
+		    PCRE_INCLUDE=`${PCRE_CONFIG} --cflags 2>/dev/null`
+		    PCRE_LIBS=`${PCRE_CONFIG} --libs 2>/dev/null`
 		fi
 	    fi
 
