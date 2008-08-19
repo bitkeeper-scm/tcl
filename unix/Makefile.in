@@ -267,12 +267,13 @@ DDD			= ddd
 
 STUB_CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${SHLIB_CFLAGS} \
 -I"${BUILD_DIR}" -I${UNIX_DIR} -I${GENERIC_DIR} -I${TOMMATH_DIR} \
-${AC_FLAGS} ${PROTO_FLAGS} ${ENV_FLAGS} ${BK_INCLUDES} ${EXTRA_CFLAGS} @EXTRA_CC_SWITCHES@
+${AC_FLAGS} ${PROTO_FLAGS} ${ENV_FLAGS} ${BK_INCLUDES} @PCRE_INCLUDE@ \
+${EXTRA_CFLAGS} @EXTRA_CC_SWITCHES@
 CC_SWITCHES = $(STUB_CC_SWITCHES) ${NO_DEPRECATED_FLAGS}
 
 APP_CC_SWITCHES = $(CC_SWITCHES) @EXTRA_APP_CC_SWITCHES@
 
-LIBS		= @TCL_LIBS@ @PCRE_LIBS@ ${BK_LIBS}
+LIBS		= @PCRE_LIBS@ ${BK_LIBS} @TCL_LIBS@
 
 
 DEPEND_SWITCHES	= ${CFLAGS} -I${UNIX_DIR} -I${GENERIC_DIR} \
@@ -303,7 +304,7 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 	tclStubLib.o tclTimer.o tclTrace.o tclUtf.o tclUtil.o tclVar.o \
 	tclTomMathInterface.o
 
-L_OBJS = Lscanner.o Lgrammar.o Lcompile.o Last.o LastWalker.o LPointerObj.o \
+L_OBJS = Lscanner2.o Lgrammar.o Lcompile.o Last.o LastWalker.o LPointerObj.o \
 	Ltypecheck.o
 
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
@@ -458,6 +459,7 @@ L_HDRS = \
 
 L_SRCS = \
 	$(GENERIC_DIR)/Lscanner.l \
+	$(GENERIC_DIR)/Lscanner2.c \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/Ltypecheck.c \
@@ -1274,6 +1276,9 @@ Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
 
 Lscanner.o: Lscanner.c $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
+
+Lscanner2.o: $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lscanner2.c
 
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y

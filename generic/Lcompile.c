@@ -3068,7 +3068,7 @@ L_store_typedef(L_expr *name, L_type *type)
 	hPtr = Tcl_CreateHashEntry(L_typedef_table(), name->u.string, &new);
 	unless (new) {
 		t = Tcl_GetHashValue(hPtr);
-		if (type->kind != t->kind) {
+		unless (L_same_type(type, t)) {
 			L_errorf(name, "Cannot redefine type: %s",
 			    name->u.string);
 		}
