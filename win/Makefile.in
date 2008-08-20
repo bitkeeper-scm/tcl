@@ -287,7 +287,7 @@ GENERIC_OBJS = \
 	tclUtil.$(OBJEXT) \
 	tclVar.$(OBJEXT)
 
-L_OBJS	= Lscanner.$(OBJEXT) \
+L_OBJS	= Lscanner2.$(OBJEXT) \
 	Lgrammar.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
@@ -378,6 +378,7 @@ L_HDRS	= \
 
 L_SRCS	= \
 	$(GENERIC_DIR)/Lscanner.l \
+	$(GENERIC_DIR)/Lscanner2.c \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/LPointerObj.c \
@@ -565,6 +566,9 @@ Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
 
 Lscanner.$(OBJEXT): Lscanner.c $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lscanner.c
+
+Lscanner2.$(OBJEXT): $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lscanner2.c
 
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
