@@ -1295,16 +1295,16 @@ l_push_literal(L_expr *expr)
 		L_PUSH_CSTR(expr->u.string, strlen(expr->u.string));
 		return;
 	    case L_EXPR_INTEGER:
-		snprintf(buf, 128, "%i", expr->u.integer);
+		snprintf(buf, 128, "%lu", expr->u.integer);
 		break;
 	    case L_EXPR_FLOTE:
 		snprintf(buf, 128, "%f", expr->u.flote);
 		break;
 	    case L_EXPR_UNARY:
 		if (expr->op == T_PLUS) {
-			snprintf(buf, sizeof(buf), "%i", expr->a->u.integer);
+			snprintf(buf, sizeof(buf), "%lu", expr->a->u.integer);
 		} else if (expr->op == T_MINUS) {
-			snprintf(buf, sizeof(buf), "%i", -expr->a->u.integer);
+			snprintf(buf, sizeof(buf), "%lu", -expr->a->u.integer);
 		} else {
 			L_errorf(expr, "Illegal initializer");
 			return;
@@ -2967,7 +2967,7 @@ LDumpAstNodes(Ast *node, void *data, int order)
 				L_expr_tostr[expr->kind]);
 			    switch (expr->kind) {
 				case L_EXPR_INTEGER:
-				    fprintf(stderr, " :value %d",
+				    fprintf(stderr, " :value %ld",
 					expr->u.integer);
 				    break;
 				case L_EXPR_STRING:
