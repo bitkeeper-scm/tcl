@@ -139,7 +139,7 @@ struct L_expr {
 	union {
 		char *string;
 		double flote;
-		int integer;
+		long integer;
 	} u;
 };
 
