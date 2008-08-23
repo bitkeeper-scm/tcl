@@ -4302,9 +4302,11 @@ NRCallTEBC(
     case TCL_NR_YIELD_TYPE:
 	if (iPtr->execEnvPtr->corPtr) {
 	    Tcl_SetResult(interp, "cannot yield: C stack busy", TCL_STATIC);
+	    Tcl_SetErrorCode(interp, "COROUTINE_CANT_YIELD", NULL);
 	} else {
 	    Tcl_SetResult(interp, "yield can only be called in a coroutine",
 		    TCL_STATIC);
+	    Tcl_SetErrorCode(interp, "COROUTINE_ILLEGAL_YIELD", NULL);
 	}
 	return TCL_ERROR;
     default:
@@ -8305,6 +8307,7 @@ NRInterpCoroutine(
 	Tcl_ResetResult(interp);
 	Tcl_AppendResult(interp, "coroutine \"", Tcl_GetString(objv[0]),
 		"\" is already running", NULL);
+	Tcl_SetErrorCode(interp, "COROUTINE_BUSY", NULL);
 	return TCL_ERROR;
     }
 
