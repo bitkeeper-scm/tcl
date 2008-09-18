@@ -576,7 +576,7 @@ Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 Lgrammar.$(OBJEXT): Lgrammar.c Lcompile.$(OBJEXT) $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lgrammar.c
 
-Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
+Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lcompile.c
 
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
@@ -802,6 +802,7 @@ clean: cleanhelp
 	$(RM) *.lib *.a *.exp *.dll *.$(RES) *.${OBJEXT} *~ \#* TAGS a.out
 	$(RM) $(TCLSH) $(TCLTEST) $(CAT32)
 	$(RM) *.pch *.ilk *.pdb
+	$(RM) Lscanner.c Lgrammar.[ch]
 
 distclean: clean
 	$(RM) Makefile config.status config.cache config.log tclConfig.sh \

@@ -930,13 +930,12 @@ Makefile: $(UNIX_DIR)/Makefile.in $(DLTEST_DIR)/Makefile.in
 
 clean:
 	rm -f *.a *.o libtcl* core errs *~ \#* TAGS *.E a.out \
-		errors tclsh tcltest lib.exp Tcl Lscanner.c
+		errors tclsh tcltest lib.exp Tcl Lscanner.c Lgrammar.[ch]
 	cd dltest ; $(MAKE) clean
 
 distclean: clean
 	rm -rf Makefile config.status config.cache config.log tclConfig.sh \
-		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework \
-		Lgrammar.c Lgrammar.h
+		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework
 	cd dltest ; $(MAKE) distclean
 
 depend:
@@ -1287,7 +1286,7 @@ Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing Lgrammar.c || \
 	$(CC) -c $(CC_SWITCHES) Lgrammar.c
 
-Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
+Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
 
 Ltypecheck.o: $(GENERIC_DIR)/Ltypecheck.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
