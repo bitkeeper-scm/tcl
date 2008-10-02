@@ -1445,7 +1445,7 @@ DeleteInterpProc(
      */
 
     Tcl_FreeResult(interp);
-    interp->result = NULL;
+    iPtr->result = NULL;
     Tcl_DecrRefCount(iPtr->objResultPtr);
     iPtr->objResultPtr = NULL;
     Tcl_DecrRefCount(iPtr->ecVar);
@@ -6558,7 +6558,7 @@ Tcl_AddObjErrorInfo(
 	     * interp->result completely.
 	     */
 
-	    iPtr->errorInfo = Tcl_NewStringObj(interp->result, -1);
+	    iPtr->errorInfo = Tcl_NewStringObj(iPtr->result, -1);
 	} else {
 	    iPtr->errorInfo = iPtr->objResultPtr;
 	}
