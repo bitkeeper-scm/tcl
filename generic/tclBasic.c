@@ -750,6 +750,7 @@ Tcl_CreateInterp(void)
     TclInitDictCmd(interp);
     TclInitInfoCmd(interp);
     TclInitStringCmd(interp);
+    TclInitPrefixCmd(interp);
 
     /*
      * Register "clock" subcommands. These *do* go through
