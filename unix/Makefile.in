@@ -240,7 +240,7 @@ DLTEST_DIR		= @TCL_SRC_DIR@/unix/dltest
 # Must be absolute to so the corresponding tcltest's tcl_library is absolute.
 TCL_BUILDTIME_LIBRARY	= @TCL_SRC_DIR@/library
 
-CC			= @CC@
+CC			= $(if $(Q), @echo CC $(notdir $<) ; @CC@, @CC@)
 #CC			= purify -best-effort @CC@ -DPURIFY
 
 # Flags to be passed to installManPage to control how the manpages should be
@@ -1282,11 +1282,13 @@ Lscanner2.o: $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.o: Lgrammar.c Lcompile.o $(L_SRCS) $(L_HDRS)
+Lgrammar.h: Lgrammar.c
+
+Lgrammar.o: Lgrammar.c Lgrammar.h Lcompile.o $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing Lgrammar.c || \
 	$(CC) -c $(CC_SWITCHES) Lgrammar.c
 
-Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.c $(L_HDRS)
+Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.h $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
 
 Ltypecheck.o: $(GENERIC_DIR)/Ltypecheck.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)

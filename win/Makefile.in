@@ -168,7 +168,7 @@ VPATH = $(GENERIC_DIR):$(TOMMATH_DIR):$(WIN_DIR):$(COMPAT_DIR)
 
 AR		= @AR@
 RANLIB		= @RANLIB@
-CC		= @CC@
+CC		= $(if $(Q), @echo CC $(notdir $<) ; @CC@, @CC@)
 RC		= @RC@
 RES		= @RES@
 AC_FLAGS	= @EXTRA_CFLAGS@ @DEFS@
@@ -573,10 +573,12 @@ Lscanner2.$(OBJEXT): $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.$(OBJEXT): Lgrammar.c Lcompile.$(OBJEXT) $(L_SRCS) $(L_HDRS)
+Lgrammar.h: Lgrammar.c
+
+Lgrammar.$(OBJEXT): Lgrammar.c Lgrammar.h Lcompile.$(OBJEXT) $(L_SRCS) $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lgrammar.c
 
-Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.c $(L_HDRS)
+Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.h $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lcompile.c
 
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
