@@ -106,6 +106,7 @@ BK_INCLUDES		= @BK_INCLUDES@
 @BK_HDRS@
 ifdef BK_DIR
 BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
+TOMMATH_DIR		= $(BK_DIR)/tommath
 endif
 
 # Converts a POSIX path to a Windows native path.
@@ -164,7 +165,7 @@ MAN2TCL			= man2tcl$(EXEEXT)
 # Setting the VPATH variable to a list of paths will cause the Makefile to
 # look into these paths when resolving .c to .obj dependencies.
 
-VPATH = $(GENERIC_DIR):$(TOMMATH_DIR):$(WIN_DIR):$(COMPAT_DIR)
+VPATH = $(GENERIC_DIR):$(WIN_DIR):$(COMPAT_DIR)
 
 AR		= @AR@
 RANLIB		= @RANLIB@
@@ -592,6 +593,9 @@ LPointerObj.$(OBJEXT): $(GENERIC_DIR)/LPointerObj.c $(L_HDRS)
 
 .c.${OBJEXT}:
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
+
+$(TOMMATH_OBJS): %.${OBJEXT}: $(TOMMATH_DIR)/%.c
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl "$<" -o "$@"
 
 .rc.$(RES):
 	$(RC) @RC_OUT@ $@ @RC_TYPE@ @RC_DEFINES@ @RC_INCLUDE@ "$(GENERIC_DIR_NATIVE)" @RC_INCLUDE@ "$(WIN_DIR_NATIVE)" @DEPARG@
