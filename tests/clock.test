@@ -36683,8 +36683,9 @@ test clock-65.1 {clock add, bad option [Bug 2481670]} {*}{
     -body {
 	clock add 0 1 year -foo bar
     }
+    -match glob
     -returnCodes error
-    -result {bad switch "-foo":*}
+    -result {bad switch "-foo"*}
 }
 
 # cleanup
