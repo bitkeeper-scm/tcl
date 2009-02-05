@@ -287,11 +287,10 @@ GENERIC_OBJS = \
 	tclUtil.$(OBJEXT) \
 	tclVar.$(OBJEXT)
 
-L_OBJS	= Lscanner2.$(OBJEXT) \
+L_OBJS	= Lscanner.$(OBJEXT) \
 	Lgrammar.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
-	LastWalker.$(OBJEXT) \
 	LPointerObj.$(OBJEXT) \
 	Ltypecheck.$(OBJEXT)
 
@@ -378,12 +377,10 @@ L_HDRS	= \
 
 L_SRCS	= \
 	$(GENERIC_DIR)/Lscanner.l \
-	$(GENERIC_DIR)/Lscanner2.c \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/LPointerObj.c \
-	$(GENERIC_DIR)/Last.c \
-	$(GENERIC_DIR)/LastWalker.c
+	$(GENERIC_DIR)/Last.c
 
 WIN_OBJS = \
 	tclWin32Dll.$(OBJEXT) \
@@ -564,14 +561,11 @@ tclPipe.$(OBJEXT): $(BK_HDRS)
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
-Lscanner.$(OBJEXT): Lscanner.c $(L_SRCS) $(L_HDRS)
+Lscanner.$(OBJEXT): Lscanner.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lscanner.c
 
-Lscanner2.$(OBJEXT): $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lscanner2.c
-
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
-	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
+	@BISON@ -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
 Lgrammar.h: Lgrammar.c
 
@@ -583,9 +577,6 @@ Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar
 
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Last.c
-
-LastWalker.$(OBJEXT): $(GENERIC_DIR)/LastWalker.c $(L_HDRS) 
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/LastWalker.c
 
 LPointerObj.$(OBJEXT): $(GENERIC_DIR)/LPointerObj.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/LPointerObj.c
@@ -603,7 +594,7 @@ LPointerObj.$(OBJEXT): $(GENERIC_DIR)/LPointerObj.c $(L_HDRS)
 # the .c file.
 
 gendate:
-	bison --output-file=$(GENERIC_DIR)/tclDate.c \
+	@BISON@ --output-file=$(GENERIC_DIR)/tclDate.c \
 	--name-prefix=TclDate \
 	--no-lines \
 	$(GENERIC_DIR)/tclGetDate.y
@@ -700,7 +691,8 @@ install-libraries: libraries install-tzdata install-msgs
 	    $(COPY) "$$i" "$(INCLUDE_INSTALL_DIR)"; \
 	    done;
 	@echo "Installing library files to $(SCRIPT_INSTALL_DIR)";
-	@for i in $(ROOT_DIR)/library/*.tcl $(ROOT_DIR)/library/tclIndex; \
+	@for i in $(ROOT_DIR)/library/*.tcl $(ROOT_DIR)/library/tclIndex \
+		$(ROOT_DIR)/library/*.l; \
 	    do \
 	    $(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)"; \
 	    done;

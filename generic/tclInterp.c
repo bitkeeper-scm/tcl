@@ -447,6 +447,7 @@ TclInterpInit(
     Tcl_InitHashTable(&slavePtr->aliasTable, TCL_STRING_KEYS);
 
     Tcl_CreateObjCommand(interp, "interp", Tcl_InterpObjCmd, NULL, NULL);
+    TclLInitCompiler(interp);
 
     Tcl_CallWhenDeleted(interp, InterpInfoDeleteProc, NULL);
     return TCL_OK;

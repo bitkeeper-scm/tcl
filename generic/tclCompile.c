@@ -401,17 +401,15 @@ InstructionDesc tclInstructionTable[] = {
 	/* Test if general variable exists; unparsed variable name is stktop*/
     {"rot",              2,    0,         1,    {OPERAND_UINT1}},
         /* Rotate the top opnd elements in the stack */
-    {"l-deep",           6,    INT_MIN,   2,    {OPERAND_UINT4, OPERAND_UINT1}},
+    {"l-deep-read",      3,    INT_MIN,   2,    {OPERAND_UINT1, OPERAND_UINT1}},
         /* Dive deep into a nested struct/array/hash: opnd1 indicates the
-	 * stack depth where the indices start, opnd2 are flags indicating
-	 * the type of the first set of indices and if this is a read or
-	 * write operation. Stacktop contains a list of lengths for each
-	 * stage. Leaves a special LdeepPtrType obj at stacktop */
-    {"l-writeDeepPtr",         2,   -1,        1,    {OPERAND_UINT1}},
-        /* Write value contained at stackTop to the location pointed to right
-	 * below. The opnd indicates if this is a "post-incr" operation: if
-	 * !=0 return the old (instead of the new) value at the pointed
-	 * location*/
+	 * argument depth, opnd2 are flags indicating the type of the first
+	 * set of indices and whether the value or a LdeepPtrType obj or both
+	 * should be left on the stack (see Lcompile.h).  Stacktop contains a
+	 * list of lengths for each stage. */
+    {"l-deep-write",     6,    -1,        2,    {OPERAND_UINT4, OPERAND_UINT1}},
+        /* Write via special L deep pointer pushed by l-deep-read above.
+	 * Leave old or new value on stack top based on opnd. */
     {"lsplit",           2,    INT_MIN,   1,    {OPERAND_UINT1}},
 	/* Perl-like string split. op1 is the number of arguments;
 	 * stack contains the limit (optional), then the regexp
@@ -3098,7 +3096,7 @@ GetCmdLocEncodingSize(
 	}
 
 	srcDelta = (mapPtr[i].srcOffset - prevSrcOffset);
-	if ((-127 <= srcDelta) && (srcDelta <= 127)) {
+	if ((-127 <= srcDelta) && (srcDelta <= 127) && (srcDelta != -1)) {
 	    srcDeltaNext++;
 	} else {
 	    srcDeltaNext += 5;	 /* 1 byte for 0xFF, 4 for delta */
@@ -3206,7 +3204,7 @@ EncodeCmdLocMap(
     prevOffset = 0;
     for (i = 0;  i < numCmds;  i++) {
 	srcDelta = (mapPtr[i].srcOffset - prevOffset);
-	if ((-127 <= srcDelta) && (srcDelta <= 127)) {
+	if ((-127 <= srcDelta) && (srcDelta <= 127) && (srcDelta != -1)) {
 	    TclStoreInt1AtPtr(srcDelta, p);
 	    p++;
 	} else {

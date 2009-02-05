@@ -255,7 +255,7 @@ AC_DEFUN([SC_WITH_PCRE], [
 	])
 
     if test x"${ac_cv_c_pcre}" = x ; then
-	AC_MSG_WARN([Can't find PCRE configuration, PCRE won't be used])
+	AC_MSG_ERROR([Can't find PCRE configuration])
     else
 	AC_MSG_RESULT([found PCRE configuration at ${ac_cv_c_pcre}])
     fi
@@ -1042,4 +1042,21 @@ AC_DEFUN([SC_TCL_CFG_ENCODING], [
 	# Default encoding on windows is not "iso8859-1"
 	AC_DEFINE(TCL_CFGVAL_ENCODING,"cp1252")
     fi
+])
+
+AC_DEFUN([AC_PROG_BISON],[
+	AC_CHECK_PROGS(BISON,[bison],no)
+	export BISON;
+	if test $BISON = "no" ;
+	then
+		AC_MSG_ERROR([Unable to find bison]);
+	fi
+	ver=`${BISON} --version | grep ^bison | awk '{print $NF}'`
+	case $ver in
+	     1.*) AC_MSG_ERROR([Your bison is too old, at least version 2 is required]);
+	     	  ;;
+	     2.4) AC_MSG_ERROR([Your bison is buggy, go back to 2.3]);
+	     	  ;;
+	esac
+	AC_SUBST(BISON)
 ])

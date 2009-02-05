@@ -64,6 +64,7 @@ fi
 AC_PROG_CC
 AC_C_INLINE
 AC_HEADER_STDC
+AC_PROG_BISON
 
 # To properly support cross-compilation, one would
 # need to use these tool checks instead of

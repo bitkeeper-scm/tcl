@@ -15,6 +15,7 @@
  */
 
 #include "tclInt.h"
+#include "Lcompile.h"
 
 #undef TCL_STORAGE_CLASS
 #define TCL_STORAGE_CLASS DLLEXPORT
@@ -32,8 +33,6 @@
  */
 
 extern CRTIMPORT int	isatty(int fd);
-
-extern int L_interactive;
 
 static Tcl_Obj *tclStartupScriptPath = NULL;
 static Tcl_Obj *tclStartupScriptEncoding = NULL;
@@ -344,7 +343,7 @@ Tcl_Main(
     char *commandStr;
     CONST char *encodingName = NULL;
     PromptType prompt = PROMPT_START;
-    int code, length, tty, L = 0, exitCode = 0;
+    int code, length, tty, isL = 0, exitCode = 0;
     Tcl_Channel inChannel, outChannel, errChannel;
     Tcl_Interp *interp;
     Tcl_DString appName;
@@ -379,7 +378,7 @@ Tcl_Main(
 	    argc--;
 	    argv++;
 	} else if ((argc > 1) && (0 == strncmp("-l", argv[1], 2))) {
-	    L_interactive = 1;
+	    L->interactive = 1;
 	    argc--;
 	    argv++;
 	}
@@ -419,7 +418,7 @@ Tcl_Main(
     Tcl_SetVar(interp, "tcl_interactive", ((path == NULL) && tty) ? "1" : "0",
 	    TCL_GLOBAL_ONLY);
 
-    if (L_interactive) {
+    if (L->interactive) {
         Tcl_SetVar(interp, "L_interactive", 
             ((path == NULL) && tty) ? "1" : "0", TCL_GLOBAL_ONLY);
     }
@@ -497,7 +496,7 @@ Tcl_Main(
      */
 
     Tcl_LinkVar(interp, "tcl_interactive", (char *) &tty, TCL_LINK_BOOLEAN);
-    Tcl_LinkVar(interp, "L", (char *) &L, TCL_LINK_BOOLEAN);
+    Tcl_LinkVar(interp, "L", (char *) &isL, TCL_LINK_BOOLEAN);
     inChannel = Tcl_GetStdChannel(TCL_STDIN);
     outChannel = Tcl_GetStdChannel(TCL_STDOUT);
     while ((inChannel != (Tcl_Channel) NULL) && !Tcl_InterpDeleted(interp)) {
@@ -546,9 +545,9 @@ Tcl_Main(
 	     * meaningful commands.
 	     */
 	    commandStr = Tcl_GetStringFromObj(commandPtr, &commandLen);
-	    if (!L && strncasecmp(commandStr, "#lang l", 7) == 0) {
+	    if (!isL && strncasecmp(commandStr, "#lang l", 7) == 0) {
 		Tcl_SetStringObj(commandPtr, "set ::L 1", -1);
-	    } else if (L && strncasecmp(commandStr, "#lang tcl", 9) == 0) {
+	    } else if (isL && strncasecmp(commandStr, "#lang tcl", 9) == 0) {
 		Tcl_SetStringObj(commandPtr, "set('::L',0);", -1);
 	    }
 
@@ -571,7 +570,7 @@ Tcl_Main(
 
 	    prompt = PROMPT_START;
 
-	    if (L) {
+	    if (isL) {
 	    	LObj = Tcl_NewStringObj("L {", -1);
 		Tcl_AppendObjToObj(LObj, commandPtr);
 		if (commandStr[commandLen-1] != ';') {

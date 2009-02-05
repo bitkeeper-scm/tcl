@@ -70,6 +70,7 @@ fi
 AC_PROG_CC
 AC_C_INLINE
 
+AC_PROG_BISON
 #--------------------------------------------------------------------
 # Supply substitutes for missing POSIX header files.  Special notes:
 #	- stdlib.h doesn't define strtol, strtoul, or

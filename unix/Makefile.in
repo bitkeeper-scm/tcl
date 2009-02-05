@@ -304,8 +304,7 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 	tclStubLib.o tclTimer.o tclTrace.o tclUtf.o tclUtil.o tclVar.o \
 	tclTomMathInterface.o
 
-L_OBJS = Lscanner2.o Lgrammar.o Lcompile.o Last.o LastWalker.o LPointerObj.o \
-	Ltypecheck.o
+L_OBJS = Lscanner.o Lgrammar.o Lcompile.o Last.o LPointerObj.o	Ltypecheck.o
 
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
 	bn_fast_s_mp_sqr.o bn_mp_add.o bn_mp_and.o \
@@ -459,13 +458,11 @@ L_HDRS = \
 
 L_SRCS = \
 	$(GENERIC_DIR)/Lscanner.l \
-	$(GENERIC_DIR)/Lscanner2.c \
 	$(GENERIC_DIR)/Lgrammar.y \
 	$(GENERIC_DIR)/Lcompile.c \
 	$(GENERIC_DIR)/Ltypecheck.c \
 	$(GENERIC_DIR)/LPointerObj.c \
-	$(GENERIC_DIR)/Last.c \
-	$(GENERIC_DIR)/LastWalker.c
+	$(GENERIC_DIR)/Last.c
 
 STUB_SRCS = \
 	$(GENERIC_DIR)/tclStubLib.c
@@ -639,7 +636,7 @@ test: tcltest
 	./tcltest $(TOP_DIR)/tests/all.tcl $(TESTFLAGS)
 
 l-test l-tests test-l test-L:
-	$(MAKE) test TESTFLAGS="-file l-*"
+	$(MAKE) test TESTFLAGS+="-file l-*"
 
 gdb-test: tcltest
 	@echo "set env @LD_LIBRARY_PATH_VAR@=\"`pwd`:$${@LD_LIBRARY_PATH_VAR@}\"" > gdb.run
@@ -711,7 +708,7 @@ topDirName:
 # the .c file.
 
 gendate:
-	bison --output-file=$(GENERIC_DIR)/tclDate.c \
+	@BISON@ --output-file=$(GENERIC_DIR)/tclDate.c \
 	--no-lines \
 	--name-prefix=TclDate \
 	$(GENERIC_DIR)/tclGetDate.y
@@ -820,7 +817,8 @@ install-libraries: libraries $(INSTALL_TZDATA) install-msgs
 	    done;
 	@echo "Installing library files to $(SCRIPT_INSTALL_DIR)";
 	@for i in $(TOP_DIR)/library/*.tcl $(TOP_DIR)/library/tclIndex \
-		$(UNIX_DIR)/tclAppInit.c $(UNIX_DIR)/ldAix @DTRACE_SRC@; \
+		$(UNIX_DIR)/tclAppInit.c $(UNIX_DIR)/ldAix @DTRACE_SRC@ \
+		$(TOP_DIR)/library/*.l; \
 	    do \
 	    $(INSTALL_DATA) $$i "$(SCRIPT_INSTALL_DIR)"; \
 	    done;
@@ -1273,14 +1271,11 @@ tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
-Lscanner.o: Lscanner.c $(L_SRCS) $(L_HDRS)
+Lscanner.o: $(L_HDRS) Lscanner.c
 	$(CC) -c $(CC_SWITCHES) Lscanner.c
 
-Lscanner2.o: $(GENERIC_DIR)/Lscanner2.c $(L_HDRS) Lscanner.c
-	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lscanner2.c
-
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
-	bison -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
+	@BISON@ -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
 Lgrammar.h: Lgrammar.c
 
@@ -1296,9 +1291,6 @@ Ltypecheck.o: $(GENERIC_DIR)/Ltypecheck.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 
 Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Last.c
-
-LastWalker.o: $(GENERIC_DIR)/LastWalker.c $(L_HDRS)
-	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/LastWalker.c
 
 LPointerObj.o: $(GENERIC_DIR)/LPointerObj.c
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/LPointerObj.c

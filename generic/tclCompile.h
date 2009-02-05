@@ -649,7 +649,7 @@ typedef struct ByteCode {
 
 /* L stuff */
 #define INST_ROT                        132
-#define INST_L_DEEP                     133
+#define INST_L_DEEP_READ                133
 #define INST_L_DEEP_WRITE               134
 #define INST_L_SPLIT                    135
 #define INST_L_DEFINED                  136
