@@ -1188,6 +1188,82 @@ void op_1_10()
 op_1_10
 } -output {}
 
+test op-1.11 {comma operator} -body {
+#lang L -nowarn
+int op_1_11_f(int a, int b, int c) { return (b); }
+string op_1_11_s(string a, string b, string c, string d)
+{
+	return ((string)concat(a,b,c,d));
+}
+void op_1_11()
+{
+	/*
+	 * Check precedence and associativity of comma operator.
+	 * Should be the lowest and left associative, and not get
+	 * confused with comma as an arg seperator.  Also check that
+	 * the value of a,b is b.
+	 */
+
+	int	i;
+	int	j = 2, k;  // declares j & k; is not a comma op
+	int	l = (1,2), m = (1,2,3,4,5);
+	string	s;
+
+	unless ((j == 2) && (k == 0)) puts("bad d1");
+	unless (l == 2) puts("bad d2");
+	unless (m == 5) puts("bad d3");
+
+	i = 1,2;
+	unless (i == 1) puts("bad 1");
+	unless ((i = 1,2) == 2) puts("bad 2");
+	unless (op_1_11_f(1, 2, 3) == 2) puts("bad 3");
+	unless (op_1_11_f(1, (2,3), 4) == 3) puts("bad 4");
+	unless (op_1_11_s("a", "b", kw:"d") eq "a b -kw d") puts("bad 5");
+	unless (op_1_11_s("a", kw:"b", "c") eq "a -kw b c") puts("bad 6");
+	unless (op_1_11_s(kw:"a", "b", "c") eq "-kw a b c") puts("bad 7");
+	unless (op_1_11_s("a", ("b","c"), kw: "d") eq "a c -kw d") {
+		puts("bad 8");
+	}
+
+	i = (1,2,3);
+	unless (i == 3) puts("bad 10");
+	i = (1,2,3,4);
+	unless (i == 4) puts("bad 11");
+	i = (1,2),(3,4);
+	unless (i == 2) puts("bad 12");
+	i = ((1,2),(3,4));
+	unless (i == 4) puts("bad 13");
+
+	/*
+	 * Check that the type of a,b is the type of b.
+	 */
+	i = ("s", 11);
+	unless (i == 11) puts("bad t1");
+	s = (1, "s");
+	unless (s eq "s") puts("bad t2");
+
+	/*
+	 * For loops should just automatically get the use of comma op.
+	 */
+	i = j = -1;
+	for (i=0,j=10; i < 10; ++i,j+=10) ;
+	unless ((i == 10) && (j == 110)) puts("bad f1");
+
+	/*
+	 * Check that the grammar's special switching of the scanner
+	 * to/from a regexp for the split built-in, which happens just
+	 * before the comma after the first arg is scanned, works when
+	 * the comma operator is present.
+	 */
+	unless (split("a b c", / /)[1] eq "b") puts("bad s1");
+	unless (split("a b c")[1] eq "b") puts("bad s2");
+	unless (split(("x y z","a b c"), / /)[1] eq "b") puts("bad s3");
+	unless (split(("x y z","a b c"))[1] eq "b") puts("bad s4");
+}
+#lang tcl
+op_1_11
+} -output {}
+
 test cast-1.0 { Casts to integer and float } -body {
 #lang L
 void cast_1_0() {

@@ -204,6 +204,7 @@ typedef enum {
 	L_OP_LIST,
 	L_OP_CONS,
 	L_OP_KV,
+	L_OP_COMMA,
 } Op_k;
 
 typedef enum {

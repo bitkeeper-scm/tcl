@@ -1307,6 +1307,11 @@ compile_binOp(Expr *expr)
 		compile_twiddle(expr);
 		expr->type = L_int;
 		break;
+	    case L_OP_COMMA:
+		compile_expr(expr->a, DISCARD);
+		compile_expr(expr->b, PUSH);
+		expr->type = expr->b->type;
+		break;
 	    default:
 		L_bomb("compile_binOp: malformed AST");
 	}

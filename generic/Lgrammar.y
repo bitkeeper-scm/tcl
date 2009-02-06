@@ -101,6 +101,7 @@ extern int	L_lex (void);
 /*
  * This follows the C operator precedence rules.
  */
+%left T_COMMA
 %nonassoc T_ELSE
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
        T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
@@ -441,13 +442,13 @@ parameter_decl:
 	;
 
 argument_expr_list:
-	  expr
+	  expr %prec T_COMMA
 	| T_KEYWORD
 	{
 		$$ = ast_mkConst(L_string, @1.beg, @1.end);
 		$$->u.string = $1;
 	}
-	| T_KEYWORD expr
+	| T_KEYWORD expr %prec T_COMMA
 	{
 		Expr *e = ast_mkConst(L_string, @1.beg, @1.end);
 		e->u.string = $1;
@@ -469,7 +470,7 @@ argument_expr_list:
 		$$ = e;
 		$$->node.end = @3.end;
 	}
-	| argument_expr_list "," T_KEYWORD expr
+	| argument_expr_list "," T_KEYWORD expr %prec T_COMMA
 	{
 		Expr *e = ast_mkConst(L_string, @3.beg, @3.end);
 		e->u.string = $3;
@@ -688,7 +689,7 @@ expr:
 	 * L_lex_begReArg() and L_lex_endReArg() tell the
 	 * scanner to start or stop recognizing a regexp.
 	 */
-	| T_SPLIT "(" expr { L_lex_begReArg(); }
+	| T_SPLIT "(" expr begin_re_arg
 	  "," re_or_string { L_lex_endReArg(); }
 	  opt_arg ")"
 	{
@@ -772,6 +773,17 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
 		$$->u.string = $3;
+	}
+	| expr "," expr
+	{
+		$$ = ast_mkBinOp(L_OP_COMMA, $1, $3, @1.beg, @3.end);
+	}
+	;
+
+begin_re_arg:
+	  /* epsilon */ %prec T_COMMA
+	{
+		L_lex_begReArg();
 	}
 	;
 
@@ -1016,7 +1028,7 @@ struct_declarator_list:
 	;
 
 initializer:
-	  expr
+	  expr %prec T_COMMA
 	| "{" initializer_list "}"
 	{
 		$$ = $2;
@@ -1037,11 +1049,11 @@ initializer:
  */
 initializer_list:
 	  initializer_list_element
-	| initializer_list T_COMMA initializer_list_element
+	| initializer_list "," initializer_list_element
 	{
 		$$ = ast_mkBinOp(L_OP_CONS, $1, $3, @1.beg, @3.end);
 	}
-	| initializer_list T_COMMA
+	| initializer_list ","
 	;
 
 initializer_list_element:
@@ -1070,7 +1082,7 @@ string_literal:
 		Expr *right = ast_mkConst(L_string, @2.beg, @2.end);
 		right->u.string = $2;
 		$$ = ast_mkBinOp(L_OP_INTERP_STRING, $1, right,
-				   @1.beg, @2.end);
+				 @1.beg, @2.end);
 	}
 
 regexp_literal:
@@ -1104,7 +1116,7 @@ interpolated_expr:
 		Expr *left = ast_mkConst(L_string, @1.beg, @1.end);
 		left->u.string = $1;
 		$$ = ast_mkBinOp(L_OP_INTERP_STRING, left, $2,
-				    @1.beg, @3.end);
+				 @1.beg, @3.end);
 	}
 	| interpolated_expr T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
 	{
