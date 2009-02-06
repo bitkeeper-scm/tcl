@@ -145,6 +145,7 @@ extern void	L_trace(const char *format, ...);
 extern void	L_typeck_init();
 extern void	L_typeck_assign(Expr *lhs, Expr *rhs);
 extern int	L_typeck_compat(Type *lhs, Type *rhs);
+extern int	L_typeck_declType(VarDecl *decl);
 extern void	L_typeck_deny(Type_k deny, Expr *expr);
 extern void	L_typeck_expect(Type_k want, Expr *expr, char *msg);
 extern void	L_typeck_fncall(VarDecl *formals, Expr *call);

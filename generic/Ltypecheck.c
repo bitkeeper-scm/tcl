@@ -1,5 +1,5 @@
 /*
- * A typechecker for the L programming language.
+ * Type-checking helpers for the L programming language.
  *
  * Copyright (c) 2006-2008 BitMover, Inc.
  */
@@ -10,6 +10,7 @@
 
 private int	typeck_decls(VarDecl *a, VarDecl *b);
 private int	typeck_list(Type *a, Type *b);
+private int	typeck_declType(Type *type, VarDecl *decl, int nameof_ok);
 
 /*
  * Create the pre-defined types.  Init only once so all L scripts see
@@ -162,6 +163,83 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 }
 
 /*
+ * Check that a declaration uses legal types.  This basically checks
+ * for voids and name-of anywhere in the type where they aren't allowed.
+ */
+int
+L_typeck_declType(VarDecl *decl)
+{
+	return (typeck_declType(decl->type, decl, FALSE));
+}
+private int
+typeck_declType(Type *type, VarDecl *decl, int nameof_ok)
+{
+	int	ret = 1;
+	char	*s = NULL;
+	VarDecl	*v;
+
+	switch (type->kind) {
+	    case L_VOID:
+		s = "void";
+		ret = 0;
+		break;
+	    case L_FUNCTION:
+		/* First check the return type.  Void is legal here. */
+		unless (isvoidtype(type->base_type)) {
+			ret = typeck_declType(type->base_type, decl, FALSE);
+		}
+		/*
+		 * Now look at the formals.  Special case fn(void) --
+		 * a single formal arg of type void with no arg name.
+		 * Null out the formals list since this really means
+		 * there are no args.
+		 */
+		v = type->u.func.formals;
+		if (v && !v->next && !v->id && (v->type == L_void)) {
+			type->u.func.formals = NULL;
+		}
+		for (v = type->u.func.formals; v; v = v->next) {
+			/* To type-check all formals, don't short-circuit. */
+			ret = typeck_declType(v->type, v, TRUE) && ret;
+		}
+		break;
+	    case L_NAMEOF:
+		if (nameof_ok) {
+			/* Pass FALSE since name-of of a name-of is illegal. */
+			ret = typeck_declType(type->base_type, decl, FALSE);
+		} else {
+			s = "name-of";
+			ret = 0;
+		}
+		break;
+	    case L_ARRAY:
+		ret = typeck_declType(type->base_type, decl, FALSE);
+		break;
+	    case L_HASH:
+		ret = typeck_declType(type->base_type, decl, FALSE) &&
+		      typeck_declType(type->u.hash.idx_type, decl, FALSE);
+		break;
+	    case L_STRUCT:
+		for (v = type->u.struc.members; v; v = v->next) {
+			/* To type-check all members, don't short-circuit. */
+			ret = typeck_declType(v->type, v, FALSE) && ret;
+		}
+		break;
+	    default:
+		break;
+	}
+	if (s) {
+		if (decl->id) {
+			L_errf(decl, "type %s illegal in declaration of '%s'",
+			       s, decl->id->u.string);
+		} else {
+			L_errf(decl, "type %s illegal", s);
+		}
+	}
+	return (ret);
+}
+
+/*
  * Determine if two declaration lists have structurally equivalent
  * type declarations.
  */
@@ -174,6 +252,7 @@ typeck_decls(VarDecl *a, VarDecl *b)
 	/* Not the same if one has more declarations. */
 	return !(a || b);
 }
+
 /*
  * Determine if something is structurally compatible with a list type.
  */
@@ -239,8 +318,7 @@ typeck_list(Type *a, Type *b)
 }
 
 /*
- * Determine if two types are structurally equivalent with these
- * exceptions:
+ * Determine if two types are structurally equivalent.  Note that
  *
  * - Polys match anything.
  * - Strings and widgets are compatible.
@@ -287,7 +365,7 @@ L_typeck_same(Type *a, Type *b)
 		return (L_typeck_same(a->base_type, b->base_type));
 	    case L_FUNCTION:
 		/* Return types must match and all arg types must match. */
-		return (L_typeck_same(a->u.func.ret_type, b->u.func.ret_type) &&
+		return (L_typeck_same(a->base_type, b->base_type) &&
 			typeck_decls(a->u.func.formals, b->u.func.formals));
 	    default:
 		L_bomb("bad type kind in L_typeck_same");

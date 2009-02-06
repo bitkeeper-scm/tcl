@@ -1380,6 +1380,53 @@ void cast_1_5()
 cast_1_5
 } -output {}
 
+test cast-1.6 {cast to various structured types} -body {
+#lang L
+struct s {
+	int	i;
+	string	s;
+	struct {
+		string	h{int};
+		int	i;
+	} st;
+};
+void cast_1_6()
+{
+	struct s	st;
+	int		a[], i, n;
+	string		h{int};
+
+	st = (struct s)"1 str { { 1 one 2 two } 33 }";
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 1");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 2");
+	unless (st.st.i == 33) puts("bad 3");
+
+	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
+		"1 str { { 1 one 2 two } 33 }";
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 4");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 5");
+	unless (st.st.i == 33) puts("bad 6");
+
+	a = (int[])"1 2 3";
+	n = 0;
+	foreach (i in a) {
+		unless (i == (n+1)) puts("bad 10");
+		++n;
+	}
+	if (n != 3) puts("bad 11");
+
+	h = (string{int})"1 one 2 two 3 three";
+	unless ((h{1} eq "one") && (h{2} eq "two") && (h{3} eq "three")) {
+		puts("bad 20");
+	}
+	n = 0;
+	foreach (i in h) ++n;
+	unless (n == 3) puts("bad 21");
+}
+#lang tcl
+cast_1_6
+} -output {}
+
 test array-1.0 { Single-dimensional array creation and indexing } -body {
 #lang L
 void array_1_0() {
@@ -4713,7 +4760,8 @@ typecheck_1_4();
 test typecheck-1.5 {check functions returning void arrays are illegal} -body {
 #lang L
 void[] typecheck_1_5() { return; }
-} -returnCodes error -match regexp -result {.*syntax error.*unexpected.*\[}
+} -returnCodes error -match regexp -result {.*1: L Error: type void illegal.*
+}
 
 test typecheck-2.1 {check int-to-float casts and coercions} -body {
 #lang L
@@ -5703,6 +5751,503 @@ void typecheck_8_1()
 typecheck_8_1
 } -output {}
 
+test typecheck-9.1 {illegal types in function prototype declarations} -body {
+#lang L
+void typecheck_9_1_1(void, void);
+void typecheck_9_1_2(void, void, void);
+void typecheck_9_1_3(int, void);
+void typecheck_9_1_4(void, int);
+void typecheck_9_1_5(void[]);
+void typecheck_9_1_6(void[][]);
+void typecheck_9_1_7(void{int});
+void typecheck_9_1_8(void{int}[]);
+void typecheck_9_1_9(void[]{int});
+void typecheck_9_1_10(void &bad);
+void typecheck_9_1_11(int{void});
+void{int} typecheck_9_1_12();
+void[] typecheck_9_1_13();
+int{void} typecheck_9_1_14();
+} -returnCodes error -match regexp -result {.*1: L Error: type void illegal
+.*1: L Error: type void illegal
+.*2: L Error: type void illegal
+.*2: L Error: type void illegal
+.*2: L Error: type void illegal
+.*3: L Error: type void illegal
+.*4: L Error: type void illegal
+.*5: L Error: type void illegal
+.*6: L Error: type void illegal
+.*7: L Error: type void illegal
+.*8: L Error: type void illegal
+.*9: L Error: type void illegal
+.*10: L Error: type void illegal in declaration of 'bad'
+.*11: L Error: type void illegal
+.*12: L Error: type void illegal in declaration of 'typecheck_9_1_12'
+.*13: L Error: type void illegal in declaration of 'typecheck_9_1_13'
+.*14: L Error: type void illegal in declaration of 'typecheck_9_1_14'
+}
+
+test typecheck-9.2 {illegal types in function pointer args} -body {
+#lang L
+void typecheck_9_2_1(void &bad(void, void));
+void typecheck_9_2_2(void &bad(void, void, void));
+void typecheck_9_2_3(void &bad(int, void));
+void typecheck_9_2_4(void &bad(void, int));
+void typecheck_9_2_5(void &bad(void[]));
+void typecheck_9_2_6(void &bad(void[][]));
+void typecheck_9_2_7(void &bad(void{int}));
+void typecheck_9_2_8(void &bad(void{int}[]));
+void typecheck_9_2_9(void &bad(void[]{int}));
+void typecheck_9_2_10(void &bad(void &bad));
+void typecheck_9_2_11(void &bad(int{void}));
+void typecheck_9_2_12(void{int} &bad());
+void typecheck_9_2_13(void[] &bad());
+void typecheck_9_2_14(int{void} &bad());
+} -returnCodes error -match regexp -result {.*1: L Error: type void illegal
+.*1: L Error: type void illegal
+.*2: L Error: type void illegal
+.*2: L Error: type void illegal
+.*2: L Error: type void illegal
+.*3: L Error: type void illegal
+.*4: L Error: type void illegal
+.*5: L Error: type void illegal
+.*6: L Error: type void illegal
+.*7: L Error: type void illegal
+.*8: L Error: type void illegal
+.*9: L Error: type void illegal
+.*10: L Error: type void illegal in declaration of 'bad'
+.*11: L Error: type void illegal
+.*12: L Error: type void illegal in declaration of 'bad'
+.*13: L Error: type void illegal in declaration of 'bad'
+.*14: L Error: type void illegal in declaration of 'bad'
+}
+
+test typecheck-9.3 {illegal types in variable declarations 1} -body {
+#lang L
+void typecheck_9_3()
+{
+	void	bad1;
+	void	bad2[];
+	void	bad3[][];
+	void	bad4{int};
+	void	bad5{int}{int};
+	void	bad6[]{int};
+	void	bad7{int}[];
+	int	bad8{void};
+	int	bad9[]{void}{int};
+	int	&bad10;
+	int	&bad11[];
+	int	&bad12{int};
+	int	&bad13(void);
+	int	&bad14(int);
+	int	&bad15(int arg);
+}
+} -returnCodes error -match regexp -result {.*3: L Error:.*bad1.*
+.*4: L Error:.*bad2.*
+.*5: L Error:.*bad3.*
+.*6: L Error:.*bad4.*
+.*7: L Error:.*bad5.*
+.*8: L Error:.*bad6.*
+.*9: L Error:.*bad7.*
+.*10: L Error:.*bad8.*
+.*11: L Error:.*bad9.*
+.*12: L Error:.*bad10.*
+.*13: L Error:.*bad11.*
+.*14: L Error:.*bad12.*
+.*15: L Error:.*bad13.*
+.*16: L Error:.*bad14.*
+.*17: L Error:.*bad15.*
+}
+
+test typecheck-9.3.1 {illegal types in variable declarations 2} -body {
+#lang L
+void typecheck_9_3_1()
+{
+	void	bad1, bad2[], bad3[][],	bad4{int}, bad5{int}{int};
+	void	bad6[]{int}, bad7{int}[], bad8{void}, bad9[]{void}{int};
+	int	&bad10, &bad11[], &bad12{int}, &bad13(void);
+	int	&bad14(int), &bad15(int arg);
+}
+} -returnCodes error -match regexp -result {.*3: L Error:.*bad1.*
+.*3: L Error:.*bad2.*
+.*3: L Error:.*bad3.*
+.*3: L Error:.*bad4.*
+.*3: L Error:.*bad5.*
+.*4: L Error:.*bad6.*
+.*4: L Error:.*bad7.*
+.*4: L Error:.*bad8.*
+.*4: L Error:.*bad9.*
+.*5: L Error:.*bad10.*
+.*5: L Error:.*bad11.*
+.*5: L Error:.*bad12.*
+.*5: L Error:.*bad13.*
+.*6: L Error:.*bad14.*
+.*6: L Error:.*bad15.*
+}
+
+test typecheck-9.3.2 {illegal types in variable declarations 3} -body {
+#lang L
+typedef void &t932();
+void typecheck_9_3_2()
+{
+	t932	bad1;
+	t932	bad2[];
+	t932	bad3[][];
+	t932	bad4{int};
+	t932	bad5{int}{int};
+	t932	bad6[]{int};
+	t932	bad7{int}[];
+	t932	bad8{void};
+	t932	bad9[]{void}{int};
+	t932	&bad10;
+	t932	&bad11[];
+	t932	&bad12{int};
+	t932	&bad13(void);
+	t932	&bad14(int);
+	t932	&bad15(int arg);
+}
+} -returnCodes error -match regexp -result {.*4: L Error:.*bad1.*
+.*5: L Error:.*bad2.*
+.*6: L Error:.*bad3.*
+.*7: L Error:.*bad4.*
+.*8: L Error:.*bad5.*
+.*9: L Error:.*bad6.*
+.*10: L Error:.*bad7.*
+.*11: L Error:.*bad8.*
+.*12: L Error:.*bad9.*
+.*13: L Error:.*bad10.*
+.*14: L Error:.*bad11.*
+.*15: L Error:.*bad12.*
+.*16: L Error:.*bad13.*
+.*17: L Error:.*bad14.*
+.*18: L Error:.*bad15.*
+}
+
+test typecheck-9.4 {illegal types in struct declarations 1} -body {
+#lang L
+struct {
+	void	bad1;
+	void	bad2[];
+	void	bad3[][];
+	void	bad4{int};
+	void	bad5{int}{int};
+	void	bad6[]{int};
+	void	bad7{int}[];
+	int	bad8{void};
+	int	bad9[]{void}{int};
+	int	&bad10;
+	int	&bad11[];
+	int	&bad12{int};
+	int	&bad13(void);
+	int	&bad14(int);
+	int	&bad15(int arg);
+};
+} -returnCodes error -match regexp -result {.*2: L Error:.*bad1.*
+.*3: L Error:.*bad2.*
+.*4: L Error:.*bad3.*
+.*5: L Error:.*bad4.*
+.*6: L Error:.*bad5.*
+.*7: L Error:.*bad6.*
+.*8: L Error:.*bad7.*
+.*9: L Error:.*bad8.*
+.*10: L Error:.*bad9.*
+.*11: L Error:.*bad10.*
+.*12: L Error:.*bad11.*
+.*13: L Error:.*bad12.*
+.*14: L Error:.*bad13.*
+.*15: L Error:.*bad14.*
+.*16: L Error:.*bad15.*
+}
+
+test typecheck-9.4.1 {illegal types in struct declarations 2} -body {
+#lang L
+struct {
+	void	bad1, bad2[], bad3[][], bad4{int}, bad5{int}{int};
+	void	bad6[]{int}, bad7{int}[], bad8{void};
+	int	bad9[]{void}{int}, &bad10, &bad11[];
+	int	&bad12{int}, &bad13(void), &bad14(int), &bad15(int arg);
+};
+} -returnCodes error -match regexp -result {.*2: L Error:.*bad1.*
+.*2: L Error:.*bad2.*
+.*2: L Error:.*bad3.*
+.*2: L Error:.*bad4.*
+.*2: L Error:.*bad5.*
+.*3: L Error:.*bad6.*
+.*3: L Error:.*bad7.*
+.*3: L Error:.*bad8.*
+.*4: L Error:.*bad9.*
+.*4: L Error:.*bad10.*
+.*4: L Error:.*bad11.*
+.*5: L Error:.*bad12.*
+.*5: L Error:.*bad13.*
+.*5: L Error:.*bad14.*
+.*5: L Error:.*bad15.*
+}
+
+test typecheck-9.4.2 {illegal types in struct declarations 3} -body {
+#lang L
+typedef void &t942();
+struct {
+	t942	bad1;
+	t942	bad2[];
+	t942	bad3[][];
+	t942	bad4{int};
+	t942	bad5{int}{int};
+	t942	bad6[]{int};
+	t942	bad7{int}[];
+	t942	bad8{void};
+	t942	bad9[]{void}{int};
+	t942	&bad10;
+	t942	&bad11[];
+	t942	&bad12{int};
+	t942	&bad13(void);
+	t942	&bad14(int);
+	t942	&bad15(int arg);
+};
+} -returnCodes error -match regexp -result {.*3: L Error:.*bad1.*
+.*4: L Error:.*bad2.*
+.*5: L Error:.*bad3.*
+.*6: L Error:.*bad4.*
+.*7: L Error:.*bad5.*
+.*8: L Error:.*bad6.*
+.*9: L Error:.*bad7.*
+.*10: L Error:.*bad8.*
+.*11: L Error:.*bad9.*
+.*12: L Error:.*bad10.*
+.*13: L Error:.*bad11.*
+.*14: L Error:.*bad12.*
+.*15: L Error:.*bad13.*
+.*16: L Error:.*bad14.*
+.*17: L Error:.*bad15.*
+}
+
+test typecheck-9.4.3 {call-by-name type errors} -body {
+#lang L -nowarn
+typedef int arr_t[];
+typedef int hash_t{int};
+typedef struct { int i,j; } struc_t;
+void t943(int &i, string &s, float &f, arr_t &a, hash_t &h, struc_t &st) {}
+
+void typecheck_9_4_3()
+{
+	int	i;
+	string	s;
+	float	f;
+	arr_t	a;
+	hash_t	h;
+	struc_t	st;
+
+	t943( i, &s, &f, &a, &h, &st);
+	t943(&i,  s, &f, &a, &h, &st);
+	t943(&i, &s,  f, &a, &h, &st);
+	t943(&i, &s, &f,  a, &h, &st);
+	t943(&i, &s, &f, &a,  h, &st);
+	t943(&i, &s, &f, &a, &h,  st);
+	t943( i,  s,  f,  a,  h,  st);
+}
+} -returnCodes error -match regexp -result {.*15: L Error:.*incompatible type.*
+.*16: L Error:.*incompatible type.*
+.*17: L Error:.*incompatible type.*
+.*18: L Error:.*incompatible type.*
+.*19: L Error:.*incompatible type.*
+.*20: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+.*21: L Error:.*incompatible type.*
+}
+
+test fnptr-1 {function pointers 1} -body {
+#lang L
+typedef string &fnptr1_t(int);
+
+string fnptr1_doit(int x)
+{
+	return ("doit got ${x}");
+}
+string fnptr1_foo(string &f(int))
+{
+	return (f(33));
+}
+string fnptr1_foo2(fnptr1_t f)
+{
+	return (f(44));
+}
+void fnptr_1()
+{
+	unless (fnptr1_foo(&fnptr1_doit) eq "doit got 33") puts("bad 1");
+	unless (fnptr1_foo2(&fnptr1_doit) eq "doit got 44") puts("bad 2");
+}
+#lang tcl
+fnptr_1
+} -output {}
+
+test fnptr-2 {function pointers 2} -body {
+#lang L
+typedef int &fnptr2_t(poly,poly);
+
+/* Integer comparison. */
+int icmp(int a, int b)
+{
+	if (a < b) {
+		return -1;
+	} else if (a > b) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+/* Unary comparison. */
+int ucmp(string a, string b)
+{
+	int	al = strlen(a);
+	int	bl = strlen(b);
+
+	if (al < bl) {
+		return -1;
+	} else if (al > bl) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+int length(poly[] a)
+{
+	int	n = 0;
+	poly	p;
+
+	foreach(p in a) ++n;
+	return (n);
+}
+
+string fnptr2_sort(poly[] a, fnptr2_t compar)
+{
+	int	i, swapped;
+
+	do {
+		swapped = 0;
+		for (i = 0; i < length(a)-1; ++i) {
+			if (compar(a[i], a[i+1]) > 0) {
+				poly t = a[i];
+				a[i]   = a[i+1];
+				a[i+1] = t;
+				swapped = 1;
+			}
+		}
+	} while (swapped);
+
+	return ((string)a);
+}
+
+void fnptr_2()
+{
+	unless (fnptr2_sort((int[])"3 1 4 1 5 9", &icmp) eq "1 1 3 4 5 9") {
+		puts("bad 1");
+	}
+	unless (fnptr2_sort((string[])"111 1 1 11 111111111 11111", &ucmp) eq
+		"1 1 11 111 11111 111111111") {
+		puts("bad 2");
+	}
+}
+#lang tcl
+fnptr_2
+} -output {}
+
+test fnptr-3 {function pointer type errors} -body {
+#lang L -nowarn
+typedef void &fp3_v_v_t(void);
+typedef void &fp3_v_i_t(int);
+typedef int  &fp3_i_v_t(void);
+typedef int  &fp3_i_i_t(int);
+typedef void &fp3_v_is_t(int, string);
+
+void fp3_v_v(void)  {}
+void fp3_v_i(int i) {}
+int  fp3_i_v(void)  { return (0); }
+int  fp3_i_i(int i) { return (i); }
+void fp3_v_is(int i, string s) {}
+
+void fp3f_vv (fp3_v_v_t f)   { f();  }
+void fp3f_vi (fp3_v_i_t f)   { f(1); }
+void fp3f_iv (fp3_i_v_t f)   { f();  }
+void fp3f_ii (fp3_i_i_t f)   { f(1); }
+void fp3f_vis(fp3_v_is_t f) { f(1,"s"); }
+
+void fnptr_3()
+{
+	fp3f_vv(1);
+	fp3f_vv(1.1);
+	fp3f_vv((int[])"1 2 3");
+	fp3f_vv((hash)"1 2 3 4");
+	fp3f_vv((struct { int i,j; })"1 2");
+
+	/* Try all the various error combinations, given the above types. */
+
+	fp3f_vv(fp3_v_v);
+	fp3f_vv(&fp3_v_i);
+	fp3f_vv(&fp3_i_v);
+	fp3f_vv(&fp3_i_i);
+	fp3f_vv(&fp3_v_is);
+
+	fp3f_vi(fp3_v_i);
+	fp3f_vi(&fp3_v_v);
+	fp3f_vi(&fp3_i_v);
+	fp3f_vi(&fp3_i_i);
+	fp3f_vi(&fp3_v_is);
+
+	fp3f_iv(fp3_i_v);
+	fp3f_iv(&fp3_v_v);
+	fp3f_iv(&fp3_v_i);
+	fp3f_iv(&fp3_i_i);
+	fp3f_iv(&fp3_v_is);
+
+	fp3f_ii(fp3_i_i);
+	fp3f_ii(&fp3_v_v);
+	fp3f_ii(&fp3_v_i);
+	fp3f_ii(&fp3_i_v);
+	fp3f_ii(&fp3_v_is);
+
+	fp3f_vis(fp3_v_is);
+	fp3f_vis(&fp3_v_v);
+	fp3f_vis(&fp3_v_i);
+	fp3f_vis(&fp3_i_v);
+	fp3f_vis(&fp3_i_i);
+}
+} -returnCodes error -match regexp -result {.*21: L Error:.*incompatible type.*
+.*22: L Error:.*incompatible type.*
+.*23: L Error:.*incompatible type.*
+.*24: L Error:.*incompatible type.*
+.*25: L Error:.*incompatible type.*
+.*29: L Error:.*incompatible type.*
+.*30: L Error:.*incompatible type.*
+.*31: L Error:.*incompatible type.*
+.*32: L Error:.*incompatible type.*
+.*33: L Error:.*incompatible type.*
+.*35: L Error:.*incompatible type.*
+.*36: L Error:.*incompatible type.*
+.*37: L Error:.*incompatible type.*
+.*38: L Error:.*incompatible type.*
+.*39: L Error:.*incompatible type.*
+.*41: L Error:.*incompatible type.*
+.*42: L Error:.*incompatible type.*
+.*43: L Error:.*incompatible type.*
+.*44: L Error:.*incompatible type.*
+.*45: L Error:.*incompatible type.*
+.*47: L Error:.*incompatible type.*
+.*48: L Error:.*incompatible type.*
+.*49: L Error:.*incompatible type.*
+.*50: L Error:.*incompatible type.*
+.*51: L Error:.*incompatible type.*
+.*53: L Error:.*incompatible type.*
+.*54: L Error:.*incompatible type.*
+.*55: L Error:.*incompatible type.*
+.*56: L Error:.*incompatible type.*
+.*57: L Error:.*incompatible type.*
+}
+
 test assign-1 {check assignment statement value and type} -body {
 #lang L
 void
@@ -5725,6 +6270,9 @@ assign_1()
 
 	i = (j = (k = 14));
 	unless ((i == 14) && (j == 14) && (k == 14)) puts("bad 2");
+
+	i = j = k = 14;  // = should be right associative
+	unless ((i == 14) && (j == 14) && (k == 14)) puts("bad 2.1");
 
 	/* Note: exact comparisons against floats don't always work. */
 	f = (g = (i = 1));

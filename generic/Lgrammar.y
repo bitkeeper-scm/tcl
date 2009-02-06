@@ -102,7 +102,7 @@ extern int	L_lex (void);
  * This follows the C operator precedence rules.
  */
 %left T_COMMA
-%nonassoc T_ELSE
+%nonassoc T_ELSE T_SEMI
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
        T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
 %left T_OROR
@@ -115,8 +115,7 @@ extern int	L_lex (void);
 %left T_LSHIFT T_RSHIFT
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
-%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST T_HASH_CAST T_WIDGET_CAST
-       PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
+%right PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
 %left T_LBRACKET T_LBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
 
 %type <TopLev> toplevel_code
@@ -172,7 +171,7 @@ toplevel_code:
 	}
 	| toplevel_code declaration
 	{
-		// Global variables
+		// Global variable declaration.
 		VarDecl *v;
 		$$ = ast_mkTopLevel(L_TOPLEVEL_GLOBAL, $1, @1.beg, @2.end);
 		for (v = $2; v; v = v->next) {
@@ -182,7 +181,7 @@ toplevel_code:
 	}
 	| toplevel_code stmt
 	{
-		// regular code that does stuff instead of just declaring it
+		// Top-level statement.
 		$$ = ast_mkTopLevel(L_TOPLEVEL_STMT, $1, @1.beg, @2.end);
 		$$->u.stmt = $2;
 	}
@@ -190,22 +189,9 @@ toplevel_code:
 	;
 
 function_decl:
-	  type_specifier array_or_hash_type fundecl_tail
+	  type_specifier fundecl_tail
 	{
-		L_set_baseType($2, $1);
-		$3->decl->type->u.func.ret_type = $2;
-		$$ = $3;
-		$$->node.beg = @1.beg;
-	}
-	| type_specifier fundecl_tail
-	{
-		$2->decl->type->u.func.ret_type = $1;
-		$$ = $2;
-		$$->node.beg = @1.beg;
-	}
-	| T_VOID fundecl_tail
-	{
-		$2->decl->type->u.func.ret_type = L_void;
+		$2->decl->type->base_type = $1;
 		$$ = $2;
 		$$->node.beg = @1.beg;
 	}
@@ -228,13 +214,12 @@ fundecl_tail:
 		ckfree($1);
 		$$ = $2;
 		$$->node.beg = @1.beg;
-		/* tack on the first parameter, named "$1", which will get the
-		 * value of the glob match */
+		/* Prepend a new arg "$1" as the first formal. */
 		new_param = ast_mkVarDecl(L_string, dollar1, @1.beg, @2.end);
-		new_param->formal_p = TRUE;
 		new_param->next = $2->decl->type->u.func.formals;
 		$2->decl->type->u.func.formals = new_param;
 	}
+	;
 
 fundecl_tail1:
 	  "(" parameter_list ")" compound_stmt
@@ -243,23 +228,11 @@ fundecl_tail1:
 		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @3.end);
 		$$ = ast_mkFnDecl(decl, $4->u.block, FALSE, @1.beg, @4.end);
 	}
-	| "(" ")" compound_stmt
-	{
-		Type	*type = type_mkFunc(NULL, NULL, PER_INTERP);
-		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @2.end);
-		$$ = ast_mkFnDecl(decl, $3->u.block, FALSE, @1.beg, @3.end);
-	}
 	| "(" parameter_list ")" ";"
 	{
 		Type	*type = type_mkFunc(NULL, $2, PER_INTERP);
 		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @3.end);
 		$$ = ast_mkFnDecl(decl, NULL, FALSE, @1.beg, @4.end);
-	}
-	| "(" ")" ";"
-	{
-		Type	*type = type_mkFunc(NULL, NULL, PER_INTERP);
-		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @2.end);
-		$$ = ast_mkFnDecl(decl, NULL, FALSE, @1.beg, @3.end);
 	}
 	;
 
@@ -328,7 +301,6 @@ selection_stmt:
 		$$ = ast_mkIfUnless($3, NULL, $5, @1.beg, @5.end);
 	}
 	;
-
 
 optional_else:
 	/* Else clause must either have curly braces or be another if/unless. */
@@ -401,7 +373,7 @@ parameter_list:
 		REVERSE(VarDecl, next, $1);
 		$$ = $1;
 	}
-	| T_VOID	{ $$ = NULL; }
+	| /* epsilon */	{ $$ = NULL; }
 	;
 
 parameter_decl_list:
@@ -415,29 +387,21 @@ parameter_decl_list:
 	;
 
 parameter_decl:
-	  type_specifier declarator
+	  type_specifier
+	{
+		$$ = ast_mkVarDecl($1, NULL, @1.beg, @1.end);
+	}
+	| type_specifier declarator
 	{
 		L_set_declBaseType($2, $1);
 		$$ = $2;
-		$$->formal_p = TRUE;
-		$$->node.beg = @1.beg;
-	}
-	| type_specifier T_BITAND declarator
-	{
-		Type *t = type_mkNameOf($3->type, PER_INTERP);
-		$3->type = t;
-		L_set_declBaseType($3, $1);
-		$$ = $3;
-		$$->formal_p = TRUE;
-		$$->by_name  = TRUE;
 		$$->node.beg = @1.beg;
 	}
 	| T_ELLIPSIS id
 	{
 		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @2.end);
-		$$->formal_p = TRUE;
-		$$->rest_p   = TRUE;
+		$$->rest_p = TRUE;
 	}
 	;
 
@@ -488,29 +452,10 @@ expr:
 		$$->node.beg = @1.beg;
 		$$->node.end = @3.end;
 	}
-	| T_STRING_CAST expr
+	| "(" type_specifier ")" expr %prec PREFIX_INCDEC
 	{
-		$$ = ast_mkUnOp(L_OP_STR_CAST, $2, @1.beg, @2.end);
-	}
-	| T_TCL_CAST expr
-	{
-		$$ = ast_mkUnOp(L_OP_TCL_CAST, $2, @1.beg, @2.end);
-	}
-	| T_FLOAT_CAST expr
-	{
-		$$ = ast_mkUnOp(L_OP_FLOAT_CAST, $2, @1.beg, @2.end);
-	}
-	| T_HASH_CAST expr
-	{
-		$$ = ast_mkUnOp(L_OP_HASH_CAST, $2, @1.beg, @2.end);
-	}
-	| T_INT_CAST expr
-	{
-		$$ = ast_mkUnOp(L_OP_INT_CAST, $2, @1.beg, @2.end);
-	}
-	| T_WIDGET_CAST expr
-	{
-		$$ = ast_mkUnOp(L_OP_WIDGET_CAST, $2, @1.beg, @2.end);
+		// This is the only binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CAST, (Expr *)$2, $4, @1.beg, @4.end);
 	}
 	| T_BANG expr
 	{
@@ -813,6 +758,7 @@ id_list:
 		$$->next = $3;
 		$$->node.end = @3.end;
 	}
+	;
 
 compound_stmt:
 	  "{" enter_scope "}"
@@ -917,17 +863,7 @@ init_declarator:
 	;
 
 declarator:
-	  id
-	{
-		$$ = ast_mkVarDecl(NULL, $1, @1.beg, @1.end);
-	}
-	| T_TYPE
-	{
-		Expr *id = ast_mkId($1.s, @1.beg, @1.end);
-		$$ = ast_mkVarDecl(NULL, id, @1.beg, @1.end);
-		ckfree($1.s);
-	}
-	| id array_or_hash_type
+	  id array_or_hash_type
 	{
 		$$ = ast_mkVarDecl($2, $1, @1.beg, @2.end);
 	}
@@ -937,21 +873,24 @@ declarator:
 		$$ = ast_mkVarDecl($2, id, @1.beg, @2.end);
 		ckfree($1.s);
 	}
+	| T_BITAND id array_or_hash_type
+	{
+		Type *t = type_mkNameOf($3, PER_INTERP);
+		$$ = ast_mkVarDecl(t, $2, @1.beg, @3.end);
+	}
+	| T_BITAND id "(" parameter_list ")"
+	{
+		Type *tf = type_mkFunc(NULL, $4, PER_INTERP);
+		Type *tn = type_mkNameOf(tf, PER_INTERP);
+		$$ = ast_mkVarDecl(tn, $2, @1.beg, @5.end);
+	}
 	;
 
 /* Right recursion OK here since depth is typically low. */
 array_or_hash_type:
-	  "[" "]"
+	  /* epsilon */
 	{
-		$$ = type_mkArray(NULL, NULL, PER_INTERP);
-	}
-	| "[" constant_expr "]"
-	{
-		$$ = type_mkArray($2, NULL, PER_INTERP);
-	}
-	| "{" scalar_type_specifier "}"
-	{
-		$$ = type_mkHash($2, NULL, PER_INTERP);
+		$$ = NULL;
 	}
 	| "[" constant_expr "]" array_or_hash_type
 	{
@@ -968,8 +907,24 @@ array_or_hash_type:
 	;
 
 type_specifier:
-	  scalar_type_specifier
-	| struct_specifier
+	  scalar_type_specifier array_or_hash_type
+	{
+		if ($2) {
+			L_set_baseType($2, $1);
+			$$ = $2;
+		} else {
+			$$ = $1;
+		}
+	}
+	| struct_specifier array_or_hash_type
+	{
+		if ($2) {
+			L_set_baseType($2, $1);
+			$$ = $2;
+		} else {
+			$$ = $1;
+		}
+	}
 	;
 
 scalar_type_specifier:
@@ -979,6 +934,7 @@ scalar_type_specifier:
 	| T_POLY	{ $$ = L_poly; }
 	| T_VAR		{ $$ = L_var; }
 	| T_WIDGET	{ $$ = L_widget; }
+	| T_VOID	{ $$ = L_void; }
 	| T_TYPE	{ $$ = $1.t; ckfree($1.s); }
 	;
 
@@ -992,6 +948,7 @@ struct_specifier:
 	| T_STRUCT "{" struct_decl_list "}"
 	{
 		REVERSE(VarDecl, next, $3);
+		(void)L_struct_store(NULL, $3);  // to sanity check member types
 		$$ = type_mkStruct(NULL, $3, PER_INTERP);
 	}
 	| T_STRUCT T_ID
@@ -1084,6 +1041,7 @@ string_literal:
 		$$ = ast_mkBinOp(L_OP_INTERP_STRING, $1, right,
 				 @1.beg, @2.end);
 	}
+	;
 
 regexp_literal:
 	  T_RE
@@ -1096,6 +1054,7 @@ regexp_literal:
 		right->u.string = $2;
 		$$ = ast_mkBinOp(L_OP_INTERP_RE, $1, right, @1.beg, @2.end);
 	}
+	;
 
 subst_literal:
 	  T_SUBST
@@ -1109,6 +1068,7 @@ subst_literal:
 		right->u.string = $2;
 		$$ = ast_mkBinOp(L_OP_INTERP_RE, $1, right, @1.beg, @2.end);
 	}
+	;
 
 interpolated_expr:
 	  T_LEFT_INTERPOL expr T_RIGHT_INTERPOL
@@ -1125,6 +1085,7 @@ interpolated_expr:
 		$$ = ast_mkTrinOp(L_OP_INTERP_STRING, $1, middle, $3,
 				    @1.beg, @4.end);
 	}
+	;
 
 dotted_id:
 	  "."

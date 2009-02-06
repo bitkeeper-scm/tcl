@@ -223,14 +223,6 @@ include_pop()
 	"var"		return T_VAR;
 	"widget"	return T_WIDGET;
 	"split"		return T_SPLIT;
-
-	"("[ \t]*"string"[ \t]*")"	return T_STRING_CAST;
-	"("[ \t]*"tcl"[ \t]*")"		return T_TCL_CAST;
-	"("[ \t]*"float"[ \t]*")"	return T_FLOAT_CAST;
-	"("[ \t]*"int"[ \t]*")"		return T_INT_CAST;
-	"("[ \t]*"hash"[ \t]*")"	return T_HASH_CAST;
-	"("[ \t]*"widget"[ \t]*")"	return T_WIDGET_CAST;
-
 	"if"		return T_IF;
 	"else"		return T_ELSE;
 	"unless"	return T_UNLESS;

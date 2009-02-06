@@ -197,8 +197,11 @@ proc warn {message} {
 #lang L
 /*
  * Types for compatibility with older versions of the compiler.
+ * The tcl typedef lets the tcl cast work now that it's not
+ * hard-coded.
  */
 typedef	poly	hash{poly};
+typedef	poly	tcl;
 
 /*
  * stdio stuff (some above because we don't have {*} yet).

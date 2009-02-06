@@ -96,8 +96,8 @@ typedef enum {
 
 struct Type {
 	Type_k	kind;
-	Type	*base_type;  // for array, hash, struct, list, nameof
-	Type	*next;       // for linking list types
+	Type	*base_type;	// for array, hash, list, nameof, & fn ret type
+	Type	*next;		// for linking list types
 	union {
 		struct {
 			Expr	*size;
@@ -110,7 +110,6 @@ struct Type {
 			VarDecl	*members;
 		} struc;
 		struct {
-			Type	*ret_type;
 			VarDecl	*formals;
 		} func;
 	} u;
@@ -144,12 +143,7 @@ typedef enum {
 
 typedef enum {
 	L_OP_NONE,
-	L_OP_STR_CAST,
-	L_OP_TCL_CAST,
-	L_OP_FLOAT_CAST,
-	L_OP_HASH_CAST,
-	L_OP_INT_CAST,
-	L_OP_WIDGET_CAST,
+	L_OP_CAST,
 	L_OP_BANG,
 	L_OP_ADDROF,
 	L_OP_MINUS,
@@ -296,7 +290,6 @@ struct VarDecl {
 	int	outer_p;
 	int	extern_p;
 	int	rest_p;
-	int	formal_p;
 };
 
 extern Expr	*ast_mkBinOp(Op_k op, Expr *e1, Expr *e2, int beg, int end);

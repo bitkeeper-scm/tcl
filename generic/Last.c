@@ -241,8 +241,8 @@ Type *
 type_mkFunc(Type *ret_type, VarDecl *formals, enum typemk_k disposition)
 {
 	Type *type = type_alloc(L_FUNCTION, disposition);
-	type->u.func.ret_type = ret_type;
-	type->u.func.formals  = formals;
+	type->base_type      = ret_type;
+	type->u.func.formals = formals;
 	return (type);
 }
 

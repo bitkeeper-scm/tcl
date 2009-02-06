@@ -132,7 +132,7 @@ private void	compile_foreachHash(ForEach *loop);
 private void	compile_ifUnless(Cond *cond);
 private void	compile_incdec(Expr *expr);
 private void	compile_loop(Loop *loop);
-private void	compile_parms(VarDecl *param);
+private void	compile_fnParms(VarDecl *decl);
 private void	compile_push(Expr *expr);
 private void	compile_return(Stmt *stmt);
 private void	compile_shortCircuit(Expr *expr);
@@ -206,14 +206,15 @@ iswidget(Expr *expr)
 	 */
 	switch (expr->kind) {
 	    case L_EXPR_UNOP:
-		return (expr->op == L_OP_WIDGET_CAST);
+		return ((expr->op == L_OP_CAST) &&
+			(((Type *)expr->a)->kind == L_WIDGET));
 	    case L_EXPR_ID:
 		sym = sym_lookup(expr, NOWARN);
 		return (sym && (sym->type->kind == L_WIDGET));
 	    case L_EXPR_FUNCALL:
 		sym = sym_lookup(expr->a, NOWARN);
 		return (sym && (sym->type->kind == L_FUNCTION) &&
-			(sym->type->u.func.ret_type == L_widget));
+			(sym->type->base_type == L_widget));
 	    default:
 		return (0);
 	}
@@ -458,13 +459,16 @@ compile_fnDecl(FnDecl *fun)
 		unless (sym) return;
 	}
 
-	unless (fun->body) return;  // no fn body being declared
+	/* Check arg and return types for legality. */
+	L_typeck_declType(fun->decl);
+
+	unless (fun->body) return;
 
 	procPtr = proc_begin();
 	sym->kind |= L_SYM_FNBODY;
 	L->frame->block = (Ast *)fun;
 
-	compile_parms(fun->decl->type->u.func.formals);
+	compile_fnParms(fun->decl);
 
 	L->enclosing_func = fun;
 	compile_block(fun->body);
@@ -526,12 +530,16 @@ private void
 compile_varDecl(VarDecl *decl)
 {
 	int	start_off = currOffset(L->frame->envPtr);
+	char	*name;
 	Sym	*sym;
 
-	ASSERT(!decl->formal_p);
 	ASSERT(decl->id && decl->type);
 
-	if ((decl->id->u.string[0] == '_') && !decl->outer_p) {
+	name = decl->id->u.string;
+
+	unless (L_typeck_declType(decl)) return;
+
+	if ((name[0] == '_') && !decl->outer_p) {
 		L_errf(decl, "local variable names cannot begin with _");
 	}
 
@@ -670,7 +678,7 @@ compile_return(Stmt *stmt)
 		return;
 	}
 
-	ret_type = L->enclosing_func->decl->type->u.func.ret_type;
+	ret_type = L->enclosing_func->decl->type->base_type;
 	if (isvoidtype(ret_type) && (stmt->u.expr)) {
 		L_errf(stmt, "void function cannot return value");
 	} else if (stmt->u.expr) {
@@ -686,9 +694,9 @@ compile_return(Stmt *stmt)
 }
 
 private void
-compile_parms(VarDecl *param)
+compile_fnParms(VarDecl *decl)
 {
-	int	i;
+	int	i, by_name;
 	int	name_parms = 0;
 	char	*name;
 	Proc	*proc = L->frame->envPtr->procPtr;
@@ -696,10 +704,22 @@ compile_parms(VarDecl *param)
 	VarDecl	*new_decl = NULL;
 	Sym	*new_sym, *sym;
 	Expr	*new_id;
+	VarDecl	*param = decl->type->u.func.formals;
 	CompiledLocal	*local;
 
 	for (p = param, i = 0; p; p = p->next, i++) {
-		ASSERT(p->formal_p);
+		/*
+		 * For prototypes, the grammar lets you declare a
+		 * function arg with a type but no name, but in a
+		 * declaration it's an error to omit the name.  Handle
+		 * that by making up a name so we can keep compiling.
+		 */
+		unless (p->id) {
+			L_errf(p, "formal parameter #%d lacks a name", i+1);
+			name = ckalloc(32);
+			snprintf(name, 32, "unnamed-arg-%d", i+1);
+			p->id = ast_mkId(name, 0, 0);
+		}
 		/*
 		 * For a pass-by-name formal, mangle the formal name
 		 * to "&name" and create a new local variable "name"
@@ -707,8 +727,9 @@ compile_parms(VarDecl *param)
 		 * passed in the formal.  Note that the formal will have
 		 * type "name-of <t>" and the local gets type <t>.
 		 */
-		if (p->by_name) {
-			ASSERT(p->type->kind == L_NAMEOF);
+		by_name = ((p->type->kind == L_NAMEOF) &&
+			   (p->type->base_type->kind != L_FUNCTION));
+		if (by_name) {
 			new_id = ast_mkId(p->id->u.string, p->id->node.beg,
 					  p->id->node.end);
 			new_decl = ast_mkVarDecl(p->type->base_type, new_id,
@@ -745,7 +766,7 @@ compile_parms(VarDecl *param)
 		strcpy(local->name, name);
 		sym = sym_store(p);
 		sym->idx = i;
-		if (p->by_name) {
+		if (by_name) {
 			/* Push a 1 the first time (arg to INST_UPVAR). */
 			unless (name_parms++) push_str("1");
 			/* Suppress any unused warning for &name. */
@@ -894,8 +915,8 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
 /*
  * Rules for compiling a function call like "foo(arg)":
  *
- * - If foo is declared as a string or poly variable, assume it
- *   contains the name of the function to call, kind of like a pointer.
+ * - If foo is as variable of type string, poly, or name-of function,
+ *   assume it contains the name of the function to call.
  *
  * - Otherwise call foo.  If foo isn't declared, that's OK, we just won't
  *   have a prototype to type-check against.
@@ -939,7 +960,7 @@ compile_fnCall(Expr *expr)
 	if (sym && isfntype(sym->type)) {
 		/* A regular call -- the name is the fn name. */
 		push_str(name);
-		expr->type = sym->type->u.func.ret_type;
+		expr->type = sym->type->base_type;
 	} else if (sym && (isstring(expr->a) || ispoly(expr->a))) {
 		/*
 		 * Name is a string variable that holds the fn name to
@@ -948,6 +969,14 @@ compile_fnCall(Expr *expr)
 		 */
 		emit_load_scalar(sym->idx);
 		expr->type = L_poly;
+	} else if (sym && (sym->type->kind == L_NAMEOF) &&
+		   (sym->type->base_type->kind == L_FUNCTION)) {
+		/*
+		 * Name is a function "pointer".  It holds the function
+		 * name and its type is the function proto.
+		 */
+		emit_load_scalar(sym->idx);
+		expr->type = sym->type->base_type->base_type;
 	} else if (sym) {
 		/* Name is a variable but not of string type. */
 		L_errf(expr, "function name is a non-string variable");
@@ -983,6 +1012,9 @@ compile_fnCall(Expr *expr)
 	emit_invoke(num_parms+1);
 	if (sym && isfntype(sym->type)) {
 		L_typeck_fncall(sym->type->u.func.formals, expr);
+	} else if (sym && (sym->type->kind == L_NAMEOF) &&
+		   (sym->type->base_type->kind == L_FUNCTION)) {
+		L_typeck_fncall(sym->type->base_type->u.func.formals, expr);
 	}
 }
 
@@ -1093,36 +1125,6 @@ compile_unOp(Expr *expr)
 	Sym	*sym;
 
 	switch (expr->op) {
-	    case L_OP_TCL_CAST:
-	    case L_OP_STR_CAST:
-		compile_expr(expr->a, PUSH);
-		L_typeck_deny(L_VOID|L_FUNCTION, expr->a);
-		expr->type = L_string;
-		break;
-	    case L_OP_WIDGET_CAST:
-		compile_expr(expr->a, PUSH);
-		L_typeck_deny(L_VOID|L_FUNCTION, expr->a);
-		expr->type = L_widget;
-		break;
-	    case L_OP_HASH_CAST:
-		compile_expr(expr->a, PUSH);
-		L_typeck_deny(L_VOID|L_FUNCTION, expr->a);
-		expr->type = type_mkHash(L_poly, L_poly, PER_INTERP);
-		break;
-	    case L_OP_INT_CAST:
-		push_str("::tcl::mathfunc::int");
-		compile_expr(expr->a, PUSH);
-		emit_invoke(2);
-		L_typeck_deny(L_VOID|L_FUNCTION, expr->a);
-		expr->type = L_int;
-		break;
-	    case L_OP_FLOAT_CAST:
-		push_str("::tcl::mathfunc::double");
-		compile_expr(expr->a, PUSH);
-		emit_invoke(2);
-		L_typeck_deny(L_VOID|L_FUNCTION, expr->a);
-		expr->type = L_float;
-		break;
 	    case L_OP_BANG:
 	    case L_OP_BITNOT:
 		compile_expr(expr->a, PUSH);
@@ -1184,6 +1186,8 @@ compile_unOp(Expr *expr)
 private void
 compile_binOp(Expr *expr)
 {
+	Type	*type;
+
 	switch (expr->op) {
 	    case L_OP_EQUALS:
 	    case L_OP_EQPLUS:
@@ -1311,6 +1315,22 @@ compile_binOp(Expr *expr)
 		compile_expr(expr->a, DISCARD);
 		compile_expr(expr->b, PUSH);
 		expr->type = expr->b->type;
+		break;
+	    case L_OP_CAST:
+		type = (Type *)expr->a;
+		if (type == L_int) {
+			push_str("::tcl::mathfunc::int");
+			compile_expr(expr->b, PUSH);
+			emit_invoke(2);
+		} else if (type == L_float) {
+			push_str("::tcl::mathfunc::double");
+			compile_expr(expr->b, PUSH);
+			emit_invoke(2);
+		} else {
+			compile_expr(expr->b, PUSH);
+		}
+		L_typeck_deny(L_VOID|L_FUNCTION, expr->b);
+		expr->type = type;
 		break;
 	    default:
 		L_bomb("compile_binOp: malformed AST");
@@ -2073,7 +2093,7 @@ push_deepDiveIdxs(Expr *expr, int *num_idx, Tcl_Obj **counts)
 /*
  * Compile a hash/array/struct reference, also known as a "deep dive".
  * These are the L_OP_HASH_INDEX, L_OP_ARRAY_INDEX, and L_OP_STRUCT_INDEX
- * nodes (see the lvalue nonterminal in Lgrammar.y).
+ * nodes.
  *
  * The resulting stack depends on the flags which specify whether the
  * indexed element's value, pointer, or both (and in what order) are
@@ -3010,21 +3030,28 @@ L_struct_lookup(char *tag, int local)
 /*
  * Called by parser to declare a new struct type.  If the struct
  * already has been declared but without any members, fill them in
- * now and return the existing type pointer.
+ * now and return the existing type pointer.  If tag is NULL, just
+ * sanity check the members' types (checking for void etc).
  */
 Type *
-L_struct_store(char *tag, VarDecl *members)
+L_struct_store(char *tag, VarDecl *m)
 {
-	Type	*type;
+	Type	*type = NULL;
 
-	ASSERT(members);
+	ASSERT(m);
 
-	type = L_struct_lookup(tag, TRUE);
+	if (tag) {
+		type = L_struct_lookup(tag, TRUE);
+		if (type->u.struc.members) {
+			L_errf(m, "multiple declaration of struct %s", tag);
+		} else {
+			type->u.struc.members = m;
+		}
+	}
 
-	if (type->u.struc.members) {
-		L_errf(members, "multiple declaration of struct %s", tag);
-	} else {
-		type->u.struc.members = members;
+	/* Check member types for legality. */
+	for (; m; m = m->next) {
+		L_typeck_declType(m);
 	}
 
 	return (type);
