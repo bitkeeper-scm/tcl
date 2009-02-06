@@ -1999,7 +1999,7 @@ push_index(Expr *expr)
 		push_str(buf);
 		return (member->type);
 	    case L_OP_ARRAY_INDEX:
-		unless (isarray(expr->a)) {
+		unless (isarray(expr->a) || islist(expr->a)) {
 			L_errf(expr, "not an array");
 			return (L_poly);
 		}

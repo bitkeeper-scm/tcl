@@ -99,8 +99,10 @@ extern int	L_lex (void);
 %token T_SPLIT
 
 /*
- * This follows the C operator precedence rules.
+ * This follows the C operator-precedence rules, from lowest to
+ * highest precedence.
  */
+%left LOWEST
 %left T_COMMA
 %nonassoc T_ELSE T_SEMI
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
@@ -116,7 +118,8 @@ extern int	L_lex (void);
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
-%left T_LBRACKET T_LBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
+%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
+%left HIGHEST
 
 %type <TopLev> toplevel_code
 %type <FnDecl> function_decl fundecl_tail fundecl_tail1
@@ -127,7 +130,7 @@ extern int	L_lex (void);
 %type <Expr> expr expression_stmt argument_expr_list opt_arg re_or_string
 %type <Expr> id id_list constant_expr string_literal dotted_id
 %type <Expr> regexp_literal subst_literal interpolated_expr
-%type <Expr> initializer initializer_list initializer_list_element
+%type <Expr> list list_element
 %type <VarDecl> parameter_list parameter_decl_list parameter_decl
 %type <VarDecl> declaration_list declaration declaration2
 %type <VarDecl> init_declarator_list declarator_list init_declarator
@@ -723,6 +726,21 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_COMMA, $1, $3, @1.beg, @3.end);
 	}
+	/*
+	 * We don't really need to open a scope here, but it doesn't hurt, and
+	 * it avoids a shift/reduce conflict with a compound_stmt production.
+	 */
+	| "{" enter_scope list "}"
+	{
+		$$ = $3;
+		$$->node.beg = @1.beg;
+		$$->node.end = @4.end;
+		L_scope_leave();
+	}
+	| "{" "}"
+	{
+		$$ = ast_mkUnOp(L_OP_LIST, NULL, 0, 0);
+	}
 	;
 
 begin_re_arg:
@@ -792,7 +810,7 @@ compound_stmt:
 	;
 
 enter_scope:
-	   /* epsilon */  { L_scope_enter(); }
+	   /* epsilon */ %prec HIGHEST { L_scope_enter(); }
 	;
 
 declaration_list:
@@ -853,7 +871,7 @@ declarator_list:
 
 init_declarator:
 	  declarator
-	| declarator T_EQUALS initializer
+	| declarator T_EQUALS expr
 	{
 		$1->initializer = ast_mkBinOp(L_OP_EQUALS, $1->id, $3,
 					      @3.beg, @3.end);
@@ -984,41 +1002,27 @@ struct_declarator_list:
 	}
 	;
 
-initializer:
-	  expr %prec T_COMMA
-	| "{" initializer_list "}"
-	{
-		$$ = $2;
-		$$->node.beg = @1.beg;
-		$$->node.end = @3.end;
-	}
-	| "{" "}"
-	{
-		$$ = ast_mkUnOp(L_OP_LIST, NULL, 0, 0);
-	}
-	;
-
 /*
  * XXX at some point this tree should be built right-heavy (by
  * appending) instead of the left-heavy tree that left recursion gives
  * you, so that the compiler won't get caught in deep recursion when
  * the initializer lists are very long.
  */
-initializer_list:
-	  initializer_list_element
-	| initializer_list "," initializer_list_element
+list:
+	  list_element
+	| list "," list_element
 	{
 		$$ = ast_mkBinOp(L_OP_CONS, $1, $3, @1.beg, @3.end);
 	}
-	| initializer_list ","
+	| list ","
 	;
 
-initializer_list_element:
-	  initializer
+list_element:
+	  expr %prec HIGHEST
 	{
 		$$ = ast_mkUnOp(L_OP_LIST, $1, @1.beg, @1.end);
 	}
-	| expr "=>" initializer
+	| expr "=>" expr %prec HIGHEST
 	{
 		$$ = ast_mkBinOp(L_OP_KV, $1, $3, @1.beg, @3.end);
 	}

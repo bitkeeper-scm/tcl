@@ -1396,16 +1396,45 @@ void cast_1_6()
 	int		a[], i, n;
 	string		h{int};
 
+	/* Cast a string to a struct s. */
 	st = (struct s)"1 str { { 1 one 2 two } 33 }";
 	unless ((st.i == 1) && (st.s eq "str")) puts("bad 1");
 	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 2");
 	unless (st.st.i == 33) puts("bad 3");
 
-	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
-		"1 str { { 1 one 2 two } 33 }";
+	/* Same as above except casting from a composite constant. */
+	st = (struct s) {
+			  1,
+			  "str",
+			  {
+				  { 1=>"one", 2=>"two" },
+				  33
+			  }
+	};
 	unless ((st.i == 1) && (st.s eq "str")) puts("bad 4");
 	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 5");
 	unless (st.st.i == 33) puts("bad 6");
+
+	/* Cast a string to a struct s but spell out the entire struct type. */
+	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
+		"1 str { { 1 one 2 two } 33 }";
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 7");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 8");
+	unless (st.st.i == 33) puts("bad 9");
+
+	/* Same as above except casting from a composite constant. */
+	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
+		{
+			  1,
+			  "str",
+			  {
+				  { 1=>"one", 2=>"two" },
+				  33
+			  }
+		};
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 10");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 11");
+	unless (st.st.i == 33) puts("bad 12");
 
 	a = (int[])"1 2 3";
 	n = 0;
@@ -7525,6 +7554,151 @@ void initializers_4()
 #lang tcl
 initializers_4
 } -output {}
+
+test composite-1 {check composite values in expressions 1} -body {
+#lang L
+struct composite_1_s1 {
+	int	i;
+	int	j, k;
+	string	s;
+	string	as[];
+	string	hs{int};
+};
+int composite_1_g = 33;
+void composite_1()
+{
+	/*
+	 * These are taken from the initializer-* tests above but
+	 * are used in the rhs of expressions instead of in initializers.
+	 */
+
+	int	i, i1;
+	int	e1 = 11;
+	int	e2 = e1*2;
+	string	s;
+	int	a[];
+	string	ai[];
+	string	hs{int};
+	struct composite_1_s1 st;
+	string	aempty[];
+	h_of_s2	h2;
+
+	a = { composite_1_g, composite_1_g*2, e1, e2, 3 };
+
+	unless ((e1 == 11) && (e2 == 22)) puts("bad 1");
+	unless ((a[0] == 33) && (a[1] == 66) && (a[2] == 11) &&
+		(a[3] == 22) && (a[4] == 3)) puts("bad 2");
+	if (defined(a[5])) puts("bad 3");
+
+	ai = { "a", "b", "c" };
+	hs = { 1=>"one", 2=>"two", 3=>"three" };
+	st = {
+		1,
+		2, 3,
+		"s",
+		{ "x", "y", "z" },
+		{ 3=>"t", 6=>"s" },   // note the trailing comma (legal)
+	};
+	aempty = {};
+	h2 = { 1 => {2,3}, 2 => {4,5} };
+
+	unless ((ai[0] eq "a") && (ai[1] eq "b")) puts("bad 10");
+	unless ((ai[2] eq "c") && !defined(ai[3])) puts("bad 11");
+	i = 0;
+	foreach (s in ai) ++i;
+	unless (i == 3) puts("bad 12");
+	unless ((hs{1} eq "one") && (hs{2} eq "two")) puts("bad 13");
+	unless ((hs{3} eq "three")) puts("bad 14");
+	i = 0;
+	foreach (i1 in hs) ++i;
+	unless (i == 3) puts("bad 15");
+
+	unless ((st.i == 1) && (st.j == 2) && (st.k == 3)) puts("bad 16");
+	unless ((st.s eq "s") && (st.as[0] eq "x")) puts("bad 17");
+	unless ((st.as[1] eq "y") && (st.as[2] eq "z")) puts("bad 18");
+	i = 0;
+	foreach (s in st.as) ++i;
+	unless (i == 3) puts("bad 19");
+	unless ((st.hs{3} eq "t") && (st.hs{6} eq "s")) puts("bad 20");
+	i = 0;
+	foreach (i1 in st.hs) ++i;
+	unless (i == 2) puts("bad 21");
+
+	if (defined(aempty[0])) puts("bad 30");
+	unless ((h2{1}.i == 2) && (h2{1}.j == 3)) puts("bad 31");
+	unless ((h2{2}.i == 4) && (h2{2}.j == 5)) puts("bad 32");
+}
+#lang tcl
+composite_1
+} -output {}
+
+test composite-2 {check composite values in expressions 2} -body {
+#lang L
+string composite_2_join(string[] a)
+{
+	string	s;
+	string	ret = "";
+
+	foreach (s in a) ret = sprintf("%s%s", ret, s);
+	return (ret);
+}
+void composite_2()
+{
+	/*
+	 * Try more operations with composite values.
+	 */
+
+	int	i;
+	int	ai[];
+
+	unless (composite_2_join({"a","b","c"}) eq "abc") puts("bad 1");
+
+	for (i = 0; i < 5; ++i) {
+		unless ({0,1,2,3,4}[i] == i) printf("bad 2 %d\n", i);
+	}
+	if (defined({0,1,2,3,4}[5])) puts("bad 3");
+
+	unless ({1=>"one", 2=>"two", 3=>"three"}{1} eq "one") puts("bad 4");
+	unless ({1=>"one", 2=>"two", 3=>"three"}{2} eq "two") puts("bad 5");
+	unless ({1=>"one", 2=>"two", 3=>"three"}{3} eq "three") puts("bad 6");
+
+	unless (((struct { int i,j,k; }){1,2,3}).i == 1) puts("bad 10");
+	unless (((struct { int i,j,k; }){1,2,3}).j == 2) puts("bad 11");
+	unless (((struct { int i,j,k; }){1,2,3}).k == 3) puts("bad 12");
+
+	unless ({{1,2},{3,4},{4,5}}[1][0] == 3) puts("bad 20");
+}
+#lang tcl
+composite_2
+} -output {}
+
+test composite-3 {check type errors with composite values} -body {
+#lang L -nowarn
+void composite_3_as(string[] a) {}
+void composite_3_ai(int[] a) {}
+void composite_3_his(int{string} a) {}
+void composite_3_hsi(string{int} a) {}
+void composite_3_hss(string{string} a) {}
+void composite_3_hii(int{int} a) {}
+
+void composite_3()
+{
+	composite_3_as({1,2,3});
+	composite_3_ai({"a","b","c"});
+	composite_3_his({1,2,3});
+	composite_3_his({1=>2,3=>4});
+	composite_3_hsi({1=>2,3=>4});
+	composite_3_hss({1=>2,3=>4});
+	composite_3_hii({"1"=>2,"3"=>4});
+}
+} -returnCodes {error} -match regexp -result {.*10: L Error:.*incompatible type.*
+.*11: L Error:.*incompatible type.*
+.*12: L Error:.*incompatible type.*
+.*13: L Error:.*incompatible type.*
+.*14: L Error:.*incompatible type.*
+.*15: L Error:.*incompatible type.*
+.*16: L Error:.*incompatible type.*
+}
 
 test lvalue-1 {check indexing hash/struct/array expressions} -body {
 #lang L
