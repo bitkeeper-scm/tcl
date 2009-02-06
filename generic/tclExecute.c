@@ -7201,35 +7201,39 @@ TclExecuteByteCode(
 	Tcl_Obj *deepPtr = NULL, **elemPtrPtr, *objPtr;
 	unsigned int depth = TclGetUInt1AtPtr(pc+1);
 	unsigned int flags = TclGetUInt1AtPtr(pc+2);
+	int isWrite = !(flags & L_DEEP_VAL);
+	int dropRefCnt;
 
 	/*
-	 * Get the value of the array/hash/struct variable, and remove the
-	 * stack ref. This is safe because the variable still references the
-	 * object; the ref count will never go zero here.  If it were to, it
-	 * means that someone dropped the ref count since pushing the variable
-	 * onto the stack which can happen when sub-expressions have side
-	 * effects.
+	 * Get the value of the array/hash/struct variable.  If it is
+	 * referenced by a variable, drop the stack reference.  If it's refCnt
+	 * already is 1, then it must be an expression value referenced only
+	 * by the stack (e.g., from a function return value), so keep the
+	 * refCnt 1 since L_deepDive() expects that and remember that we must
+	 * drop the stack ref later.
 	 */
 	objPtr = OBJ_AT_DEPTH(depth-1);
-	if (objPtr->refCount < 2) {
-	    Tcl_ResetResult(interp);
-	    Tcl_AppendResult(interp,
-			     "array/hash/struct changed inside expression",
-			     NULL);
-	    result = TCL_ERROR;
-	    goto checkForCatch;
+	if (objPtr->refCount == 1) {
+	    if (isWrite) {
+		Tcl_Panic("Deep read/modify of non-lvalue");
+	    }
+	    dropRefCnt = 1;
+	} else {
+	    Tcl_DecrRefCount(objPtr);
+	    dropRefCnt = 0;
 	}
-	Tcl_DecrRefCount(objPtr);
 
 	/*
-	 * If the value wasn't requested (because the caller will eventually
-	 * write to the object), handle sharing by making an unshared copy.
-	 * Add a refcnt now for the deepPtr reference we make below, since
-	 * L_deepDive() expects to see a refcnt of 1.
+	 * If the indexed element later will be written to (and we know when
+	 * this happens because the passed-in flags request a pointer to the
+	 * element be left on the stack), ensure we have an un-shared copy of
+	 * the high-level array/hash/struct object.  Add a refcnt now which we
+	 * lose below since L_deepDive() expects to see a refcnt of 1.
 	 */
-	if (!(flags & L_DEEP_VAL) && Tcl_IsShared(objPtr)) {
+	if (isWrite && Tcl_IsShared(objPtr)) {
 	    objPtr = Tcl_DuplicateObj(objPtr);
 	    Tcl_IncrRefCount(objPtr);
+	    dropRefCnt = 1;
 	}
 
 	/*
@@ -7244,28 +7248,30 @@ TclExecuteByteCode(
 	 * Clean up stack before checking for error.  We can't use the
 	 * NEXT_INST_V macro to clean up since it supports pushing only one
 	 * result object and we can have two.  Note that the stack's reference
-	 * to the array/hash/struct object already has been released above.
+	 * to the array/hash/struct object must be released if we bail.
 	 */
 	while (--depth) {
 	    Tcl_Obj *tmpPtr = POP_OBJECT();
 	    TclDecrRefCount(tmpPtr);
 	}
-	(void)POP_OBJECT();  // pop array/hash/struct object
+	(void)POP_OBJECT();  // pop array/hash/struct object (objPtr)
 
 	/* Stack is good -- safe to handle error now. */
 	if (!elemPtrPtr) {
+	    if (dropRefCnt) Tcl_DecrRefCount(objPtr);
 	    result = TCL_ERROR;
 	    goto checkForCatch;
 	}
 
 	objResultPtr = *elemPtrPtr;
 
-	if (flags & (L_DEEP_PTR|L_DEEP_VAL_PTR|L_DEEP_PTR_VAL)) {
+	if (isWrite) {
 	    TclNewObj(deepPtr);
 	    deepPtr->bytes = tclEmptyStringRep;
 	    deepPtr->length = 0;
 	    deepPtr->refCount = 0;
 	    deepPtr->typePtr = &L_deepPtrType;
+	    Tcl_IncrRefCount(objPtr);
 	    deepPtr->internalRep.twoPtrValue.ptr1 = objPtr;
 	    deepPtr->internalRep.twoPtrValue.ptr2 = elemPtrPtr;
 	}
@@ -7295,6 +7301,7 @@ TclExecuteByteCode(
 		Tcl_Panic("illegal operand to INST_L_DEEP_READ");
 		break;
 	}
+	if (dropRefCnt) Tcl_DecrRefCount(objPtr);
 	NEXT_INST_F(3, 0, 0);
     }
 
@@ -7338,9 +7345,6 @@ TclExecuteByteCode(
 	if (deepPtr->refCount != 1) {
 	    Tcl_Panic("Deep writing a bad deepPtr refCount!");
 	}
-	if (objPtr->refCount != 1) {
-	    Tcl_Panic("Deep writing a bad objPtr refCount!");
-	}
 
 	oldPtr      = *elemPtrPtr;
 	*elemPtrPtr = newPtr;
@@ -7348,9 +7352,11 @@ TclExecuteByteCode(
 	Tcl_DecrRefCount(deepPtr);
 
 	/*
-	 * Set the new value of the local, lose the old.  Old value loses a
-	 * refcnt.  New value (objPtr) loses one refcnt from deepPtr and gains
-	 * one from varPtr, so no change.
+	 * If the local pointed to a shared array/hash/struct when it was
+	 * deep-read, the deep-read code made an un-shared copy of the obj and
+	 * cached it in deepPtr.  In that case, update the local; the old
+	 * value loses a refcnt and the new value (objPtr) gains one.  In any
+	 * case, the new value always loses one refcnt from deepPtr.
 	 */
 	varPtr = &(compiledLocals[idx]);
 	while (TclIsVarLink(varPtr)) {
@@ -7366,6 +7372,11 @@ TclExecuteByteCode(
 		TclDecrRefCount(valuePtr);
 	    }
 	    varPtr->value.objPtr = objPtr;
+	} else {
+	    TclDecrRefCount(objPtr);
+	}
+	if (objPtr->refCount != 1) {
+	    Tcl_Panic("Deep writing a bad objPtr refCount!");
 	}
 
 	switch (flags & (L_DEEP_OLD|L_DEEP_NEW)) {

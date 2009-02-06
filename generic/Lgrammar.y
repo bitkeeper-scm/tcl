@@ -79,18 +79,15 @@ extern int	L_lex (void);
 %token T_RBRACKET "]"
 %token T_SEMI ";"
 %token T_EXTERN
-%token T_EQTWID "=~"
-%token T_IF "if"
-%token T_UNLESS "unless"
-%nonassoc T_ELSE "else"
-%token T_RETURN "return"
+%token T_EQTWID
+%token T_IF
+%token T_UNLESS
+%token T_ELSE
+%token T_RETURN
 %token T_COMMA ","
 %token T_DOT "."
-
-%right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
-       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
-
-%token T_ARROW "=>" T_RIGHT_INTERPOL
+%token T_ARROW "=>"
+%token T_RIGHT_INTERPOL T_PLUSPLUS T_MINUSMINUS
 %token <s> T_ID T_STR_LITERAL T_LEFT_INTERPOL T_RE T_SUBST T_RE_MODIFIER
 %token <s> T_PATTERN T_KEYWORD
 %token <i> T_INT_LITERAL
@@ -101,6 +98,12 @@ extern int	L_lex (void);
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT
 
+/*
+ * This follows the C operator precedence rules.
+ */
+%nonassoc T_ELSE
+%right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
+       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
 %left T_OROR
 %left T_ANDAND
 %left T_BITOR
@@ -111,10 +114,9 @@ extern int	L_lex (void);
 %left T_LSHIFT T_RSHIFT
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
-%right T_BANG T_PLUSPLUS T_MINUSMINUS UMINUS UPLUS T_BITNOT ADDRESS
-%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST T_HASH_CAST
-%right T_WIDGET_CAST
-%left T_DOT
+%right T_STRING_CAST T_TCL_CAST T_FLOAT_CAST T_INT_CAST T_HASH_CAST T_WIDGET_CAST
+       PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
+%left T_LBRACKET T_LBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
 
 %type <TopLev> toplevel_code
 %type <FnDecl> function_decl fundecl_tail fundecl_tail1
@@ -123,7 +125,7 @@ extern int	L_lex (void);
 %type <Loop> iteration_stmt
 %type <ForEach> foreach_stmt
 %type <Expr> expr expression_stmt argument_expr_list opt_arg re_or_string
-%type <Expr> lvalue id id_list constant_expr string_literal dotted_id
+%type <Expr> id id_list constant_expr string_literal dotted_id
 %type <Expr> regexp_literal subst_literal interpolated_expr
 %type <Expr> initializer initializer_list initializer_list_element
 %type <VarDecl> parameter_list parameter_decl_list parameter_decl
@@ -517,7 +519,7 @@ expr:
 	{
 		$$ = ast_mkUnOp(L_OP_BITNOT, $2, @1.beg, @2.end);
 	}
-	| T_BITAND lvalue %prec ADDRESS
+	| T_BITAND expr %prec ADDRESS
 	{
 		$$ = ast_mkUnOp(L_OP_ADDROF, $2, @1.beg, @2.end);
 	}
@@ -529,19 +531,19 @@ expr:
 	{
 		$$ = ast_mkUnOp(L_OP_UPLUS, $2, @1.beg, @2.end);
 	}
-	| T_PLUSPLUS lvalue
+	| T_PLUSPLUS expr %prec PREFIX_INCDEC
 	{
 		$$ = ast_mkUnOp(L_OP_PLUSPLUS_PRE, $2, @1.beg, @2.end);
 	}
-	| T_MINUSMINUS lvalue
+	| T_MINUSMINUS expr %prec PREFIX_INCDEC
 	{
 		$$ = ast_mkUnOp(L_OP_MINUSMINUS_PRE, $2, @1.beg, @2.end);
 	}
-	| lvalue T_PLUSPLUS
+	| expr T_PLUSPLUS
 	{
 		$$ = ast_mkUnOp(L_OP_PLUSPLUS_POST, $1, @1.beg, @2.end);
 	}
-	| lvalue T_MINUSMINUS
+	| expr T_MINUSMINUS
 	{
 		$$ = ast_mkUnOp(L_OP_MINUSMINUS_POST, $1, @1.beg, @2.end);
 	}
@@ -655,6 +657,7 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_BITXOR, $1, $3, @1.beg, @3.end);
 	}
+	| id
 	| string_literal
 	| T_INT_LITERAL
 	{
@@ -666,7 +669,6 @@ expr:
 		$$ = ast_mkConst(L_float, @1.beg, @1.end);
 		$$->u.flote = $1;
 	}
-	| lvalue
 	| id "(" argument_expr_list ")"
 	{
 		REVERSE(Expr, next, $3);
@@ -710,53 +712,66 @@ expr:
 	{
 		$$ = ast_mkFnCall($1, NULL, @1.beg, @3.end);
 	}
-	| lvalue T_EQUALS expr
+	| expr T_EQUALS expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQUALS, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQPLUS expr
+	| expr T_EQPLUS expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQPLUS, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQMINUS expr
+	| expr T_EQMINUS expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQMINUS, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQSTAR expr
+	| expr T_EQSTAR expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQSTAR, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQSLASH expr
+	| expr T_EQSLASH expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQSLASH, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQPERC expr
+	| expr T_EQPERC expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQPERC, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQBITAND expr
+	| expr T_EQBITAND expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQBITAND, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQBITOR expr
+	| expr T_EQBITOR expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQBITOR, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQBITXOR expr
+	| expr T_EQBITXOR expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQBITXOR, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQLSHIFT expr
+	| expr T_EQLSHIFT expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQLSHIFT, $1, $3, @1.beg, @3.end);
 	}
-	| lvalue T_EQRSHIFT expr
+	| expr T_EQRSHIFT expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQRSHIFT, $1, $3, @1.beg, @3.end);
 	}
 	| T_DEFINED "(" expr ")"
 	{
 		$$ = ast_mkUnOp(L_OP_DEFINED, $3, @1.beg, @4.end);
+	}
+	| expr "[" expr "]"
+	{
+		$$ = ast_mkBinOp(L_OP_ARRAY_INDEX, $1, $3, @1.beg, @4.end);
+	}
+	| expr "{" expr "}"
+	{
+		$$ = ast_mkBinOp(L_OP_HASH_INDEX, $1, $3, @1.beg, @4.end);
+	}
+	| expr "." T_ID
+	{
+		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
 	}
 	;
 
@@ -768,23 +783,6 @@ opt_arg:
 re_or_string:
 	  regexp_literal
 	| string_literal
-	;
-
-lvalue:
-	  id
-	| lvalue "[" expr "]"
-	{
-		$$ = ast_mkBinOp(L_OP_ARRAY_INDEX, $1, $3, @1.beg, @4.end);
-	}
-	| lvalue "{" expr "}"
-	{
-		$$ = ast_mkBinOp(L_OP_HASH_INDEX, $1, $3, @1.beg, @4.end);
-	}
-	| lvalue "." T_ID
-	{
-		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
-		$$->u.string = $3;
-	}
 	;
 
 id:

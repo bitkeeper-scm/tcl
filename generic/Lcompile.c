@@ -8,7 +8,6 @@
 #include "tclRegexp.h"
 #include "Lcompile.h"
 #include "Lgrammar.h"
-#include "Last.h"
 
 /*
  * Special obj type to store deep pointers. These CANNOT ever go out of the
@@ -1146,7 +1145,9 @@ compile_unOp(Expr *expr)
 		break;
 	    case L_OP_ADDROF:
 		/* &id -- push the tcl name of the id. */
-		ASSERT(expr->a->kind == L_EXPR_ID);
+		unless (expr->a->kind == L_EXPR_ID) {
+			L_errf(expr, "invalid argument to &");
+		}
 		if ((sym = sym_lookup(expr->a, 0))) {
 			push_str(sym->tclname);
 			expr->type = type_mkNameOf(expr->a->type, PER_INTERP);
@@ -1211,8 +1212,10 @@ compile_binOp(Expr *expr)
 	    case L_OP_STR_LE:
 		compile_expr(expr->a, PUSH);
 		compile_expr(expr->b, PUSH);
-		L_typeck_expect(L_STRING, expr->a, "in string comparison");
-		L_typeck_expect(L_STRING, expr->b, "in string comparison");
+		L_typeck_expect(L_STRING|L_WIDGET, expr->a,
+				"in string comparison");
+		L_typeck_expect(L_STRING|L_WIDGET, expr->b,
+				"in string comparison");
 		emit_instrForLOp(expr);
 		expr->type = L_int;
 		break;
@@ -1486,7 +1489,10 @@ compile_twiddleSubst(Expr *expr)
 		push_str(tmpNm);
 		// <lhs-ptr> ::regsub <mods> -line -- <re> <lhs-val> <subst> <tmp-name>
 	} else {
-		ASSERT(expr->a->kind == L_EXPR_ID);
+		unless (expr->a->kind == L_EXPR_ID) {
+			L_errf(expr, "invalid l-value in =~");
+			return;
+		}
 		compile_expr(expr->a, PUSH);
 		// ::regsub <mods> -line -- <re> <subst> <lhs-val>
 		TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
@@ -1494,6 +1500,7 @@ compile_twiddleSubst(Expr *expr)
 		push_str(expr->a->u.string);
 		// ::regsub <mods> -line -- <re> <lhs-val> <subst> <lhs-name>
 	}
+	unless (expr->a->sym) return;  // bail if lhs not declared
 	emit_invoke(modCount + 7);
 	if (deep_dive) {
 		// <lhs-ptr> <match>
@@ -2079,6 +2086,10 @@ compile_deepDive(Expr *expr, Deep_f flags)
 	Tcl_Obj	*counts;
 
 	flags |= push_deepDiveIdxs(expr, &num_idx, &counts);
+	unless ((flags & L_DEEP_VAL) || expr->sym) {
+		L_errf(expr, "target of assignment is not an l-value");
+	}
+
 	// <obj> <idx1> ... <idxn>
 	push_str(Tcl_GetString(counts));
 	// <obj> <idx1> ... <idxn> <counts>
@@ -2106,7 +2117,9 @@ compile_assignment(Expr *expr)
 		// <rval> <lhs-deep-ptr>                  if !arith
 		// <rval> <lhs-deep-val> <lhs-deep-ptr>   if arith
 	} else {
-		ASSERT(expr->a->kind == L_EXPR_ID);
+		unless (expr->a->kind == L_EXPR_ID) {
+			L_errf(expr, "invalid l-value in assignment");
+		}
 		sym_lookup(expr->a, 0);
 	}
 	unless (expr->a->sym) return;  // bail if lhs not declared
@@ -2158,7 +2171,9 @@ compile_incdec(Expr *expr)
 		compile_deepDive(expr->a, L_DEEP_PTR_VAL);
 		// <deep-ptr> <deep-val>
 	} else {
-		ASSERT(expr->a->kind == L_EXPR_ID);
+		unless (expr->a->kind == L_EXPR_ID) {
+			L_errf(expr, "invalid l-value in inc/dec");
+		}
 		sym_lookup(expr->a, 0);
 	}
 	unless (expr->a->sym) return;  // bail if operand undeclared
@@ -2506,11 +2521,14 @@ private Sym *
 sym_lookup(Expr *id, enum lookup flags)
 {
 	int	new;
-	char	*name = id->u.string;
+	char	*name;
 	Sym	*shw;
 	Sym	*sym = NULL;
 	Frame	*frame;
 	Tcl_HashEntry *hPtr = NULL;
+
+	unless (id->kind == L_EXPR_ID) return (NULL);
+	name = id->u.string;
 
 	for (frame = L->frame; frame; frame = frame->prevFrame) {
 		if ((frame->envPtr == L->frame->envPtr) || frame->outer_p) {
@@ -3296,8 +3314,8 @@ deepdive_hash(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs, int num_idxs,
 	Tcl_HashEntry *hPtr;
 
 	/*
-	 * First index to get the penultimate element in the level,
-	 * creating elements if necessary.
+	 * Index into the passed-in object to get the penultimate
+	 * element in the level, creating elements if necessary.
 	 */
 	if (write && Tcl_IsShared(obj)) {
 		Tcl_Panic("A shared dict in the path");
@@ -3411,18 +3429,18 @@ deepdive_array(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs, int num_idxs,
  */
 Tcl_Obj **
 L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs,
-	    Tcl_Obj *countsObj, Deep_f flags)
+	   Tcl_Obj *countsObj, Deep_f flags)
 {
 	int	i, n, num_levs, result;
 	Tcl_Obj	*curr = obj;
 	Tcl_Obj **currPtr = NULL;
 	Tcl_Obj **counts;
-	int	ishash = (flags & L_DEEP_HASH_FIRST);
-	int	write = !(flags & L_DEEP_VAL);
+	int	ishash  =  (flags & L_DEEP_HASH_FIRST);
+	int	iswrite = !(flags & L_DEEP_VAL);
 
-	if (write && (obj->refCount != 1)) {
-		Tcl_Panic("L_deepDive on obj with refCount %i", obj->refCount);
-	}
+ 	if (iswrite && (obj->refCount != 1)) {
+ 		Tcl_Panic("L_deepDive on obj with refCount %i", obj->refCount);
+ 	}
 
 	/* Get num_levels in countsObj and extract the counts array. */
 	if (Tcl_IsShared(countsObj)) {
@@ -3452,15 +3470,15 @@ L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs,
 		}
 		if (!currPtr || (currPtr == undef_obj())) goto done;
 
-		if (write) Tcl_InvalidateStringRep(curr);
+		if (iswrite) Tcl_InvalidateStringRep(curr);
 		curr = *currPtr;
-		if (write && Tcl_IsShared(curr) && (i != (num_levs-1))) {
+		if (iswrite && Tcl_IsShared(curr) && (i != (num_levs-1))) {
 			Tcl_Panic("L deep-dive internal error 2");
 		}
 		idxs += n;
 		ishash = !ishash;
 	}
-	if (write && (obj->refCount != 1)) {
+	if (iswrite && (obj->refCount != 1)) {
 		Tcl_Panic("L_deepDive exit with refCount = %i", obj->refCount);
 	}
  done:

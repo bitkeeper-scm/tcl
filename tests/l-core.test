@@ -4902,51 +4902,51 @@ typecheck_3_10()
 .*8: L Error: void type illegal in predicate
 .*9: L Error: void type illegal in predicate
 .*10: L Error: void type illegal in predicate
-.*11: L Error: expected type string but got void in =~
-.*12: L Error: expected type string but got void in string comparison
-.*13: L Error: expected type string but got void in string comparison
-.*14: L Error: expected type string but got void in string comparison
-.*15: L Error: expected type string but got void in string comparison
-.*16: L Error: expected type string but got void in string comparison
-.*17: L Error: expected type string but got void in string comparison
-.*18: L Error: expected type string but got void in string comparison
-.*19: L Error: expected type string but got void in string comparison
-.*20: L Error: expected type string but got void in string comparison
-.*21: L Error: expected type string but got void in string comparison
-.*22: L Error: expected type string but got void in string comparison
-.*23: L Error: expected type string but got void in string comparison
-.*24: L Error: expected type int or float but got void in arithmetic operator
-.*25: L Error: expected type int or float but got void in arithmetic operator
-.*26: L Error: expected type int or float but got void in arithmetic operator
-.*27: L Error: expected type int or float but got void in arithmetic operator
-.*28: L Error: expected type int or float but got void in arithmetic operator
-.*29: L Error: expected type int or float but got void in arithmetic operator
-.*30: L Error: expected type int or float but got void in arithmetic operator
-.*31: L Error: expected type int or float but got void in arithmetic operator
-.*32: L Error: expected type int or float but got void in arithmetic operator
-.*33: L Error: expected type int or float but got void in arithmetic operator
-.*34: L Error: expected type int or float but got void in arithmetic operator
-.*35: L Error: expected type int or float but got void in arithmetic operator
-.*36: L Error: expected type int or float but got void in arithmetic operator
-.*37: L Error: expected type int or float but got void in arithmetic operator
-.*38: L Error: expected type int or float but got void in arithmetic operator
-.*39: L Error: expected type int or float but got void in arithmetic operator
-.*40: L Error: expected type int or float but got void in arithmetic operator
-.*41: L Error: expected type int or float but got void in arithmetic operator
-.*42: L Error: expected type int or float but got void in arithmetic operator
-.*43: L Error: expected type int or float but got void in arithmetic operator
-.*44: L Error: expected type int but got void in arithmetic operator
-.*45: L Error: expected type int but got void in arithmetic operator
-.*46: L Error: expected type int but got void in arithmetic operator
-.*47: L Error: expected type int but got void in arithmetic operator
-.*48: L Error: expected type int but got void in arithmetic operator
-.*49: L Error: expected type int but got void in arithmetic operator
-.*50: L Error: expected type int but got void in arithmetic operator
-.*51: L Error: expected type int but got void in arithmetic operator
-.*52: L Error: expected type int but got void in arithmetic operator
-.*53: L Error: expected type int but got void in arithmetic operator
-.*54: L Error: expected type int but got void in arithmetic operator
-.*55: L Error: expected type int but got void in arithmetic operator
+.*11: L Error: expected type.*but got void in =~
+.*12: L Error: expected type.*but got void in string comparison
+.*13: L Error: expected type.*but got void in string comparison
+.*14: L Error: expected type.*but got void in string comparison
+.*15: L Error: expected type.*but got void in string comparison
+.*16: L Error: expected type.*but got void in string comparison
+.*17: L Error: expected type.*but got void in string comparison
+.*18: L Error: expected type.*but got void in string comparison
+.*19: L Error: expected type.*but got void in string comparison
+.*20: L Error: expected type.*but got void in string comparison
+.*21: L Error: expected type.*but got void in string comparison
+.*22: L Error: expected type.*but got void in string comparison
+.*23: L Error: expected type.*but got void in string comparison
+.*24: L Error: expected type.*but got void in arithmetic operator
+.*25: L Error: expected type.*but got void in arithmetic operator
+.*26: L Error: expected type.*but got void in arithmetic operator
+.*27: L Error: expected type.*but got void in arithmetic operator
+.*28: L Error: expected type.*but got void in arithmetic operator
+.*29: L Error: expected type.*but got void in arithmetic operator
+.*30: L Error: expected type.*but got void in arithmetic operator
+.*31: L Error: expected type.*but got void in arithmetic operator
+.*32: L Error: expected type.*but got void in arithmetic operator
+.*33: L Error: expected type.*but got void in arithmetic operator
+.*34: L Error: expected type.*but got void in arithmetic operator
+.*35: L Error: expected type.*but got void in arithmetic operator
+.*36: L Error: expected type.*but got void in arithmetic operator
+.*37: L Error: expected type.*but got void in arithmetic operator
+.*38: L Error: expected type.*but got void in arithmetic operator
+.*39: L Error: expected type.*but got void in arithmetic operator
+.*40: L Error: expected type.*but got void in arithmetic operator
+.*41: L Error: expected type.*but got void in arithmetic operator
+.*42: L Error: expected type.*but got void in arithmetic operator
+.*43: L Error: expected type.*but got void in arithmetic operator
+.*44: L Error: expected type.*but got void in arithmetic operator
+.*45: L Error: expected type.*but got void in arithmetic operator
+.*46: L Error: expected type.*but got void in arithmetic operator
+.*47: L Error: expected type.*but got void in arithmetic operator
+.*48: L Error: expected type.*but got void in arithmetic operator
+.*49: L Error: expected type.*but got void in arithmetic operator
+.*50: L Error: expected type.*but got void in arithmetic operator
+.*51: L Error: expected type.*but got void in arithmetic operator
+.*52: L Error: expected type.*but got void in arithmetic operator
+.*53: L Error: expected type.*but got void in arithmetic operator
+.*54: L Error: expected type.*but got void in arithmetic operator
+.*55: L Error: expected type.*but got void in arithmetic operator
 }
 
 test typecheck-3.11 {void illegal in casts and unary operators} -body {
@@ -5025,7 +5025,6 @@ typecheck_3_13()
 
 	foreach (k in t313v()) { }
 }
-foo();
 } -returnCodes error -match regexp -result {.*Illegal foreach expression}
 
 test typecheck-4.1 {type errors in foreach} -body {
@@ -5572,17 +5571,61 @@ typecheck_6_3
 
 test typecheck-7.1 {type check reference parameters} -body {
 #lang L -nowarn
-void foo(int &a) {}
+void typecheck_7_1_foo(int &a) {}
 void
 typecheck_7_1()
 {
 	int	a;
 
-	foo(a);  // incorrect arg type
+	typecheck_7_1_foo(a);  // incorrect arg type
 }
 #lang tcl
 typecheck_7_1
 } -returnCodes {error} -match regexp -result {.*:7: L Error: parameter 1 has incompatible type}
+
+test typecheck-8.1 {widget and string type compatibility} -body {
+#lang L
+void typecheck_8_1()
+{
+	poly	p = "p";
+	string	s = "s";
+	widget	w = "w";
+
+	p = s;
+	unless (p eq "s") puts("bad 1");
+	p = w;
+	unless (p eq "w") puts("bad 2");
+	p = p;
+	unless (p eq "w") puts("bad 3");
+	p = "p";
+	s = p;
+	unless (s eq "p") puts("bad 4");
+	s = s;
+	unless (s eq "p") puts("bad 5");
+	s = w;
+	unless (s eq "w") puts("bad 6");
+	s = "s";
+	w = p;
+	unless (w eq "p") puts("bad 7");
+	w = s;
+	unless (w eq "s") puts("bad 8");
+	w = w;
+	unless (w eq "s") puts("bad 9");
+	w = "w";
+
+	unless (p ne s) puts("bad 10");
+	unless (s ne p) puts("bad 11");
+	unless (p ne w) puts("bad 12");
+	unless (w ne p) puts("bad 13");
+	unless (s ne w) puts("bad 14");
+	unless (w ne s) puts("bad 15");
+	unless (p eq p) puts("bad 16");
+	unless (s eq s) puts("bad 17");
+	unless (w eq w) puts("bad 18");
+}
+#lang tcl
+typecheck_8_1
+} -output {}
 
 test assign-1 {check assignment statement value and type} -body {
 #lang L
@@ -6858,6 +6901,176 @@ void initializers_4()
 #lang tcl
 initializers_4
 } -output {}
+
+test lvalue-1 {check indexing hash/struct/array expressions} -body {
+#lang L
+void lvalue_1()
+{
+	/*
+	 * This checks deep-dive of an expression rather than a
+	 * variable.  There are only two ways an expression can have
+	 * an array/struct/hash value: a function return value, and an
+	 * assignment.
+	 */
+	string	a1[] = { "1", "2", "3" };
+	string	a2[];
+
+	unless (split("a b c")[0] eq "a") puts("bad 1");
+	unless (split("a b c")[1] eq "b") puts("bad 2");
+	unless (split("a b c")[2] eq "c") puts("bad 3");
+
+	if (defined(a2[0])) puts("bad 4");
+	unless ((a2 = a1)[0] eq "1") puts("bad 5");
+	unless ((a2 = a1)[1] eq "2") puts("bad 6");
+	unless ((a2 = a1)[2] eq "3") puts("bad 7");
+	unless ((a2[0] eq "1") && (a2[1] eq "2") && (a2[2] eq "3")) {
+		puts("bad 8");
+	}
+	if (defined(a2[3])) puts("bad 9");
+}
+#lang tcl
+lvalue_1
+} -output {}
+
+test lvalue-2 {illegal l-value in deep-dive assignments} -body {
+#lang L
+int[] lvalue_2_ints()
+{
+	int	a[] = { 1, 2, 3 };
+	return (a);
+}
+void lvalue_2()
+{
+	int	a1[], a2[];
+	string	s1[], s2[];
+
+	lvalue_2_ints()[0] = 0;
+	lvalue_2_ints()[0] += 1;
+	++lvalue_2_ints()[0];
+	lvalue_2_ints()[0]--;
+	split("a","b","c")[0] =~ s/a/b/;
+
+	(a2 = a1)[0] = 0;
+	(a2 = a1)[0] += 1;
+	++(a2 = a1)[0];
+	(a2 = a1)[0]--;
+	(s2 = s1)[0] =~ s/bad/yes-its-still-bad/;
+}
+#lang tcl
+lvalue_2
+} -returnCodes {error} -match regexp -result {.*11: L Error: target of assignment is not an l-value
+.*12: L Error: target of assignment is not an l-value
+.*13: L Error: target of assignment is not an l-value
+.*14: L Error: target of assignment is not an l-value
+.*15: L Error: target of assignment is not an l-value
+.*17: L Error: target of assignment is not an l-value
+.*18: L Error: target of assignment is not an l-value
+.*19: L Error: target of assignment is not an l-value
+.*20: L Error: target of assignment is not an l-value
+.*21: L Error: target of assignment is not an l-value
+}
+
+test lvalue-3 {invalid l-value in inc/dec operators} -body {
+#lang L
+void lvalue_3()
+{
+	int	i = 0;
+
+	i----;
+	i++++;
+	(i++)++;
+	(i++)--;
+	(i--)++;
+	(i--)--;
+	++++i;
+	----i;
+	++(++i);
+	++(--i);
+	--(++i);
+	--(--i);
+	--(i--);
+	--(i++);
+	++(i--);
+	++(i++);
+	(--i)--;
+	(--i)++;
+	(++i)--;
+	(++i)++;
+}
+#lang tcl
+lvalue_3
+} -returnCodes {error} -match regexp -result {.*5: L Error: invalid l-value in inc/dec
+.*6: L Error: invalid l-value in inc/dec
+.*7: L Error: invalid l-value in inc/dec
+.*8: L Error: invalid l-value in inc/dec
+.*9: L Error: invalid l-value in inc/dec
+.*10: L Error: invalid l-value in inc/dec
+.*11: L Error: invalid l-value in inc/dec
+.*12: L Error: invalid l-value in inc/dec
+.*13: L Error: invalid l-value in inc/dec
+.*14: L Error: invalid l-value in inc/dec
+.*15: L Error: invalid l-value in inc/dec
+.*16: L Error: invalid l-value in inc/dec
+.*17: L Error: invalid l-value in inc/dec
+.*18: L Error: invalid l-value in inc/dec
+.*19: L Error: invalid l-value in inc/dec
+.*20: L Error: invalid l-value in inc/dec
+.*21: L Error: invalid l-value in inc/dec
+.*22: L Error: invalid l-value in inc/dec
+.*23: L Error: invalid l-value in inc/dec
+.*24: L Error: invalid l-value in inc/dec
+}
+
+test lvalue-4 {invalid l-value in assignments} -body {
+#lang L
+int lvalue_4_foo() { return (1); }
+void lvalue_4()
+{
+	int	i;
+
+	lvalue_4_foo() = i;
+	lvalue_4_foo() += i;
+	lvalue_4_foo() -= i;
+	lvalue_4_foo() *= i;
+	lvalue_4_foo() /= i;
+	lvalue_4_foo() %= i;
+	lvalue_4_foo() &= i;
+	lvalue_4_foo() |= i;
+	lvalue_4_foo() ^= i;
+	lvalue_4_foo() >>= i;
+	lvalue_4_foo() <<= i;
+	lvalue_4_foo() =~ s/bad/dab/;
+}
+#lang tcl
+lvalue_4
+} -returnCodes {error} -match regexp -result {.*6: L Error: invalid l-value in assignment
+.*7: L Error: invalid l-value in assignment
+.*8: L Error: invalid l-value in assignment
+.*9: L Error: invalid l-value in assignment
+.*10: L Error: invalid l-value in assignment
+.*11: L Error: invalid l-value in assignment
+.*12: L Error: invalid l-value in assignment
+.*13: L Error: invalid l-value in assignment
+.*14: L Error: invalid l-value in assignment
+.*15: L Error: invalid l-value in assignment
+.*16: L Error: invalid l-value in assignment
+.*17: L Error: invalid l-value in =~
+}
+
+test lvalue-5 {invalid l-value in & operator} -body {
+#lang L -nowarn
+int lvalue_5_foo() { return (1); }
+void lvalue_5_bar(int &i) {}
+void lvalue_5()
+{
+	lvalue_5_bar(&lvalue_4_foo());
+	lvalue_5_bar(&1);
+}
+#lang tcl
+lvalue_5
+} -returnCodes {error} -match regexp -result {.*5: L Error: invalid argument to &
+.*6: L Error: invalid argument to &
+}
 
 # cleanup
 ::tcltest::cleanupTests
