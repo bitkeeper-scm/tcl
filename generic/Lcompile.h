@@ -114,12 +114,12 @@ struct Sym {
  */
 typedef enum {
 	L_DEEP_HASH_FIRST = 0x01,
-	L_DEEP_VAL        = 0x02,
-	L_DEEP_PTR        = 0x04,
+	L_DEEP_VAL	  = 0x02,
+	L_DEEP_PTR	  = 0x04,
 	L_DEEP_VAL_PTR    = 0x08,
 	L_DEEP_PTR_VAL    = 0x10,
-	L_DEEP_NEW        = 0x20,
-	L_DEEP_OLD        = 0x40,
+	L_DEEP_NEW	  = 0x20,
+	L_DEEP_OLD	  = 0x40,
 } Deep_f;
 
 extern char	*ckstrdup(const char *str);

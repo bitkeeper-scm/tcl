@@ -3824,6 +3824,31 @@ deep_2_2()
 deep_2_2
 } -returnCodes error -match regexp -result {cannot write to negative array index}
 
+test deep-2.3 {check deep-dive element create/read} -body {
+#lang L
+void
+deep_2_3()
+{
+	/*
+	 * This checks that an op= works on an undefined deep-dive
+	 * element.  A string substitute is the only one we can test;
+	 * because undef isn't a valid integer, ++a[0] would cause a
+	 * run-time error that you can't use "" in a + operation.
+	 */
+
+	string	a[];
+	string	h{string};
+
+	h{"undefined"} =~ s//ShouldWork/;
+	unless (h{"undefined"} eq "ShouldWork") puts("bad 1");
+
+	a[0] =~ s//ShouldWork/;
+	unless (a[0] eq "ShouldWork") puts("bad 2");
+}
+#lang tcl
+deep_2_3
+} -output {}
+
 test regexp-1.0 {regular expression support} -body {
 #lang L
 void regexp_1_0() {

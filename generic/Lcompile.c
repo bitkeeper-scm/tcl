@@ -3341,7 +3341,7 @@ deepdive_hash(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs, int num_idxs,
 	Dict	*dict;
 	Tcl_Obj	**elt;		// ret value
 	Tcl_Obj	*last;
-	int	create = (flags & L_DEEP_PTR);
+	int	create = (flags & (L_DEEP_PTR|L_DEEP_PTR_VAL|L_DEEP_VAL_PTR));
 	int	write = !(flags & L_DEEP_VAL);
 	Tcl_HashEntry *hPtr;
 
@@ -3470,9 +3470,9 @@ L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj **idxs,
 	int	ishash  =  (flags & L_DEEP_HASH_FIRST);
 	int	iswrite = !(flags & L_DEEP_VAL);
 
- 	if (iswrite && (obj->refCount != 1)) {
- 		Tcl_Panic("L_deepDive on obj with refCount %i", obj->refCount);
- 	}
+	if (iswrite && (obj->refCount != 1)) {
+		Tcl_Panic("L_deepDive on obj with refCount %i", obj->refCount);
+	}
 
 	/* Get num_levels in countsObj and extract the counts array. */
 	if (Tcl_IsShared(countsObj)) {
