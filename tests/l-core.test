@@ -1558,6 +1558,194 @@ void array_1_4() {
 array_1_4
 } -output "1 2 3\n3\n1 2\n2\n1\n1\n\n\n\n"
 
+test slice_1 {string indexing and slicing} -body {
+#lang L
+string slice_1_f(string s) { return (s); }
+void slice_1()
+{
+	int	i, j;
+	string	s;
+
+	s = "";
+	unless (s[0..0] eq "") puts("bad 1.1");
+
+	s = "a";
+	unless (s[0..0] eq "a") puts("bad 2.1");
+
+	s = "abcdefg";
+	unless (s[0..0] eq "a") puts("bad 3.1");
+	unless (s[0..1] eq "ab") puts("bad 3.2");
+	unless (s[0..2] eq "abc") puts("bad 3.3");
+	unless (s[0..3] eq "abcd") puts("bad 3.4");
+	unless (s[0..4] eq "abcde") puts("bad 3.5");
+	unless (s[1..1] eq "b") puts("bad 3.6");
+	unless (s[1..2] eq "bc") puts("bad 3.7");
+	unless (s[1..3] eq "bcd") puts("bad 3.8");
+	unless (s[1..4] eq "bcde") puts("bad 3.9");
+	unless (s[2..2] eq "c") puts("bad 3.10");
+	unless (s[2..3] eq "cd") puts("bad 3.11");
+	unless (s[2..4] eq "cde") puts("bad 3.12");
+	unless (s[3..3] eq "d") puts("bad 3.13");
+	unless (s[3..4] eq "de") puts("bad 3.14");
+	unless (s[4..4] eq "e") puts("bad 3.15");
+	unless (s[0..10] eq "abcdefg") puts("bad 3.20");
+	unless (s[-1..0] eq "a") puts("bad 3.21");
+	unless (s[-1..1] eq "ab") puts("bad 3.22");
+	unless (s[-1..10] eq "abcdefg") puts("bad 3.23");
+	unless (s[2..1] eq "") puts("bad 3.24");
+
+	s = "0123456789";
+	unless (s[2..4][0..0] eq "2") puts("bad 4.1");
+	unless (s[2..4][1..1] eq "3") puts("bad 4.2");
+	unless (s[1..8][1..6][1..4][1..2] eq "45") puts("bad 4.3");
+
+	s = "0123456789";
+	unless (slice_1_f(s)[2..4][0..0] eq "2") puts("bad 5.1");
+	unless (slice_1_f(s)[2..4][1..1] eq "3") puts("bad 5.2");
+	unless (slice_1_f(s)[1..8][1..6][1..4][1..2] eq "45") puts("bad 5.3");
+
+	s = "0123456789";
+	i = 2;
+	j = 4;
+	unless (s[i..j] eq "234") puts("bad 6.1");
+	unless (s[i-1..j] eq "1234") puts("bad 6.2");
+	unless (s[i-1..j+1] eq "12345") puts("bad 6.3");
+}
+slice_1();
+} -output {}
+
+test slice_2 {array slicing} -body {
+#lang L
+string slice_2_tostr(int a[])
+{
+	int	i;
+	string	ret = "";
+
+	foreach (i in a) ret = sprintf("%s<%i>", ret, i);
+	return (ret);
+}
+void slice_2()
+{
+	int	ai[];
+	string	s;
+
+	ai = { 0, 1, 2, 3, 4 };
+	unless (slice_2_tostr(ai[0..0]) eq "<0>") puts("bad 1.1");
+	unless (slice_2_tostr(ai[0..1]) eq "<0><1>") puts("bad 1.2");
+	unless (slice_2_tostr(ai[0..2]) eq "<0><1><2>") puts("bad 1.3");
+	unless (slice_2_tostr(ai[0..3]) eq "<0><1><2><3>") puts("bad 1.4");
+	unless (slice_2_tostr(ai[0..4]) eq "<0><1><2><3><4>") puts("bad 1.5");
+	unless (slice_2_tostr(ai[1..1]) eq "<1>") puts("bad 1.6");
+	unless (slice_2_tostr(ai[1..2]) eq "<1><2>") puts("bad 1.7");
+	unless (slice_2_tostr(ai[1..3]) eq "<1><2><3>") puts("bad 1.8");
+	unless (slice_2_tostr(ai[1..4]) eq "<1><2><3><4>") puts("bad 1.9");
+	unless (slice_2_tostr(ai[2..2]) eq "<2>") puts("bad 1.10");
+	unless (slice_2_tostr(ai[2..3]) eq "<2><3>") puts("bad 1.11");
+	unless (slice_2_tostr(ai[2..4]) eq "<2><3><4>") puts("bad 1.12");
+	unless (slice_2_tostr(ai[3..3]) eq "<3>") puts("bad 1.13");
+	unless (slice_2_tostr(ai[3..4]) eq "<3><4>") puts("bad 1.14");
+	unless (slice_2_tostr(ai[4..4]) eq "<4>") puts("bad 1.15");
+
+	s = slice_2_tostr(ai[0..3][0..2]);
+	unless (s eq "<0><1><2>") puts("bad 2.1");
+	s = slice_2_tostr(ai[0..3][0..2][0..1]);
+	unless (s eq "<0><1>") puts("bad 2.2");
+	s = slice_2_tostr(ai[0..3][0..2][0..1][0..0]);
+	unless (s eq "<0>") puts("bad 2.3");
+
+	s = slice_2_tostr(ai[1..3][0..2]);
+	unless (s eq "<1><2><3>") puts("bad 3.1");
+	s = slice_2_tostr(ai[1..3][0..1]);
+	unless (s eq "<1><2>") puts("bad 3.2");
+	s = slice_2_tostr(ai[1..3][0..2][0..2][0..2][0..2]);
+	unless (s eq "<1><2><3>") puts("bad 3.3");
+
+	/* Check expressions as slice indices. */
+	s = slice_2_tostr(ai[1-1..2+1][0*10..2]);
+	unless (s eq "<0><1><2>") puts("bad 4.1");
+	s = slice_2_tostr(ai[1-1..ai[2..2][0]+1][0*10..ai[2]]);
+	unless (s eq "<0><1><2>") puts("bad 4.2");
+
+	/* Check slices of lists. */
+	s = slice_2_tostr({0,1,2,3,4}[1..3]);
+	unless (s eq "<1><2><3>") puts("bad 5.1");
+}
+slice_2();
+} -output {}
+
+test slice_2.1 {array slicing 2} -body {
+#lang L
+void slice_2_1()
+{
+	/*
+	 * Althgouh probably not recommended style, these should work.
+	 */
+
+	struct s1 {
+		int	i1, i2, i3, i4;
+	} st1;
+	struct s2 {
+		int	i1, i2;
+	} st2;
+
+	st2 = (struct s2){1,2,3,4}[1..2];
+	unless ((st2.i1 == 2) && (st2.i2 == 3)) puts("bad 1");
+
+	st1 = { 5, 6, 7, 8 };
+	st2 = (struct s2) ((int[])st1)[1..2];
+	unless ((st2.i1 == 6) && (st2.i2 == 7)) puts("bad 2");
+}
+slice_2_1();
+} -output {}
+
+test slice_3 {array slice errors} -body {
+#lang L
+void slice_3()
+{
+	int	i;
+	float	f;
+	struct {
+		int	i, j;
+	} st;
+	int	h{int};
+
+	i = i[0..1];
+	f = f[0..1];
+	i = st[0..1];
+	i = h[0..1];
+}
+} -returnCodes error -match regexp -result {.*10: L Error: illegal type for slice
+.*11: L Error: illegal type for slice
+.*12: L Error: illegal type for slice
+.*13: L Error: illegal type for slice
+}
+
+test slice_4 {array slice index errors} -body {
+#lang L
+void slice_4()
+{
+	int	a[], i;
+	float	f;
+
+	i = a[0.0..1];
+	i = a[0..1.0];
+	i = a[0.0..1.0];
+	i = a[f..1];
+	i = a[0..f];
+	i = a[f..f];
+	i = a[a..a];
+}
+} -returnCodes error -match regexp -result {.*6: L Error: first slice index not an int
+.*7: L Error: second slice index not an int
+.*8: L Error: first slice index not an int
+.*8: L Error: second slice index not an int
+.*9: L Error: first slice index not an int
+.*10: L Error: second slice index not an int
+.*11: L Error: first slice index not an int
+.*11: L Error: second slice index not an int
+.*12: L Error: first slice index not an int
+.*12: L Error: second slice index not an int
+}
 
 test loop-1.0 {while loops} -body {
 #lang L

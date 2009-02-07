@@ -1353,6 +1353,35 @@ compile_trinOp(Expr *expr)
 		TclEmitInstInt1(INST_CONCAT1, 3, L->frame->envPtr);
 		expr->type = L_string;
 		break;
+	    case L_OP_ARRAY_SLICE: {
+		int	n = 0;
+		compile_expr(expr->a, PUSH);
+		if (isstring(expr->a)) {
+			push_str("::string");
+			push_str("range");
+			TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
+			expr->type = L_string;
+			n = 5;
+		} else if (isarray(expr->a) || islist(expr->a)) {
+			push_str("::lrange");
+			TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
+			expr->type = expr->a->type;
+			n = 4;
+		} else {
+			L_errf(expr->a, "illegal type for slice");
+			expr->type = L_poly;
+		}
+		compile_expr(expr->b, PUSH);
+		unless (isint(expr->b)) {
+			L_errf(expr->b, "first slice index not an int");
+		}
+		compile_expr(expr->c, PUSH);
+		unless (isint(expr->c)) {
+			L_errf(expr->c, "second slice index not an int");
+		}
+		emit_invoke(n);
+		break;
+	    }
 	    default:
 		L_bomb("compile_trinOp: malformed AST");
 	}
