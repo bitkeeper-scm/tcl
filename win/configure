@@ -272,7 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="../generic/tcl.h"
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP BISON AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING PCRE_INCLUDE PCRE_LIBS CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS TOMMATH_DIR CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP BISON AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING PCRE_INCLUDE PCRE_LIBS CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -815,6 +815,7 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-bk              directory containing BK source
+  --with-tommath          directory containing tommath headers and libraries
   --with-encoding              encoding for configuration values
   --with-celib=DIR        use Windows/CE support library from DIR
   --with-pcre             directory containing pcre headers and libraries
@@ -1404,6 +1405,63 @@ _ACEOF
 	echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6
     fi
+
+
+
+
+# Check whether --with-tommath or --without-tommath was given.
+if test "${with_tommath+set}" = set; then
+  withval="$with_tommath"
+  with_tommath=${withval}
+fi;
+    echo "$as_me:$LINENO: checking for TOMMATH configuration" >&5
+echo $ECHO_N "checking for TOMMATH configuration... $ECHO_C" >&6
+
+    if test "${ac_cv_c_tommath+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+	    # First check to see if --with-tommath was specified.
+	    if test x"${with_tommath}" != x ; then
+		if test -f "${with_tommath}/tommath.h" ; then
+		    ac_cv_c_tommath=`(cd ${with_tommath}; pwd)`
+		    TOMMATH_DIR="${ac_cv_c_tommath}"
+		else
+		    { { echo "$as_me:$LINENO: error: ${with_tommath} directory doesn't contain tommath header and/or library" >&5
+echo "$as_me: error: ${with_tommath} directory doesn't contain tommath header and/or library" >&2;}
+   { (exit 1); exit 1; }; }
+		fi
+	    fi
+
+	    # test a couple of locations where tommath can be
+	    if test x"${ac_cv_c_tommath}" = x ; then
+		for i in \
+			`ls -d ${exec_prefix} 2>/dev/null` \
+			`ls -d ${prefix} 2>/dev/null` \
+			`ls -d ../../tommath 2>/dev/null` \
+			`ls -d ../../../../tommath 2>/dev/null` \
+			; do
+		    if test -f "${i}/tommath.h" ; then
+			ac_cv_c_tommath=`(cd $i; pwd)`
+			TOMMATH_DIR="${ac_cv_c_tommath}"
+			break
+		    fi
+		done
+	    fi
+
+
+fi
+
+
+    if test x"${ac_cv_c_tommath}" = x ; then
+	{ { echo "$as_me:$LINENO: error: Can't find TOMMATH " >&5
+echo "$as_me: error: Can't find TOMMATH " >&2;}
+   { (exit 1); exit 1; }; }
+    else
+	echo "$as_me:$LINENO: result: found TOMMATH at ${ac_cv_c_tommath}" >&5
+echo "${ECHO_T}found TOMMATH at ${ac_cv_c_tommath}" >&6
+    fi
+
 
 
 #------------------------------------------------------------------------
@@ -5348,6 +5406,7 @@ s,@BK_SRCS@,$BK_SRCS,;t t
 s,@BK_OBJS@,$BK_OBJS,;t t
 s,@BK_INCLUDES@,$BK_INCLUDES,;t t
 s,@BK_LIBS@,$BK_LIBS,;t t
+s,@TOMMATH_DIR@,$TOMMATH_DIR,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t

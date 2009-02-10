@@ -579,6 +579,68 @@ AC_DEFUN([SC_WITH_PCRE], [
 ])
 
 #------------------------------------------------------------------------
+# SC_WITH_TOMMATH --
+#
+#	Finds the TOMMATH header and library files for use with Tcl
+#
+# Arguments:
+#	none
+#
+# Results:
+#
+#	Adds the following arguments to configure:
+#		--with-tommath=/path/to/tommath
+#
+#	Sets the following vars:
+#		TOMMATH_DIR
+#------------------------------------------------------------------------
+
+AC_DEFUN([SC_WITH_TOMMATH], [
+    AC_ARG_WITH(tommath,
+	AC_HELP_STRING([--with-tommath],
+	    [directory containing tommath headers and libraries]),
+	[with_tommath=${withval}])
+    AC_MSG_CHECKING([for TOMMATH configuration])
+
+    AC_CACHE_VAL(ac_cv_c_tommath,[
+	    # First check to see if --with-tommath was specified.
+	    if test x"${with_tommath}" != x ; then
+		if test -f "${with_tommath}/tommath.h" ; then
+		    ac_cv_c_tommath=`(cd ${with_tommath}; pwd)`
+		    TOMMATH_DIR="${ac_cv_c_tommath}"
+		else
+		    AC_MSG_ERROR([${with_tommath} directory doesn't contain tommath header and/or library])
+		fi
+	    fi
+
+	    # test a couple of locations where tommath can be
+	    if test x"${ac_cv_c_tommath}" = x ; then
+		for i in \
+			`ls -d ${exec_prefix} 2>/dev/null` \
+			`ls -d ${prefix} 2>/dev/null` \
+			`ls -d ../../tommath 2>/dev/null` \
+			`ls -d ../../../../tommath 2>/dev/null` \
+			; do
+		    if test -f "${i}/tommath.h" ; then
+			ac_cv_c_tommath=`(cd $i; pwd)`
+			TOMMATH_DIR="${ac_cv_c_tommath}"
+			break
+		    fi
+		done
+	    fi
+
+	])
+
+    if test x"${ac_cv_c_tommath}" = x ; then
+	AC_MSG_ERROR([Can't find TOMMATH ])
+    else
+	AC_MSG_RESULT([found TOMMATH at ${ac_cv_c_tommath}])
+    fi
+    AC_SUBST([TOMMATH_DIR])
+])
+
+
+#------------------------------------------------------------------------
 # SC_ENABLE_PCRE --
 #
 #	Allows the use of PCRE in Tcl as default

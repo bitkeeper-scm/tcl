@@ -96,7 +96,7 @@ MAN2TCLFLAGS =		@MAN2TCLFLAGS@
 SRC_DIR			= @srcdir@
 ROOT_DIR		= @srcdir@/..
 GENERIC_DIR		= @srcdir@/../generic
-TOMMATH_DIR		= @srcdir@/../libtommath
+TOMMATH_DIR		= @TOMMATH_DIR@
 WIN_DIR			= @srcdir@
 COMPAT_DIR		= @srcdir@/../compat
 BK_DIR			= @BK_DIR@
@@ -154,7 +154,7 @@ STATIC_LIBRARIES	= $(TCL_LIB_FILE) $(REG_LIB_FILE) $(DDE_LIB_FILE)
 # normal build although it can be required to run make dist.
 TCL_EXE			= tclsh
 
-TCLSH			= tclsh$(VER)${EXESUFFIX}
+TCLSH			= tclsh${EXESUFFIX}
 TCLTEST			= tcltest${EXEEXT}
 CAT32			= cat32$(EXEEXT)
 MAN2TCL			= man2tcl$(EXEEXT)
@@ -691,8 +691,7 @@ install-libraries: libraries install-tzdata install-msgs
 	    $(COPY) "$$i" "$(INCLUDE_INSTALL_DIR)"; \
 	    done;
 	@echo "Installing library files to $(SCRIPT_INSTALL_DIR)";
-	@for i in $(ROOT_DIR)/library/*.tcl $(ROOT_DIR)/library/tclIndex \
-		$(ROOT_DIR)/library/*.l; \
+	@for i in $(ROOT_DIR)/library/*.tcl $(ROOT_DIR)/library/tclIndex ; \
 	    do \
 	    $(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)"; \
 	    done;
