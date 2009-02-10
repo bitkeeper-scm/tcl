@@ -221,7 +221,7 @@ SRC_DIR			= @srcdir@
 TOP_DIR			= $(SRC_DIR)/..
 BUILD_DIR		= @builddir@
 GENERIC_DIR		= $(TOP_DIR)/generic
-TOMMATH_DIR		= $(TOP_DIR)/libtommath
+TOMMATH_DIR		= @TOMMATH_DIR@
 COMPAT_DIR		= $(TOP_DIR)/compat
 TOOL_DIR		= $(TOP_DIR)/tools
 UNIX_DIR		= $(TOP_DIR)/unix
@@ -775,8 +775,8 @@ install-binaries: binaries
 	    $(INSTALL_DATA) $(TCL_BUILD_EXP_FILE) \
 			"$(LIB_INSTALL_DIR)"/$(TCL_EXP_FILE); \
 	    fi
-	@echo "Installing tclsh as $(BIN_INSTALL_DIR)/tclsh$(VERSION)"
-	@$(INSTALL_PROGRAM) tclsh "$(BIN_INSTALL_DIR)"/tclsh$(VERSION)
+	@echo "Installing tclsh as $(BIN_INSTALL_DIR)/tclsh"
+	@$(INSTALL_PROGRAM) tclsh "$(BIN_INSTALL_DIR)"/tclsh
 	@echo "Installing tclConfig.sh to $(LIB_INSTALL_DIR)/"
 	@$(INSTALL_DATA) tclConfig.sh "$(LIB_INSTALL_DIR)"/tclConfig.sh
 	@if test "$(STUB_LIB_FILE)" != "" ; then \
@@ -1894,8 +1894,8 @@ package-common:
 		install-libraries install-man
 	mkdir -p $(DISTDIR)/$(PACKAGE)/$(VERSION)/bin
 	sed -e "s/TCLVERSION/$(VERSION)/g" < $(UNIX_DIR)/tclsh.sh \
-		> $(DISTDIR)/$(PACKAGE)/$(VERSION)/bin/tclsh$(VERSION)
-	chmod 755 $(DISTDIR)/$(PACKAGE)/$(VERSION)/bin/tclsh$(VERSION)
+		> $(DISTDIR)/$(PACKAGE)/$(VERSION)/bin/tclsh
+	chmod 755 $(DISTDIR)/$(PACKAGE)/$(VERSION)/bin/tclsh
 
 #
 # Build and install the architecture specific files in the dist directory.
