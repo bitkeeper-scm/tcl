@@ -7895,6 +7895,15 @@ lvalue_5
 .*6: L Error: invalid argument to &
 }
 
+test lregex-1 {test a trivial regex} -body {
+#lang L
+int lregex_1(void) {
+	if ("x" =~ /x+/) { return(1); } else { return(0); }
+}
+#lang tcl
+lregex_1;
+} -result {1}
+
 # cleanup
 ::tcltest::cleanupTests
 return

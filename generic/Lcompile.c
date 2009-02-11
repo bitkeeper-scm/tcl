@@ -1456,9 +1456,17 @@ compile_twiddle(Expr *expr)
 						L->frame->envPtr);
 			}
 		} else {
+			/*
+			 * Pass correct RE compile flags. We use only Int1
+			 * (8-bit), but that handles all the flags we want to
+			 * pass.
+			 * Don't use TCL_REG_NOSUB as we may have backrefs.
+			 */
+			int cflags = TCL_REG_ADVANCED
+			    | (nocase ? TCL_REG_NOCASE : 0);
 			compile_exprs(regexp, PUSH);
 			compile_exprs(expr->a, PUSH);
-			TclEmitInstInt1(INST_REGEXP, nocase, L->frame->envPtr);
+			TclEmitInstInt1(INST_REGEXP, cflags, L->frame->envPtr);
 		}
 	} else {
 		/*
