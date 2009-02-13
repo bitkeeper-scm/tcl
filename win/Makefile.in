@@ -95,10 +95,13 @@ MAN2TCLFLAGS =		@MAN2TCLFLAGS@
 
 SRC_DIR			= @srcdir@
 ROOT_DIR		= @srcdir@/..
-GENERIC_DIR		= @srcdir@/../generic
+TOP_DIR			= $(shell cd @srcdir@/..; pwd)
+GENERIC_DIR		= $(TOP_DIR)/generic
 TOMMATH_DIR		= @TOMMATH_DIR@
-WIN_DIR			= @srcdir@
-COMPAT_DIR		= @srcdir@/../compat
+WIN_DIR			= $(TOP_DIR)/win
+COMPAT_DIR		= $(TOP_DIR)/compat
+PKGS_DIR		= $(TOP_DIR)/pkgs
+ZLIB_DIR		= $(COMPAT_DIR)/zlib
 BK_DIR			= @BK_DIR@
 BK_INCLUDES		= @BK_INCLUDES@
 @BK_LIBS@
@@ -137,6 +140,8 @@ REGDOTVER		= @TCL_REG_MAJOR_VERSION@.@TCL_REG_MINOR_VERSION@
 
 TCL_STUB_LIB_FILE	= @TCL_STUB_LIB_FILE@
 TCL_DLL_FILE		= @TCL_DLL_FILE@
+TCL_STATIC_LIB_FILE	= @TCL_STATIC_LIB_FILE@
+TCL_IMPORT_LIB_FILE	= @TCL_IMPORT_LIB_FILE@
 TCL_LIB_FILE		= @TCL_LIB_FILE@
 DDE_DLL_FILE		= tcldde$(DDEVER)${DLLSUFFIX}
 DDE_LIB_FILE		= tcldde$(DDEVER)${LIBSUFFIX}
@@ -164,7 +169,7 @@ MAN2TCL			= man2tcl$(EXEEXT)
 # Setting the VPATH variable to a list of paths will cause the Makefile to
 # look into these paths when resolving .c to .obj dependencies.
 
-VPATH = $(GENERIC_DIR):$(TOMMATH_DIR):$(WIN_DIR):$(COMPAT_DIR)
+VPATH = $(GENERIC_DIR):$(TOMMATH_DIR):$(WIN_DIR):$(COMPAT_DIR):$(ZLIB_DIR)
 
 AR		= @AR@
 RANLIB		= @RANLIB@
@@ -182,7 +187,7 @@ EXEEXT		= @EXEEXT@
 OBJEXT		= @OBJEXT@
 STLIB_LD	= @STLIB_LD@
 SHLIB_LD	= @SHLIB_LD@
-SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@ $(LIBS)
+SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
 SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_SUFFIX	= @SHLIB_SUFFIX@
 LIBS		= @LIBS@ $(BK_LIBS) @PCRE_LIBS@
@@ -197,6 +202,8 @@ CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${TCL_SHLIB_CFLAGS} \
 -I"${GENERIC_DIR_NATIVE}" -DTCL_TOMMATH -DMP_PREC=4 -I"${TOMMATH_DIR_NATIVE}" \
 -I"${WIN_DIR_NATIVE}" @PCRE_INCLUDE@ ${AC_FLAGS} \
 ${COMPILE_DEBUG_FLAGS} ${BK_INCLUDES}
+
+ZLIB_INC = -I"${ZLIB_DIR}"
 
 CC_OBJNAME = @CC_OBJNAME@
 CC_EXENAME = @CC_EXENAME@
@@ -249,6 +256,7 @@ GENERIC_OBJS = \
 	tclIOCmd.$(OBJEXT) \
 	tclIOGT.$(OBJEXT) \
 	tclIORChan.$(OBJEXT) \
+	tclIORTrans.$(OBJEXT) \
 	tclIOSock.$(OBJEXT) \
 	tclIOUtil.$(OBJEXT) \
 	tclLink.$(OBJEXT) \
@@ -258,6 +266,13 @@ GENERIC_OBJS = \
 	tclMain.$(OBJEXT) \
 	tclNamesp.$(OBJEXT) \
 	tclNotify.$(OBJEXT) \
+	tclOO.$(OBJEXT) \
+	tclOOBasic.$(OBJEXT) \
+	tclOOCall.$(OBJEXT) \
+	tclOODefineCmds.$(OBJEXT) \
+	tclOOInfo.$(OBJEXT) \
+	tclOOMethod.$(OBJEXT) \
+	tclOOStubInit.$(OBJEXT) \
 	tclObj.$(OBJEXT) \
 	tclPanic.$(OBJEXT) \
 	tclParse.$(OBJEXT) \
@@ -275,7 +290,6 @@ GENERIC_OBJS = \
 	tclStringObj.$(OBJEXT) \
 	tclStrToD.$(OBJEXT) \
 	tclStubInit.$(OBJEXT) \
-	tclStubLib.$(OBJEXT) \
 	tclThread.$(OBJEXT) \
 	tclThreadAlloc.$(OBJEXT) \
 	tclThreadJoin.$(OBJEXT) \
@@ -285,7 +299,8 @@ GENERIC_OBJS = \
 	tclTrace.$(OBJEXT) \
 	tclUtf.$(OBJEXT) \
 	tclUtil.$(OBJEXT) \
-	tclVar.$(OBJEXT)
+	tclVar.$(OBJEXT) \
+	tclZlib.$(OBJEXT)
 
 L_OBJS	= Lscanner.$(OBJEXT) \
 	Lgrammar.$(OBJEXT) \
@@ -404,16 +419,32 @@ DDE_OBJS = tclWinDde.$(OBJEXT)
 
 REG_OBJS = tclWinReg.$(OBJEXT)
 
-STUB_OBJS = tclStubLib.$(OBJEXT)
+STUB_OBJS = \
+	tclStubLib.$(OBJEXT) \
+	tclOOStubLib.$(OBJEXT)
 
 TCLSH_OBJS = tclAppInit.$(OBJEXT)
 
-TCL_OBJS = ${GENERIC_OBJS} $(L_OBJS) $(TOMMATH_OBJS) ${WIN_OBJS} \
-	   ${BK_OBJS}
+ZLIB_OBJS = \
+	Zadler32.$(OBJEXT) \
+	Zcompress.$(OBJEXT) \
+	Zcrc32.$(OBJEXT) \
+	Zdeflate.$(OBJEXT) \
+	Zgzio.$(OBJEXT) \
+	Zinfback.$(OBJEXT) \
+	Zinffast.$(OBJEXT) \
+	Zinflate.$(OBJEXT) \
+	Zinftrees.$(OBJEXT) \
+	Ztrees.$(OBJEXT) \
+	Zuncompr.$(OBJEXT) \
+	Zzutil.$(OBJEXT)
+
+TCL_OBJS = ${GENERIC_OBJS} $(TOMMATH_OBJS) ${WIN_OBJS} ${ZLIB_OBJS} \
+	$(L_OBJS) ${BK_OBJS}
 
 TCL_DOCS = "$(ROOT_DIR_NATIVE)"/doc/*.[13n]
 
-all: binaries libraries doc
+all: binaries libraries doc packages
 
 tcltest: $(TCLTEST)
 
@@ -423,15 +454,7 @@ libraries:
 
 doc:
 
-winhelp: $(ROOT_DIR)/tools/man2help.tcl $(MAN2TCL)
-	TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
-	./$(TCLSH) "$(ROOT_DIR_NATIVE)"/tools/man2help.tcl tcl "$(VER)" $(TCL_DOCS)
-	hcw /c /e tcl.hpj
-
-$(MAN2TCL): $(ROOT_DIR)/tools/man2tcl.c
-	$(CC) $(CFLAGS_OPTIMIZE) $(MAN2TCLFLAGS) -o $(MAN2TCL) "$(ROOT_DIR_NATIVE)"/tools/man2tcl.c
-
-$(TCLSH): $(TCL_LIB_FILE) $(TCL_STUB_LIB_FILE) $(TCLSH_OBJS) tclsh.$(RES)
+$(TCLSH): $(TCL_LIB_FILE) $(TCLSH_OBJS) tclsh.$(RES)
 	$(CC) $(CFLAGS) $(TCLSH_OBJS) $(TCL_LIB_FILE) $(LIBS) \
         tclsh.$(RES) $(CC_EXENAME) $(LDFLAGS_CONSOLE)
 
@@ -453,14 +476,16 @@ ${TCL_STUB_LIB_FILE}: ${STUB_OBJS}
 	@MAKE_LIB@ ${STUB_OBJS}
 	@POST_MAKE_LIB@
 
-${TCL_DLL_FILE}: ${TCL_OBJS} tcl.$(RES)
-	@$(RM) ${TCL_DLL_FILE}
+${TCL_DLL_FILE} $(TCL_IMPORT_LIB_FILE): ${TCL_OBJS} tcl.$(RES)
+	@$(RM) ${TCL_DLL_FILE} $(TCL_IMPORT_LIB_FILE)
 	@MAKE_DLL@ ${TCL_OBJS} tcl.$(RES) $(SHLIB_LD_LIBS)
 
-${TCL_LIB_FILE}: ${TCL_OBJS}
-	@$(RM) ${TCL_LIB_FILE}
+${TCL_STATIC_LIB_FILE}: ${TCL_OBJS}
+	@$(RM) ${TCL_STATIC_LIB_FILE}
 	@MAKE_LIB@ ${TCL_OBJS}
 	@POST_MAKE_LIB@
+
+# assume GNU make
 
 ${DDE_DLL_FILE}: ${DDE_OBJS} ${TCL_STUB_LIB_FILE}
 	@$(RM) ${DDE_DLL_FILE}
@@ -514,6 +539,36 @@ tclWinTest.${OBJEXT}: tclWinTest.c
 
 tclAppInit.${OBJEXT} : tclAppInit.c
 	$(CC) -c $(CC_SWITCHES) @DEPARG@ $(CC_OBJNAME)
+
+# For building zlib, only used in some build configurations
+
+Zadler32.$(OBJEXT): $(ZLIB_DIR)/adler32.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zcompress.$(OBJEXT): $(ZLIB_DIR)/compress.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zcrc32.$(OBJEXT):    $(ZLIB_DIR)/crc32.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zdeflate.$(OBJEXT):  $(ZLIB_DIR)/deflate.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zgzio.$(OBJEXT):     $(ZLIB_DIR)/gzio.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zinfback.$(OBJEXT):  $(ZLIB_DIR)/infback.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zinffast.$(OBJEXT):  $(ZLIB_DIR)/inffast.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zinflate.$(OBJEXT):  $(ZLIB_DIR)/inflate.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zinftrees.$(OBJEXT): $(ZLIB_DIR)/inftrees.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Ztrees.$(OBJEXT):    $(ZLIB_DIR)/trees.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zuncompr.$(OBJEXT):  $(ZLIB_DIR)/uncompr.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+Zzutil.$(OBJEXT):    $(ZLIB_DIR)/zutil.c
+	$(CC) -c $(CC_SWITCHES) -I$(ZLIB_DIR) @DEPARG@ $(CC_OBJNAME)
+
+tclZlib.${OBJEXT} : tclZlib.c
+	$(CC) -c ${ZLIB_INC} $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
 
 # The following objects should be built using the stub interfaces
 
@@ -607,7 +662,7 @@ gentommath_h:
 		"$(TOMMATH_DIR_NATIVE)\tommath.h" \
 		> "$(GENERIC_DIR_NATIVE)\tclTomMath.h"
 
-install: all install-binaries install-libraries install-doc
+install: all install-binaries install-libraries install-doc install-packages
 
 install-binaries: binaries
 	@for i in "$(LIB_INSTALL_DIR)" "$(BIN_INSTALL_DIR)" ; \
@@ -682,6 +737,7 @@ install-libraries: libraries install-tzdata install-msgs
 	    done;
 	@echo "Installing header files";
 	@for i in "$(GENERIC_DIR)/tcl.h" "$(GENERIC_DIR)/tclDecls.h" \
+		"$(GENERIC_DIR)/tclOO.h" "$(GENERIC_DIR)/tclOODecls.h" \
 		"$(GENERIC_DIR)/tclPlatDecls.h" \
 		"$(GENERIC_DIR)/tclTomMath.h" \
 		"$(GENERIC_DIR)/tclTomMathDecls.h" \
@@ -700,8 +756,8 @@ install-libraries: libraries install-tzdata install-msgs
 	    do \
 	    $(COPY) "$$j" "$(SCRIPT_INSTALL_DIR)/http1.0"; \
 	    done;
-	@echo "Installing package http 2.7 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/http/http.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/http-2.7.tm;
+	@echo "Installing package http 2.7.2 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/http/http.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/http-2.7.2.tm;
 	@echo "Installing library opt0.4 directory";
 	@for j in $(ROOT_DIR)/library/opt/*.tcl; \
 	    do \
@@ -713,8 +769,8 @@ install-libraries: libraries install-tzdata install-msgs
 	@$(COPY) $(ROOT_DIR)/library/tcltest/tcltest.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.5/tcltest-2.3.0.tm;
 	@echo "Installing package platform 1.0.3 as a Tcl Module";
 	@$(COPY) $(ROOT_DIR)/library/platform/platform.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform-1.0.3.tm;
-	@echo "Installing package platform::shell 1.1.3 as a Tcl Module";
-	@$(COPY) $(ROOT_DIR)/library/platform/shell.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform/shell-1.1.3.tm;
+	@echo "Installing package platform::shell 1.1.4 as a Tcl Module";
+	@$(COPY) $(ROOT_DIR)/library/platform/shell.tcl $(SCRIPT_INSTALL_DIR)/../tcl8/8.4/platform/shell-1.1.4.tm;
 	@echo "Installing encodings";
 	@for i in $(ROOT_DIR)/library/encoding/*.enc ; do \
 		$(COPY) "$$i" "$(SCRIPT_INSTALL_DIR)/encoding"; \
@@ -747,6 +803,7 @@ install-private-headers: libraries
 	@echo "Installing private header files";
 	@for i in "$(GENERIC_DIR)/tclInt.h" "$(GENERIC_DIR)/tclIntDecls.h" \
 		"$(GENERIC_DIR)/tclIntPlatDecls.h" "$(GENERIC_DIR)/tclPort.h" \
+		"$(GENERIC_DIR)/tclOOInt.h" "$(GENERIC_DIR)/tclOOIntDecls.h" \
 		"$(WIN_DIR)/tclWinPort.h" ; \
 	    do \
 	    $(COPY) "$$i" "$(PRIVATE_INCLUDE_INSTALL_DIR)"; \
@@ -756,7 +813,7 @@ install-private-headers: libraries
 # tcltest, i.e.:
 #	% make test TESTFLAGS="-verbose bps -file fileName.test"
 
-test: binaries $(TCLTEST)
+test: binaries $(TCLTEST) test-packages
 	TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
 	./$(TCLTEST) "$(ROOT_DIR_NATIVE)/tests/all.tcl" $(TESTFLAGS) \
 	-load "set ::ddelib [file normalize ${DDE_DLL_FILE}]; \
@@ -791,15 +848,93 @@ Makefile: $(SRC_DIR)/Makefile.in
 cleanhelp:
 	$(RM) *.hlp *.cnt *.GID *.rtf man2tcl.exe
 
-clean: cleanhelp
+clean: cleanhelp clean-packages
 	$(RM) *.lib *.a *.exp *.dll *.$(RES) *.${OBJEXT} *~ \#* TAGS a.out
 	$(RM) $(TCLSH) $(TCLTEST) $(CAT32)
 	$(RM) *.pch *.ilk *.pdb
 	$(RM) Lscanner.c Lgrammar.[ch]
 
-distclean: clean
+distclean: distclean-packages clean
 	$(RM) Makefile config.status config.cache config.log tclConfig.sh \
 		tcl.hpj config.status.lineno
+
+#
+# Bundled package targets
+#
+
+PKG_CFG_ARGS		= @PKG_CFG_ARGS@
+PKG_DIR			= ./pkgs
+
+packages:
+	@builddir=`pwd`; \
+	for i in $(PKGS_DIR)/*; do \
+	  if [ -d $$i ] ; then \
+	    if [ -x $$i/configure ] ; then \
+	      pkg=`basename $$i`; \
+	      mkdir -p $(PKG_DIR)/$$pkg; \
+	      if [ ! -f $(PKG_DIR)/$$pkg/Makefile ]; then \
+	        ( cd $(PKG_DIR)/$$pkg; \
+	          echo "Configuring package '$$i' wd = `pwd`"; \
+	          $$i/configure --with-tcl=$(PWD) --with-tclinclude=$(GENERIC_DIR) $(PKG_CFG_ARGS) --enable-shared --enable-threads; ) \
+	      fi ; \
+	      echo "Building package '$$pkg'"; \
+	      ( cd $(PKG_DIR)/$$pkg; $(MAKE); ) \
+	    fi; \
+	  fi; \
+	done; \
+	cd $$builddir
+
+install-packages: packages
+	@builddir=`pwd`; \
+	for i in $(PKGS_DIR)/*; do \
+	  if [ -d $$i ]; then \
+	    pkg=`basename $$i`; \
+	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
+	        echo "Installing package '$$pkg'"; \
+	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) install "DESTDIR=$(INSTALL_ROOT)"; ) \
+	    fi; \
+	  fi; \
+	done; \
+	cd $$builddir
+
+test-packages: tcltest packages
+	@builddir=`pwd`; \
+	for i in $(PKGS_DIR)/*; do \
+	  if [ -d $$i ]; then \
+	    pkg=`basename $$i`; \
+	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
+	        echo "Testing package '$$pkg'"; \
+	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) "LD_LIBRARY_PATH=$$builddir:${LD_LIBRARY_PATH}" "TCL_LIBRARY=${TCL_BUILDTIME_LIBRARY}" "TCLLIBPATH=$$builddir/pkgs" test "TCLSH_PROG=$$builddir/tcltest"; ) \
+	    fi; \
+	  fi; \
+	done; \
+	cd $$builddir
+
+clean-packages:
+	@builddir=`pwd`; \
+	for i in $(PKGS_DIR)/*; do \
+	  if [ -d $$i ]; then \
+	    pkg=`basename $$i`; \
+	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
+	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) clean; ) \
+	    fi; \
+	  fi; \
+	done; \
+	cd $$builddir
+
+distclean-packages:
+	@builddir=`pwd`; \
+	for i in $(PKGS_DIR)/*; do \
+	  if [ -d $$i ]; then \
+	    pkg=`basename $$i`; \
+	    if [ -f $(PKG_DIR)/$$pkg/Makefile ]; then \
+	        ( cd $(PKG_DIR)/$$pkg; $(MAKE) distclean; ) \
+	    fi; \
+	    cd $$builddir; \
+	    rm -rf $(PKG_DIR)/$$pkg; \
+	  fi; \
+	done; \
+	rm -rf $(PKG_DIR)
 
 #
 # Regenerate the stubs files.
@@ -815,8 +950,26 @@ genstubs:
 	$(TCL_EXE) "$(ROOT_DIR_NATIVE)\tools\genStubs.tcl" \
 	    "$(GENERIC_DIR_NATIVE)" \
 	    "$(GENERIC_DIR_NATIVE)\tcl.decls" \
-            "$(GENERIC_DIR_NATIVE)\tclInt.decls" \
+	    "$(GENERIC_DIR_NATIVE)\tclInt.decls" \
 	    "$(GENERIC_DIR_NATIVE)\tclTomMath.decls"
+	$(TCL_EXE) "$(ROOT_DIR_NATIVE)\tools\genStubs.tcl" \
+	    "$(GENERIC_DIR_NATIVE)" \
+	    "$(GENERIC_DIR_NATIVE)\tclOO.decls"
 
+#
+# This target creates the HTML folder for Tcl & Tk and places it in
+# DISTDIR/html. It uses the tcltk-man2html.tcl tool from the Tcl group's tool
+# workspace. It depends on the Tcl & Tk being in directories called tcl8.* &
+# tk8.* up two directories from the TOOL_DIR.
+#
+
+TOOL_DIR=$(ROOT_DIR)/tools
+HTML_INSTALL_DIR=$(ROOT_DIR)/html
+html:
+	$(MAKE) shell SCRIPT="$(TOOL_DIR)/tcltk-man2html.tcl --htmldir=$(HTML_INSTALL_DIR) --srcdir=$(ROOT_DIR)/.. $(BUILD_HTML_FLAGS)"
+html-tcl: $(TCLSH)
+	$(MAKE) shell SCRIPT="$(TOOL_DIR)/tcltk-man2html.tcl --htmldir=$(HTML_INSTALL_DIR) --srcdir=$(ROOT_DIR)/.. $(BUILD_HTML_FLAGS) --tcl"
+html-tk: $(TCLSH)
+	$(MAKE) shell SCRIPT="$(TOOL_DIR)/tcltk-man2html.tcl --htmldir=$(HTML_INSTALL_DIR) --srcdir=$(ROOT_DIR)/.. $(BUILD_HTML_FLAGS) --tk"
 FORCE:
 

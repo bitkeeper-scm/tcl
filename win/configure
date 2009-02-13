@@ -272,6 +272,7 @@ PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
 ac_unique_file="../generic/tcl.h"
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL PKG_CFG_ARGS TCL_LIB_FILE TCL_LIB_FLAG TCL_STATIC_LIB_FILE TCL_STATIC_LIB_FLAG TCL_IMPORT_LIB_FILE TCL_IMPORT_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
 ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS BK_DIR BK_HDRS BK_SRCS BK_OBJS BK_INCLUDES BK_LIBS TOMMATH_DIR CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT CPP EGREP BISON AR RANLIB RC SET_MAKE TCL_THREADS CYGPATH CELIB_DIR DL_LIBS CFLAGS_DEBUG CFLAGS_OPTIMIZE CFLAGS_WARNING PCRE_INCLUDE PCRE_LIBS CFLAGS_DEFAULT LDFLAGS_DEFAULT TCL_VERSION TCL_MAJOR_VERSION TCL_MINOR_VERSION TCL_PATCH_LEVEL TCL_LIB_FILE TCL_LIB_FLAG TCL_LIB_SPEC TCL_STUB_LIB_FILE TCL_STUB_LIB_FLAG TCL_STUB_LIB_SPEC TCL_STUB_LIB_PATH TCL_INCLUDE_SPEC TCL_BUILD_STUB_LIB_SPEC TCL_BUILD_STUB_LIB_PATH TCL_DLL_FILE TCL_SRC_DIR TCL_BIN_DIR TCL_DBGX CFG_TCL_SHARED_LIB_SUFFIX CFG_TCL_UNSHARED_LIB_SUFFIX CFG_TCL_EXPORT_FILE_SUFFIX EXTRA_CFLAGS DEPARG CC_OBJNAME CC_EXENAME LDFLAGS_DEBUG LDFLAGS_OPTIMIZE LDFLAGS_CONSOLE LDFLAGS_WINDOW STLIB_LD SHLIB_LD SHLIB_LD_LIBS SHLIB_CFLAGS SHLIB_SUFFIX TCL_SHARED_BUILD LIBS_GUI DLLSUFFIX LIBPREFIX LIBSUFFIX EXESUFFIX LIBRARIES MAKE_LIB POST_MAKE_LIB MAKE_DLL MAKE_EXE TCL_BUILD_LIB_SPEC TCL_LD_SEARCH_FLAGS TCL_NEEDS_EXP_FILE TCL_BUILD_EXP_FILE TCL_EXP_FILE TCL_LIB_VERSIONS_OK TCL_PACKAGE_PATH TCL_DDE_VERSION TCL_DDE_MAJOR_VERSION TCL_DDE_MINOR_VERSION TCL_DDE_PATCH_LEVEL TCL_REG_VERSION TCL_REG_MAJOR_VERSION TCL_REG_MINOR_VERSION TCL_REG_PATCH_LEVEL RC_OUT RC_TYPE RC_INCLUDE RC_DEFINE RC_DEFINES RES LIBOBJS LTLIBOBJS'
 ac_subst_files=''
 
@@ -1274,10 +1275,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 # /bin/sh. The bash shell seems to suffer from some strange failures.
 SHELL=/bin/sh
 
-TCL_VERSION=8.5
+TCL_VERSION=8.6
 TCL_MAJOR_VERSION=8
-TCL_MINOR_VERSION=5
-TCL_PATCH_LEVEL=".2"
+TCL_MINOR_VERSION=6
+TCL_PATCH_LEVEL="b1.1"
 VER=$TCL_MAJOR_VERSION$TCL_MINOR_VERSION
 
 TCL_DDE_VERSION=1.3
@@ -1291,6 +1292,8 @@ TCL_REG_MAJOR_VERSION=1
 TCL_REG_MINOR_VERSION=2
 TCL_REG_PATCH_LEVEL="1"
 REGVER=$TCL_REG_MAJOR_VERSION$TCL_REG_MINOR_VERSION
+
+PKG_CFG_ARGS=$@
 
 #------------------------------------------------------------------------
 # Handle the --prefix=... option
@@ -3789,6 +3792,8 @@ fi
 
     echo "$as_me:$LINENO: checking for building with threads" >&5
 echo $ECHO_N "checking for building with threads... $ECHO_C" >&6
+    echo "$as_me:$LINENO: checking for building with threads" >&5
+echo $ECHO_N "checking for building with threads... $ECHO_C" >&6
     # Check whether --enable-threads or --disable-threads was given.
 if test "${enable_threads+set}" = set; then
   enableval="$enable_threads"
@@ -3797,6 +3802,8 @@ else
   tcl_ok=no
 fi;
 
+	echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
     if test "$tcl_ok" = "yes"; then
 	echo "$as_me:$LINENO: result: yes" >&5
 echo "${ECHO_T}yes" >&6
@@ -3883,6 +3890,17 @@ _ACEOF
     fi
 
 
+#------------------------------------------------------------------------
+#	Add stuff for zlib; note that this is mostly done in the makefile now
+#	as we just assume that the platform hasn't got a usable z.lib
+#------------------------------------------------------------------------
+
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_ZLIB 1
+_ACEOF
+
+
 #--------------------------------------------------------------------
 # The statements below define a collection of compile flags.  This
 # macro depends on the value of SHARED_BUILD, and should be called
@@ -3910,6 +3928,8 @@ echo "${ECHO_T}$do64bit" >&6
     echo "$as_me:$LINENO: checking if Windows/CE build is requested" >&5
 echo $ECHO_N "checking if Windows/CE build is requested... $ECHO_C" >&6
     # Check whether --enable-wince or --disable-wince was given.
+  enableval="$enable_wince"
+  doWince=$enableval
 if test "${enable_wince+set}" = set; then
   enableval="$enable_wince"
   doWince=$enableval
@@ -3918,6 +3938,15 @@ else
 fi;
     echo "$as_me:$LINENO: result: $doWince" >&5
 echo "${ECHO_T}$doWince" >&6
+    echo "$as_me:$LINENO: checking for Windows/CE celib directory" >&5
+echo $ECHO_N "checking for Windows/CE celib directory... $ECHO_C" >&6
+
+# Check whether --with-celib or --without-celib was given.
+  withval="$with_celib"
+  CELIB_DIR=$withval
+fi;
+    echo "$as_me:$LINENO: result: $CELIB_DIR" >&5
+echo "${ECHO_T}$CELIB_DIR" >&6
 
     echo "$as_me:$LINENO: checking for Windows/CE celib directory" >&5
 echo $ECHO_N "checking for Windows/CE celib directory... $ECHO_C" >&6
@@ -3962,6 +3991,8 @@ done
   test -z "$ac_cv_prog_CYGPATH" && ac_cv_prog_CYGPATH="echo"
 fi
 fi
+  echo "$as_me:$LINENO: result: $CYGPATH" >&5
+echo "${ECHO_T}$CYGPATH" >&6
 CYGPATH=$ac_cv_prog_CYGPATH
 if test -n "$CYGPATH"; then
   echo "$as_me:$LINENO: result: $CYGPATH" >&5
@@ -3971,6 +4002,22 @@ else
 echo "${ECHO_T}no" >&6
 fi
 
+	echo "$as_me:$LINENO: checking for Windows native path bug in windres" >&5
+echo $ECHO_N "checking for Windows native path bug in windres... $ECHO_C" >&6
+	    echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+	    echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
+    echo "$as_me:$LINENO: checking compiler flags" >&5
+echo $ECHO_N "checking compiler flags... $ECHO_C" >&6
+	LIBS="-lws2_32"
+            echo "$as_me:$LINENO: result: using static flags" >&5
+echo "${ECHO_T}using static flags" >&6
+            echo "$as_me:$LINENO: result: using shared flags" >&5
+echo "${ECHO_T}using shared flags" >&6
+	CFLAGS_WARNING="-Wall"
+            echo "$as_me:$LINENO: result: using static flags" >&5
+echo "${ECHO_T}using static flags" >&6
 
     SHLIB_SUFFIX=".dll"
 
@@ -4137,6 +4184,8 @@ echo "$as_me: error: ${CC} does not support the -shared option.
 	LDFLAGS_CONSOLE="-mconsole ${extra_ldflags}"
 	LDFLAGS_WINDOW="-mwindows ${extra_ldflags}"
 
+            echo "$as_me:$LINENO: result: using shared flags" >&5
+echo "${ECHO_T}using shared flags" >&6
 	# gcc under Windows supports only 32bit builds
 	MACHINE="X86"
     else
@@ -4200,6 +4249,8 @@ echo "$as_me: WARNING: Ensure latest Platform SDK is installed" >&2;}
 		echo "$as_me:$LINENO: result:    Using 64-bit $MACHINE mode" >&5
 echo "${ECHO_T}   Using 64-bit $MACHINE mode" >&6
 	    fi
+	LIBS="user32.lib advapi32.lib ws2_32.lib"
+	    CFLAGS_DEBUG="-nologo -Zi -Od ${runtime}"
 	fi
 
 	LIBS="user32.lib advapi32.lib ws2_32.lib"
@@ -4280,6 +4331,9 @@ echo "$as_me: error: Invalid celib directory \"${CELIB_DIR}\"" >&2;}
 echo "$as_me: error: could not find PocketPC SDK or target compiler to enable WinCE mode $CEVERSION,$TARGETCPU,$ARCH,$PLATFORM" >&2;}
    { (exit 1); exit 1; }; }
 	    else
+	CFLAGS_DEBUG="${CFLAGS_DEBUG} -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE"
+	CFLAGS_OPTIMIZE="${CFLAGS_OPTIMIZE} -D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE"
+
 		CEINCLUDE="${SDKROOT}/${OSVERSION}/${PLATFORM}/include"
 		if test -d "${CEINCLUDE}/${TARGETCPU}" ; then
 		    CEINCLUDE="${CEINCLUDE}/${TARGETCPU}"
@@ -4616,18 +4670,29 @@ eval "TCL_SRC_DIR=\"`cd $srcdir/..; pwd`\""
 
 eval "TCL_DLL_FILE=tcl${VER}${DLLSUFFIX}"
 
-eval "TCL_LIB_FILE=${LIBPREFIX}tcl$VER${LIBSUFFIX}"
-
-eval "TCL_LIB_FLAG=\"-ltcl${VER}${LIBFLAGSUFFIX}\""
-eval "TCL_BUILD_LIB_SPEC=\"-L`pwd` ${TCL_LIB_FLAG}\""
-eval "TCL_LIB_SPEC=\"-L${libdir} ${TCL_LIB_FLAG}\""
-
 eval "TCL_STUB_LIB_FILE=\"${LIBPREFIX}tclstub${VER}${LIBSUFFIX}\""
 eval "TCL_STUB_LIB_FLAG=\"-ltclstub${VER}${LIBFLAGSUFFIX}\""
 eval "TCL_BUILD_STUB_LIB_SPEC=\"-L`pwd` ${TCL_STUB_LIB_FLAG}\""
 eval "TCL_STUB_LIB_SPEC=\"-L${libdir} ${TCL_STUB_LIB_FLAG}\""
 eval "TCL_BUILD_STUB_LIB_PATH=\"`pwd`/${TCL_STUB_LIB_FILE}\""
 eval "TCL_STUB_LIB_PATH=\"${libdir}/${TCL_STUB_LIB_FILE}\""
+
+eval "TCL_STATIC_LIB_FILE=\"${LIBPREFIX}tcl${VER}s${LIBSUFFIX}\""
+eval "TCL_STATIC_LIB_FLAG=\"-ltcl${VER}s${LIBFLAGSUFFIX}\""
+
+eval "TCL_IMPORT_LIB_FILE=\"${LIBPREFIX}tcl${VER}${LIBSUFFIX}\""
+eval "TCL_IMPORT_LIB_FLAG=\"-ltcl${VER}${LIBFLAGSUFFIX}\""
+
+if test ${SHARED_BUILD} = 0 ; then
+   eval "TCL_LIB_FILE=\"${TCL_STATIC_LIB_FILE}\""
+   eval "TCL_LIB_FLAG=\"${TCL_STATIC_LIB_FLAG}\""
+else
+   eval "TCL_LIB_FILE=\"${TCL_IMPORT_LIB_FILE}\""
+   eval "TCL_LIB_FLAG=\"${TCL_IMPORT_LIB_FLAG}\""
+fi
+eval "TCL_BUILD_LIB_SPEC=\"-L`pwd` ${TCL_LIB_FLAG}\""
+eval "TCL_LIB_SPEC=\"-L${libdir} ${TCL_LIB_FLAG}\""
+
 
 # Install time header dir can be set via --includedir
 eval "TCL_INCLUDE_SPEC=\"-I${includedir}\""
@@ -4673,6 +4738,11 @@ if test "$prefix/lib" != "$libdir"; then
 else
     TCL_PACKAGE_PATH="${prefix}/lib"
 fi
+
+
+
+
+
 
 
 
@@ -5356,6 +5426,8 @@ $debug ||
    { (exit 1); exit 1; }
 }
 
+s,@TOMMATH_DIR@,$TOMMATH_DIR,;t t
+s,@BISON@,$BISON,;t t
 _ACEOF
 
 cat >>$CONFIG_STATUS <<_ACEOF
@@ -5400,13 +5472,6 @@ s,@ECHO_C@,$ECHO_C,;t t
 s,@ECHO_N@,$ECHO_N,;t t
 s,@ECHO_T@,$ECHO_T,;t t
 s,@LIBS@,$LIBS,;t t
-s,@BK_DIR@,$BK_DIR,;t t
-s,@BK_HDRS@,$BK_HDRS,;t t
-s,@BK_SRCS@,$BK_SRCS,;t t
-s,@BK_OBJS@,$BK_OBJS,;t t
-s,@BK_INCLUDES@,$BK_INCLUDES,;t t
-s,@BK_LIBS@,$BK_LIBS,;t t
-s,@TOMMATH_DIR@,$TOMMATH_DIR,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
@@ -5416,7 +5481,6 @@ s,@EXEEXT@,$EXEEXT,;t t
 s,@OBJEXT@,$OBJEXT,;t t
 s,@CPP@,$CPP,;t t
 s,@EGREP@,$EGREP,;t t
-s,@BISON@,$BISON,;t t
 s,@AR@,$AR,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@RC@,$RC,;t t
@@ -5428,16 +5492,19 @@ s,@DL_LIBS@,$DL_LIBS,;t t
 s,@CFLAGS_DEBUG@,$CFLAGS_DEBUG,;t t
 s,@CFLAGS_OPTIMIZE@,$CFLAGS_OPTIMIZE,;t t
 s,@CFLAGS_WARNING@,$CFLAGS_WARNING,;t t
-s,@PCRE_INCLUDE@,$PCRE_INCLUDE,;t t
-s,@PCRE_LIBS@,$PCRE_LIBS,;t t
 s,@CFLAGS_DEFAULT@,$CFLAGS_DEFAULT,;t t
 s,@LDFLAGS_DEFAULT@,$LDFLAGS_DEFAULT,;t t
 s,@TCL_VERSION@,$TCL_VERSION,;t t
 s,@TCL_MAJOR_VERSION@,$TCL_MAJOR_VERSION,;t t
 s,@TCL_MINOR_VERSION@,$TCL_MINOR_VERSION,;t t
 s,@TCL_PATCH_LEVEL@,$TCL_PATCH_LEVEL,;t t
+s,@PKG_CFG_ARGS@,$PKG_CFG_ARGS,;t t
 s,@TCL_LIB_FILE@,$TCL_LIB_FILE,;t t
 s,@TCL_LIB_FLAG@,$TCL_LIB_FLAG,;t t
+s,@TCL_STATIC_LIB_FILE@,$TCL_STATIC_LIB_FILE,;t t
+s,@TCL_STATIC_LIB_FLAG@,$TCL_STATIC_LIB_FLAG,;t t
+s,@TCL_IMPORT_LIB_FILE@,$TCL_IMPORT_LIB_FILE,;t t
+s,@TCL_IMPORT_LIB_FLAG@,$TCL_IMPORT_LIB_FLAG,;t t
 s,@TCL_LIB_SPEC@,$TCL_LIB_SPEC,;t t
 s,@TCL_STUB_LIB_FILE@,$TCL_STUB_LIB_FILE,;t t
 s,@TCL_STUB_LIB_FLAG@,$TCL_STUB_LIB_FLAG,;t t
@@ -5762,4 +5829,5 @@ if test "$no_create" != yes; then
   # would make configure fail if this is the last instruction.
   $ac_cs_success || { (exit 1); exit 1; }
 fi
+
 
