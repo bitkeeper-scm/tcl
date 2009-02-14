@@ -222,8 +222,8 @@ static const CmdInfo builtInCmds[] = {
      * L Commands
      */
 
-    {"L",		Tcl_LObjCmd,		TclCompileLCmd,		1},
-    {"pointer",		Tcl_PtrObjCmd,		TclCompilePtrCmd,	1},
+    {"L",		Tcl_LObjCmd,		NULL,		NULL, 1},
+    {"pointer",		Tcl_PtrObjCmd,		TclCompilePtrCmd,	NULL, 1},
     /*
      * Commands in the OS-interface. Note that many of these are unsafe.
      */

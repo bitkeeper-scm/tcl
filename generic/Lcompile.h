@@ -310,7 +310,7 @@ mk_singleTemp(char **p)
 	static char *nm = "%% L: single tempvar for non-conflicting usage";
 	*p = nm;
 	return (TclFindCompiledLocal(nm, strlen(nm), 1,
-				     L->frame->envPtr->procPtr));
+				     L->frame->envPtr));
 }
 static inline int
 currOffset(CompileEnv *envPtr)

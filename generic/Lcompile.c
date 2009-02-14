@@ -1807,9 +1807,9 @@ compile_foreachArray(ForEach *loop)
 	}
 
 	/* Temps for value list value and loop counter. */
-	val_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr->procPtr);
+	val_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr);
 	loopctr_idx = TclFindCompiledLocal(NULL, 0, 1,
-					   L->frame->envPtr->procPtr);
+					   L->frame->envPtr);
 
 	/*
 	 * ForeachInfo and ForeachVarList are structures required by
@@ -1906,7 +1906,7 @@ compile_foreachHash(ForEach *loop)
 	}
 
 	/* A temp to hold the iterator state.*/
-	it_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr->procPtr);
+	it_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr);
 
 	/*
 	 * Both DICT_FIRST and DICT_NEXT leave value, key, and done-p
@@ -2527,7 +2527,7 @@ sym_store(VarDecl *decl)
 	/* If a local, allocate a slot for it. */
 	if (sym->kind & L_SYM_LVAR) {
 		sym->idx = TclFindCompiledLocal(name, strlen(name),
-						1, L->frame->envPtr->procPtr);
+						1, L->frame->envPtr);
 	} else {
 		sym->idx = -1;
 	}
@@ -2591,7 +2591,7 @@ sym_lookup(Expr *id, enum lookup flags)
 			shw->idx     = TclFindCompiledLocal(shw->tclname,
 						strlen(shw->tclname),
 						1,
-						L->frame->envPtr->procPtr);
+						L->frame->envPtr);
 			emit_globalUpvar(shw, id);
 			Tcl_SetHashValue(hPtr, shw);
 			sym = shw;
