@@ -635,6 +635,43 @@ static Tcl_ObjType exprCodeType = {
     NULL,			/* updateStringProc */
     NULL			/* setFromAnyProc */
 };
+
+/*
+ * Special object type for the L language to store object pointers. These are
+ * created only by L bytecodes (INST_L_INDEX) and are left on the run-time
+ * stack only transiently to be consumed by other L bytecodes
+ * (INST_L_DEEP_WRITE).
+ */
+
+static Tcl_ObjType L_deepPtrType = {
+    "l-deepType",
+    NULL,			/* freeIntRepProc */
+    NULL,			/* dupIntRepProc */
+    NULL,			/* updateStringProc */
+    NULL			/* setFromAnyProc */
+};
+
+/* Internal representation of an object of L_deepPtrType. */
+typedef struct {
+    Tcl_Obj	**elemPtrPtr;	// ptr to the object being pointed to, except
+    Tcl_Obj	*strObj;	// for strings where we point to the obj itself
+    Tcl_Obj	*topLevObj;	// outer-most enclosing object
+    int		idx;		// index into string for string idx l-values
+    int		flags;
+} L_DeepPtr;
+
+/*
+ * Duplicate part of struct Dict from tclDictObj.c; all we need is the
+ * first member.  The deep-dive execution code uses it to traverse
+ * hashes.  WARNING: this may break if dicts change their internal
+ * rep!
+ */
+typedef struct Dict {
+	Tcl_HashTable table;	/* Object hash table to store mapping in. */
+} Dict;
+
+static Tcl_Obj **L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj *idxObj,
+			    L_Expr_f flags);
 
 /*
  *----------------------------------------------------------------------
@@ -7146,273 +7183,339 @@ TclExecuteByteCode(
     }
 
     /*
-     * Special opcodes for the L language.
+     * Opcodes for the L language.
      */
 
-    case INST_L_DEEP_READ: {
+    case INST_L_INDEX: {
 	/*
-	 * Read a nested hash/array/struct and return the element value, a
-	 * special L deep pointer to the value, or both.
+	 * Index into an L array, hash, struct, or string, and return either
+	 * the indexed value or an L "deep pointer".  On entry, the stack is
+	 * (the stack top is on the right):
 	 *
-	 * Stack on entry (the stack top is on the right) is
+	 *   <obj | deep-ptr> <idx>
 	 *
-	 *   <obj> <idx1> ... <idxn> <counts>
+	 * <obj> is the object being indexed in to.  An L deep pointer
+	 * <deep-ptr> from a previous instance of this instruction also can be
+	 * used; this is how multiple levels are indexed.
 	 *
-	 * The idx's are indices into obj, and counts is a list of "level"
-	 * counts.  Each level represents one or more consecutive array
-	 * references (a[3][2]), or hash references (h{3}{2}), and the level
-	 * count is how many such references there are in a row (struct
-	 * references are really just array references in disguise).  Levels
-	 * alternate hash, array, hash, ...; or array, hash, array, ...; hash
-	 * is first if flags & L_DEEP_HASH_FIRST.
+	 * On exit, the stack configuration depends on what flags are in
+	 * the instruction:
 	 *
-	 * For example, for a[3][2]{9}[4] we have
-	 *
-	 *   a 3 2 9 4 {2 1 1}
-	 *
-	 * and L_DEEP_HASH_FIRST is not set in flags.  The 3 2 9 4 are the
-	 * idx's.  The {2 1 1} is the counts object.  There are three levels;
-	 * the first is [3][2] hence the first elt of counts is 2 (there are 2
-	 * consecutive array references); the second is {9}; the third is [4].
-	 *
-	 * On exit, the stack configuration depends on what flags were passed
-	 * in with the instruction:
-	 *
-	 *   <elem-val>               if flags & L_DEEP_VAL
-	 *   <deep-ptr>               if flags & L_DEEP_PTR
-	 *   <elem-val> <deep-ptr>    if flags & L_DEEP_VAL_PTR
-	 *   <deep-ptr> <elem-val>    if flags & L_DEEP_PTR_VAL
+	 *   <elem-val>               if flags & L_PUSH_VAL
+	 *   <deep-ptr>               if flags & L_PUSH_PTR
+	 *   <elem-val> <deep-ptr>    if flags & L_PUSH_VALPTR
+	 *   <deep-ptr> <elem-val>    if flags & L_PUSH_PTRVAL
 	 *
 	 * where <elem-val> is the object in <obj> referenced by the given
-	 * indices and <deep-ptr> is an object of L_deepPtrType type that only
+	 * index and <deep-ptr> is an object of L_deepPtrType type that only
 	 * the INST_L_DEEP_WRITE bytecode knows about.  It is basically a
 	 * pointer to <elem-val> that can be used to modify the element
 	 * in-place later.
 	 *
-	 * If flags requests a <deep-ptr>, it is assumed that the indexed
-	 * element is going to be written later by INST_L_DEEP_WRITE, so if
-	 * any part of the path to that element is shared, an unshared copy is
-	 * made.  If this results in the top-level object itself getting
-	 * copied, the new obj gets written back into the local variable when
-	 * the INST_L_DEEP_WRITE is done later.  This is possible since the
-	 * <deep-ptr> encapsulates a back-pointer to the top-level object.
+	 * If flags & L_VALUE, it is assumed that the element is going to be
+	 * written later by INST_L_DEEP_WRITE, so if any part of the path to
+	 * that element is shared, an unshared copy is made.  If this results
+	 * in the top-level object itself getting copied, the new obj gets
+	 * written back into the local variable when the INST_L_DEEP_WRITE is
+	 * done later.  This is possible since the <deep-ptr> encapsulates a
+	 * back-pointer to the top-level object.
 	 */
 
-	Tcl_Obj *deepPtr = NULL, **elemPtrPtr, *objPtr;
-	unsigned int depth = TclGetUInt1AtPtr(pc+1);
-	unsigned int flags = TclGetUInt1AtPtr(pc+2);
-	int isWrite = !(flags & L_DEEP_VAL);
-	int dropRefCnt;
+	Tcl_Obj **elemPtrPtr;
+	Tcl_Obj *idx, *objPtr;
+	Tcl_Obj *toplevObj = NULL;
+	Tcl_Obj *deepPtrObj = NULL;
+	L_DeepPtr *deepPtr = NULL;
+	int dropRefCnt = 0;
+	unsigned int flags = TclGetUInt4AtPtr(pc+1);
+	int lvalue = (flags & L_LVALUE);
+	int needPtr = !(flags & L_PUSH_VAL);
 
 	/*
-	 * Get the value of the array/hash/struct variable.  If it is
-	 * referenced by a variable, drop the stack reference.  If it's refCnt
-	 * already is 1, then it must be an expression value referenced only
-	 * by the stack (e.g., from a function return value), so keep the
-	 * refCnt 1 since L_deepDive() expects that and remember that we must
-	 * drop the stack ref later.
+	 * Get the bytecode arguments -- the index and object being indexed in
+	 * to.  If the object is an L_deepPtrType from an earlier instance of
+	 * this bytecodek, de-reference it by getting the object from inside
+	 * it.
 	 */
-	objPtr = OBJ_AT_DEPTH(depth-1);
-	if (objPtr->refCount == 1) {
-	    if (isWrite) {
-		Tcl_Panic("Deep read/modify of non-lvalue");
+	idx = POP_OBJECT();
+	objPtr = POP_OBJECT();
+	if (objPtr->typePtr == &L_deepPtrType) {
+	    deepPtrObj = objPtr;
+	    deepPtr    = (L_DeepPtr *)objPtr->internalRep.otherValuePtr;
+	    objPtr     = *deepPtr->elemPtrPtr;
+#ifdef TCL_COMPILE_DEBUG
+	    if (Tcl_IsShared(deepPtrObj)) {
+		Tcl_Panic("L deep index saw a shared deepPtrObj");
 	    }
+	    /*
+	     * Enclosing obj ref + deepPtr ref == 2.  Not >2 because in
+	     * previous iterations through here we already ensured the
+	     * sub-object is an un-shared copy.
+	     */
+	    unless (!lvalue || (objPtr->refCount == 2)) {
+		Tcl_Panic("L deep index saw a funny objPtr");
+	    }
+#endif
+	}
+
+	/*
+	 * Drop stack ref or deep-ptr ref now, unless there is no other
+	 * reference (which happens when you index a function's return value,
+	 * like split(s)[3]) then drop it later or else the object will be
+	 * freed too early.
+	 */
+	if (objPtr->refCount == 1) {
 	    dropRefCnt = 1;
 	} else {
 	    Tcl_DecrRefCount(objPtr);
-	    dropRefCnt = 0;
 	}
 
 	/*
-	 * If the indexed element later will be written to (and we know when
-	 * this happens because the passed-in flags request a pointer to the
-	 * element be left on the stack), ensure we have an un-shared copy of
-	 * the high-level array/hash/struct object.  Add a refcnt now which we
-	 * lose below since L_deepDive() expects to see a refcnt of 1.
+	 * Special handling for l-values: ensure we have an un-shared copy.
+	 * Note that only the top-level object, i.e., the first index of a
+	 * sequence of indices into a nested object, will get copied here.
+	 * Sub-objects inside the top-level also need to be un-shared, but
+	 * L_deepDive() copies those, so by the time we get back around here
+	 * in the next iteration to index into *them*, they won't be shared.
 	 */
-	if (isWrite && Tcl_IsShared(objPtr)) {
+	if (lvalue && Tcl_IsShared(objPtr)) {
 	    objPtr = Tcl_DuplicateObj(objPtr);
-	    Tcl_IncrRefCount(objPtr);
-	    dropRefCnt = 1;
 	}
 
 	/*
-	 * Dive with the list of level counts at TOS.
+	 * Index into the object.
 	 */
-	elemPtrPtr = L_deepDive(interp,
-				objPtr,                  // obj being indexed
-				&OBJ_AT_DEPTH(depth-2),  // start of indices
-				OBJ_AT_TOS,              // counts obj
-				flags);
-	/*
-	 * Clean up stack before checking for error.  We can't use the
-	 * NEXT_INST_V macro to clean up since it supports pushing only one
-	 * result object and we can have two.  Note that the stack's reference
-	 * to the array/hash/struct object must be released if we bail.
-	 */
-	while (--depth) {
-	    Tcl_Obj *tmpPtr = POP_OBJECT();
-	    TclDecrRefCount(tmpPtr);
-	}
-	(void)POP_OBJECT();  // pop array/hash/struct object (objPtr)
-
-	/* Stack is good -- safe to handle error now. */
+	elemPtrPtr = L_deepDive(interp, objPtr, idx, flags);
 	if (!elemPtrPtr) {
-	    if (dropRefCnt) Tcl_DecrRefCount(objPtr);
+	    if (dropRefCnt) Tcl_DecrRefCount(objPtr);  // drop stack ref
 	    result = TCL_ERROR;
 	    goto checkForCatch;
 	}
 
-	objResultPtr = *elemPtrPtr;
-
-	if (isWrite) {
-	    TclNewObj(deepPtr);
-	    deepPtr->bytes = tclEmptyStringRep;
-	    deepPtr->length = 0;
-	    deepPtr->refCount = 0;
-	    deepPtr->typePtr = &L_deepPtrType;
-	    Tcl_IncrRefCount(objPtr);
-	    deepPtr->internalRep.twoPtrValue.ptr1 = objPtr;
-	    deepPtr->internalRep.twoPtrValue.ptr2 = elemPtrPtr;
+	/*
+	 * If flags indicate a pointer is needed, make an L_deepPtrType object
+	 * that refers to the indexed element and stash the top-level object
+	 * pointer in there too.  The top-level object is needed in the
+	 * INST_L_DEEP_WRITE coming later to update the variable being
+	 * written.  If a deep ptr was already on the stack, recycle it or
+	 * free it as needed.  Note that it already points to the top-level
+	 * object, so adjust ref counts accordingly.
+	 */
+	if (needPtr) {
+	    unless (deepPtrObj) {
+		deepPtrObj = Tcl_NewObj();
+		deepPtrObj->bytes    = tclEmptyStringRep;
+		deepPtrObj->length   = 0;
+		deepPtrObj->refCount = 0;
+		deepPtrObj->typePtr  = &L_deepPtrType;
+		deepPtr = (L_DeepPtr *)ckalloc(sizeof(L_DeepPtr));
+		deepPtrObj->internalRep.otherValuePtr = deepPtr;
+		deepPtr->topLevObj = objPtr;
+		Tcl_IncrRefCount(objPtr);  // add deepPtr ref
+	    } else {
+		/* Drop prior stack by ref hand or else Tcl_DecrRefCount would
+		 * reclaim the object.  We add a new ref below. */
+		deepPtrObj->refCount = 0;
+	    }
+	    deepPtr->flags = flags;
+	    deepPtr->elemPtrPtr = elemPtrPtr;
+	    Tcl_IncrRefCount(*elemPtrPtr);
+	    if (lvalue && (flags & L_IDX_STRING)) {
+		int i;
+		TclGetIntFromObj(NULL, idx, &i);
+		deepPtr->idx = i;
+		deepPtr->strObj = objPtr;
+	    }
+	} else if (deepPtrObj) {
+	    /*
+	     * Grab the top-level object for dropping the deepPtr reference
+	     * below.  If we drop the ref now, we could destroy the object too
+	     * soon if this is the last ref to it.
+	     */
+	    toplevObj = deepPtr->topLevObj;
+	    ckfree((char *)deepPtr);
+	    Tcl_DecrRefCount(deepPtrObj);
 	}
 
-	switch (flags & (L_DEEP_VAL|L_DEEP_PTR|L_DEEP_PTR_VAL|L_DEEP_VAL_PTR)) {
-	    case L_DEEP_VAL:
-		PUSH_OBJECT(objResultPtr);
-		TRACE_WITH_OBJ(("%u 0x%x => ", depth, flags), OBJ_AT_TOS);
+	/*
+	 * Leave the value, deep-pointer, or both on the stack as requested by
+	 * the input flags.
+	 */
+	switch (flags & (L_PUSH_VAL|L_PUSH_PTR|L_PUSH_PTRVAL|L_PUSH_VALPTR)) {
+	    case L_PUSH_VAL:
+		PUSH_OBJECT(*elemPtrPtr);
+		TRACE_WITH_OBJ(("0x%x => ", flags), OBJ_AT_TOS);
 		break;
-	    case L_DEEP_PTR:
-		PUSH_OBJECT(deepPtr);
-		TRACE_WITH_OBJ(("%u 0x%x => ", depth, flags), OBJ_AT_TOS);
+	    case L_PUSH_PTR:
+		PUSH_OBJECT(deepPtrObj);
+		TRACE_WITH_OBJ(("0x%x => ", flags), OBJ_AT_TOS);
 		break;
-	    case L_DEEP_PTR_VAL:
-		PUSH_OBJECT(deepPtr);
-		PUSH_OBJECT(objResultPtr);
-		TRACE(("%u 0x%x => \"%.30s\" \"%.30s\"", depth, flags,
+	    case L_PUSH_PTRVAL:
+		PUSH_OBJECT(deepPtrObj);
+		PUSH_OBJECT(*elemPtrPtr);
+		TRACE(("0x%x => \"%.30s\" \"%.30s\"", flags,
 		       O2S(OBJ_UNDER_TOS), O2S(OBJ_AT_TOS)));
 		break;
-	    case L_DEEP_VAL_PTR:
-		PUSH_OBJECT(objResultPtr);
-		PUSH_OBJECT(deepPtr);
-		TRACE(("%u 0x%x => \"%.30s\" \"%.30s\"", depth, flags,
+	    case L_PUSH_VALPTR:
+		PUSH_OBJECT(*elemPtrPtr);
+		PUSH_OBJECT(deepPtrObj);
+		TRACE(("0x%x => \"%.30s\" \"%.30s\"", flags,
 		       O2S(OBJ_UNDER_TOS), O2S(OBJ_AT_TOS)));
 		break;
 	    default:
-		Tcl_Panic("illegal operand to INST_L_DEEP_READ");
+		Tcl_Panic("illegal operand to INST_L_INDEX");
 		break;
 	}
-	if (dropRefCnt) Tcl_DecrRefCount(objPtr);
-	NEXT_INST_F(3, 0, 0);
+	if (dropRefCnt) Tcl_DecrRefCount(objPtr);  // drop stack or deep-ptr ref
+	if (toplevObj) Tcl_DecrRefCount(toplevObj);  // drop deepPtr ref
+	Tcl_DecrRefCount(idx);  // drop stack ref
+	NEXT_INST_F(5, 0, 0);
     }
 
     case INST_L_DEEP_WRITE: {
 	/*
-	 * Write to an element of a nested hash/array/struct and store the
+	 * Write to an element of a hash/array/struct and store the
 	 * top-level hash/array/struct object in a local.  Leave on the stack
-	 * the old element value or the new element value.
+	 * the old element value or the new element value as requested.
 	 *
 	 * Stack on entry (the stack top is on the right):
 	 *
 	 *   <rval> <l-deep-ptr>
 	 *
-	 * where <l-deep-ptr> is the special L deep-dive pointer that is
-	 * created only by INST_L_DEEP_READ (above), and <rval> is the object
-	 * to be assigned to the object pointed to by <l-deep-ptr>.
+	 * where <l-deep-ptr> is the L deep pointer that is created only by
+	 * INST_L_INDEX (above), and <rval> is the object to be assigned to
+	 * the object pointed to by <l-deep-ptr>.
 	 *
-	 * On exit, the stack contains the old value if flags & L_DEEP_OLD
+	 * On exit, the stack contains the old value if flags & L_OLD
 	 * otherwise it contains the new value.
 	 *
-	 * A localIndex is passed in as an operand to the instruction and the
+	 * A localIndex is passed in as a opnd1 to the instruction and the
 	 * top-level array/hash/struct object that is encapsulated in the
 	 * <l-deep-ptr> is stored in this local.  In older versions of deep
 	 * dive, this used to be done with an extra instruction.
 	 */
 
-	Tcl_Obj *oldPtr, *valuePtr;
+	Tcl_Obj *deepPtrObj, *oldvalObj, *rvalObj;
+	Tcl_Obj *currTopLevObj, *newTopLevObj;
 	Var	*varPtr;
-	Tcl_Obj *deepPtr = POP_OBJECT();
-	Tcl_Obj *newPtr  = OBJ_AT_TOS;
-	Tcl_Obj *objPtr      = (Tcl_Obj *) (deepPtr->internalRep.twoPtrValue.ptr1);
-	Tcl_Obj **elemPtrPtr = (Tcl_Obj **)(deepPtr->internalRep.twoPtrValue.ptr2);
+	L_DeepPtr *deepPtr;
 	unsigned int flags, idx;
 
-	idx   = TclGetUInt4AtPtr(pc+1);
-	flags = TclGetUInt1AtPtr(pc+5);
+	deepPtrObj   = POP_OBJECT();
+	rvalObj      = OBJ_AT_TOS;
+	deepPtr      = (L_DeepPtr *)(deepPtrObj->internalRep.otherValuePtr);
+	newTopLevObj = deepPtr->topLevObj;
 
-	if (!deepPtr->typePtr || (deepPtr->typePtr != &L_deepPtrType)) {
+	idx   = TclGetUInt4AtPtr(pc+1);
+	flags = TclGetUInt4AtPtr(pc+5);
+
+#ifdef TCL_COMPILE_DEBUG
+	if (!deepPtrObj->typePtr || (deepPtrObj->typePtr != &L_deepPtrType)) {
 	    Tcl_Panic("Deep writing a bad deepPtr type!");
 	}
-	if (deepPtr->refCount != 1) {
+	if (deepPtrObj->refCount != 1) {
 	    Tcl_Panic("Deep writing a bad deepPtr refCount!");
 	}
-
-	oldPtr      = *elemPtrPtr;
-	*elemPtrPtr = newPtr;
-
-	Tcl_DecrRefCount(deepPtr);
+#endif
 
 	/*
-	 * If the local pointed to a shared array/hash/struct when it was
-	 * deep-read, the deep-read code made an un-shared copy of the obj and
-	 * cached it in deepPtr.  In that case, update the local; the old
-	 * value loses a refcnt and the new value (objPtr) gains one.  In any
-	 * case, the new value always loses one refcnt from deepPtr.
+	 * If the local pointed to a shared object when it was indexed, the
+	 * INST_L_INDEX code made an un-shared copy of the obj and cached it
+	 * in deepPtr.  In that case, update the local to point to the
+	 * un-shared copy; the old value loses a refcnt and the new value
+	 * (toplevObj) gains one.  In any case, the new value always loses one
+	 * refcnt from deepPtr.
 	 */
 	varPtr = &(compiledLocals[idx]);
 	while (TclIsVarLink(varPtr)) {
 	    varPtr = varPtr->value.linkPtr;
 	}
-	valuePtr = varPtr->value.objPtr;
-	if (valuePtr != objPtr) {  /* Update the local only if needed. */
+	currTopLevObj = varPtr->value.objPtr;
+	if (currTopLevObj != newTopLevObj) {  // update the local only if needed
 	    /* XXX see if this case should be handled. */
 	    if (!TclIsVarDirectWritable(varPtr)) {
 		Tcl_Panic("!TclIsVarDirectWritable in INST_L_DEEP_WRITE");
 	    }
-	    if (valuePtr != NULL) {
-		TclDecrRefCount(valuePtr);
+	    if (currTopLevObj != NULL) {
+		TclDecrRefCount(currTopLevObj);
 	    }
-	    varPtr->value.objPtr = objPtr;
+	    varPtr->value.objPtr = newTopLevObj;
 	} else {
-	    TclDecrRefCount(objPtr);
+	    TclDecrRefCount(newTopLevObj);  // drop ref from deepPtr
 	}
-	if (objPtr->refCount != 1) {
-	    Tcl_Panic("Deep writing a bad objPtr refCount!");
+#ifdef TCL_COMPILE_DEBUG
+	if (newTopLevObj->refCount != 1) {
+	    Tcl_Panic("Deep writing a bad newTopLevObj refCount!");
+	}
+#endif
+
+	/* Write the new value to the indexed element. */
+	oldvalObj = *(deepPtr->elemPtrPtr);
+	if (deepPtr->flags & L_IDX_STRING) {
+	    int len;
+	    char *oldstr;
+	    Tcl_Obj *newStr;
+	    Tcl_Obj *target = deepPtr->strObj;
+
+	    oldstr = TclGetStringFromObj(target, &len);
+	    if (deepPtr->idx >= len) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "index is past end of string", NULL);
+		result = TCL_ERROR;
+		goto checkForCatch;
+	    }
+	    newStr = Tcl_GetRange(target, 0, deepPtr->idx-1);
+	    Tcl_IncrRefCount(newStr);
+	    Tcl_AppendObjToObj(newStr, rvalObj);
+	    Tcl_AppendToObj(newStr,
+			    oldstr + deepPtr->idx + 1,
+			    len - deepPtr->idx - 1);
+	    oldstr = TclGetStringFromObj(newStr, &len);
+	    Tcl_SetStringObj(target, oldstr, len);
+	    Tcl_DecrRefCount(newStr);
+	} else {
+	    *(deepPtr->elemPtrPtr) = rvalObj;
 	}
 
-	switch (flags & (L_DEEP_OLD|L_DEEP_NEW)) {
-	    case L_DEEP_OLD:
+	switch (flags & (L_PUSH_OLD|L_PUSH_NEW)) {
+	    case L_PUSH_OLD:
 		/*
 		 * Push the old element value. Refcounts:
-		 *   - oldPtr: lose one as struct elem, gain one at tos
-		 *   - newPtr: lose one at tos, gain as struct elem
+		 *   - oldvalObj: lose one as struct elem, gain one at tos
+		 *   - rvalObj: lose one at tos, gain as struct elem
 		 */
-		OBJ_AT_TOS = oldPtr;
+		OBJ_AT_TOS = oldvalObj;
 		break;
-	    case L_DEEP_NEW:
+	    case L_PUSH_NEW:
 		/*
 		 * Push the new element value, lose the old. Refcounts:
-		 *   - oldPtr: lose one as struct elem in slot
-		 *   - newPtr: lose one at tos, gain one as struct elem in slot
-		 *             and another one at tos
+		 *   - oldvalObj: lose one as struct elem in slot
+		 *   - rvalObj: lose one at tos, gain one as struct elem in
+		 *              slot and another one at tos
 		 */
-		OBJ_AT_TOS = newPtr;
-		Tcl_IncrRefCount(newPtr);
-		Tcl_DecrRefCount(oldPtr);
+		OBJ_AT_TOS = rvalObj;
+		Tcl_IncrRefCount(rvalObj);
+		Tcl_DecrRefCount(oldvalObj);
 		break;
 	    default:
 		Tcl_Panic("Bad flags to INST_L_DEEP_WRITE");
 		break;
 	}
 
+	/* Done with deep ptr now. */
+	Tcl_DecrRefCount(oldvalObj);
+	ckfree((char *)deepPtr);
+	Tcl_DecrRefCount(deepPtrObj);
+
 #ifndef TCL_COMPILE_DEBUG
 	/* Peephole optimization. */
 	if (*(pc+6) == INST_POP) {
 	    tosPtr--;
-	    NEXT_INST_F(7, 0, 0);
+	    NEXT_INST_F(10, 0, 0);
 	}
 #endif
 	TRACE_WITH_OBJ(("0x%x => ", flags), OBJ_AT_TOS);
-	NEXT_INST_F(6, 0, 0);
+	NEXT_INST_F(9, 0, 0);
     }
 
     case INST_L_SPLIT: {
@@ -8726,6 +8829,273 @@ StringForResultCode(
     return buf;
 }
 #endif /* TCL_COMPILE_DEBUG */
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_deepDiveArray --
+ *
+ *	Index one level into an L array or struct (represented as a Tcl list),
+ *	using L semantics.
+ *
+ * Results:
+ *	If flags & L_PUSH_VAL, the array is being indexed as an r-value.
+ *	Otherwise, it is assumed that the indexed value will be written
+ *	in-place later (i.e., used as an l-value), and this function does
+ *	the magic necessary to allow that.
+ *
+ *	For an r-value, this function returns a pointer to the indexed object
+ *	pointer (i.e., a Tcl_Obj ** pointer into the lists's internal element
+ *	array).  If the index is < 0 or beyond the last element, a pointer to
+ *	the L undef object is returned instead.
+ *
+ *	For an l-value, if the indexed element is shared, an un-shared copy is
+ *	made so that the indexed object later can be written in-place.  Also,
+ *	if the index is beyond the last element, the list is padded out with
+ *	copies of the L undef object.
+ *
+ * Side effects:
+ *	See above.  The lists's string representation also is invalidated.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static Tcl_Obj **
+L_deepDiveArray(
+    Tcl_Interp *interp,
+    Tcl_Obj *obj,		/* object being indexed */
+    Tcl_Obj *idxObj,		/* index (array subscript) into obj */
+    L_Expr_f flags)
+{
+    int i, idx, len, result;
+    Tcl_Obj **elemPtrs, **pad;
+    Tcl_Obj *subObj;
+    int lvalue = (flags & L_LVALUE);
+
+    if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
+	return NULL;
+    }
+    if (TclListObjGetElements(NULL, obj, &len, &elemPtrs) != TCL_OK) {
+	return NULL;
+    }
+
+    if (lvalue) {
+	if (idx < 0) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot write to negative array index",
+			     NULL);
+	    return (NULL);
+	} else if (idx >= len) {
+	    /* Auto extend the array. */
+	    int n = idx - len + 1;
+	    pad = (Tcl_Obj **)ckalloc(n * sizeof(Tcl_Obj *));
+	    for (i = 0; i < n; ++i) {
+		    pad[i] = Tcl_DuplicateObj(*L_undefObjPtrPtr());
+	    }
+	    result = Tcl_ListObjReplace(interp, obj, len, 0, n, pad);
+	    ckfree((char *)pad);
+	    if (result != TCL_OK) {
+		return (NULL);
+	    }
+	}
+	if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+	    return (NULL);
+	}
+	if (Tcl_IsShared(elemPtrs[idx])) {
+	    /* Make an un-shared copy of the element. */
+	    subObj = Tcl_DuplicateObj(elemPtrs[idx]);
+	    TclListObjSetElement(NULL, obj, idx, subObj);
+	    if (Tcl_IsShared(subObj)) {
+		subObj = Tcl_DuplicateObj(subObj);
+	    }
+	    if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+		return (NULL);
+	    }
+	}
+	Tcl_InvalidateStringRep(obj);
+	return (&elemPtrs[idx]);
+    } else {
+	if ((idx < 0) || (idx >= len)) {
+	    return (L_undefObjPtrPtr());
+	} else {
+	    return (&elemPtrs[idx]);
+	}
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_deepDiveHash --
+ *
+ *	Index one level into an L hash (represented as a Tcl dict),
+ *	using L semantics.
+ *
+ * Results:
+ *	If flags & L_PUSH_VAL, the hash is being indexed as an r-value.
+ *	Otherwise, it is assumed that the indexed value will be written
+ *	in-place later (i.e., used as an l-value), and this function does
+ *	the magic necessary to allow that.
+ *
+ *	For an r-value, this function returns a pointer to the indexed object
+ *	pointer (i.e., a Tcl_Obj ** that points to the hash bucket).  If the
+ *	key does not exist, a pointer to the L undef object is returned
+ *	instead.
+ *
+ *	For an l-value, if the indexed element is shared, an un-shared copy is
+ *	made so that the indexed object later can be written in-place.  Also,
+ *	if the key does not exist, it is added to the hash with a value of
+ *	the L undef object.
+ *
+ * Side effects:
+ *	See above.  The hash's string representation also is invalidated.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static Tcl_Obj **
+L_deepDiveHash(
+    Tcl_Interp *interp,
+    Tcl_Obj *obj,		/* object being indexed */
+    Tcl_Obj *idxObj,		/* index (key) into obj */
+    L_Expr_f flags)
+{
+    int result, tmp;
+    Tcl_Obj *objPtr;
+    Tcl_Obj **elt;
+    Dict *dict;
+    Tcl_HashEntry *hPtr;
+    int lvalue = (flags & L_LVALUE);
+
+    unless (Tcl_DictObjSize(NULL, obj, &tmp) == TCL_OK) {
+	return (L_undefObjPtrPtr());  // obj not a dict
+    }
+    dict = (Dict *)obj->internalRep.otherValuePtr;
+    hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
+    unless (hPtr) {
+	unless (lvalue) return (L_undefObjPtrPtr());
+	objPtr = Tcl_NewObj();
+	Tcl_IncrRefCount(objPtr);
+	result = Tcl_DictObjPut(interp, obj, idxObj, objPtr);
+	Tcl_DecrRefCount(objPtr);
+#ifdef TCL_COMPILE_DEBUG
+	unless (result == TCL_OK) L_bomb("L deep-dive hash err");
+#endif
+	hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
+    }
+    elt = (Tcl_Obj **)(void *)&Tcl_GetHashValue(hPtr);
+    if (lvalue && Tcl_IsShared(*elt)) {
+	Tcl_DecrRefCount(*elt);
+	*elt = Tcl_DuplicateObj(*elt);
+	Tcl_IncrRefCount(*elt);
+    }
+    if (lvalue) Tcl_InvalidateStringRep(obj);
+    return (elt);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_deepDiveString --
+ *
+ *	Index into a string for the L INST_L_INDEX bytecode.
+ *
+ * Results:
+ *	Creates a new Tcl_Obj that contains a substring of obj.  To be
+ *	compatible with the other L_deepDive* functions, this function returns
+ *	a Tcl_Obj** by stashing the Tcl_Obj* into the object itself and
+ *	returning a pointer to that pointer.
+ *
+ *	If the given index is negative, a run-time error is generated.
+ *	If the index is beyond the end of the string, a pointer the L
+ *	undefined object pointer is returned.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static Tcl_Obj **
+L_deepDiveString(
+    Tcl_Interp *interp,
+    Tcl_Obj *obj,		/* object being indexed */
+    Tcl_Obj *idxObj,		/* index into obj */
+    L_Expr_f flags)
+{
+    int idx, len;
+    const unsigned char *s;
+    Tcl_Obj *newObj;
+
+    if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
+	return NULL;
+    }
+
+    s = Tcl_GetByteArrayFromObj(obj, &len);
+
+    if (idx < 0) {
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "negative string index illegal", NULL);
+	return (NULL);
+    } else if (idx < len) {
+	newObj = Tcl_NewByteArrayObj(s + idx, 1);
+	Tcl_IncrRefCount(newObj);
+	newObj->internalRep.twoPtrValue.ptr2 = newObj;
+	return (Tcl_Obj **)(void *)&(newObj->internalRep.twoPtrValue.ptr2);
+    } else {
+	return (L_undefObjPtrPtr());
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_deepDive --
+ *
+ *	Index one level into an L array, hash, struct, or string,
+ *	using L semantics.
+ *
+ * Results:
+ *	If flags & L_PUSH_VAL, the object is being indexed as an r-value.
+ *	Otherwise, it is assumed that the indexed value will be written
+ *	in-place later (i.e., used as an l-value), and this function does
+ *	the magic necessary to allow that.
+ *
+ *	This function returns a pointer to the indexed object pointer (i.e., a
+ *	Tcl_Obj **) that later can be used to modify the element in-place.  If
+ *	the indexed element does not exist, a pointer to the L undef object is
+ *	returned instead.
+ *
+ *	For an l-value, if the indexed element is shared, an un-shared copy is
+ *	made so that the indexed object later can be written in-place.
+ *
+ * Side effects:
+ *	See comments for L_deepDiveArray() and L_deepDiveHash().  The
+ *	object's string representation also is invalidated.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static Tcl_Obj **
+L_deepDive(
+    Tcl_Interp *interp,
+    Tcl_Obj *obj,
+    Tcl_Obj *idxObj,
+    L_Expr_f flags)
+{
+    switch (flags & (L_IDX_ARRAY | L_IDX_HASH | L_IDX_STRING)) {
+	case L_IDX_ARRAY:
+	    return (L_deepDiveArray(interp, obj, idxObj, flags));
+	case L_IDX_HASH:
+	    return (L_deepDiveHash(interp, obj, idxObj, flags));
+	case L_IDX_STRING:
+	    return (L_deepDiveString(interp, obj, idxObj, flags));
+	default:
+	    L_bomb("L_deepDive internal error");
+	    break;
+    }
+    return (NULL);
+}
 
 /*
  * Local Variables:

@@ -427,6 +427,141 @@ test leak-5.1 {leaks in deep diving} -body {
     leak_5_1();
 } -constraints memory -output "0 moo moo\n"
 
+test leak-5.2 {leaks in deep diving} -body {
+#lang L
+    void leak_5_2() {
+	int tmp, end, i, j;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j = {1,2,3}[1];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak_5_2();
+} -constraints memory -output "0 2\n"
+
+test leak-5.3 {leaks in deep diving} -body {
+#lang L
+    void leak_5_3() {
+	int tmp, end, i, j;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j = {{1,2},{3,4},{4,5}}[1][0];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak_5_3();
+} -constraints memory -output "0 3\n"
+
+test leak-5.4 {leaks in deep diving} -body {
+#lang L
+    void leak_5_4() {
+	int tmp, end, i, j;
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    j = { {{1,2},{3,4}}, {{4,5},{5,6}}, {{7,8},{9,10}} }[1][1][0];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, j));
+    }
+    leak_5_4();
+} -constraints memory -output "0 5\n"
+
+test leak-6.1 {leaks in string indexing} -body {
+#lang L
+    void leak_6_1() {
+	int	end, i, tmp;
+	string	a[], s1, s2;
+
+	a[0] = "zero";
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    s1 = a[0];
+	    s2 = {"zero"}[0];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, s1, s2));
+    }
+    leak_6_1();
+} -constraints memory -output "0 zero zero\n"
+
+test leak-6.2 {leaks in string indexing} -body {
+#lang L
+    void leak_6_2() {
+	int	end, i, tmp;
+	string	a[][], s1, s2;
+
+	a[0][0] = "zero";
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    s1 = a[0][0];
+	    s2 = { {"zero"} }[0][0];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, s1, s2));
+    }
+    leak_6_2();
+} -constraints memory -output "0 zero zero\n"
+
+test leak-6.3 {leaks in string indexing} -body {
+#lang L
+    void leak_6_3() {
+	int	end, i, tmp;
+	string	a[][][], s1, s2;
+
+	a[0][0][0] = "zero";
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    s1 = a[0][0][0];
+	    s2 = { { {"zero"} } }[0][0][0];
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(list(end-tmp, s1, s2));
+    }
+    leak_6_3();
+} -constraints memory -output "0 zero zero\n"
+
+test leak-6.4 {leaks in string indexing} -body {
+#lang L
+    void leak_6_4() {
+	int	end, i, tmp;
+	string	s;
+
+	s = "abcd";
+	end = getbytes();
+	for(i=0; i<5;i++) {
+	    s[0] = "w";
+	    s[1] = "x";
+	    s[2] = "y";
+	    s[3] = "z";
+	    s[0] = "123";
+	    s[1] = "456";
+	    s[2] = "789";
+	    s[3] = "0yz";
+	    s[0] = "";
+	    s[1] = "";
+	    s[2] = "";
+	    s[3] = "";
+	    s[4] = "";
+	    s[5] = "";
+	    s[0] = "";
+	    s[0] = "";
+	    tmp=end;
+	    end = getbytes();
+	}
+	puts(end-tmp);
+    }
+    leak_6_4();
+} -constraints memory -output "0\n"
+
 
 # cleanup
 ::tcltest::cleanupTests

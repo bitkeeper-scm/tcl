@@ -648,11 +648,11 @@ typedef struct ByteCode {
 #define INST_EXIST_STK			131
 
 /* L stuff */
-#define INST_ROT                        132
-#define INST_L_DEEP_READ                133
-#define INST_L_DEEP_WRITE               134
-#define INST_L_SPLIT                    135
-#define INST_L_DEFINED                  136
+#define INST_ROT			132
+#define INST_L_INDEX			133
+#define INST_L_DEEP_WRITE		134
+#define INST_L_SPLIT			135
+#define INST_L_DEFINED			136
 
 /* The last opcode */
 #define LAST_INST_OPCODE		136

@@ -399,18 +399,19 @@ InstructionDesc tclInstructionTable[] = {
 	 * stknext */
     {"existStk",	 1,    0,         0,	{OPERAND_NONE}},
 	/* Test if general variable exists; unparsed variable name is stktop*/
-    {"rot",              2,    0,         1,    {OPERAND_UINT1}},
-        /* Rotate the top opnd elements in the stack */
-    {"l-deep-read",      3,    INT_MIN,   2,    {OPERAND_UINT1, OPERAND_UINT1}},
-        /* Dive deep into a nested struct/array/hash: opnd1 indicates the
-	 * argument depth, opnd2 are flags indicating the type of the first
-	 * set of indices and whether the value or a LdeepPtrType obj or both
-	 * should be left on the stack (see Lcompile.h).  Stacktop contains a
-	 * list of lengths for each stage. */
-    {"l-deep-write",     6,    -1,        2,    {OPERAND_UINT4, OPERAND_UINT1}},
-        /* Write via special L deep pointer pushed by l-deep-read above.
-	 * Leave old or new value on stack top based on opnd. */
-    {"lsplit",           2,    INT_MIN,   1,    {OPERAND_UINT1}},
+    {"rot",		 2,    0,         1,    {OPERAND_UINT1}},
+	/* Rotate the top opnd elements in the stack */
+    {"l-index",		 5,    -1,        1,    {OPERAND_UINT4}},
+	/* Index into a nested struct/array/hash. opnd contains flags,
+	 * index is stktop, object to index into is stknext. */
+    {"l-deep-write",     9,    -1,        2,    {OPERAND_UINT4, OPERAND_UINT4}},
+	/* Write via L deep pointer pushed by l-index above.  opnd1 is a local
+	 * var index of a var that points to the top-level object being
+	 * indexed; it will be written if the top-level object needed to be
+	 * copied by l-index for copy-on-write.  opnd2 contains flags
+	 * indicating whether to leave old or new value on stack top.
+	 * stktop is the L deep pointer, stknext is the value to write. */
+    {"lsplit",		 2,    INT_MIN,   1,    {OPERAND_UINT1}},
 	/* Perl-like string split. op1 is the number of arguments;
 	 * stack contains the limit (optional), then the regexp
 	 * (optional) then the string to split. */
