@@ -653,9 +653,13 @@ typedef struct ByteCode {
 #define INST_L_DEEP_WRITE		134
 #define INST_L_SPLIT			135
 #define INST_L_DEFINED			136
+#define INST_L_PUSH_LIST_SIZE		137
+#define INST_L_PUSH_STR_SIZE		138
+#define INST_L_READ_SIZE		139
+#define INST_L_POP_SIZE			140
 
 /* The last opcode */
-#define LAST_INST_OPCODE		136
+#define LAST_INST_OPCODE		140
 
 
 /*

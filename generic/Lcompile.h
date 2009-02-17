@@ -82,6 +82,7 @@ typedef struct {
 	Ast	*mains_ast;	// root of AST when main() last seen
 	Tcl_HashTable	*include_table;
 	Tcl_Interp	*interp;
+	int	idx_nesting;	// current depth of nested []'s
 } Lglobal;
 
 /*

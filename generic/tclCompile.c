@@ -417,6 +417,16 @@ InstructionDesc tclInstructionTable[] = {
 	 * (optional) then the string to split. */
     {"l-defined",	 1,    0,         0,	{OPERAND_NONE}},
 	/* Test whether value at stackTop is the L undefined value. */
+    {"l-push-list-size", 1,    0,         0,	{OPERAND_NONE}},
+	/* Store the size of the list at stktop in the internal L
+	 * sizes stack.  Sizes are used to implement the L END keyword. */
+    {"l-push-string-size", 1,  0,         0,	{OPERAND_NONE}},
+	/* Store the length of the string at stktop in the internal L
+	 * sizes stack. */
+    {"l-read-size",	 1,    1,         0,	{OPERAND_NONE}},
+	/* Push what's on the top of the internal L sizes stack. */
+    {"l-pop-size",	 1,    0,         0,	{OPERAND_NONE}},
+	/* Pop the internal L sizes stack. */
     {0}
 };
 

@@ -38,7 +38,8 @@ undef_setFromAny(Tcl_Interp *interp, Tcl_Obj *o)
 
 /*
  * Get a pointer to the "undefined" object pointer, allocating it the
- * first time it is needed.
+ * first time it is needed.  It is OK to bump the ref count each time;
+ * we want the one-and-only undef object to never be freed.
  */
 Tcl_Obj **
 L_undefObjPtrPtr()
@@ -48,10 +49,11 @@ L_undefObjPtrPtr()
 	unless (undef_obj) {
 		undef_obj = Tcl_NewObj();
 		Tcl_InvalidateStringRep(undef_obj);
-		undef_obj->bytes = "";
+		undef_obj->bytes = tclEmptyStringRep;
 		undef_obj->typePtr = &L_undefType;
 		Tcl_IncrRefCount(undef_obj);
 	}
+	Tcl_IncrRefCount(undef_obj);
 	return (&undef_obj);
 }
 
@@ -62,16 +64,6 @@ Tcl_ObjType L_undefType = {
 	NULL,
 	undef_setFromAny
 };
-
-/*
- * Duplicate part of struct Dict from tclDictObj.c; all we need is the
- * first member.  The deep-dive execution code uses it to traverse
- * hashes.  WARNING: this may break if dicts change their internal
- * rep!
- */
-typedef struct Dict {
-	Tcl_HashTable table;	/* Object hash table to store mapping in. */
-} Dict;
 
 /* Enum for sym_lookup() and sym_store(). */
 enum lookup {
@@ -398,6 +390,9 @@ compile_fnDecl(FnDecl *fun)
 	if (name[0] == '_') {
 		L_errf(fun->decl->id, "function names cannot begin with _");
 	}
+	if (!strcmp(name, "END")) {
+		L_errf(fun->decl->id, "cannot use END for function name");
+	}
 
 	/*
 	 * Sort out the possible error cases:
@@ -509,6 +504,9 @@ compile_varDecl(VarDecl *decl)
 
 	if ((name[0] == '_') && !decl->outer_p) {
 		L_errf(decl, "local variable names cannot begin with _");
+	}
+	if (!strcmp(name, "END")) {
+		L_errf(decl, "cannot use END for variable name");
 	}
 
 	sym = sym_store(decl);
@@ -993,7 +991,20 @@ push_var(Expr *expr)
 
 	ASSERT(expr->op == L_EXPR_ID);
 
-	if ((sym = sym_lookup(expr, 0))) {
+	/*
+	 * Special case for the pre-defined identifier END which gets
+	 * the last index of the most recent string or array/list
+	 * being indexed.
+	 */
+	if (!strcmp(expr->u.string, "END")) {
+		if (L->idx_nesting) {
+			TclEmitOpcode(INST_L_READ_SIZE, L->frame->envPtr);
+		} else {
+			L_errf(expr,
+			       "END illegal outside of a string or array index");
+		}
+		expr->type = L_int;
+	} else if ((sym = sym_lookup(expr, 0))) {
 		emit_load_scalar(sym->idx);
 	} else {
 		// Undeclared variable.
@@ -2015,6 +2026,9 @@ push_index(Expr *expr)
 		} else if (isstring(expr->a)) {
 			type = L_string;
 			ret  = L_IDX_STRING;
+		} else if (ispoly(expr->a)) {
+			type = L_poly;
+			ret  = L_IDX_ARRAY;
 		} else {
 			L_errf(expr, "not an array or string");
 		}
@@ -2042,18 +2056,17 @@ push_index(Expr *expr)
 }
 
 /*
- * Compile a hash/array/struct reference, also known as a "deep dive".
- * These are the L_OP_HASH_INDEX, L_OP_ARRAY_INDEX, and L_OP_STRUCT_INDEX
- * nodes.
+ * Compile a hash/array/struct or string index.  These are the
+ * L_OP_HASH_INDEX, L_OP_ARRAY_INDEX, and L_OP_STRUCT_INDEX nodes.
  *
  * The resulting stack depends on the flags which specify whether the
  * indexed element's value, pointer, or both (and in what order) are
  * wanted.  We get one of
  *
- * <elem-obj>                  if flags & L_DEEP_VAL
- * <elem-obj-ptr>              if flags & L_DEEP_PTR
- * <elem-obj> <elem-obj-ptr>   if flags & L_DEEP_VAL_PTR
- * <elem-obj-ptr> <elem-obj>   if flags & L_DEEP_PTR_VAL
+ * <elem-obj>                  if flags & L_PUSH_VAL
+ * <elem-obj  <deep-ptr>       if flags & L_PUSH_PTR
+ * <elem-obj> <deep-ptr>       if flags & L_PUSH_VAL_PTR
+ * <deep-ptr> <elem-obj>       if flags & L_PUSH_PTR_VAL
  */
 private void
 compile_idxOp(Expr *expr, L_Expr_f flags)
@@ -2061,7 +2074,20 @@ compile_idxOp(Expr *expr, L_Expr_f flags)
 	compile_expr(expr->a, L_PUSH_PTR | (flags & L_LVALUE));
 	expr->sym = expr->a->sym;  // propagate sym table ptr up the tree
 
+	if (isstring(expr->a)) {
+		TclEmitOpcode(INST_L_PUSH_STR_SIZE, L->frame->envPtr);
+	} else if (isarray(expr->a) || islist(expr->a) || ispoly(expr->a)) {
+		TclEmitOpcode(INST_L_PUSH_LIST_SIZE, L->frame->envPtr);
+	}
+
+	++L->idx_nesting;
 	flags |= push_index(expr);
+	--L->idx_nesting;
+
+	if (isstring(expr->a) || isarray(expr->a) || islist(expr->a) ||
+	    ispoly(expr->a)) {
+		TclEmitOpcode(INST_L_POP_SIZE, L->frame->envPtr);
+	}
 
 	TclEmitInstInt4(INST_L_INDEX, flags, L->frame->envPtr);
 

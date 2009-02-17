@@ -670,6 +670,24 @@ typedef struct Dict {
 	Tcl_HashTable table;	/* Object hash table to store mapping in. */
 } Dict;
 
+/*
+ * The L "sizes stack" is a separate run-time stack managed by the
+ * INST_L_PUSH_LIST_SIZE, INST_L_PUSH_STR_SIZE, INST_L_READ_SIZE, and
+ * INST_L_POP_SIZE opcodes.  The first two push onto this stack the length
+ * (size) of the list (string) at stktop.  INST_L_READ_SIZE pushes onto the
+ * regular stack the size at the top of L sizes stack, and INST_L_POP_SIZE
+ * pops the L stack.  These are used to implement the L END keyword with
+ * minimal overhead.
+ */
+struct L_sizes_stack {
+    int size;
+    struct L_sizes_stack *prev;
+};
+static struct L_sizes_stack *L_sizes_stktop = NULL;
+
+static void L_sizes_push(int size);
+static int L_sizes_top();
+static void L_sizes_pop();
 static Tcl_Obj **L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj *idxObj,
 			    L_Expr_f flags);
 
@@ -7229,7 +7247,7 @@ TclExecuteByteCode(
 	int dropRefCnt = 0;
 	unsigned int flags = TclGetUInt4AtPtr(pc+1);
 	int lvalue = (flags & L_LVALUE);
-	int needPtr = !(flags & L_PUSH_VAL);
+	int needPtr = (flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
 
 	/*
 	 * Get the bytecode arguments -- the index and object being indexed in
@@ -7341,7 +7359,8 @@ TclExecuteByteCode(
 	 * Leave the value, deep-pointer, or both on the stack as requested by
 	 * the input flags.
 	 */
-	switch (flags & (L_PUSH_VAL|L_PUSH_PTR|L_PUSH_PTRVAL|L_PUSH_VALPTR)) {
+	switch (flags &
+		(L_PUSH_VAL|L_PUSH_PTR|L_PUSH_PTRVAL|L_PUSH_VALPTR|L_DISCARD)) {
 	    case L_PUSH_VAL:
 		PUSH_OBJECT(*elemPtrPtr);
 		TRACE_WITH_OBJ(("0x%x => ", flags), OBJ_AT_TOS);
@@ -7361,6 +7380,10 @@ TclExecuteByteCode(
 		PUSH_OBJECT(deepPtrObj);
 		TRACE(("0x%x => \"%.30s\" \"%.30s\"", flags,
 		       O2S(OBJ_UNDER_TOS), O2S(OBJ_AT_TOS)));
+		break;
+	    case L_DISCARD:
+		PUSH_OBJECT(Tcl_NewObj());  // just push junk
+		TRACE(("0x%x => junk", flags));
 		break;
 	    default:
 		Tcl_Panic("illegal operand to INST_L_INDEX");
@@ -7453,25 +7476,33 @@ TclExecuteByteCode(
 	oldvalObj = *(deepPtr->elemPtrPtr);
 	if (deepPtr->flags & L_IDX_STRING) {
 	    int len;
-	    char *oldstr;
+	    char *oldstr, *tmp;
 	    Tcl_Obj *newStr;
 	    Tcl_Obj *target = deepPtr->strObj;
 
 	    oldstr = TclGetStringFromObj(target, &len);
-	    if (deepPtr->idx >= len) {
+	    if (deepPtr->idx > len) {
 		Tcl_ResetResult(interp);
-		Tcl_AppendResult(interp, "index is past end of string", NULL);
+		Tcl_AppendResult(interp,
+				 "index is more than one past end of string",
+				 NULL);
 		result = TCL_ERROR;
 		goto checkForCatch;
 	    }
+	    /* Put into newStr all chars up to but skipping the given index. */
 	    newStr = Tcl_GetRange(target, 0, deepPtr->idx-1);
 	    Tcl_IncrRefCount(newStr);
+	    /* Append the rval obj. */
 	    Tcl_AppendObjToObj(newStr, rvalObj);
-	    Tcl_AppendToObj(newStr,
-			    oldstr + deepPtr->idx + 1,
-			    len - deepPtr->idx - 1);
-	    oldstr = TclGetStringFromObj(newStr, &len);
-	    Tcl_SetStringObj(target, oldstr, len);
+	    /* Append to newStr all chars after the given index. */
+	    if (deepPtr->idx < len) {
+		Tcl_AppendToObj(newStr,
+				oldstr + deepPtr->idx + 1,
+				len - deepPtr->idx - 1);
+	    }
+	    /* Assign newStr to target. */
+	    tmp = TclGetStringFromObj(newStr, &len);
+	    Tcl_SetStringObj(target, tmp, len);
 	    Tcl_DecrRefCount(newStr);
 	} else {
 	    *(deepPtr->elemPtrPtr) = rvalObj;
@@ -7550,6 +7581,58 @@ TclExecuteByteCode(
 	objResultPtr = constants[(OBJ_AT_TOS)->typePtr != &L_undefType];
 	TRACE_WITH_OBJ(("=> "), objResultPtr);
 	NEXT_INST_F(1, 1, 1);
+    }
+
+    case INST_L_PUSH_LIST_SIZE: {
+	int length;
+	Tcl_Obj *valuePtr;
+	L_DeepPtr *deepPtr;
+
+	valuePtr = OBJ_AT_TOS;
+
+	if (valuePtr->typePtr == &L_deepPtrType) {
+	    deepPtr = (L_DeepPtr *)(valuePtr->internalRep.otherValuePtr);
+	    valuePtr = *deepPtr->elemPtrPtr;
+	}
+
+	result = TclListObjLength(interp, valuePtr, &length);
+	if (result == TCL_OK) {
+	    L_sizes_push(length - 1);
+	    TRACE(("%.20s => %d on L sizes stack\n", O2S(valuePtr), length));
+	    NEXT_INST_F(1, 0, 0);
+	} else {
+	    TRACE_WITH_OBJ(("%.30s => ERROR: ", O2S(valuePtr)),
+		    Tcl_GetObjResult(interp));
+	    goto checkForCatch;
+	}
+    }
+
+    case INST_L_PUSH_STR_SIZE: {
+	int length;
+	Tcl_Obj *valuePtr;
+	L_DeepPtr *deepPtr;
+
+	valuePtr = OBJ_AT_TOS;
+
+	if (valuePtr->typePtr == &L_deepPtrType) {
+	    deepPtr = (L_DeepPtr *)(valuePtr->internalRep.otherValuePtr);
+	    valuePtr = *deepPtr->elemPtrPtr;
+	}
+
+	Tcl_GetStringFromObj(valuePtr, &length);
+	L_sizes_push(length - 1);
+	TRACE(("%.20s => %d on L sizes stack\n", O2S(valuePtr), length));
+	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_READ_SIZE: {
+	objResultPtr = Tcl_NewIntObj(L_sizes_top());
+	NEXT_INST_F(1, 0, 1);
+    }
+
+    case INST_L_POP_SIZE: {
+	L_sizes_pop();
+	NEXT_INST_F(1, 0, 0);
     }
 
     default:
@@ -9095,6 +9178,64 @@ L_deepDive(
 	    break;
     }
     return (NULL);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_sizes_push --
+ *
+ *	Push a size onto the internal L sizes stack.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void L_sizes_push(int size)
+{
+    struct L_sizes_stack *s;
+
+    s = (struct L_sizes_stack *)ckalloc(sizeof(struct L_sizes_stack));
+    s->size = size;
+    s->prev = L_sizes_stktop;
+    L_sizes_stktop = s;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_sizes_top --
+ *
+ *	Return the stack top of the L internal sizes stack.  The
+ *	stack must not be empty when called.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int L_sizes_top()
+{
+    if (!L_sizes_stktop) Tcl_Panic("topped empty L sizes stack");
+    return (L_sizes_stktop->size);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * L_sizes_pop --
+ *
+ *	Pop the L internal sizes stack.  The stack must not be empty when
+ *	called.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void L_sizes_pop()
+{
+    struct L_sizes_stack *s = L_sizes_stktop;
+
+    if (!L_sizes_stktop) Tcl_Panic("popped empty L sizes stack");
+
+    L_sizes_stktop = s->prev;
+    ckfree((char *)s);
 }
 
 /*
