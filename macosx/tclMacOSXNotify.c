@@ -21,9 +21,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <pthread.h>
 
-extern TclStubs tclStubs;
-extern Tcl_NotifierProcs tclOriginalNotifier;
-
 /*
  * This structure is used to keep track of the notifier info for a registered
  * file.
@@ -242,7 +239,7 @@ static OSSpinLock notifierLock     = SPINLOCK_INIT;
  * Debug version of SpinLockLock that logs the time spent waiting for the lock
  */
 
-#define SpinLockLockDbg(p)	if(!SpinLockTry(p)) { \
+#define SpinLockLockDbg(p)	if (!SpinLockTry(p)) { \
 				    Tcl_WideInt s = TclpGetWideClicks(), e; \
 				    SpinLockLock(p); e = TclpGetWideClicks(); \
 				    fprintf(notifierLog, "tclMacOSXNotify.c:" \
@@ -316,8 +313,8 @@ static void	AtForkChild(void);
 #if defined(HAVE_WEAK_IMPORT) && MAC_OS_X_VERSION_MIN_REQUIRED < 1040
 /* Support for weakly importing pthread_atfork. */
 #define WEAK_IMPORT_PTHREAD_ATFORK
-extern int pthread_atfork(void (*prepare)(void), void (*parent)(void),
-                          void (*child)(void)) WEAK_IMPORT_ATTRIBUTE;
+extern int	pthread_atfork(void (*prepare)(void), void (*parent)(void),
+		    void (*child)(void)) WEAK_IMPORT_ATTRIBUTE;
 #endif /* HAVE_WEAK_IMPORT */
 /*
  * On Darwin 9 and later, it is not possible to call CoreFoundation after
@@ -351,14 +348,20 @@ MODULE_SCOPE long tclMacOSXDarwinRelease;
 ClientData
 Tcl_InitNotifier(void)
 {
-    ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+    ThreadSpecificData *tsdPtr;
 
+    if (tclNotifierHooks.initNotifierProc) {
+	return tclNotifierHooks.initNotifierProc();
+    }
+
+    tsdPtr = TCL_TSD_INIT(&dataKey);
     tsdPtr->eventReady = 0;
 
 #ifdef WEAK_IMPORT_SPINLOCKLOCK
     /*
      * Initialize support for weakly imported spinlock API.
      */
+
     if (pthread_once(&spinLockLockInitControl, SpinLockLockInit)) {
 	Tcl_Panic("Tcl_InitNotifier: pthread_once failed");
     }
@@ -404,6 +407,7 @@ Tcl_InitNotifier(void)
 #endif
 	    !atForkInit) {
 	int result = pthread_atfork(AtForkPrepare, AtForkParent, AtForkChild);
+
 	if (result) {
 	    Tcl_Panic("Tcl_InitNotifier: pthread_atfork failed");
 	}
@@ -437,8 +441,8 @@ Tcl_InitNotifier(void)
 
 	/*
 	 * Create notifier thread lazily in Tcl_WaitForEvent() to avoid
-	 * interfering with fork() followed immediately by execve()
-	 * (cannot execve() when more than one thread is present).
+	 * interfering with fork() followed immediately by execve() (we cannot
+	 * execve() when more than one thread is present).
 	 */
 
 	notifierThread = 0;
@@ -474,8 +478,14 @@ void
 Tcl_FinalizeNotifier(
     ClientData clientData)		/* Not used. */
 {
-    ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+    ThreadSpecificData *tsdPtr;
 
+    if (tclNotifierHooks.finalizeNotifierProc) {
+	tclNotifierHooks.finalizeNotifierProc(clientData);
+	return;
+    }
+
+    tsdPtr = TCL_TSD_INIT(&dataKey);
     LOCK_NOTIFIER_INIT;
     notifierCount--;
 
@@ -521,7 +531,7 @@ Tcl_FinalizeNotifier(
     }
     UNLOCK_NOTIFIER_INIT;
 
-    LOCK_NOTIFIER;		/* for concurrency with Tcl_AlertNotifier */
+    LOCK_NOTIFIER;		/* For concurrency with Tcl_AlertNotifier */
     if (tsdPtr->runLoop) {
 	tsdPtr->runLoop = NULL;
 
@@ -559,7 +569,12 @@ void
 Tcl_AlertNotifier(
     ClientData clientData)
 {
-    ThreadSpecificData *tsdPtr = (ThreadSpecificData *) clientData;
+    ThreadSpecificData *tsdPtr = clientData;
+
+    if (tclNotifierHooks.alertNotifierProc) {
+	tclNotifierHooks.alertNotifierProc(clientData);
+	return;
+    }
 
     LOCK_NOTIFIER;
     if (tsdPtr->runLoop) {
@@ -590,17 +605,18 @@ Tcl_AlertNotifier(
 
 void
 Tcl_SetTimer(
-    Tcl_Time *timePtr)		/* Timeout value, may be NULL. */
+    const Tcl_Time *timePtr)		/* Timeout value, may be NULL. */
 {
+    if (tclNotifierHooks.setTimerProc) {
+	tclNotifierHooks.setTimerProc(timePtr);
+	return;
+    }
+
     /*
      * The interval timer doesn't do anything in this implementation, because
      * the only event loop is via Tcl_DoOneEvent, which passes timeout values
      * to Tcl_WaitForEvent.
      */
-
-    if (tclStubs.tcl_SetTimer != tclOriginalNotifier.setTimerProc) {
-	tclStubs.tcl_SetTimer(timePtr);
-    }
 }
 
 /*
@@ -624,6 +640,12 @@ Tcl_ServiceModeHook(
     int mode)			/* Either TCL_SERVICE_ALL, or
 				 * TCL_SERVICE_NONE. */
 {
+    if (tclNotifierHooks.serviceModeHookProc) {
+	tclNotifierHooks.serviceModeHookProc(mode);
+	return;
+    } else {
+	/* Does nothing in this implementation. */
+    }
 }
 
 /*
@@ -653,14 +675,15 @@ Tcl_CreateFileHandler(
 				 * event. */
     ClientData clientData)	/* Arbitrary data to pass to proc. */
 {
-    ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+    ThreadSpecificData *tsdPtr;
     FileHandler *filePtr;
 
-    if (tclStubs.tcl_CreateFileHandler !=
-	    tclOriginalNotifier.createFileHandlerProc) {
-	tclStubs.tcl_CreateFileHandler(fd, mask, proc, clientData);
+    if (tclNotifierHooks.createFileHandlerProc) {
+	tclNotifierHooks.createFileHandlerProc(fd, mask, proc, clientData);
 	return;
     }
+
+    tsdPtr = TCL_TSD_INIT(&dataKey);
 
     for (filePtr = tsdPtr->firstFileHandlerPtr; filePtr != NULL;
 	    filePtr = filePtr->nextPtr) {
@@ -669,7 +692,7 @@ Tcl_CreateFileHandler(
 	}
     }
     if (filePtr == NULL) {
-	filePtr = (FileHandler*) ckalloc(sizeof(FileHandler));
+	filePtr = (FileHandler *) ckalloc(sizeof(FileHandler));
 	filePtr->fd = fd;
 	filePtr->readyMask = 0;
 	filePtr->nextPtr = tsdPtr->firstFileHandlerPtr;
@@ -726,20 +749,21 @@ Tcl_DeleteFileHandler(
 {
     FileHandler *filePtr, *prevPtr;
     int i;
-    ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+    ThreadSpecificData *tsdPtr;
 
-    if (tclStubs.tcl_DeleteFileHandler !=
-	    tclOriginalNotifier.deleteFileHandlerProc) {
-	tclStubs.tcl_DeleteFileHandler(fd);
+    if (tclNotifierHooks.deleteFileHandlerProc) {
+	tclNotifierHooks.deleteFileHandlerProc(fd);
 	return;
     }
+
+    tsdPtr = TCL_TSD_INIT(&dataKey);
 
     /*
      * Find the entry for the given file (and return if there isn't one).
      */
 
     for (prevPtr = NULL, filePtr = tsdPtr->firstFileHandlerPtr; ;
-	 prevPtr = filePtr, filePtr = filePtr->nextPtr) {
+	    prevPtr = filePtr, filePtr = filePtr->nextPtr) {
 	if (filePtr == NULL) {
 	    return;
 	}
@@ -856,7 +880,7 @@ FileHandlerEventProc(
 	mask = filePtr->readyMask & filePtr->mask;
 	filePtr->readyMask = 0;
 	if (mask != 0) {
-	    (*filePtr->proc)(filePtr->clientData, mask);
+	    filePtr->proc(filePtr->clientData, mask);
 	}
 	break;
     }
@@ -883,19 +907,24 @@ FileHandlerEventProc(
 
 int
 Tcl_WaitForEvent(
-    Tcl_Time *timePtr)		/* Maximum block time, or NULL. */
+    const Tcl_Time *timePtr)		/* Maximum block time, or NULL. */
 {
     FileHandler *filePtr;
     FileHandlerEvent *fileEvPtr;
-    int mask;
-    Tcl_Time myTime;
-    int waitForFiles;
-    Tcl_Time *myTimePtr;
-    ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+    int mask, waitForFiles;
+    Tcl_Time myTime, *myTimePtr;
+    ThreadSpecificData *tsdPtr;
 
-    if (tclStubs.tcl_WaitForEvent != tclOriginalNotifier.waitForEventProc) {
-	return tclStubs.tcl_WaitForEvent(timePtr);
+    if (tclNotifierHooks.waitForEventProc) {
+	return tclNotifierHooks.waitForEventProc(timePtr);
     }
+
+    tsdPtr = TCL_TSD_INIT(&dataKey);
+
+    /*
+     * Set up the timeout structure. Note that if there are no events to check
+     * for, we return with a negative result rather than blocking forever.
+     */
 
     if (timePtr != NULL) {
 	/*
@@ -904,11 +933,11 @@ Tcl_WaitForEvent(
 	 * handler to do this scaling.
 	 */
 
-	myTime.sec  = timePtr->sec;
+	myTime.sec = timePtr->sec;
 	myTime.usec = timePtr->usec;
 
 	if (myTime.sec != 0 || myTime.usec != 0) {
-	    (*tclScaleTimeProcPtr) (&myTime, tclTimeClientData);
+	    tclScaleTimeProcPtr(&myTime, tclTimeClientData);
 	}
 
 	myTimePtr = &myTime;
@@ -922,7 +951,7 @@ Tcl_WaitForEvent(
 
     LOCK_NOTIFIER_INIT;
     if (!notifierCount) {
-        Tcl_Panic("Tcl_WaitForEvent: notifier not initialized");
+	Tcl_Panic("Tcl_WaitForEvent: notifier not initialized");
     }
     if (!notifierThread) {
 	int result;
@@ -948,7 +977,7 @@ Tcl_WaitForEvent(
 
     LOCK_NOTIFIER;
     if (!tsdPtr->runLoop) {
-        Tcl_Panic("Tcl_WaitForEvent: CFRunLoop not initialized");
+	Tcl_Panic("Tcl_WaitForEvent: CFRunLoop not initialized");
     }
     waitForFiles = (tsdPtr->numFdBits > 0);
     if (myTimePtr != NULL && myTimePtr->sec == 0 && myTimePtr->usec == 0) {
@@ -994,16 +1023,18 @@ Tcl_WaitForEvent(
 	CFStringRef runLoopMode;
 
 	if (myTimePtr == NULL) {
-	    waitTime = 1.0e10; /* Wait forever, as per CFRunLoop.c */
+	    waitTime = 1.0e10;	/* Wait forever, as per CFRunLoop.c */
 	} else {
 	    waitTime = myTimePtr->sec + 1.0e-6 * myTimePtr->usec;
 	}
+
 	/*
 	 * If the run loop is already running (e.g. if Tcl_WaitForEvent was
 	 * called recursively), re-run it in a custom run loop mode containing
-	 * only the source for the notifier thread, otherwise wakeups from other
-	 * sources added to the common run loop modes might get lost.
+	 * only the source for the notifier thread, otherwise wakeups from
+	 * other sources added to the common run loop modes might get lost.
 	 */
+
 	if ((runLoopMode = CFRunLoopCopyCurrentMode(tsdPtr->runLoop))) {
 	    CFRelease(runLoopMode);
 	    runLoopMode = tclEventsOnlyRunLoopMode;
@@ -1020,7 +1051,7 @@ Tcl_WaitForEvent(
 	/*
 	 * Remove the ThreadSpecificData structure of this thread from the
 	 * waiting list. Alert the notifier thread to recompute its select
-	 * masks - skipping this caused a hang when trying to close a pipe
+	 * masks; skipping this caused a hang when trying to close a pipe
 	 * which the notifier thread was still doing a select on.
 	 */
 
@@ -1043,7 +1074,6 @@ Tcl_WaitForEvent(
 
     for (filePtr = tsdPtr->firstFileHandlerPtr; (filePtr != NULL);
 	    filePtr = filePtr->nextPtr) {
-
 	mask = 0;
 	if (FD_ISSET(filePtr->fd, &(tsdPtr->readyMasks.readable))) {
 	    mask |= TCL_READABLE;
@@ -1065,7 +1095,8 @@ Tcl_WaitForEvent(
 	 */
 
 	if (filePtr->readyMask == 0) {
-	    fileEvPtr = (FileHandlerEvent *) ckalloc(sizeof(FileHandlerEvent));
+	    fileEvPtr = (FileHandlerEvent *)
+		    ckalloc(sizeof(FileHandlerEvent));
 	    fileEvPtr->header.proc = FileHandlerEventProc;
 	    fileEvPtr->fd = filePtr->fd;
 	    Tcl_QueueEvent((Tcl_Event *) fileEvPtr, TCL_QUEUE_TAIL);
@@ -1205,9 +1236,9 @@ NotifierThreadProc(
 		if (tsdPtr->onList) {
 		    /*
 		     * Remove the ThreadSpecificData structure of this thread
-		     * from the waiting list. This prevents us from
-		     * continuously spining on select until the other threads
-		     * runs and services the file event.
+		     * from the waiting list. This prevents us from spinning
+		     * continuously on select until the other threads runs and
+		     * services the file event.
 		     */
 
 		    if (tsdPtr->prevPtr) {

@@ -1,4 +1,5 @@
 %option	noyywrap
+%option noyy_top_state
 %option stack
 %x re_modifier
 %s re_arg
@@ -8,19 +9,37 @@
 %x str_double
 %x str_single
 %x interpol
-ID		([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
+%x include
+ID	([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
 /*
- * Copyright (c) 2006-2007 BitMover, Inc.
+ * Copyright (c) 2006-2008 BitMover, Inc.
  */
 #include <string.h>
 #define	_PWD_H			// Some solaris9 conflict, we don't need pwd.h
+#include "tclInt.h"
 #include "Lcompile.h"
 #include "Lgrammar.h"
 
-/* String collection buffer */
-Tcl_Obj *str;
-int str_beg;
+private int	include_pop();
+private int	include_push(FILE *f, char *name);
+private FILE *	include_search(char *file);
+private void	tally_newlines(char *s, int len);
+
+// Stack for tracking include() statements.
+#define INCLUDE_STACK_SZ	10
+typedef struct {
+	FILE	*file;
+	char	*name;
+	int	line;
+	YY_BUFFER_STATE	buf;
+} Include;
+
+private char	re_quote_char;	// delim char that began the current regexp
+private Tcl_Obj	*str;		// string collection buffer
+private int	str_beg;	// source offset of string
+private int	include_top;
+private Include	include_stk[INCLUDE_STACK_SZ];
 
 #define STRBUF_START(beg)			\
 	do {					\
@@ -42,14 +61,6 @@ int str_beg;
 		L_lloc.end = (e);		\
 	} while (0)
 
-extern int L_line_number;
-extern char *L_source_file;
-extern int L_token_offset;
-extern int L_prev_token_len;
-
-/* Omit needless routine to silence compiler warning. */
-#define YY_NO_TOP_STATE
-
 /*
  * Keep track of the current offset in the input string.
  * YY_USER_ACTION is run before each action.  Note that some actions
@@ -57,40 +68,108 @@ extern int L_prev_token_len;
  */
 #define YY_USER_ACTION					\
 	do {						\
-		L_token_offset += L_prev_token_len;	\
-		L_prev_token_len = yyleng;		\
-		L_lloc.beg = L_token_offset;		\
-		L_lloc.end = L_token_offset + yyleng;	\
+		L->token_offset += L->prev_token_len;	\
+		L->prev_token_len = yyleng;		\
+		L_lloc.beg = L->token_offset;		\
+		L_lloc.end = L->token_offset + yyleng;	\
 	} while (0);
 
-/* The character that began the current regexp, so in m|foo| this is
- * '|'.
- *
- * XXX: since regexps are interpolated, they can nest, which
- * will fail unless they all use the same quote char. */
-char re_quote_char;
+/*
+ * In case of errors, the start condition stack will be left in an
+ * unknown state.  This function gives us a way to reset it.
+ */
+void L_lex_start()
+{
+	include_top = -1;
+	BEGIN(0);
+}
 
-/* In case of errors, the start condition stack will be left in an
-   unknown state.  This function gives us a way to reset it. */
-void L_start_lexer() { BEGIN(0); }
-
-/**
+/*
  * Count the newlines in a string and add the number to L_line_number.
  */
 private void
-tally_newlines(
-	char *s,	/* the string with the newlines */
-	int len)	/* the length of the string */
+tally_newlines(char *s, int len)
 {
-	char *p, *end;
+	char	*end, *p;
 
 	for (p = s, end = p + len; p < end; p++) {
 		if (*p == '\n') {
-			L_line_number++;
-		} else if ((*p == '\r') && (p+1 < end) && (*(p+1) != '\n')) {
-			/* mac line endings */
-			L_line_number++;
+			L->line++;
+		} else if ((*p == '\r') && ((p+1) < end) && (*(p+1) != '\n')) {
+			/* Mac line endings. */
+			L->line++;
 		}
+	}
+}
+
+/*
+ * Search for file in the include path and open it.  If the passed-in
+ * name is not an absolute path, we currently look only in the
+ * directory of the current script (i.e., dirname of [info script]).
+ */
+private FILE *
+include_search(char *file)
+{
+	FILE	*f;
+	char	*resolvedFile;
+	Interp	*iPtr = (Interp *)L->interp;
+	Tcl_Obj	*dir;
+	Tcl_Obj *fileObj = Tcl_NewStringObj(file, -1);
+
+	/* If the path is relative, make it absolute. */
+	Tcl_IncrRefCount(fileObj);
+	if ((Tcl_FSGetPathType(fileObj) == TCL_PATH_ABSOLUTE) ||
+	    !iPtr->scriptFile) {
+		resolvedFile = ckstrdup(file);
+	} else {
+		dir = TclPathPart(L->interp, iPtr->scriptFile,
+				  TCL_PATH_DIRNAME);
+		Tcl_AppendPrintfToObj(dir, "/%s", file);
+		resolvedFile = ckstrdup(Tcl_GetString(dir));
+		Tcl_DecrRefCount(dir);
+	}
+	Tcl_DecrRefCount(fileObj);
+	f = fopen(resolvedFile, "r");
+	ckfree(resolvedFile);
+	return (f);
+}
+
+private int
+include_push(FILE *f, char *name)
+{
+	YY_BUFFER_STATE buf;
+
+	if (include_top >= INCLUDE_STACK_SZ) {
+		L_err("include file nesting too deep -- aborting");
+		while (include_pop()) ;
+		return (0);
+	} else {
+		buf = yy_create_buffer(f, YY_BUF_SIZE);
+		++include_top;
+		include_stk[include_top].file = f;
+		include_stk[include_top].name = L->file;
+		include_stk[include_top].line = L->line;
+		include_stk[include_top].buf  = YY_CURRENT_BUFFER;
+		yy_switch_to_buffer(buf);
+		L->file = name;
+		L->line = 1;
+		return (1);
+	}
+}
+
+private int
+include_pop()
+{
+	if (include_top >= 0) {
+		L->file = include_stk[include_top].name;
+		L->line = include_stk[include_top].line;
+		fclose(include_stk[include_top].file);
+		yy_delete_buffer(YY_CURRENT_BUFFER);
+		yy_switch_to_buffer(include_stk[include_top].buf);
+		--include_top;
+		return (1);
+	} else {
+		return (0);
 	}
 }
 
@@ -136,7 +215,6 @@ tally_newlines(
 	"class"		return T_CLASS;
 	"extern"	return T_EXTERN;
 	"return"	return T_RETURN;
-	"include"	return T_INCLUDE;
 	"void"		return T_VOID;
 	"string"	return T_STRING;
 	"int"		return T_INT;
@@ -144,18 +222,7 @@ tally_newlines(
 	"poly"		return T_POLY;
 	"var"		return T_VAR;
 	"widget"	return T_WIDGET;
-	"split"		{
-		MK_STRING_NODE(L_lval, yytext, L_lloc.beg, L_lloc.end);
-		return T_SPLIT;
-	}
-
-	"("[ \t]*"string"[ \t]*")"	return T_STRING_CAST;
-	"("[ \t]*"tcl"[ \t]*")"		return T_TCL_CAST;
-	"("[ \t]*"float"[ \t]*")"	return T_FLOAT_CAST;
-	"("[ \t]*"int"[ \t]*")"		return T_INT_CAST;
-	"("[ \t]*"hash"[ \t]*")"	return T_HASH_CAST;
-	"("[ \t]*"widget"[ \t]*")"	return T_WIDGET_CAST;
-
+	"split"		return T_SPLIT;
 	"if"		return T_IF;
 	"else"		return T_ELSE;
 	"unless"	return T_UNLESS;
@@ -168,7 +235,6 @@ tally_newlines(
 	"foreach"	return T_FOREACH;
 	"break"		return T_BREAK;
 	"continue"	return T_CONTINUE;
-	"push"		return T_PUSH;
 	"in"		return T_IN;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;
@@ -186,10 +252,9 @@ tally_newlines(
 	{ID}[ \t\n\r]*:	{
 				int i, j;
 				tally_newlines(yytext, yyleng);
-				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
-					       L_lloc.end);
-				((L_expr *)L_lval)->u.string[0] = '-';
-				/* strip the whitespace */
+				L_lval.s = ckalloc(yyleng+1);
+				L_lval.s[0] = '-';
+				/* Strip the whitespace. */
 				for (i=0, j=1; i<yyleng-1; i++) {
 					switch (yytext[i]) {
 					case ' ':
@@ -198,67 +263,65 @@ tally_newlines(
 					case '\r':
 						break;
 					default:
-						((L_expr *)L_lval)->u.string[j++] = yytext[i];
+						L_lval.s[j++] = yytext[i];
 					}
 				}
-				((L_expr *)L_lval)->u.string[j] = '\0';
+				L_lval.s[j] = '\0';
 				return T_KEYWORD;
 			}
 	{ID}		{
-				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
-					       L_lloc.end);
-
-				if (L_lookup_typedef(L_lval, FALSE)) {
+				Type *t = L_typedef_lookup(yytext);
+				if (t) {
+					L_lval.Typename.s = ckstrdup(yytext);
+					L_lval.Typename.t = t;
 					return T_TYPE;
 				} else {
+					L_lval.s = ckstrdup(yytext);
 					return T_ID;
 				}
 			}
 	([A-Z]|::)([0-9a-zA-Z]|::)*_\*	{
-				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
-					       L_lloc.end);
+				L_lval.s = ckstrdup(yytext);
 				return T_PATTERN;
 			}
 	$[0-9]+		{
 				/* Regular expression submatches */
-				MK_STRING_NODE(L_lval, yytext, L_lloc.beg,
-					       L_lloc.end);
+				L_lval.s = ckstrdup(yytext);
 				return T_ID;
 			}
 	[0-9]+		{
 				// XXX - we don't handle constants > 32 bits
-				MK_INT_NODE(L_lval, atoi(yytext), L_lloc.beg,
-					    L_lloc.end);
+				L_lval.i = atoi(yytext);
 				return T_INT_LITERAL;
 			}
 	0o[0-7]+	{
-				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 8),
-					    L_lloc.beg, L_lloc.end);
+				L_lval.i = strtoul(yytext+2, 0, 8);
 				return T_INT_LITERAL;
 			}
 	0x[0-9a-fA-F]+	{
 				// XXX - we don't handle constants > 32 bits
-				MK_INT_NODE(L_lval, strtoul(yytext+2, 0, 16),
-					    L_lloc.beg, L_lloc.end);
+				L_lval.i = strtoul(yytext+2, 0, 16);
 				return T_INT_LITERAL;
 			}
 	[0-9]*\.[0-9]+	{
-				MK_FLOAT_NODE(L_lval, atof(yytext),
-					      L_lloc.beg, L_lloc.end);
+				L_lval.f = atof(yytext);
 				return T_FLOAT_LITERAL;
 			}
+	^include[ \t]*\([ \t]*\" {
+				BEGIN(include);
+			}
 	"//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
-	[ \t\n\r]+	tally_newlines(yytext, yyleng);
-	\"		yy_push_state(str_double); STRBUF_START(L_token_offset);
-	\'		yy_push_state(str_single); STRBUF_START(L_token_offset);
+	[ \t\n\r\f]+	tally_newlines(yytext, yyleng);
+	\"		yy_push_state(str_double); STRBUF_START(L->token_offset);
+	\'		yy_push_state(str_single); STRBUF_START(L->token_offset);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
 		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
-		STRBUF_START(L_lloc.end - 2);  // next token starts at the "m"
+		STRBUF_START(L_lloc.end - 2);	// next token starts at the "m"
 		re_quote_char = *(yytext + yyleng - 1);
-		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
+		L_lloc.end = L_lloc.beg + 2;	// this token spans the "=~"
 		return T_EQTWID;
 	}
 	/* if / is used to delimit the regexp, the m can be omitted */
@@ -266,9 +329,9 @@ tally_newlines(
 		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
-		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
+		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = '/';
-		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
+		L_lloc.end = L_lloc.beg + 2;	// this token spans the "=~"
 		return T_EQTWID;
 	}
 	/* a substitution pattern */
@@ -277,26 +340,48 @@ tally_newlines(
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
 		yy_push_state(glob_re);
-		STRBUF_START(L_lloc.end - 2);  // next token starts at the "s"
+		STRBUF_START(L_lloc.end - 2);	// next token starts at the "s"
 		re_quote_char = *(yytext + yyleng - 1);
-		L_lloc.end = L_lloc.beg + 2;    // this token spans the "=~"
+		L_lloc.end = L_lloc.beg + 2;	// this token spans the "=~"
 		return T_EQTWID;
 	}
 }
 
+<include>{
+	[^\"]*\"[ \t]*\)[ \t]*;[ \t;]*	{
+		int	len = strrchr(yytext, '"') - yytext;
+		char	*name = ckstrndup(yytext, len);
+		FILE	*f = include_search(name);
+
+		unless (f) {
+			L_err("cannot find include file %s", name);
+		} else {
+			/* This bails if includes nest too deeply. */
+			unless (include_push(f, name)) yyterminate();
+		}
+		BEGIN(INITIAL);
+	}
+	.	{
+		L_err("malformed include");
+		BEGIN(INITIAL);
+	}
+}
+
 <re_arg>{
-	/* A regexp used as a function argument (e.g., in
-	 * the "split" built-in). */
+	/*
+	 * A regexp used as a function argument (e.g., in the "split"
+	 * built-in).
+	 */
 	[ \t\r\n]*"/"	{
 		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
-		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
+		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = '/';
 	}
 	[ \t\r\n]*"m"[^a-zA-Z \t\r\n]	{
 		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
-		STRBUF_START(L_lloc.end - 1);  // next token starts at the "/"
+		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = *(yytext + yyleng - 1);
 	}
 }
@@ -320,19 +405,20 @@ tally_newlines(
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
 	"$"		STRBUF_ADD("$", 1);
-	[^\\\"$]+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
+	[^\\\"$]+	{
+				tally_newlines(yytext, yyleng);
+				STRBUF_ADD(yytext, yyleng);
+			}
 	"${"		{
 				yy_push_state(interpol);
-				MK_STRING_NODE(L_lval, STRBUF_STRING(),
-					       str_beg, L_lloc.end);
+				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
 	\"[ \t\r\n]*\"	tally_newlines(yytext, yyleng);
 	\"		{
 				yy_pop_state();
-				MK_STRING_NODE(L_lval, STRBUF_STRING(),
-					       str_beg, L_lloc.end);
+				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
 			}
@@ -342,11 +428,13 @@ tally_newlines(
 	\\n		STRBUF_ADD("\n", 1);
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
-	[^\\\']+	tally_newlines(yytext, yyleng); STRBUF_ADD(yytext, yyleng);
+	[^\\\']+	{
+				tally_newlines(yytext, yyleng);
+				STRBUF_ADD(yytext, yyleng);
+			}
 	\'		{
 				yy_pop_state();
-				MK_STRING_NODE(L_lval, STRBUF_STRING(),
-					       str_beg, L_lloc.end);
+				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
 			}
@@ -361,8 +449,7 @@ tally_newlines(
 <glob_re,subst_re>{
 	"${"		{
 				yy_push_state(interpol);
-				MK_STRING_NODE(L_lval, STRBUF_STRING(),
-					       str_beg, L_lloc.beg);
+				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
@@ -375,8 +462,7 @@ tally_newlines(
 			}
 	.		{
 				if (*(yytext) == re_quote_char) {
-					MK_STRING_NODE(L_lval, STRBUF_STRING(),
-						       str_beg, L_lloc.end);
+					L_lval.s = ckstrdup(STRBUF_STRING());
 					STRBUF_STOP(L_lloc.end);
 					if (YYSTATE == subst_re) {
 						yy_pop_state();
@@ -397,7 +483,7 @@ tally_newlines(
 }
 <re_modifier>{
 	[ig]+		{
-				MK_STRING_NODE(L_lval, yytext, L_lloc.beg, L_lloc.end);
+				L_lval.s = ckstrdup(yytext);
 				yy_pop_state();
 				return T_RE_MODIFIER;
 			}
@@ -414,16 +500,30 @@ tally_newlines(
 				 * matched by the "." rule in
 				 * <glob_re,subst_re> above.
 				 */
-				--L_token_offset;
+				--L->token_offset;
 				--L_lloc.end;  // now, L_lloc.beg == L_lloc.end
 				yy_pop_state();
-				L_lval = NULL;
+				L_lval.s = ckstrdup("");
 				return T_RE_MODIFIER;
 			}
 }
-	\f		/* ignore page breaks */
-	.		{	/* this is essentially an "else" */
-				fprintf(stderr, "%s:%d: L error: illegal character '%c'",
-				    L_source_file, L_line_number, *yytext);
-				exit(1);
+	.		{
+				/* This rule matches a char if no other does. */
+				L_err("illegal character '%c'", *yytext);
+				yyterminate();
 			}
+	<<EOF>>		{
+				unless (include_pop()) yyterminate();
+			}
+%%
+void
+L_lex_begReArg()
+{
+	yy_push_state(re_arg);
+}
+
+void
+L_lex_endReArg()
+{
+	yy_pop_state();
+}

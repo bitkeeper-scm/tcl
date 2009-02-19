@@ -6,6 +6,9 @@
 #
 # Copyright (c) 2007 BitMover, Inc.
 
+if {[info exists ::L_libl_initted]} { return }
+set ::L_libl_initted 1
+
 #if {[info commands Tcl_rename] eq ""} {
 	#rename rename Tcl_rename
 #}
@@ -194,8 +197,11 @@ proc warn {message} {
 #lang L
 /*
  * Types for compatibility with older versions of the compiler.
+ * The tcl typedef lets the tcl cast work now that it's not
+ * hard-coded.
  */
 typedef	poly	hash{poly};
+typedef	poly	tcl;
 
 /*
  * stdio stuff (some above because we don't have {*} yet).
@@ -266,7 +272,7 @@ int pclose(FILE f) { return (fclose(f)); }
 int
 fgetline(FILE f, string &buf)
 {
-	return (gets(f, &buf) > -1);
+	return ((int)gets(f, &buf) > -1);
 }
 
 string
@@ -281,13 +287,13 @@ stdio_getLastError()
 int
 streq(string a, string b)
 {
-	return (string("compare", a, b));
+	return (string("compare", a, b) eq "0");
 }
 
 int
 strneq(string a, string b, int n)
 {
-	return (string("equal", length: n, a, b));
+	return (string("equal", length: n, a, b) ne "0");
 }
 
 string
@@ -305,7 +311,7 @@ strrchr(string s, string c)
 int
 strlen(string s)
 {
-	return (string("length", s));
+	return ((int)string("length", s));
 }
 
 /*
