@@ -2807,7 +2807,10 @@ type_free(Type *type_list)
 	}
 }
 
-/* This is basically a whacked version of EnterCmdStartData in tclCompile.c. */
+/*
+ * This is basically a whacked version of EnterCmdStartData and
+ * EnterCmdWordData from tclCompile.c.
+ */
 private void
 track_cmd(int codeOffset, void *node)
 {
@@ -2815,8 +2818,11 @@ track_cmd(int codeOffset, void *node)
 	Ast	*ast = (Ast *)node;
 	int	len = ast->end - ast->beg;
 	int	srcOffset = ast->beg;
+	int	*wwlines;
+	ECL	*ePtr;
 	CmdLocation *cmdLocPtr;
 	CompileEnv *envPtr = L->frame->envPtr;
+	ExtCmdLoc *eclPtr = envPtr->extCmdMapPtr;
 
 	if ((cmdIndex < 0) || (cmdIndex >= envPtr->numCommands)) {
 		Tcl_Panic("track_cmd: bad command index %d", cmdIndex);
@@ -2867,6 +2873,29 @@ track_cmd(int codeOffset, void *node)
 		envPtr->cmdMapPtr[cmdIndex-1] = cmdLoc;
 		cmdIndex--;
 	}
+
+	if (eclPtr->nuloc >= eclPtr->nloc) {
+		/*
+		 * Expand the ECL array by allocating more storage
+		 * from the heap. The currently allocated ECL entries
+		 * are stored from eclPtr->loc[0] up to
+		 * eclPtr->loc[eclPtr->nuloc-1] (inclusive).
+		 */
+		size_t currElems = eclPtr->nloc;
+		size_t newElems = (currElems ? 2*currElems : 1);
+		size_t newBytes = newElems * sizeof(ECL);
+		eclPtr->loc = (ECL *) ckrealloc((char *) eclPtr->loc, newBytes);
+		eclPtr->nloc = newElems;
+	}
+
+	/* We enter only one word for the L command. */
+	ePtr = &eclPtr->loc[eclPtr->nuloc];
+	ePtr->srcOffset = srcOffset;
+	ePtr->line = (int *) ckalloc(sizeof(int));
+	ePtr->nline = 1;
+	wwlines = (int *) ckalloc(sizeof(int));
+	wwlines[0] = ast->line;
+	eclPtr->nuloc ++;
 }
 
 char *
