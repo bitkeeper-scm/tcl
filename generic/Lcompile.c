@@ -96,11 +96,15 @@ private void	compile_foreachArray(ForEach *loop);
 private void	compile_foreachHash(ForEach *loop);
 private void	compile_ifUnless(Cond *cond);
 private void	compile_incdec(Expr *expr);
+private void	compile_join(Expr *expr);
+private void	compile_keys(Expr *expr);
+private void	compile_length(Expr *expr);
 private void	compile_loop(Loop *loop);
 private void	compile_fnParms(VarDecl *decl);
 private void	compile_push(Expr *expr);
 private void	compile_return(Stmt *stmt);
 private void	compile_shortCircuit(Expr *expr);
+private void	compile_sort(Expr *expr);
 private void	compile_split(Expr *expr);
 private void	compile_stmt(Stmt *stmt);
 private void	compile_stmts(Stmt *stmt);
@@ -145,6 +149,21 @@ Type	*L_string;
 Type	*L_void;
 Type	*L_var;
 Type	*L_poly;
+
+/*
+ * L built-in functions.
+ */
+static struct {
+	char	*name;
+	void	(*fn)(Expr *);
+} builtins[] = {
+	{ "join",	compile_join },
+	{ "keys",	compile_keys },
+	{ "length",	compile_length },
+	{ "push",	compile_push },
+	{ "sort",	compile_sort },
+	{ "split",	compile_split },
+};
 
 /*
  * If TCL encounters an lang(L) directive while evaluating code directly,
@@ -346,6 +365,7 @@ compile_topLevels(TopLev *stmt)
 private void
 compile_fnDecl(FnDecl *fun)
 {
+	int	i;
 	char	*name = fun->decl->id->u.string;
 	Proc	*procPtr;
 	Sym	*sym;
@@ -358,6 +378,13 @@ compile_fnDecl(FnDecl *fun)
 	}
 	if (!strcmp(name, "END")) {
 		L_errf(fun->decl->id, "cannot use END for function name");
+	}
+	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
+		if (!strcmp(builtins[i].name, name)) {
+			L_errf(fun->decl->id,
+			       "function '%s' conflicts with built-in",
+			       name);
+		}
 	}
 
 	/*
@@ -758,6 +785,144 @@ compile_push(Expr *expr)
 }
 
 private void
+compile_keys(Expr *expr)
+{
+	int	n;
+
+	n = compile_exprs(expr->b, L_PUSH_VAL);
+	unless (n == 1) {
+		L_errf(expr, "incorrect # args to keys");
+		expr->type = L_poly;
+		return;
+	}
+	unless (ishash(expr->b) || ispoly(expr->b)) {
+		L_errf(expr, "arg to keys is not a hash");
+		expr->type = L_poly;
+		return;
+	}
+	push_str("::dict");
+	push_str("keys");
+	TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
+	emit_invoke(3);
+	if (ispoly(expr->b)) {
+		expr->type = L_poly;
+	} else {
+		expr->type = type_mkArray(0,
+					  expr->b->type->u.hash.idx_type,
+					  PER_INTERP);
+	}
+}
+
+private void
+compile_length(Expr *expr)
+{
+	int	n;
+
+	expr->type = L_int;
+
+	n = compile_exprs(expr->b, L_PUSH_VAL);
+	unless (n == 1) {
+		L_errf(expr, "incorrect # args to length");
+		return;
+	}
+	if (isstring(expr->b)) {
+		push_str("::string");
+		push_str("length");
+		TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
+		emit_invoke(3);
+	} else if (isarray(expr->b) || islist(expr->b) || ispoly(expr->b)) {
+		push_str("::llength");
+		TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
+		emit_invoke(2);
+	} else if (ishash(expr->b)) {
+		push_str("::dict");
+		push_str("size");
+		TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
+		emit_invoke(3);
+	} else {
+		L_errf(expr, "arg to length has illegal type");
+	}
+}
+
+private void
+compile_sort(Expr *expr)
+{
+	int	i, n;
+	Expr	*l;
+	Type	*t;
+
+	/*
+	 * Do some gymnastics to get this on the run-time stack:
+	 * ::lsort
+	 * <all args except last one>
+	 * -integer, -real, or -ascii depending on list type
+	 * <last arg (the thing to be sorted)>
+	 */
+
+	n = compile_exprs(expr->b, L_PUSH_VAL);
+	unless (n >= 1) {
+		L_errf(expr, "incorrect # args to sort");
+		return;
+	}
+	/* Last argument to sort must be an array, list, or poly. */
+	for (i = 0, l = expr->b; i < (n-1); ++i) l = l->next;
+	if (isarray(l) || islist(l)) {
+		t = l->type->base_type;
+	} else if (ispoly(l)) {
+		t = L_poly;
+	} else {
+		L_errf(expr, "last arg to sort not an array or list");
+		return;
+	}
+	switch (t->kind) {
+	    case L_INT:
+		push_str("-integer");
+		break;
+	    case L_FLOAT:
+		push_str("-real");
+		break;
+	    default:
+		push_str("-ascii");
+		break;
+	}
+	TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
+	if (n > 255) L_errf(expr, "sort cannot have >255 args");
+	push_str("::lsort");
+	TclEmitInstInt1(INST_ROT, -(n+1), L->frame->envPtr);
+	emit_invoke(n+2);
+	expr->type = type_mkArray(0, t, PER_INTERP);
+}
+
+private void
+compile_join(Expr *expr)
+{
+	int	n;
+	Expr	*array;
+	Expr	*sep = NULL;
+
+	expr->type = L_string;
+
+	n = compile_exprs(expr->b, L_PUSH_VAL);
+	unless ((n == 1) || (n == 2)) {
+		L_errf(expr, "incorrect # args to join");
+		return;
+	}
+	array = expr->b;
+	if (n == 2) sep = expr->b->next;
+	unless (isarray(array) || islist(array) || ispoly(array)) {
+		L_errf(expr, "first arg to join not an array or list");
+		return;
+	}
+	unless (!sep || (isstring(sep) || ispoly(sep))) {
+		L_errf(expr, "second arg to join not a string");
+		return;
+	}
+	push_str("::join");
+	TclEmitInstInt1(INST_ROT, -n, L->frame->envPtr);
+	emit_invoke(n+1);
+}
+
+private void
 compile_expr(Expr *expr, L_Expr_f flags)
 {
 	int	start_off = currOffset(L->frame->envPtr);
@@ -864,7 +1029,7 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
 private void
 compile_fnCall(Expr *expr)
 {
-	int	num_parms;
+	int	i, num_parms;
 	char	*foo, *name;
 	Expr	*Foo_star, *bar;
 	Sym	*sym;
@@ -873,12 +1038,11 @@ compile_fnCall(Expr *expr)
 	name = expr->a->u.string;
 
 	/* Check for an L built-in function. */
-	if (!strcmp(name, "split")) {
-		compile_split(expr);
-		return;
-	} else if (!strcmp(name, "push")) {
-		compile_push(expr);
-		return;
+	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
+		if (!strcmp(builtins[i].name, name)) {
+			builtins[i].fn(expr);
+			return;
+		}
 	}
 
 	sym = sym_lookup(expr->a, NOWARN);
