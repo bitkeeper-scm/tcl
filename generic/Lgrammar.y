@@ -96,7 +96,7 @@ extern int	L_lex (void);
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_SPLIT
+%token T_SPLIT T_DOTDOT
 
 /*
  * This follows the C operator-precedence rules, from lowest to
@@ -725,6 +725,10 @@ expr:
 	| expr "," expr
 	{
 		$$ = ast_mkBinOp(L_OP_COMMA, $1, $3, @1.beg, @3.end);
+	}
+	| expr "[" expr T_DOTDOT expr "]"
+	{
+		$$ = ast_mkTrinOp(L_OP_ARRAY_SLICE, $1, $3, $5, @1.beg, @3.end);
 	}
 	/*
 	 * We don't really need to open a scope here, but it doesn't hurt, and

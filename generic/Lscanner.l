@@ -211,6 +211,7 @@ include_pop()
 	"="		return T_EQUALS;
 	";"		return T_SEMI;
 	"."		return T_DOT;
+	".."		return T_DOTDOT;
 	"..."		return T_ELLIPSIS;
 	"class"		return T_CLASS;
 	"extern"	return T_EXTERN;

@@ -82,6 +82,7 @@ typedef struct {
 	Ast	*mains_ast;	// root of AST when main() last seen
 	Tcl_HashTable	*include_table;
 	Tcl_Interp	*interp;
+	int	idx_nesting;	// current depth of nested []'s
 } Lglobal;
 
 /*
@@ -109,24 +110,26 @@ struct Sym {
 };
 
 /*
- * Flags for L deep-dive bytecodes.  Bits are used for simplicity even
- * though some of these are mutually exclusive.
+ * Flags for L expression compilation.  Bits are used for simplicity
+ * even though some of these are mutually exclusive.
  */
 typedef enum {
-	L_DEEP_HASH_FIRST = 0x01,
-	L_DEEP_VAL	  = 0x02,
-	L_DEEP_PTR	  = 0x04,
-	L_DEEP_VAL_PTR    = 0x08,
-	L_DEEP_PTR_VAL    = 0x10,
-	L_DEEP_NEW	  = 0x20,
-	L_DEEP_OLD	  = 0x40,
-} Deep_f;
+	L_IDX_ARRAY   = 0x0001,	// what kind of thing we're indexing
+	L_IDX_HASH    = 0x0002,
+	L_IDX_STRING  = 0x0004,
+	L_LVALUE      = 0x0010, // if we will be writing the obj
+	L_PUSH_VAL    = 0x0020,	// what we want INST_L_INDEX to leave on
+	L_PUSH_PTR    = 0x0040,	//   the stack
+	L_PUSH_VALPTR = 0x0080,
+	L_PUSH_PTRVAL = 0x0100,
+	L_DISCARD     = 0x0200,	// have compile_expr discard the val, not push
+	L_PUSH_NEW    = 0x0400,	// whether INST_L_DEEP_WRITE should push the
+	L_PUSH_OLD    = 0x0800,	//   new or old value
+} L_Expr_f;
 
 extern char	*ckstrdup(const char *str);
 extern char	*ckstrndup(const char *str, int len);
 extern void	L_bomb(const char *format, ...);
-extern Tcl_Obj	**L_deepDive(Tcl_Interp *interp, Tcl_Obj *valuePtr,
-			     Tcl_Obj **idxPtr, Tcl_Obj *countPtr, Deep_f flags);
 extern void	L_err(const char *s, ...);	// yyerror
 extern void	L_errf(void *node, const char *format, ...);
 extern void	L_lex_begReArg();
@@ -152,12 +155,12 @@ extern void	L_typeck_fncall(VarDecl *formals, Expr *call);
 extern int	L_typeck_same(Type *a, Type *b);
 extern Type	*L_typedef_lookup(char *name);
 extern void	L_typedef_store(VarDecl *decl);
+extern Tcl_Obj **L_undefObjPtrPtr();
 extern void	L_warn(char *s);
 extern void	L_warnf(void *node, const char *format, ...);
 
 extern Lglobal	*L;
 extern Tcl_ObjType L_undefType;
-extern Tcl_ObjType L_deepPtrType;
 extern Type	*L_int;
 extern Type	*L_float;
 extern Type	*L_string;
@@ -206,7 +209,7 @@ ispoly(Expr *expr)
 	return (expr->type && (expr->type->kind == L_POLY));
 }
 static inline int
-isdeepdive(Expr *expr)
+isindexop(Expr *expr)
 {
 	return ((expr->kind == L_EXPR_BINOP) &&
 		((expr->op == L_OP_ARRAY_INDEX) ||

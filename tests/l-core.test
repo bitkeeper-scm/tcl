@@ -1551,11 +1551,612 @@ void array_1_4() {
   puts(foo);
   puts(pop(&foo));
   puts(foo);
-} 
+}
 #lang tcl
 array_1_4
 } -output "1 2 3\n3\n1 2\n2\n1\n1\n\n\n\n"
 
+test strindex_1 {string indexing} -body {
+#lang L
+void strindex_1()
+{
+	int	i;
+	string	s, s2;
+	struct {
+		string	s;
+	} st;
+	string	sa[];
+	string	sh{string};
+
+	s = "abcd";
+	s[0] = "x";
+	unless (s eq "xbcd") puts("bad 1.1");
+	s[1] = "y";
+	unless (s eq "xycd") puts("bad 1.2");
+	s[2] = "z";
+	unless (s eq "xyzd") puts("bad 1.3");
+	s[3] = "q";
+	unless (s eq "xyzq") puts("bad 1.4");
+	s[3] = "";
+	unless (s eq "xyz") puts("bad 1.5");
+	s[0] = "";
+	unless (s eq "yz") puts("bad 1.6");
+	s[0] = "";
+	unless (s eq "z") puts("bad 1.7");
+	s[0] = "";
+	unless (s eq "") puts("bad 1.8");
+	s = "abcd";
+	if (defined(s[4])) puts("bad 1.9");
+
+	st.s = "abcd";
+	st.s[0] = "x";
+	unless (st.s eq "xbcd") puts("bad 2.1");
+	st.s[1] = "y";
+	unless (st.s eq "xycd") puts("bad 2.2");
+	st.s[2] = "z";
+	unless (st.s eq "xyzd") puts("bad 2.3");
+	st.s[3] = "q";
+	unless (st.s eq "xyzq") puts("bad 2.4");
+	st.s[3] = "";
+	unless (st.s eq "xyz") puts("bad 2.5");
+	st.s[0] = "";
+	unless (st.s eq "yz") puts("bad 2.6");
+	st.s[0] = "";
+	unless (st.s eq "z") puts("bad 2.7");
+	st.s[0] = "";
+	unless (st.s eq "") puts("bad 2.8");
+	st.s = "abcd";
+	if (defined(st.s[4])) puts("bad 2.9");
+
+	sa[0] = "abcd";
+	sa[0][0] = "x";
+	unless (sa[0] eq "xbcd") puts("bad 3.1");
+	sa[0][1] = "y";
+	unless (sa[0] eq "xycd") puts("bad 3.2");
+	sa[0][2] = "z";
+	unless (sa[0] eq "xyzd") puts("bad 3.3");
+	sa[0][3] = "q";
+	unless (sa[0] eq "xyzq") puts("bad 3.4");
+	sa[0][3] = "";
+	unless (sa[0] eq "xyz") puts("bad 3.5");
+	sa[0][0] = "";
+	unless (sa[0] eq "yz") puts("bad 3.6");
+	sa[0][0] = "";
+	unless (sa[0] eq "z") puts("bad 3.7");
+	sa[0][0] = "";
+	unless (sa[0] eq "") puts("bad 3.8");
+	sa[0] = "abcd";
+	if (defined(sa[0][4])) puts("bad 3.9");
+
+	sh{"zero"} = "abcd";
+	sh{"zero"}[0] = "x";
+	unless (sh{"zero"} eq "xbcd") puts("bad 4.1");
+	sh{"zero"}[1] = "y";
+	unless (sh{"zero"} eq "xycd") puts("bad 4.2");
+	sh{"zero"}[2] = "z";
+	unless (sh{"zero"} eq "xyzd") puts("bad 4.3");
+	sh{"zero"}[3] = "q";
+	unless (sh{"zero"} eq "xyzq") puts("bad 4.4");
+	sh{"zero"}[3] = "";
+	unless (sh{"zero"} eq "xyz") puts("bad 4.5");
+	sh{"zero"}[0] = "";
+	unless (sh{"zero"} eq "yz") puts("bad 4.6");
+	sh{"zero"}[0] = "";
+	unless (sh{"zero"} eq "z") puts("bad 4.7");
+	sh{"zero"}[0] = "";
+	unless (sh{"zero"} eq "") puts("bad 4.8");
+	sh{"zero"} = "abcd";
+	if (defined(sh{"zero"}[4])) puts("bad 4.9");
+
+	s = "abcd";
+	s[1] =~ s/n/nochange/;
+	unless (s eq "abcd") puts("bad 5.1");
+	s[0] =~ s/n/nochange/;
+	unless (s eq "abcd") puts("bad 5.2");
+	s[3] =~ s/n/nochange/;
+	unless (s eq "abcd") puts("bad 5.3");
+	s[0] =~ s/a/was-a/;
+	unless (s eq "was-abcd") puts("bad 5.4");
+	s[5] =~ s/b/was-b/;
+	unless (s eq "was-awas-bcd") puts("bad 5.5");
+	s[11] =~ s/d/was-d/;
+	unless (s eq "was-awas-bcwas-d") puts("bad 5.6");
+	s[0] =~ s/w//;
+	unless (s eq "as-awas-bcwas-d") puts("bad 5.7");
+	s[0] =~ s/a//;
+	unless (s eq "s-awas-bcwas-d") puts("bad 5.8");
+	s[1] =~ s/-//;
+	unless (s eq "sawas-bcwas-d") puts("bad 5.9");
+	s[12] =~ s/d//;
+	unless (s eq "sawas-bcwas-") puts("bad 5.10");
+
+	s = "0123456789";
+	for (i = 0; i < String_length(s); ++i) {
+		s[i] =~ s/${i}/${i+1}/;
+	}
+	unless (s eq "12345678910") puts("bad 6.1");
+
+	/*
+	 * Ensure that an un-shared copy of the string is made.
+	 */
+	s = "xyzzy";
+	s2 = s;  // s2 and s now share the same Tcl_Obj
+	s[1] = "x";
+	unless (s eq "xxzzy") puts("bad 7.1");
+	unless (s2 eq "xyzzy") puts("bad 7.2");
+}
+strindex_1();
+} -output {}
+
+test strindex_2 {string indexing errors 1} -body {
+#lang L
+void strindex_2()
+{
+	string	s = "bad";
+	s[-1] = "x";  // run-time error
+}
+strindex_2();
+} -returnCodes error -result {negative string index illegal}
+
+test strindex_3 {string indexing errors 2} -body {
+#lang L
+void strindex_3()
+{
+	string	s = "bad";
+	puts (s[-1]);  // run-time error
+}
+strindex_3();
+} -returnCodes error -result {negative string index illegal}
+
+test strindex_4 {string indexing errors 3} -body {
+#lang L
+void strindex_4()
+{
+	string	s = "bad";
+	s[-1] =~ s/b/bad/;  // run-time error
+}
+strindex_4();
+} -returnCodes error -result {negative string index illegal}
+
+test strindex_5 {string indexing index using comma expression} -body {
+#lang L
+void strindex_5()
+{
+	/*
+	 * This checks an obscure case to ensure that a string index
+	 * whose value is discarded -- the first expression in a comma
+	 * expression -- is compiled properly.
+	 */
+
+	string	s = "abcde";
+
+	/* The value of "fgh"[0] is discarded in the "s" index expression. */
+	unless (s[ "fgh"[0], 2 ] eq "c") puts("bad 1");
+}
+strindex_5();
+} -output {}
+
+test strindex_6 {writing to a string index beyond end of string} -body {
+#lang L
+void strindex_6()
+{
+	string	s = "good";
+	s[END+2] = "bad";  // run-time error
+}
+strindex_6();
+} -returnCodes error -result {index is more than one past end of string}
+
+test slice_1 {string slicing} -body {
+#lang L
+string slice_1_f(string s) { return (s); }
+void slice_1()
+{
+	int	i, j;
+	string	s;
+
+	s = "";
+	unless (s[0..0] eq "") puts("bad 1.1");
+
+	s = "a";
+	unless (s[0..0] eq "a") puts("bad 2.1");
+
+	s = "abcdefg";
+	unless (s[0..0] eq "a") puts("bad 3.1");
+	unless (s[0..1] eq "ab") puts("bad 3.2");
+	unless (s[0..2] eq "abc") puts("bad 3.3");
+	unless (s[0..3] eq "abcd") puts("bad 3.4");
+	unless (s[0..4] eq "abcde") puts("bad 3.5");
+	unless (s[1..1] eq "b") puts("bad 3.6");
+	unless (s[1..2] eq "bc") puts("bad 3.7");
+	unless (s[1..3] eq "bcd") puts("bad 3.8");
+	unless (s[1..4] eq "bcde") puts("bad 3.9");
+	unless (s[2..2] eq "c") puts("bad 3.10");
+	unless (s[2..3] eq "cd") puts("bad 3.11");
+	unless (s[2..4] eq "cde") puts("bad 3.12");
+	unless (s[3..3] eq "d") puts("bad 3.13");
+	unless (s[3..4] eq "de") puts("bad 3.14");
+	unless (s[4..4] eq "e") puts("bad 3.15");
+	unless (s[0..10] eq "abcdefg") puts("bad 3.20");
+	unless (s[-1..0] eq "a") puts("bad 3.21");
+	unless (s[-1..1] eq "ab") puts("bad 3.22");
+	unless (s[-1..10] eq "abcdefg") puts("bad 3.23");
+	unless (s[2..1] eq "") puts("bad 3.24");
+
+	s = "0123456789";
+	unless (s[2..4][0..0] eq "2") puts("bad 4.1");
+	unless (s[2..4][1..1] eq "3") puts("bad 4.2");
+	unless (s[1..8][1..6][1..4][1..2] eq "45") puts("bad 4.3");
+
+	s = "0123456789";
+	unless (slice_1_f(s)[2..4][0..0] eq "2") puts("bad 5.1");
+	unless (slice_1_f(s)[2..4][1..1] eq "3") puts("bad 5.2");
+	unless (slice_1_f(s)[1..8][1..6][1..4][1..2] eq "45") puts("bad 5.3");
+
+	s = "0123456789";
+	i = 2;
+	j = 4;
+	unless (s[i..j] eq "234") puts("bad 6.1");
+	unless (s[i-1..j] eq "1234") puts("bad 6.2");
+	unless (s[i-1..j+1] eq "12345") puts("bad 6.3");
+}
+slice_1();
+} -output {}
+
+test slice_2 {array slicing} -body {
+#lang L
+string slice_2_tostr(int a[])
+{
+	int	i;
+	string	ret = "";
+
+	foreach (i in a) ret = sprintf("%s<%i>", ret, i);
+	return (ret);
+}
+void slice_2()
+{
+	int	ai[];
+	string	s;
+
+	ai = { 0, 1, 2, 3, 4 };
+	unless (slice_2_tostr(ai[0..0]) eq "<0>") puts("bad 1.1");
+	unless (slice_2_tostr(ai[0..1]) eq "<0><1>") puts("bad 1.2");
+	unless (slice_2_tostr(ai[0..2]) eq "<0><1><2>") puts("bad 1.3");
+	unless (slice_2_tostr(ai[0..3]) eq "<0><1><2><3>") puts("bad 1.4");
+	unless (slice_2_tostr(ai[0..4]) eq "<0><1><2><3><4>") puts("bad 1.5");
+	unless (slice_2_tostr(ai[1..1]) eq "<1>") puts("bad 1.6");
+	unless (slice_2_tostr(ai[1..2]) eq "<1><2>") puts("bad 1.7");
+	unless (slice_2_tostr(ai[1..3]) eq "<1><2><3>") puts("bad 1.8");
+	unless (slice_2_tostr(ai[1..4]) eq "<1><2><3><4>") puts("bad 1.9");
+	unless (slice_2_tostr(ai[2..2]) eq "<2>") puts("bad 1.10");
+	unless (slice_2_tostr(ai[2..3]) eq "<2><3>") puts("bad 1.11");
+	unless (slice_2_tostr(ai[2..4]) eq "<2><3><4>") puts("bad 1.12");
+	unless (slice_2_tostr(ai[3..3]) eq "<3>") puts("bad 1.13");
+	unless (slice_2_tostr(ai[3..4]) eq "<3><4>") puts("bad 1.14");
+	unless (slice_2_tostr(ai[4..4]) eq "<4>") puts("bad 1.15");
+
+	s = slice_2_tostr(ai[0..3][0..2]);
+	unless (s eq "<0><1><2>") puts("bad 2.1");
+	s = slice_2_tostr(ai[0..3][0..2][0..1]);
+	unless (s eq "<0><1>") puts("bad 2.2");
+	s = slice_2_tostr(ai[0..3][0..2][0..1][0..0]);
+	unless (s eq "<0>") puts("bad 2.3");
+
+	s = slice_2_tostr(ai[1..3][0..2]);
+	unless (s eq "<1><2><3>") puts("bad 3.1");
+	s = slice_2_tostr(ai[1..3][0..1]);
+	unless (s eq "<1><2>") puts("bad 3.2");
+	s = slice_2_tostr(ai[1..3][0..2][0..2][0..2][0..2]);
+	unless (s eq "<1><2><3>") puts("bad 3.3");
+
+	/* Check expressions as slice indices. */
+	s = slice_2_tostr(ai[1-1..2+1][0*10..2]);
+	unless (s eq "<0><1><2>") puts("bad 4.1");
+	s = slice_2_tostr(ai[1-1..ai[2..2][0]+1][0*10..ai[2]]);
+	unless (s eq "<0><1><2>") puts("bad 4.2");
+
+	/* Check slices of lists. */
+	s = slice_2_tostr({0,1,2,3,4}[1..3]);
+	unless (s eq "<1><2><3>") puts("bad 5.1");
+}
+slice_2();
+} -output {}
+
+test slice_2.1 {array slicing 2} -body {
+#lang L
+void slice_2_1()
+{
+	/*
+	 * Althgouh probably not recommended style, these should work.
+	 */
+
+	struct s1 {
+		int	i1, i2, i3, i4;
+	} st1;
+	struct s2 {
+		int	i1, i2;
+	} st2;
+
+	st2 = (struct s2){1,2,3,4}[1..2];
+	unless ((st2.i1 == 2) && (st2.i2 == 3)) puts("bad 1");
+
+	st1 = { 5, 6, 7, 8 };
+	st2 = (struct s2) ((int[])st1)[1..2];
+	unless ((st2.i1 == 6) && (st2.i2 == 7)) puts("bad 2");
+}
+slice_2_1();
+} -output {}
+
+test slice_3 {array slice errors} -body {
+#lang L
+void slice_3()
+{
+	int	i;
+	float	f;
+	struct {
+		int	i, j;
+	} st;
+	int	h{int};
+
+	i = i[0..1];
+	f = f[0..1];
+	i = st[0..1];
+	i = h[0..1];
+}
+} -returnCodes error -match regexp -result {.*10: L Error: illegal type for slice
+.*11: L Error: illegal type for slice
+.*12: L Error: illegal type for slice
+.*13: L Error: illegal type for slice
+}
+
+test slice_4 {array slice index errors} -body {
+#lang L
+void slice_4()
+{
+	int	a[], i;
+	float	f;
+
+	i = a[0.0..1];
+	i = a[0..1.0];
+	i = a[0.0..1.0];
+	i = a[f..1];
+	i = a[0..f];
+	i = a[f..f];
+	i = a[a..a];
+}
+} -returnCodes error -match regexp -result {.*6: L Error: first slice index not an int
+.*7: L Error: second slice index not an int
+.*8: L Error: first slice index not an int
+.*8: L Error: second slice index not an int
+.*9: L Error: first slice index not an int
+.*10: L Error: second slice index not an int
+.*11: L Error: first slice index not an int
+.*11: L Error: second slice index not an int
+.*12: L Error: first slice index not an int
+.*12: L Error: second slice index not an int
+}
+
+test end-1 {test END keyword for string indices} -body {
+#lang L
+int end_1_f(int end) {
+	unless ("abc"[END] eq "c") puts("bad f.1");
+	return (end);
+}
+void end_1()
+{
+	int	e1, e2, e3;
+	string	s, s1, s2, s3;
+	string	as[];
+
+	/* Ensure END works and can be used in a full-blown expression. */
+	s = "abcde";
+	as[0] = "123";
+	as[1] = "456";
+	as[2] = "789";
+	unless (s[END] eq "e") puts("bad 1.1");
+	unless (s[END-1] eq "d") puts("bad 1.2");
+	unless (s[END-2] eq "c") puts("bad 1.3");
+	unless (s[END/2+2] eq "e") puts("bad 1.4");
+	unless (s[end_1_f(END)/2+2] eq "e") puts("bad 1.5");
+	unless (s[END-END+END-END+END*0+END] eq "e") puts("bad 1.6");
+	unless ("xyz123"[END] eq "3") puts("bad 1.7");
+
+	/*
+	 * These check END for something that is represented on the
+	 * run-time stack as an L deep-ptr (as[0]).
+	 */
+	unless (as[0][END] eq "3") puts("bad 1.8");
+	unless (as[1][END] eq "6") puts("bad 1.9");
+	unless (as[2][END] eq "9") puts("bad 1.10");
+
+	/* Grab the value of END and verify it. */
+	e1 = -1;
+	s = "abcde";
+	unless (s[0,e1=END] eq "e") puts("bad 2.1");
+	unless (e1 == 4) puts("bad 2.2");
+	e1 = -1;
+	unless (s[e1=END,0] eq "a") puts("bad 2.3");
+	unless (e1 == 4) puts("bad 2.4");
+
+	/* Check nested ENDs. */
+	e1 = e2 = -1;
+	s1 = "abcde"[ s2="fgh"[e2=END], e1=END ];
+	unless ((s1 eq "e") && (s2 eq "h")) puts("bad 3.1");
+	unless ((e1 == 4) && (e2 == 2)) puts("bad 3.2");
+	e1 = e2 = -1;
+	s1 = "abcde"[ s2="fgh"[ s3="pqrstuvwxyz"[e3=END], e2=END ], e1=END ];
+	unless ((s1 eq "e") && (s2 eq "h") && (s3 eq "z")) puts("bad 3.3");
+	unless ((e1 == 4) && (e2 == 2) && (e3 == 10)) puts("bad 3.4");
+}
+end_1();
+} -output {}
+
+test end-2 {test END keyword for arrays} -body {
+#lang L
+int end_2_f(int end) {
+	unless ({7,8,9}[END] == 9) puts("bad f.1");
+	return (end);
+}
+void end_2()
+{
+	int	e1, e2, e3, i1, i2, i3;
+	int	a[], aa[][];
+
+	/* Ensure END works and can be used in a full-blown expression. */
+	a = {1,2,3};
+	unless (a[END] == 3) puts("bad 1.1");
+	unless (a[END-1] == 2) puts("bad 1.2");
+	unless (a[END-2] == 1) puts("bad 1.3");
+	unless (a[END/2] == 2) puts("bad 1.4");
+	unless (a[END/2+END/2] == 3) puts("bad 1.5");
+	unless (a[END-END-END-END+END+END] == 1) puts("bad 1.6");
+	unless (a[end_1_f(END)/2+1] == 3) puts("bad 1.7");
+	unless ({1,2,3}[END] == 3) puts("bad 1.8");
+	unless ({1,2,3}[END-1] == 2) puts("bad 1.9");
+	unless ({1,2,3}[END-2] == 1) puts("bad 1.10");
+
+	/*
+	 * These check END for something that is represented on the
+	 * run-time stack as an L deep-ptr (aa[0]).
+	 */
+	aa[0] = {4,5,6};
+	aa[1] = {7,8,9};
+	aa[2] = {10,11,12};
+	unless (aa[0][END] == 6) puts("bad 2.1");
+	unless (aa[1][END] == 9) puts("bad 2.2");
+	unless (aa[2][END] == 12) puts("bad 2.3");
+
+	/* Grab the value of END and verify it. */
+	e1 = -1;
+	a = {1,2,3};
+	unless (a[0,e1=END] == 3) puts("bad 3.1");
+	unless (e1 == 2) puts("bad 3.2");
+	e1 = -1;
+	unless (a[e1=END,0] == 1) puts("bad 3.3");
+	unless (e1 == 2) puts("bad 3.4");
+	e1 = -1;
+	if (defined({}[e1=END])) puts("bad 3.5");
+	unless (e1 == -1) puts("bad 3.6");
+
+	/* Check nested ENDs. */
+	e1 = e2 = e3 = -1;
+	i1 = {1,2,3}[ i2={4,5,6,7}[e2=END], e1=END ];
+	unless ((i1 == 3) && (i2 == 7)) puts("bad 4.1");
+	unless ((e1 == 2) && (e2 == 3)) puts("bad 4.2");
+	e1 = e2 = e3 = -1;
+	i1 = {1,2,3}[ i2={4,5,6,7}[ i3={8,9}[e3=END], e2=END ], e1=END ];
+	unless ((i1 == 3) && (i2 == 7) && (i3 == 9)) puts("bad 4.3");
+	unless ((e1 == 2) && (e2 == 3) && (e3 == 1)) puts("bad 4.4");
+
+	/* Some multiple ENDs. */
+	aa = { {1,2,3}, {4,5,6}, {7,8,9}, {10,11,12} };
+	e1 = e2 = -1;
+	unless (aa[e1=END][e2=END] == 12) puts("bad 5.1");
+	unless ((e1 == 3) && (e2 == 2)) puts("bad 5.2");
+}
+end_2();
+} -output {}
+
+test end-3 {test END usage for string append} -body {
+#lang L
+void end_3()
+{
+	int	i;
+	string	s;
+	string	atoz="abcdefghijklmnopqrstuvwxyz";
+
+	s = "";
+	for (i = 0; i < 26; ++i) {
+		s[END+1] = atoz[i];
+	}
+	for (i = 0; i < 26; ++i) {
+		unless (s[i] eq atoz[i]) printf("bad 1.1 i=%d", i);
+	}
+	if (defined(s[i])) puts("bad 1.2");
+	unless (s eq "abcdefghijklmnopqrstuvwxyz") puts("bad 1.3");
+}
+end_3();
+} -output {}
+
+test end-4 {test END usage for array append} -body {
+#lang L
+void end_4()
+{
+	int	e1, e2, i;
+	int	a[], aa[][], aaa[][][];
+
+	a = {};
+	for (i = 0; i < 100; ++i) {
+		a[END+1] = i;
+	}
+	for (i = 0; i < 100; ++i) {
+		unless (a[i] == i) printf("bad 1.1 i=%d\n", i);
+	}
+	if (defined(a[i])) puts("bad 1.2");
+
+	aa = {};
+	e1 = e2 = -2;
+	aa[(e1=END)+1][(e2=END)+1] = 100;
+	unless ((e1 == -1) && (e2 == -1)) puts("bad 2.1");
+	unless (aa[e1=END][e2=END] == 100) puts("bad 2.2");
+	unless ((e1 == 0) && (e2 == 0)) puts("bad 2.3");
+
+	aa = {};
+	for (i = 0; i < 10; ++i) {
+		aa[END+1][END+1] = i;
+		aa[END][END+1]   = 10*i;
+	}
+	for (i = 0; i < 10; ++i) {
+		unless (aa[i][0] == i) puts("bad 3.1");
+		unless (aa[i][1] == 10*i) puts("bad 3.2");
+		if (defined(aa[i][2])) puts("bad 3.3");
+	}
+	if (defined(aa[i][0])) puts("bad 3.4");
+}
+end_4();
+} -output {}
+
+test end-5 {test END with recursion} -body {
+#lang L
+int end_5_f(int lim, int n)
+{
+	int	a[], e, i;
+
+	/* Put n things into a[]. */
+	for (i = 0; i < n; ++i) a[END+1] = i;
+
+	if (n < lim) {
+		/* e should get END+1; i.e., the # of things in a[] */
+		a[e = (END+end_5_f(lim,n+1)+END)/2 + 1];
+		unless (e == n) printf("bad n=%d, e=%d\n", n, e);
+	}
+	return (0);
+}
+void end_5()
+{
+	/*
+	 * This test makes sure we can have lots of different ENDs all
+	 * stacked up at once.
+	 */
+	end_5_f(100, 0);
+}
+end_5();
+} -output {}
+
+test end-6 {test END errors} -body {
+#lang L
+int END;  // err -- cannot declare global w/name "END"
+void END() {}  // err -- cannot declare function w/name "END"
+void end_6()
+{
+	int	END, i;  // err -- cannot declare variable w/name "END"
+
+	i = END;  // err -- cannot use END outside of an array or string index
+}
+} -returnCodes error -match regexp -result {.*1: L Error: cannot use END.*
+.*2: L Error: cannot use END.*
+.*5: L Error: cannot use END.*
+.*7: L Error: END illegal.*
+}
 
 test loop-1.0 {while loops} -body {
 #lang L
@@ -7687,16 +8288,16 @@ void lvalue_2()
 }
 #lang tcl
 lvalue_2
-} -returnCodes {error} -match regexp -result {.*11: L Error: target of assignment is not an l-value
-.*12: L Error: target of assignment is not an l-value
-.*13: L Error: target of assignment is not an l-value
-.*14: L Error: target of assignment is not an l-value
-.*15: L Error: target of assignment is not an l-value
-.*17: L Error: target of assignment is not an l-value
-.*18: L Error: target of assignment is not an l-value
-.*19: L Error: target of assignment is not an l-value
-.*20: L Error: target of assignment is not an l-value
-.*21: L Error: target of assignment is not an l-value
+} -returnCodes {error} -match regexp -result {.*11: L Error: invalid l-value in assignment
+.*12: L Error: invalid l-value in assignment
+.*13: L Error: invalid l-value in inc/dec
+.*14: L Error: invalid l-value in inc/dec
+.*15: L Error: invalid l-value in =~
+.*17: L Error: invalid l-value in assignment
+.*18: L Error: invalid l-value in assignment
+.*19: L Error: invalid l-value in inc/dec
+.*20: L Error: invalid l-value in inc/dec
+.*21: L Error: invalid l-value in =~
 }
 
 test lvalue-3 {invalid l-value in inc/dec operators} -body {
