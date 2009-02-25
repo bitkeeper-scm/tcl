@@ -197,12 +197,10 @@ test if-1.0 {jump target is wrong when else block gets too big} -body {
 #lang L -nowarn
 void if_1_0() {
 	string w = ".asdf";
-	string b = "${w}.b", btm = "${w}.btm"; /* XXX use properties */
-	string lbox = "${btm}.lbox", vs = "${btm}.vs", e = "${w}.e";
+	string btm = "${w}.btm", e = "${w}.e";
 	if (0) {
 		puts("wicky wicky2");
 		wm("withdraw", btm);
-		b("configure", relief: "raised");
 	} else {
 		string width, h, h1, x, y;
 		puts("wicky wicky3");
@@ -296,13 +294,6 @@ break_1_0();
 #lang tcl
 } -output {00000}
 
-test pattern-1.1 {L pattern functions for Tcl commands} -body {
-#lang L
-puts(String_length("FOO"));
-puts(String_tolower("FOO"));
-#lang tcl
-} -output "3\nfoo\n"
-
 test typedef-1.0 {L redeclaring types is allowed for same types} -body {
 #lang L
 typedef string typedef_1_0_FOO;
@@ -341,7 +332,7 @@ void pattern_1_2_foo(...args)
 
 void pattern_1_2()
 {
-	widget w = "pattern_1_2_foo";
+	string w = "pattern_1_2_foo";
 	Text_insert(w, "end", "FOO");
 }
 pattern_1_2();

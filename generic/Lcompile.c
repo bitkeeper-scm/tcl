@@ -184,41 +184,7 @@ Type	*L_float;
 Type	*L_string;
 Type	*L_void;
 Type	*L_var;
-Type	*L_widget;
 Type	*L_poly;
-
-/*
- * Unlike the other isxxx type functions, this one doesn't require the
- * expression to have been compiled yet.  It peeks into it just far
- * enough to figure out if it's a widget.  This is needed since to
- * compile a pattern-function call we need to know if the first arg is
- * a widget *before* it is compiled.
- */
-static inline int
-iswidget(Expr *expr)
-{
-	Sym *sym;
-
-	if (expr->type) return (expr->type->kind == L_WIDGET);
-	/*
-	 * Test these if the expression hasn't yet been compiled.
-	 * These are the only expressions that can produce a widget.
-	 */
-	switch (expr->kind) {
-	    case L_EXPR_UNOP:
-		return ((expr->op == L_OP_CAST) &&
-			(((Type *)expr->a)->kind == L_WIDGET));
-	    case L_EXPR_ID:
-		sym = sym_lookup(expr, NOWARN);
-		return (sym && (sym->type->kind == L_WIDGET));
-	    case L_EXPR_FUNCALL:
-		sym = sym_lookup(expr->a, NOWARN);
-		return (sym && (sym->type->kind == L_FUNCTION) &&
-			(sym->type->base_type == L_widget));
-	    default:
-		return (0);
-	}
-}
 
 /*
  * If TCL encounters an lang(L) directive while evaluating code directly,
@@ -915,10 +881,7 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
 /*
  * Rules for compiling a function call like "foo(arg)":
  *
- * - If foo is as variable of type string, poly, or name-of function,
- *   assume it contains the name of the function to call.
- *
- * - Otherwise call foo.  If foo isn't declared, that's OK, we just won't
+ * - Call foo.  If foo isn't declared, that's OK, we just won't
  *   have a prototype to type-check against.
  *
  * For a function call like "Foo_bar(a,b,c)", where the name starts with
@@ -929,11 +892,8 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
  *
  * - If the function Foo_* is defined, change the call to Foo_*(bar,a,b,c).
  *
- * - If "a" is not of widget type, change the call to foo(bar,a,b,c)
- *   (note the change to lower case).
- *
- * - If "a" is of type widget, change the call to *a(bar,b,c) where *a
- *   means that the variable "a" contains the function name.
+ * - Else change the call to *a(bar,b,c) where *a means that the value
+ *   of "a" is the function name.
  */
 private void
 compile_fnCall(Expr *expr)
@@ -961,14 +921,6 @@ compile_fnCall(Expr *expr)
 		/* A regular call -- the name is the fn name. */
 		push_str(name);
 		expr->type = sym->type->base_type;
-	} else if (sym && (isstring(expr->a) || ispoly(expr->a))) {
-		/*
-		 * Name is a string variable that holds the fn name to
-		 * call.  Name, formals, and return type are all
-		 * unknown at compile-time.
-		 */
-		emit_load_scalar(sym->idx);
-		expr->type = L_poly;
 	} else if (sym && (sym->type->kind == L_NAMEOF) &&
 		   (sym->type->base_type->kind == L_FUNCTION)) {
 		/*
@@ -978,8 +930,8 @@ compile_fnCall(Expr *expr)
 		emit_load_scalar(sym->idx);
 		expr->type = sym->type->base_type->base_type;
 	} else if (sym) {
-		/* Name is a variable but not of string type. */
-		L_errf(expr, "function name is a non-string variable");
+		/* Name is declared but isn't a function or fn pointer. */
+		L_errf(expr, "'%s' is declared but not as a function", name);
 		expr->type = L_poly;
 	} else if (ispatternfn(name, &Foo_star, &foo, &bar)) {
 		/* Pattern function.  Figure out which kind. */
@@ -989,16 +941,10 @@ compile_fnCall(Expr *expr)
 			bar->next = expr->b;
 			expr->b = bar;
 			expr->type = sym->type;
-		} else if (iswidget(expr->b)) {
-			/* First arg is widget -- compile *a(bar,b,c). */
+		} else {
+			/* Compile as *a(bar,b,c). */
 			compile_expr(expr->b, PUSH);
 			bar->next = expr->b->next;
-			expr->b = bar;
-			expr->type = L_poly;
-		} else {
-			/* First arg is not widget -- compile foo(bar,a,b,c). */
-			push_str(foo);
-			bar->next = expr->b;
 			expr->b = bar;
 			expr->type = L_poly;
 		}
@@ -1216,10 +1162,8 @@ compile_binOp(Expr *expr)
 	    case L_OP_STR_LE:
 		compile_expr(expr->a, PUSH);
 		compile_expr(expr->b, PUSH);
-		L_typeck_expect(L_STRING|L_WIDGET, expr->a,
-				"in string comparison");
-		L_typeck_expect(L_STRING|L_WIDGET, expr->b,
-				"in string comparison");
+		L_typeck_expect(L_STRING, expr->a, "in string comparison");
+		L_typeck_expect(L_STRING, expr->b, "in string comparison");
 		emit_instrForLOp(expr);
 		expr->type = L_int;
 		break;
@@ -1591,7 +1535,7 @@ compile_condition(Expr *cond)
 	compile_expr(cond, PUSH);
 	if (isvoid(cond)) {
 		L_errf(cond, "void type illegal in predicate");
-	} else if (isstring(cond) || iswidget(cond)) {
+	} else if (isstring(cond)) {
 		push_str("0");
 		TclEmitOpcode(INST_NEQ, L->frame->envPtr);
 	} else unless (isscalar(cond)) {

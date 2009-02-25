@@ -264,12 +264,17 @@ var_1_4
 test var-1.5 {Variable function names} -body {
 #lang L
 void var_1_5() {
+  /*
+   * This used to be supported but is no longer (2/24/09).
+   * This is now an error.
+   */
   string printfvar = "printf";
   printfvar("Earth calling printf\n");
 }
 #lang tcl
 var_1_5
-} -output "Earth calling printf\n"
+} -returnCodes error -match regexp -result {.*7: L Error: 'printfvar' is declared but not as a function
+}
 
 test lang-1.0 {Test lang parsing} -body {
 # These are some Tcl Comments
@@ -1297,7 +1302,6 @@ test cast-1.3 { Cast to string } -body {
 void cast_1_3()
 {
 	string	s;
-	widget	w = "w";
 	poly	p = "p";
 	int	a[] = { 1, 2 };
 	int	h{string} = { "a"=>1, "b"=>2 };
@@ -1313,9 +1317,6 @@ void cast_1_3()
 
 	s = (string)"ok";
 	unless (s eq "ok") puts("bad 3");
-
-	s = (string)w;
-	unless (s eq "w") puts("bad 4");
 
 	s = (string)a;
 	unless (s eq "1 2") puts("bad 5");
@@ -1340,24 +1341,21 @@ void cast_1_4()
 	int	i;
 	float	f;
 	string	s;
-	widget	w;
 	int	h{string};
 
 	i = (int)cast_1_4;
 	f = (float)cast_1_4;
 	s = (string)cast_1_4;
 	s = (tcl)cast_1_4;
-	w = (widget)cast_1_4;
 	h = (hash)cast_1_4;
 }
 #lang tcl
 cast_1_4
-} -returnCodes {error} -match regexp -result {.*9: L Error: type function illegal
+} -returnCodes {error} -match regexp -result {.*8: L Error: type function illegal
+.*9: L Error: type function illegal
 .*10: L Error: type function illegal
 .*11: L Error: type function illegal
 .*12: L Error: type function illegal
-.*13: L Error: type function illegal
-.*14: L Error: type function illegal
 }
 
 test cast-1.5 {cast to hash} -body {
@@ -4104,10 +4102,6 @@ typedef string t3;
 typedef string t3;
 typedef string t3;
 
-typedef widget t4;
-typedef widget t4;
-typedef widget t4;
-
 typedef poly t5;
 typedef poly t5;
 typedef poly t5;
@@ -4149,7 +4143,6 @@ test typedef-1.2 {test redefining different typedefs} -body {
 typedef int t12;
 typedef float t12;
 typedef string t12;
-typedef widget t12;
 typedef poly t12;     // not an error, but perhaps should be
 typedef int t12[];
 typedef int t12[2];
@@ -4193,21 +4186,20 @@ typedef struct s5 { int x,y; } s12_6;
 typedef struct s6 { int x; } s12_6;
 } -returnCodes error -match regexp -result {.*2: L Error: Cannot redefine type t12
 .*3: L Error: Cannot redefine type t12
-.*4: L Error: Cannot redefine type t12
+.*5: L Error: Cannot redefine type t12
 .*6: L Error: Cannot redefine type t12
 .*7: L Error: Cannot redefine type t12
 .*8: L Error: Cannot redefine type t12
-.*9: L Error: Cannot redefine type t12
-.*18: L Error: Cannot redefine type a12_3
-.*21: L Error: Cannot redefine type h12_1
-.*24: L Error: Cannot redefine type h12_2
-.*27: L Error: Cannot redefine type h12_3
-.*30: L Error: Cannot redefine type s12_1
-.*33: L Error: Cannot redefine type s12_2
-.*36: L Error: Cannot redefine type s12_3
-.*39: L Error: Cannot redefine type s12_4
-.*42: L Error: Cannot redefine type s12_5
-.*45: L Error: Cannot redefine type s12_6
+.*17: L Error: Cannot redefine type a12_3
+.*20: L Error: Cannot redefine type h12_1
+.*23: L Error: Cannot redefine type h12_2
+.*26: L Error: Cannot redefine type h12_3
+.*29: L Error: Cannot redefine type s12_1
+.*32: L Error: Cannot redefine type s12_2
+.*35: L Error: Cannot redefine type s12_3
+.*38: L Error: Cannot redefine type s12_4
+.*41: L Error: Cannot redefine type s12_5
+.*44: L Error: Cannot redefine type s12_6
 }
 
 test typedef-1.3 {test some typedef cases} -body {
@@ -5306,7 +5298,6 @@ typecheck_4_4()
 	int	i = 0;
 	float	f = 0.0;
 	string	s1 = "0", s2 = "1";
-	widget	w = "0";
 	poly	p = "0";
 
 	if (i) puts("bad 1");
@@ -5316,7 +5307,6 @@ typecheck_4_4()
 	if (s1) puts("bad 3");
 	unless (s2) puts("bad 4");
 
-	if (w) puts("bad 5");
 	if (p) puts("bad 6");
 }
 #lang tcl
@@ -5593,7 +5583,6 @@ typecheck_6_1()
 	string	s;
 	struct { int i,j; } st;
 	poly	p;
-	widget	w;
 
 	/* Errors -- first arg not a reference (&). */
 	push(a, i);
@@ -5603,7 +5592,6 @@ typecheck_6_1()
 	push(s, i);
 	push(st, i);
 	push(p, i);
-	push(w, i);
 
 	/* Error -- too many arguments. */
 	push(a, i, j);
@@ -5619,27 +5607,25 @@ typecheck_6_1()
 	push(&f, i);
 	push(&s, i);
 	push(&st, i);
-	push(&w, i);
 }
 #lang tcl
 typecheck_6_1
-} -returnCodes {error} -match regexp -result {.*:13: L Error: first arg to push not an array reference.*:14: L Error: first arg to push not an array reference.*
+} -returnCodes {error} -match regexp -result {.*:12: L Error: first arg to push not an array reference.*
+.*:13: L Error: first arg to push not an array reference.*
+.*:14: L Error: first arg to push not an array reference.*
 .*:15: L Error: first arg to push not an array reference.*
 .*:16: L Error: first arg to push not an array reference.*
 .*:17: L Error: first arg to push not an array reference.*
 .*:18: L Error: first arg to push not an array reference.*
-.*:19: L Error: first arg to push not an array reference.*
-.*:20: L Error: first arg to push not an array reference.*
-.*:23: L Error: incorrect # arguments to push
-.*:24: L Error: incorrect # arguments to push
-.*:27: L Error: incorrect # arguments to push
-.*:28: L Error: incorrect # arguments to push
+.*:21: L Error: incorrect # arguments to push
+.*:22: L Error: incorrect # arguments to push
+.*:25: L Error: incorrect # arguments to push
+.*:26: L Error: incorrect # arguments to push
+.*:29: L Error: first arg to push not an array reference.*
+.*:30: L Error: first arg to push not an array reference.*
 .*:31: L Error: first arg to push not an array reference.*
 .*:32: L Error: first arg to push not an array reference.*
 .*:33: L Error: first arg to push not an array reference.*
-.*:34: L Error: first arg to push not an array reference.*
-.*:35: L Error: first arg to push not an array reference.*
-.*:36: L Error: first arg to push not an array reference.*
 }
 
 test typecheck-6.2 {type check errors with push built-in 2} -body {
@@ -5651,7 +5637,6 @@ typecheck_6_2()
 	int	ai[], i;
 	string	as[], s;
 	float	af[], f;
-	widget	aw[], w;
 	int	aa[][], a[];		// array of array, and an array
 	int	ah[]{int}, h{int};	// array of hash, and a hash
 	struct { int i,j; } ast[], st;	// array of struct, and a struct
@@ -5666,7 +5651,6 @@ typecheck_6_2()
 
 	push(&ai, f);
 	push(&ai, s);
-	push(&ai, w);
 	push(&ai, a);
 	push(&ai, aa);
 	push(&ai, h);
@@ -5676,7 +5660,8 @@ typecheck_6_2()
 }
 #lang tcl
 typecheck_6_2
-} -returnCodes {error} -match regexp -result {.*:19: L Error: pushing incompatible type onto array
+} -returnCodes {error} -match regexp -result {.*:18: L Error: pushing incompatible type onto array
+.*:20: L Error: pushing incompatible type onto array
 .*:21: L Error: pushing incompatible type onto array
 .*:22: L Error: pushing incompatible type onto array
 .*:23: L Error: pushing incompatible type onto array
@@ -5684,8 +5669,6 @@ typecheck_6_2
 .*:25: L Error: pushing incompatible type onto array
 .*:26: L Error: pushing incompatible type onto array
 .*:27: L Error: pushing incompatible type onto array
-.*:28: L Error: pushing incompatible type onto array
-.*:29: L Error: pushing incompatible type onto array
 }
 
 test typecheck-6.3 {type check push built-in} -body {
@@ -5697,7 +5680,6 @@ typecheck_6_3()
 	string	as[], s;
 	float	af[], f;
 	poly	ap[], p;
-	widget	aw[], w;
 	int	aa[][], a[];		// array of array, and an array
 	int	ah[]{int}, h{int};	// array of hash, and a hash
 	struct { int i,j; } ast[], st;	// array of struct, and a struct
@@ -5721,21 +5703,14 @@ typecheck_6_3()
 	push(&ap, i);
 	push(&ap, s);
 	push(&ap, f);
-	push(&ap, w);
 	push(&ap, p);
 	push(&ap, ai);
 	push(&ap, as);
 	push(&ap, af);
 	push(&ap, ap);
-	push(&ap, aw);
 	push(&ap, ast);
 	push(&ap, h);
 	push(&ap, st);
-
-	push(&aw, w);
-	push(&aw, (widget)"w");
-	push(&aw, s);  // legal to push strings onto a widget array
-	push(&aw, "w");
 
 	push(&ah, h);
 
@@ -5760,50 +5735,6 @@ typecheck_7_1()
 #lang tcl
 typecheck_7_1
 } -returnCodes {error} -match regexp -result {.*:7: L Error: parameter 1 has incompatible type}
-
-test typecheck-8.1 {widget and string type compatibility} -body {
-#lang L
-void typecheck_8_1()
-{
-	poly	p = "p";
-	string	s = "s";
-	widget	w = "w";
-
-	p = s;
-	unless (p eq "s") puts("bad 1");
-	p = w;
-	unless (p eq "w") puts("bad 2");
-	p = p;
-	unless (p eq "w") puts("bad 3");
-	p = "p";
-	s = p;
-	unless (s eq "p") puts("bad 4");
-	s = s;
-	unless (s eq "p") puts("bad 5");
-	s = w;
-	unless (s eq "w") puts("bad 6");
-	s = "s";
-	w = p;
-	unless (w eq "p") puts("bad 7");
-	w = s;
-	unless (w eq "s") puts("bad 8");
-	w = w;
-	unless (w eq "s") puts("bad 9");
-	w = "w";
-
-	unless (p ne s) puts("bad 10");
-	unless (s ne p) puts("bad 11");
-	unless (p ne w) puts("bad 12");
-	unless (w ne p) puts("bad 13");
-	unless (s ne w) puts("bad 14");
-	unless (w ne s) puts("bad 15");
-	unless (p eq p) puts("bad 16");
-	unless (s eq s) puts("bad 17");
-	unless (w eq w) puts("bad 18");
-}
-#lang tcl
-typecheck_8_1
-} -output {}
 
 test typecheck-9.1 {illegal types in function prototype declarations} -body {
 #lang L
@@ -6434,14 +6365,12 @@ void p1_0_widget(string f, int a)
 }
 void pattern_1_0()
 {
-	string	s = "notwidget";
-	widget	w = "p1_0_widget";
+	string	w = "p1_0_widget";
 
 	Pattern_foo(1, 2);  // calls Pattern_foo(1, 2)
 	Pattern_bar(3, 4);  // calls Pattern_*(3, 4) where $1 gets "bar"
 	Pattern_baz(5, 6);  // calls Pattern_*(5, 6) where $1 gets "baz"
 	Pattern_();	    // calls Pattern_()
-	Pattern2_bar(s, 1); // calls pattern2("bar", s, 1)
 	Pattern2_bar(w, 1); // calls p1_0_widget("bar", 1)
 }
 pattern_1_0();
@@ -6450,7 +6379,6 @@ pattern_1_0();
 Pattern_* bar 3 4
 Pattern_* baz 5 6
 Pattern_
-Pattern2 bar notwidget 1
 widget bar 1
 }
 
@@ -6834,10 +6762,6 @@ src_mappings_1()
 	poly p2 = 2;
 	poly p3, p4;
 	poly p5, p6 = 6, p7;
-	widget w1;
-	widget w2 = "w2";
-	widget w3, w4;
-	widget w5, w6 = "w6", w7;
 	int ai1[];
 	int ai2[2];
 	int ai3[] = {3};
@@ -6907,13 +6831,6 @@ src_mappings_1
 .*Command \d+: "p5"
 .*Command \d+: "p6 = 6"
 .*Command \d+: "p7"
-.*Command \d+: "w1"
-.*Command \d+: "w2 = \\"w2\\""
-.*Command \d+: "w3"
-.*Command \d+: "w4"
-.*Command \d+: "w5"
-.*Command \d+: "w6 = \\"w6\\""
-.*Command \d+: "w7"
 .*Command \d+: "ai1\[\]"
 .*Command \d+: "ai2\[2\]"
 .*Command \d+: "ai3\[\] = \{3\}"
@@ -7002,7 +6919,6 @@ src_mappings_2()
 	/* Check that each binary and unary operator gets a mapping. */
 	(tcl)i;
 	(string)i;
-	(widget)i;
 	(float)i;
 	!i;
 	~i;
@@ -7100,7 +7016,6 @@ src_mappings_2
 .*Command \d+: "f1\(2\)"
 .*Command \d+: "\(tcl\)i"
 .*Command \d+: "\(string\)i"
-.*Command \d+: "\(widget\)i"
 .*Command \d+: "\(float\)i"
 .*Command \d+: "!i"
 .*Command \d+: "~i"
@@ -7252,23 +7167,16 @@ void function_1_0_f()   { puts("f"); }
 void
 function_1_0()
 {
-	string	s = "function_1_0_foo";
-	poly	p = "function_1_0_foo";
-
-	/*
-	 * "s" and "p" are string or poly variables that contain the
-	 * function name.
-	 */
-	s();			// calls function_1_0_foo
 	function_1_0_foo();
 	function_1_0_f();
-	p();			// calls function_1_0_foo
 
 	/*
 	 * Calling an undeclared function is not an error, we just get
 	 * no arg type checking, so passing anything should be allowed.
 	 */
 	if (0) {
+		string	s, p;
+
 		not_defined1();
 		not_defined1(s);
 		not_defined1(s, p);
@@ -7278,9 +7186,7 @@ function_1_0()
 #lang tcl
 function_1_0
 } -output {foo
-foo
 f
-foo
 }
 
 test function-1.1 {check function call rules error cases} -body {
@@ -7312,11 +7218,11 @@ function_1_1
 } -returnCodes {error} -match regexp -result {.*2: L Error: function_1_1_f1 already declared as a variable
 .*4: L Error: multiple declaration of global function_1_1_f2
 .*6: L Error: function function_1_1_f3 already declared
-.*:17: L Error: function name is a non-string variable
-.*:18: L Error: function name is a non-string variable
-.*:19: L Error: function name is a non-string variable
-.*:20: L Error: function name is a non-string variable
-.*:21: L Error: function name is a non-string variable
+.*:17: L Error: 'i' is declared but not as a function
+.*:18: L Error: 'f' is declared but not as a function
+.*:19: L Error: 'a' is declared but not as a function
+.*:20: L Error: 'h' is declared but not as a function
+.*:21: L Error: 'st' is declared but not as a function
 }
 
 test function-1.2 {check function prototypes} -body {

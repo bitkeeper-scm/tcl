@@ -221,7 +221,6 @@ include_pop()
 	"float"		return T_FLOAT;
 	"poly"		return T_POLY;
 	"var"		return T_VAR;
-	"widget"	return T_WIDGET;
 	"split"		return T_SPLIT;
 	"if"		return T_IF;
 	"else"		return T_ELSE;

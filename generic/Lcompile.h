@@ -163,7 +163,6 @@ extern Type	*L_float;
 extern Type	*L_string;
 extern Type	*L_void;
 extern Type	*L_var;
-extern Type	*L_widget;
 extern Type	*L_poly;
 
 static inline int
@@ -220,7 +219,6 @@ isscalar(Expr *expr)
 	return (expr->type && (expr->type->kind & (L_INT |
 						   L_FLOAT |
 						   L_STRING |
-						   L_WIDGET |
 						   L_POLY)));
 }
 static inline int

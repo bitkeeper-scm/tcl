@@ -94,7 +94,7 @@ extern int	L_lex (void);
 %token <f> T_FLOAT_LITERAL
 %token <Typename> T_TYPE
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
-%token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT T_WIDGET
+%token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT
 
@@ -951,7 +951,6 @@ scalar_type_specifier:
 	| T_FLOAT	{ $$ = L_float; }
 	| T_POLY	{ $$ = L_poly; }
 	| T_VAR		{ $$ = L_var; }
-	| T_WIDGET	{ $$ = L_widget; }
 	| T_VOID	{ $$ = L_void; }
 	| T_TYPE	{ $$ = $1.t; ckfree($1.s); }
 	;
