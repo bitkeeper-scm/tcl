@@ -6974,6 +6974,33 @@ Pattern_
 widget bar 1
 }
 
+test pattern-1.1 {L pattern function errors} -body {
+#lang L
+void pattern_1_1()
+{
+	string	a[];
+	string	h{string};
+	poly	p;
+
+	/*
+	 * By assigning the return value to a variable, we verify
+	 * that the compiler assigns a return type (poly) even
+	 * in the face of an error.
+	 */
+
+	p = Foo_bar();
+	p = Foo_bar(1);
+	p = Foo_bar(1.1);
+	p = Foo_bar(a);
+	p = Foo_bar(h);
+}
+} -returnCodes {error} -match regexp -result {.*13: L Error: pattern function call has no args
+.*14: L Error: first arg to pattern function is not string
+.*15: L Error: first arg to pattern function is not string
+.*16: L Error: first arg to pattern function is not string
+.*17: L Error: first arg to pattern function is not string
+}
+
 test include-1.0 {include files} -setup {
 	set fname [makeFile {++include_1_0;} foo.l ../tests]
 } -body {

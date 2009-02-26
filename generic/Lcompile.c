@@ -123,8 +123,7 @@ private Frame	*frame_enclosingLoop();
 private Frame	*frame_outer(Frame *frame);
 private void	frame_pop(void);
 private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block);
-private int	ispatternfn(char *name, Expr **Foo_star, char **foo,
-			    Expr **bar);
+private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private char	*mk_uniqSym(char *name);
 private Proc	*proc_begin(void);
 private void	proc_finish(Proc *procPtr, char *name);
@@ -967,15 +966,13 @@ compile_expr(Expr *expr, L_Expr_f flags)
 
 /*
  * If a function-call name begins with a cap and has an _ inside, it
- * looks like a pattern call.  From a name like "Foo_Bar" create
- * these various strings: "Foo_*", "foo", "bar".  Except for "foo"
- * return them as Expr's since that's what the caller needs.
- *
- * Caller must free *foo but the Expr's need not be freed explicitly
- * since all AST nodes are deallocated upon exit.
+ * looks like a pattern call.  From a name like "Foo_Bar" create these
+ * strings: "Foo_*" "bar".  Return them as Expr's since that's what
+ * the caller needs.  The Expr's need not be freed explicitly since
+ * all AST nodes are deallocated upon exit.
  */
 private int
-ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
+ispatternfn(char *name, Expr **Foo_star, Expr **bar)
 {
 	char	*buf, *p;
 
@@ -992,11 +989,6 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
 	strcat(buf, "_*");
 	*Foo_star = ast_mkId(buf, 0, 0);
 	ckfree(buf);
-
-	/* Build foo from Foo_bar. */
-	*foo = ckalloc(strlen(name) + 1);
-	strcpy(*foo, name);
-	Tcl_UtfToLower(*foo);
 
 	/* Build bar from Foo_bar. */
 	buf = ckalloc(strlen(p+1) + 1);
@@ -1019,18 +1011,19 @@ ispatternfn(char *name, Expr **Foo_star, char **foo, Expr **bar)
  * [A-Z] and has an _ in it (except at the end), we have what's called
  * a "pattern function":
  *
- * - If Foo_bar happens to be a function or variable, handle as above.
+ * - If Foo_bar happens to be a declared function, handle as above.
  *
  * - If the function Foo_* is defined, change the call to Foo_*(bar,a,b,c).
  *
  * - Else change the call to *a(bar,b,c) where *a means that the value
- *   of "a" is the function name.
+ *   of the argument "a" becomes the function name.  It is an error for
+ *   "a" to not exist (no args) or to not be of type string.
  */
 private void
 compile_fnCall(Expr *expr)
 {
 	int	i, num_parms;
-	char	*foo, *name;
+	char	*name;
 	Expr	*Foo_star, *bar;
 	Sym	*sym;
 
@@ -1063,7 +1056,7 @@ compile_fnCall(Expr *expr)
 		/* Name is declared but isn't a function or fn pointer. */
 		L_errf(expr, "'%s' is declared but not as a function", name);
 		expr->type = L_poly;
-	} else if (ispatternfn(name, &Foo_star, &foo, &bar)) {
+	} else if (ispatternfn(name, &Foo_star, &bar)) {
 		/* Pattern function.  Figure out which kind. */
 		if ((sym = sym_lookup(Foo_star, NOWARN))) {
 			/* Foo_* is defined -- compile Foo_*(bar,a,b,c). */
@@ -1073,12 +1066,21 @@ compile_fnCall(Expr *expr)
 			expr->type = sym->type;
 		} else {
 			/* Compile as *a(bar,b,c). */
+			expr->type = L_poly;
+			unless (expr->b) {
+				L_errf(expr,
+				       "pattern function call has no args");
+				return;
+			}
 			compile_expr(expr->b, L_PUSH_VAL);
+			unless (isstring(expr->b)) {
+				L_errf(expr->b,
+				       "first arg to pattern function is "
+				       "not string");
+			}
 			bar->next = expr->b->next;
 			expr->b = bar;
-			expr->type = L_poly;
 		}
-		ckfree(foo);
 	} else {
 		/* Call to an undeclared function. */
 		push_str(name);
