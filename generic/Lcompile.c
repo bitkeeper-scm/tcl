@@ -1460,6 +1460,13 @@ compile_trinOp(Expr *expr)
 			L_errf(expr->a, "illegal type for slice");
 			expr->type = L_poly;
 		}
+		if (isstring(expr->a)) {
+			TclEmitOpcode(INST_L_PUSH_STR_SIZE, L->frame->envPtr);
+		} else if (isarray(expr->a) || islist(expr->a) ||
+			   ispoly(expr->a)) {
+			TclEmitOpcode(INST_L_PUSH_LIST_SIZE, L->frame->envPtr);
+		}
+		++L->idx_nesting;
 		compile_expr(expr->b, L_PUSH_VAL);
 		unless (isint(expr->b)) {
 			L_errf(expr->b, "first slice index not an int");
@@ -1467,6 +1474,11 @@ compile_trinOp(Expr *expr)
 		compile_expr(expr->c, L_PUSH_VAL);
 		unless (isint(expr->c)) {
 			L_errf(expr->c, "second slice index not an int");
+		}
+		--L->idx_nesting;
+		if (isstring(expr->a) || isarray(expr->a) || islist(expr->a) ||
+		    ispoly(expr->a)) {
+			TclEmitOpcode(INST_L_POP_SIZE, L->frame->envPtr);
 		}
 		emit_invoke(n);
 		break;

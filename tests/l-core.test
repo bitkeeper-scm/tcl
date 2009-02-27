@@ -1922,6 +1922,8 @@ void slice_4()
 	i = a[0..f];
 	i = a[f..f];
 	i = a[a..a];
+
+	a[0..1] = { 0, 1 };  // invalid l-value
 }
 } -returnCodes error -match regexp -result {.*6: L Error: first slice index not an int
 .*7: L Error: second slice index not an int
@@ -1933,6 +1935,7 @@ void slice_4()
 .*11: L Error: second slice index not an int
 .*12: L Error: first slice index not an int
 .*12: L Error: second slice index not an int
+.*14: L Error: invalid l-value in assignment
 }
 
 test end-1 {test END keyword for string indices} -body {
@@ -2157,6 +2160,43 @@ void end_6()
 .*5: L Error: cannot use END.*
 .*7: L Error: END illegal.*
 }
+
+test end-7 {test END in string slices} -body {
+#lang L
+void end_7()
+{
+	string	s;
+
+	s = "123456789";
+	unless (s[0..END] eq "123456789") puts("bad 1.0");
+	unless (s[0..END] eq s) puts("bad 1.1");
+	unless (s[1..END] eq "23456789") puts("bad 1.2");
+	unless (s[2..END] eq "3456789") puts("bad 1.3");
+	unless (s[2..END-1] eq "345678") puts("bad 1.4");
+	unless (s[2..END-2] eq "34567") puts("bad 1.5");
+	unless (s[END-1..END] eq "89") puts("bad 1.6");
+	unless (s[END-1..END-1] eq "8") puts("bad 1.7");
+}
+end_7();
+} -output {}
+
+test end-8 {test END in array slices} -body {
+#lang L
+void end_8()
+{
+	string	a[];
+
+	a = { "1", "2", "3", "4", "5", "6" };
+	unless (join(a[0..END]) eq "1 2 3 4 5 6") puts("bad 1.1");
+	unless (join(a[1..END]) eq "2 3 4 5 6") puts("bad 1.2");
+	unless (join(a[2..END]) eq "3 4 5 6") puts("bad 1.3");
+	unless (join(a[2..END-1]) eq "3 4 5") puts("bad 1.4");
+	unless (join(a[2..END-2]) eq "3 4") puts("bad 1.5");
+	unless (join(a[END-1..END]) eq "5 6") puts("bad 1.6");
+	unless (join(a[END-1..END-1]) eq "5") puts("bad 1.7");
+}
+end_8();
+} -output {}
 
 test loop-1.0 {while loops} -body {
 #lang L
