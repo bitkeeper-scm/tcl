@@ -2038,7 +2038,7 @@ void end_2()
 	unless (e1 == 2) puts("bad 3.4");
 	e1 = -1;
 	if (defined({}[e1=END])) puts("bad 3.5");
-	unless (e1 == -1) puts("bad 3.6");
+	if (defined(e1)) puts("bad 3.6");
 
 	/* Check nested ENDs. */
 	e1 = e2 = e3 = -1;
@@ -2067,15 +2067,15 @@ void end_3()
 	string	s;
 	string	atoz="abcdefghijklmnopqrstuvwxyz";
 
-	s = "";
+	s = " ";
 	for (i = 0; i < 26; ++i) {
 		s[END+1] = atoz[i];
 	}
 	for (i = 0; i < 26; ++i) {
-		unless (s[i] eq atoz[i]) printf("bad 1.1 i=%d", i);
+		unless (s[i+1] eq atoz[i]) printf("bad 1.1 i=%d", i);
 	}
-	if (defined(s[i])) puts("bad 1.2");
-	unless (s eq "abcdefghijklmnopqrstuvwxyz") puts("bad 1.3");
+	if (defined(s[i+1])) puts("bad 1.2");
+	unless (s eq " abcdefghijklmnopqrstuvwxyz") puts("bad 1.3");
 }
 end_3();
 } -output {}
@@ -2085,35 +2085,25 @@ test end-4 {test END usage for array append} -body {
 void end_4()
 {
 	int	e1, e2, i;
-	int	a[], aa[][], aaa[][][];
+	int	a[], aa[][];
 
-	a = {};
-	for (i = 0; i < 100; ++i) {
+	a = {0};
+	for (i = 1; i < 100; ++i) {
 		a[END+1] = i;
 	}
-	for (i = 0; i < 100; ++i) {
+	for (i = 1; i < 100; ++i) {
 		unless (a[i] == i) printf("bad 1.1 i=%d\n", i);
 	}
 	if (defined(a[i])) puts("bad 1.2");
 
-	aa = {};
-	e1 = e2 = -2;
-	aa[(e1=END)+1][(e2=END)+1] = 100;
-	unless ((e1 == -1) && (e2 == -1)) puts("bad 2.1");
-	unless (aa[e1=END][e2=END] == 100) puts("bad 2.2");
-	unless ((e1 == 0) && (e2 == 0)) puts("bad 2.3");
-
-	aa = {};
-	for (i = 0; i < 10; ++i) {
-		aa[END+1][END+1] = i;
-		aa[END][END+1]   = 10*i;
+	aa = { {0} };
+	for (i = 1; i < 10; ++i) {
+		aa[END][END+1] = i;
 	}
-	for (i = 0; i < 10; ++i) {
-		unless (aa[i][0] == i) puts("bad 3.1");
-		unless (aa[i][1] == 10*i) puts("bad 3.2");
-		if (defined(aa[i][2])) puts("bad 3.3");
+	for (i = 1; i < 10; ++i) {
+		unless (aa[0][i] == i) puts("bad 3.2");
 	}
-	if (defined(aa[i][0])) puts("bad 3.4");
+	if (defined(aa[0][i])) puts("bad 3.3");
 }
 end_4();
 } -output {}
@@ -2125,7 +2115,8 @@ int end_5_f(int lim, int n)
 	int	a[], e, i;
 
 	/* Put n things into a[]. */
-	for (i = 0; i < n; ++i) a[END+1] = i;
+	a[0] = 0;
+	for (i = 1; i < n; ++i) a[END+1] = i;
 
 	if (n < lim) {
 		/* e should get END+1; i.e., the # of things in a[] */
@@ -2140,7 +2131,7 @@ void end_5()
 	 * This test makes sure we can have lots of different ENDs all
 	 * stacked up at once.
 	 */
-	end_5_f(100, 0);
+	end_5_f(100, 1);
 }
 end_5();
 } -output {}
@@ -2196,6 +2187,25 @@ void end_8()
 	unless (join(a[END-1..END-1]) eq "5") puts("bad 1.7");
 }
 end_8();
+} -output {}
+
+test end-9 {test that END is undef if array/string is empty} -body {
+#lang L
+void end_9()
+{
+	int	e;
+	string	s = "";
+	string	a[] = {};
+
+	/* Don't index using END, just grab and test its value. */
+
+	s[e=END,0];
+	if (defined(e)) puts("bad 1");
+
+	a[e=END,0];
+	if (defined(e)) puts("bad 2");
+}
+end_9();
 } -output {}
 
 test loop-1.0 {while loops} -body {
@@ -4487,6 +4497,80 @@ deep_2_3()
 #lang tcl
 deep_2_3
 } -output {}
+
+test deep-3.1 {check reading an undefined array index} -body {
+#lang L
+void
+deep_3_1()
+{
+	int	e;
+	int	a[] = {};
+
+	/*
+	 * Reading an array element with an undefined index is legal
+	 * and should return undef.  END is undefined here because
+	 * the array is empty.
+	 */
+
+	if (defined(a[e=END])) puts("bad 1");
+	if (defined(e)) puts("bad 2");
+}
+deep_3_1();
+} -output {}
+
+test deep-3.2 {check writing an undefined array index} -body {
+#lang L
+void
+deep_3_2()
+{
+	int	a[] = {};
+
+	/*
+	 * Writing an array element with an undefined index is
+	 * illegal.  END is undefined here because the array is empty.
+	 */
+
+	a[END] = 0;  // run-time error
+}
+deep_3_2();
+} -returnCodes error -match regexp -result {cannot write to undefined array index}
+
+test deep-3.3 {check reading an undefined string index} -body {
+#lang L
+void
+deep_3_3()
+{
+	int	e;
+	string	s = "";
+
+	/*
+	 * Reading a string element with an undefined index is legal
+	 * and should return undef.  END is undefined here because
+	 * the string is empty.
+	 */
+
+	if (defined(s[e=END])) puts("bad 1");
+	if (defined(e)) puts("bad 2");
+}
+deep_3_3();
+} -output {}
+
+test deep-3.4 {check writing an undefined array index} -body {
+#lang L
+void
+deep_3_4()
+{
+	string	s = "";
+
+	/*
+	 * Writing a string element with an undefined index is
+	 * illegal.  END is undefined here because the string is empty.
+	 */
+
+	s[END] = "bad";  // run-time error
+}
+deep_3_4();
+} -returnCodes error -match regexp -result {cannot write to undefined string index}
 
 test regexp-1.0 {regular expression support} -body {
 #lang L

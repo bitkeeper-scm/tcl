@@ -8066,7 +8066,13 @@ TclExecuteByteCode(
     }
 
     case INST_L_READ_SIZE: {
-	objResultPtr = Tcl_NewIntObj(L_sizes_top());
+	int length = L_sizes_top();
+	/* If the array or string length is 0, END gets the undef value. */
+	if (length >= 0) {
+	    objResultPtr = Tcl_NewIntObj(length);
+	} else {
+	    objResultPtr = *L_undefObjPtrPtr();
+	}
 	NEXT_INST_F(1, 0, 1);
     }
 
@@ -9511,7 +9517,9 @@ StringForResultCode(
  *	For an r-value, this function returns a pointer to the indexed object
  *	pointer (i.e., a Tcl_Obj ** pointer into the lists's internal element
  *	array).  If the index is < 0 or beyond the last element, a pointer to
- *	the L undef object is returned instead.
+ *	the L undef object is returned instead.  If the index has the value
+ *	undef, always return the undef object as the element value.  This was
+ *	added so that a[END] has the value undef if the array "a" is empty.
  *
  *	For an l-value, if the indexed element is shared, an un-shared copy is
  *	made so that the indexed object later can be written in-place.  Also,
@@ -9536,6 +9544,16 @@ L_deepDiveArray(
     Tcl_Obj *subObj;
     int lvalue = (flags & L_LVALUE);
 
+    if (idxObj->typePtr == &L_undefType) {
+	if (lvalue) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot write to undefined array index",
+			     NULL);
+	    return (NULL);
+	} else {
+	    return (L_undefObjPtrPtr());
+	}
+    }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
 	return NULL;
     }
@@ -9672,7 +9690,9 @@ L_deepDiveHash(
  *
  *	If the given index is negative, a run-time error is generated.
  *	If the index is beyond the end of the string, a pointer the L
- *	undefined object pointer is returned.
+ *	undefined object pointer is returned.  If the index is undef,
+ *	return undef if the string is being read else throw a run-time
+ *	error.
  *
  * Side effects:
  *	None.
@@ -9691,6 +9711,16 @@ L_deepDiveString(
     const unsigned char *s;
     Tcl_Obj *newObj;
 
+    if (idxObj->typePtr == &L_undefType) {
+	if (flags & L_LVALUE) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot write to undefined string index",
+			     NULL);
+	    return (NULL);
+	} else {
+	    return (L_undefObjPtrPtr());
+	}
+    }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
 	return NULL;
     }
