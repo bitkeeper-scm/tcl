@@ -9,25 +9,6 @@
 if {[info exists ::L_libl_initted]} { return }
 set ::L_libl_initted 1
 
-#if {[info commands Tcl_rename] eq ""} {
-	#rename rename Tcl_rename
-#}
-
-proc printf {args} {
-	puts -nonewline [format {*}$args]
-}
-
-proc fprintf {stdio args} {
-	puts -nonewline $stdio [format {*}$args]
-}
-
-
-# XXX - I'd really like a C preprocessor for this stuff
-# But we need {*} in L.
-proc sprintf {args} {
-	return [format {*}$args]
-}
-
 set ::%%suppress_calling_main 0
 
 proc %%call_main_if_defined {} {
@@ -62,137 +43,28 @@ proc %%call_main_if_defined {} {
 	}
 }
 
-# Tcl uses a write trace on the $env array to set environment
-# variables.  We can't easily emulate that with a dict, so we provide
-# setenv, unsetenv, and getenv for L.
-proc setenv {var val {overwrite 1}} {
-	if {$overwrite == 0 && [info exists ::env($var)]} { return }
-	set ::env($var) $val
+## These commands will be translated to L once we have (expand).
+
+proc printf {args} {
+	puts -nonewline [format {*}$args]
 }
 
-proc unsetenv {var} {
-	unset -nocomplain ::env($var)
+proc fprintf {stdio args} {
+	puts -nonewline $stdio [format {*}$args]
 }
 
-proc getenv {var} {
-	if {[info exists ::env($var)]} {
-	    return $::env($var)
-	}
+proc sprintf {args} {
+	return [format {*}$args]
 }
 
-proc caller {{stacks 0}} {
-	return [uplevel 1 [list info level -$stacks]]
+proc img_create {args} {
+	return [image create photo {*}$args]
 }
 
-proc chdir {{dir ""}} {
-	if {[llength [info level 0]] == 1} {
-		cd
-	} else {
-		cd $dir
-	}
+proc joinpath {args} {
+	return [file join {*}$args]
 }
 
-proc chmod {permissions files} {
-	foreach file $files {
-		file attributes $file -permissions $permissions
-	}
-}
-
-proc chown {owner group files} {
-	set opts {}
-	if {$owner ne ""} {
-		lappend opts -owner $owner
-	}
-	if {$group ne ""} {
-		lappend opts -group $group
-	}
-	if {[llength $opts]} {
-		foreach file $files {
-			file attributes $file {*}$opts
-		}
-	}
-}
-
-proc die {message {exitCode 0}} {
-	warn $message
-	::exit $exitCode
-}
-
-proc getdir {directory pattern} {
-	return [glob -nocomplain -directory $directory $pattern]
-}
-
-proc link {oldfile newfile} {
-	file link $oldfile $newfile
-}
-
-proc lstat {file} {
-	file lstat $file a
-	return [dict create {*}[array get a]]
-}
-
-proc mkdir {directory} {
-	file mkdir $directory
-}
-
-proc pop {arrayName} {
-	upvar 1 $arrayName list
-	set elem [lindex $list end]
-	set list [lrange $list 0 end-1]
-	return $elem
-}
-
-proc readlink {file} {
-	file readlink $file
-}
-
-proc frename {oldfile newfile} {
-	file rename -force $oldfile $newfile
-}
-
-proc rmdir {directory} {
-	if {[catch {file delete $directory} error]} {
-		return 0
-	}
-	return 1
-}
-
-proc shift {arrayName} {
-	upvar 1 $arrayName list
-	set elem [lindex $list 0]
-	set list [lrange $list 1 end]
-	return $elem
-}
-
-proc sleep {seconds} {
-	after [expr {$seconds * 1000}]
-}
-
-proc sort {list} {
-	return [lsort $list]
-}
-
-proc stat {file} {
-	file stat $file a
-	return [dict create {*}[array get a]]
-}
-
-proc symlink {oldfile newfile} {
-	file link -sym $oldfile $newfile
-}
-
-proc trim {string} {
-	return [string trim $string]
-}
-
-proc unlink {files} {
-	file delete {*}$files
-}
-
-proc warn {message} {
-	puts stderr $message
-	flush stderr
-}
 
 #lang L
 /*
@@ -203,14 +75,109 @@ proc warn {message} {
 typedef	poly	hash{poly};
 typedef	poly	tcl;
 
-/*
- * stdio stuff (some above because we don't have {*} yet).
- */
 typedef	string	FILE;
-FILE    stdin = "stdin";
+FILE    stdin  = "stdin";
 FILE    stderr = "stderr";
 FILE    stdout = "stdout";
 string	stdio_lasterr;
+
+struct	stat {
+	int	st_dev;
+	int	st_ino;
+	int	st_mode;
+	int	st_nlink;
+	int	st_uid;
+	int	st_gid;
+	int	st_size;
+	int	st_atime;
+	int	st_mtime;
+	int	st_ctime;
+	string	st_type;
+};
+
+
+string
+basename(string path)
+{
+	return (file("tail", path));
+}
+
+string
+caller(int stacks)
+{
+	return (uplevel(1, "info level -${stacks}"));
+}
+
+void
+chdir(string dir)
+{
+	cd(dir);
+}
+
+void
+chmod(string permissions, string paths[])
+{
+	string	path;
+
+	foreach (path in paths) {
+		file("attributes", path, permissions: permissions);
+	}
+}
+
+void
+chown(string owner, string group, string paths[])
+{
+	string	path;
+
+	foreach (path in paths) {
+		unless (owner eq "") {
+			file("attributes", path, owner: owner);
+		}
+
+		unless (group eq "") {
+			file("attributes", path, group: group);
+		}
+	}
+}
+
+void
+die(string message, int exitCode)
+{
+	warn(message);
+	exit(exitCode);
+}
+
+string
+dirname(string path)
+{
+	return (file("dirname", path));
+}
+
+int
+exists(string path)
+{
+	return (file("exists", path));
+}
+
+int
+fclose(FILE f)
+{
+	string	err;
+	
+	if (f eq "") return (0);
+	if (catch("close ${f}", &err)) {
+		stdio_lasterr = err;
+		return (-1);
+	} else {
+		return (0);
+	}
+}
+
+int
+fgetline(FILE f, string &buf)
+{
+	return ((int)gets(f, &buf) > -1);
+}
 
 FILE
 fopen(string path, string mode)
@@ -233,6 +200,113 @@ fopen(string path, string mode)
 	}
 }
 
+void
+frename(string oldPath, string newPath)
+{
+	file("rename", oldPath, newPath);
+}
+
+int
+fsize(string path)
+{
+	return (file("size", path));
+}
+
+string
+ftype(string path)
+{
+	return (file("type", path));
+}
+
+string[]
+getdir(string dir, string pattern)
+{
+	return(glob(nocomplain:, directory: dir, pattern));
+}
+
+string
+getenv(string varname)
+{
+	if (info("exists", "::env(${varname})")) {
+		return (set("::env(${varname})"));
+	}
+}
+
+int
+isdouble(poly n)
+{
+	return (string("is", "double", n));
+}
+
+int
+isdir(string path)
+{
+	return (file("isdirectory", path));
+}
+
+int
+isinteger(poly n)
+{
+	return (string("is", "integer", n));
+}
+
+int
+isfile(string path)
+{
+	return (file("isfile", path));
+}
+
+int
+islink(string path)
+{
+	return (file("type", path) eq "link");
+}
+
+void
+link(string sourcePath, string targetPath)
+{
+	file("link", sourcePath, targetPath);
+}
+
+int
+lstat(string path, struct stat &buf)
+{
+	string	st_hash{string};
+
+	unless (exists(path)) return (-1);
+	file("lstat", path, "a");
+	st_hash = array("get", "a");
+	buf.st_dev = (int)st_hash{"dev"};
+	buf.st_ino = (int)st_hash{"ino"};
+	buf.st_mode = (int)st_hash{"mode"};
+	buf.st_nlink = (int)st_hash{"nlink"};
+	buf.st_uid = (int)st_hash{"uid"};
+	buf.st_gid = (int)st_hash{"gid"};
+	buf.st_size = (int)st_hash{"size"};
+	buf.st_atime = (int)st_hash{"atime"};
+	buf.st_mtime = (int)st_hash{"mtime"};
+	buf.st_ctime = (int)st_hash{"ctime"};
+	buf.st_type = st_hash{"type"};
+}
+
+void
+mkdir(string path)
+{
+	file("mkdir", path);
+}
+
+int
+mtime(string path)
+{
+	return (file("mtime", path));
+}
+
+int
+pclose(FILE f)
+{
+	return (fclose(f));
+}
+
 FILE
 popen(string cmd, string mode)
 {
@@ -253,26 +327,57 @@ popen(string cmd, string mode)
 	}
 }
 
-int
-fclose(FILE f)
+string
+readlink(string path)
 {
-	string	err;
-	
-	if (f eq "") return (0);
-	if (catch("close ${f}", &err)) {
-		stdio_lasterr = err;
-		return (-1);
-	} else {
-		return (0);
-	}
+	return (file("readlink", path));
 }
 
-int pclose(FILE f) { return (fclose(f)); }
+string
+require(string packageName)
+{
+	package("require", packageName);
+}
 
 int
-fgetline(FILE f, string &buf)
+rmdir(string dir)
 {
-	return ((int)gets(f, &buf) > -1);
+	if (catch("file delete \"${dir}\"")) return (0);
+	return (1);
+}
+
+string
+setenv(string varname, string val, int overwrite)
+{
+	if (overwrite && info("exists", "::env(${varname})")) return;
+	return (set("::env(${varname})", val));
+}
+
+void
+sleep(int seconds)
+{
+	after(seconds * 1000);
+}
+
+int
+stat(string path, struct stat &buf)
+{
+	string	st_hash{string};
+
+	unless (exists(path)) return (-1);
+	file("stat", path, "a");
+	st_hash = array("get", "a");
+	buf.st_dev = (int)st_hash{"dev"};
+	buf.st_ino = (int)st_hash{"ino"};
+	buf.st_mode = (int)st_hash{"mode"};
+	buf.st_nlink = (int)st_hash{"nlink"};
+	buf.st_uid = (int)st_hash{"uid"};
+	buf.st_gid = (int)st_hash{"gid"};
+	buf.st_size = (int)st_hash{"size"};
+	buf.st_atime = (int)st_hash{"atime"};
+	buf.st_mtime = (int)st_hash{"mtime"};
+	buf.st_ctime = (int)st_hash{"ctime"};
+	buf.st_type = st_hash{"type"};
 }
 
 string
@@ -281,13 +386,22 @@ stdio_getLastError()
 	return (stdio_lasterr);
 }
 
-/*
- * string functions
- */
+int
+strchr(string s, string c)
+{
+	return (string("first", c, s));
+}
+
 int
 streq(string a, string b)
 {
 	return (string("compare", a, b) eq "0");
+}
+
+int
+strlen(string s)
+{
+	return ((int)string("length", s));
 }
 
 int
@@ -296,22 +410,16 @@ strneq(string a, string b, int n)
 	return (string("equal", length: n, a, b) ne "0");
 }
 
-string
-strchr(string s, string c)
-{
-	return (string("first", c, s));
-}
-
-string
+int
 strrchr(string s, string c)
 {
 	return (string("last", c, s));
 }
 
-int
-strlen(string s)
+void
+symlink(string sourcePath, string targetPath)
 {
-	return ((int)string("length", s));
+	file("link", symbolic:, sourcePath, targetPath);
 }
 
 /*
@@ -331,4 +439,62 @@ system(string cmd)
 		return ("${cmd}: ${err}");
 	}
 	return ((string)0);
+}
+
+string
+trim(string s)
+{
+	return (string("trim", s));
+}
+
+void
+unlink(string paths[])
+{
+	string	path;
+
+	foreach (path in paths) {
+		file("delete", path);
+	}
+}
+
+void
+unsetenv(string varname)
+{
+	unset(nocomplain: "::env(${varname})");
+}
+
+void
+warn(string message)
+{
+	puts(stderr, message);
+	flush(stderr);
+}
+
+
+/*
+ * Tk API functions
+ */
+
+string
+tk_windowingsystem()
+{
+	return (tk("windowingsystem"));
+}
+
+void
+update_idletasks()
+{
+	update("idletasks");
+}
+
+string[]
+winfo_children(string w)
+{
+	return (winfo("children", w));
+}
+
+string
+winfo_containing(int x, int y)
+{
+	return (winfo("containing", x, y));
 }
