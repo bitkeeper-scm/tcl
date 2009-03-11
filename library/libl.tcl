@@ -442,6 +442,18 @@ system(string cmd)
 }
 
 string
+tolower(string s)
+{
+	return (string("tolower", s));
+}
+
+string
+toupper(string s)
+{
+	return (string("toupper", s));
+}
+
+string
 trim(string s)
 {
 	return (string("trim", s));
