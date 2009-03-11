@@ -899,11 +899,10 @@ TclCreatePipeline(
 	}
 
 #ifdef	BK
-	assert(enable_secure_bk_calls >= 0);
 	if (enable_secure_bk_calls == 1) {
-	    	rand_setSeed(1);
+	    rand_setSeed(1);
 	} else {
-	    	putenv("RANDSEED=");
+	    putenv("RANDSEED=");
 	}
 #endif
 
