@@ -2090,6 +2090,8 @@ FsMaybeWrapInLLang(
 	Tcl_Obj *newContents = Tcl_ObjPrintf(
 	      "#lang L\n%s\n#lang tcl\n%%%%call_main_if_defined",
 	  Tcl_GetString(fileContents));
+	Tcl_DecrRefCount(fileContents);
+	Tcl_IncrRefCount(newContents);
 	fileContents = newContents;
     }
     return fileContents;
