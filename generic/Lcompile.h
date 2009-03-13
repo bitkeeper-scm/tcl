@@ -31,6 +31,14 @@ struct Jmp {
 };
 
 /* Semantic stack frame. */
+typedef enum {
+	OUTER		= 0x01,  // is outer-most
+	TOPLEV		= 0x02,  // is for file top-levels
+	CLS_OUTER	= 0x04,	 // is class outer-most
+	CLS_TOPLEV	= 0x08,  // is for class top-levels
+	SKIP		= 0x10,  // skip frame when searching enclosing scopes
+	SEARCH		= 0x20,  //   don't skip this frame
+} Frame_f;
 typedef struct Frame {
 	Tcl_Interp	*interp;
 	CompileEnv	*envPtr;
@@ -45,8 +53,8 @@ typedef struct Frame {
 	// once we're done compiling the loops.
 	Jmp		*continue_jumps;
 	Jmp		*break_jumps;
-	int		outer_p;	// True if frame is outer-most.
-	int		toplevel_p;	// True if frame is for top levels.
+
+	Frame_f		flags;
 	Lopt_f		options;
 	struct Frame	*prevFrame;
 } Frame;
@@ -127,8 +135,10 @@ typedef enum {
 	L_PUSH_OLD    = 0x0800,	//   new or old value
 } L_Expr_f;
 
+extern char	*cksprintf(const char *fmt, ...);
 extern char	*ckstrdup(const char *str);
 extern char	*ckstrndup(const char *str, int len);
+extern char	*ckvsprintf(const char *fmt, va_list ap);
 extern void	L_bomb(const char *format, ...);
 extern void	L_err(const char *s, ...);	// yyerror
 extern void	L_errf(void *node, const char *format, ...);
@@ -235,6 +245,11 @@ isnameof(Expr *expr)
 	return (expr->type && (expr->type->kind == L_NAMEOF));
 }
 static inline int
+isclass(Expr *expr)
+{
+	return (expr->type && (expr->type->kind == L_CLASS));
+}
+static inline int
 isfntype(Type *type)
 {
 	return (type->kind == L_FUNCTION);
@@ -272,10 +287,17 @@ emit_store_scalar(int idx)
 	}
 }
 static inline void
-push_str(const char *str)
+push_str(const char *str, ...)
 {
-	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, str, strlen(str)),
+	va_list ap;
+	char	*buf;
+
+	va_start(ap, str);
+	buf = ckvsprintf(str, ap);
+	va_end(ap);
+	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, buf, strlen(buf)),
 		    L->frame->envPtr);
+	ckfree(buf);
 }
 static inline void
 push_cstr(const char *str, int len)
@@ -343,6 +365,20 @@ currOffset(CompileEnv *envPtr)
 	    type *runner;						\
 	    for (runner = a; runner->ptr; runner = runner->ptr) ;	\
 	    runner->ptr = b;						\
+    } while (0)
+
+/*
+ * Like APPEND() but if a is NULL, set a to b.
+ */
+#define APPEND_OR_SET(type,ptr,a,b)					\
+    do {								\
+	    if (a) {							\
+		type *runner;						\
+		for (runner = a; runner->ptr; runner = runner->ptr) ;	\
+		runner->ptr = b;					\
+	    } else {							\
+		a = b;							\
+	    }								\
     } while (0)
 
 /*
