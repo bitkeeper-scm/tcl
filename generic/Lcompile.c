@@ -364,7 +364,8 @@ compile_fnDecl(FnDecl *fun)
 	char	*clsname = NULL;
 	Proc	*procPtr;
 	ClsDecl	*clsdecl = NULL;
-	Sym	*self_sym, *sym;
+	Sym	*self_sym = NULL;
+	Sym	*sym;
 
 	ASSERT(fun && decl);
 	ASSERT(!(decl->flags & SCOPE_LOCAL));
@@ -2737,7 +2738,7 @@ sym_store(VarDecl *decl)
 	int	new;
 	char	*name = decl->id->u.string;
 	Sym	*sym;
-	Frame	*frame;
+	Frame	*frame = NULL;
 	Tcl_HashEntry *hPtr;
 
 	/* Check for multiple declaration. */
@@ -3061,10 +3062,15 @@ void
 L_err(const char *format, ...)
 {
 	va_list ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, format);
-	buf = ckvsprintf(format, ap);
+	while (!(buf = ckvsprintf(format, ap, len))) {
+		va_end(ap);
+		va_start(ap, format);
+		len *= 2;
+	}
 	va_end(ap);
 
 	unless (L->errs) {
@@ -3079,10 +3085,15 @@ void
 L_errf(void *node, const char *format, ...)
 {
 	va_list ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, format);
-	buf = ckvsprintf(format, ap);
+	while (!(buf = ckvsprintf(format, ap, len))) {
+		va_end(ap);
+		va_start(ap, format);
+		len *= 2;
+	}
 	va_end(ap);
 
 	unless (L->errs) {
@@ -3259,27 +3270,33 @@ char *
 cksprintf(const char *fmt, ...)
 {
 	va_list	ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, fmt);
-	buf = ckvsprintf(fmt, ap);
+	while (!(buf = ckvsprintf(fmt, ap, len))) {
+		va_end(ap);
+		va_start(ap, fmt);
+		len *= 2;
+	}
 	va_end(ap);
 	return (buf);
 }
 
+/*
+ * Allocate a buffer of len bytes and attempt a vsnprintf and fail
+ * (return NULL) if len isn't enough.  The caller should double len
+ * and re-try.  We require the caller to re-try instead of re-trying
+ * here because on some platforms "ap" is changed by the vsnprintf
+ * call and there is no portable way to save and restore it.
+ */
 char *
-ckvsprintf(const char *fmt, va_list ap)
+ckvsprintf(const char *fmt, va_list ap, int len)
 {
-	int	len;
-	char	*buf;
-
-	len = 64;
-	buf = ckalloc(len);
-	while (vsnprintf(buf, len, fmt, ap) >= len) {
+	char	*buf = ckalloc(len);
+	if (vsnprintf(buf, len, fmt, ap) >= len) {
 		ckfree(buf);
-		len *= 2;
-		buf = ckalloc(len);
-		ASSERT(len < 32768);  // sanity check
+		return (NULL);
 	}
 	return (buf);
 }

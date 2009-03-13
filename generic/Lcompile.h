@@ -138,7 +138,7 @@ typedef enum {
 extern char	*cksprintf(const char *fmt, ...);
 extern char	*ckstrdup(const char *str);
 extern char	*ckstrndup(const char *str, int len);
-extern char	*ckvsprintf(const char *fmt, va_list ap);
+extern char	*ckvsprintf(const char *fmt, va_list ap, int len);
 extern void	L_bomb(const char *format, ...);
 extern void	L_err(const char *s, ...);	// yyerror
 extern void	L_errf(void *node, const char *format, ...);
@@ -290,10 +290,15 @@ static inline void
 push_str(const char *str, ...)
 {
 	va_list ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, str);
-	buf = ckvsprintf(str, ap);
+	while (!(buf = ckvsprintf(str, ap, len))) {
+		va_end(ap);
+		va_start(ap, str);
+		len *= 2;
+	}
 	va_end(ap);
 	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, buf, strlen(buf)),
 		    L->frame->envPtr);
