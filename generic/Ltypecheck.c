@@ -142,7 +142,7 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 	if (L->frame->options & L_OPT_POLY) return;
 
 	for (i = 1; actuals && formals; ++i) {
-		rest_arg = formals->rest_p;  // is it "...id"?
+		rest_arg = formals->flags & DECL_REST_ARG;  // is it "...id"?
 		unless (L_typeck_compat(formals->type, actuals->type) ||
 			rest_arg) {
 			L_errf(call, "parameter %d has incompatible type", i);
@@ -154,7 +154,7 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 		L_errf(call, "too many arguments for function %s",
 		       call->a->u.string);
 	}
-	if (formals && !formals->rest_p) {
+	if (formals && !(formals->flags & DECL_REST_ARG)) {
 		L_errf(call, "not enough arguments for function %s",
 		       call->a->u.string);
 	}
@@ -357,6 +357,9 @@ L_typeck_same(Type *a, Type *b)
 		/* Return types must match and all arg types must match. */
 		return (L_typeck_same(a->base_type, b->base_type) &&
 			typeck_decls(a->u.func.formals, b->u.func.formals));
+	    case L_CLASS:
+		/* Must be the same class. */
+		return (a == b);
 	    default:
 		L_bomb("bad type kind in L_typeck_same");
 		return (0);

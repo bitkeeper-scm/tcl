@@ -3290,9 +3290,6 @@ MODULE_SCOPE int	TclCompileVariableCmd(Tcl_Interp *interp,
 MODULE_SCOPE int	TclCompileWhileCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, Command *cmdPtr,
 			    struct CompileEnv *envPtr);
-MODULE_SCOPE int	TclCompileLCmd(Tcl_Interp *interp,
-			    Tcl_Parse *parsePtr, Command *cmdPtr,
-			    struct CompileEnv *envPtr);
 MODULE_SCOPE int	TclCompilePtrCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, Command *cmdPtr,
 			    struct CompileEnv *envPtr);
