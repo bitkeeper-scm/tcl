@@ -139,6 +139,58 @@ ast_mkClsDecl(VarDecl *decl, int beg, int end)
 	return (clsdecl);
 }
 
+/* Build a default constructor if the user didn't provide one. */
+FnDecl *
+ast_mkConstructor(ClsDecl *class)
+{
+	char	*name;
+	Type	*type;
+	Expr	*id;
+	VarDecl	*decl;
+	Stmt	*code;
+	Block	*block;
+	FnDecl	*fn;
+
+	type  = type_mkFunc(class->decl->type, NULL, PER_INTERP);
+	name  = cksprintf("%s_new", class->decl->id->u.string);
+	id    = ast_mkId(name, 0, 0);
+	decl  = ast_mkVarDecl(type, id, 0, 0);
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_CONSTRUCTOR;
+	decl->clsdecl = class;
+	code  = ast_mkStmt(L_STMT_RETURN, NULL, 0, 0);
+	code->u.expr = ast_mkId("self", 0, 0);
+	block = ast_mkBlock(NULL, code, 0, 0);
+	fn    = ast_mkFnDecl(decl, block, 0, 0);
+
+	return (fn);
+}
+
+/* Build a default destructor if the user didn't provide one. */
+FnDecl *
+ast_mkDestructor(ClsDecl *class)
+{
+	char	*name;
+	Type	*type;
+	Expr	*id, *self;
+	VarDecl	*decl, *parm;
+	Block	*block;
+	FnDecl	*fn;
+
+	self = ast_mkId("self", 0, 0);
+	parm = ast_mkVarDecl(class->decl->type, self, 0, 0);
+	parm->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+	type = type_mkFunc(L_void, parm, PER_INTERP);
+	name = cksprintf("%s_delete", class->decl->id->u.string);
+	id   = ast_mkId(name, 0, 0);
+	decl = ast_mkVarDecl(type, id, 0, 0);
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_DESTRUCTOR;
+	decl->clsdecl = class;
+	block = ast_mkBlock(NULL, NULL, 0, 0);
+	fn    = ast_mkFnDecl(decl, block, 0, 0);
+
+	return (fn);
+}
+
 Expr *
 ast_mkUnOp(Op_k op, Expr *e1, int beg, int end)
 {

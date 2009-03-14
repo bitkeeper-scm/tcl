@@ -571,7 +571,7 @@ class leak_7_1
 		 int	v2;
 	}
 	constructor leak_7_1_init() {}
-	destructor leak_7_1_free(leak_7_1 obj) {}
+	destructor leak_7_1_free(leak_7_1 self) {}
 }
 void leak_7_1_main()
 {

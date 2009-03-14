@@ -217,6 +217,13 @@ class_decl:
 		$$ = $<ClsDecl>4;
 		$$->node.end       = @6.end;
 		$$->decl->node.end = @6.end;
+		/* If constructor or destructor were omitted, make defaults. */
+		unless ($$->constructor) {
+			$$->constructor = ast_mkConstructor($$);
+		}
+		unless ($$->destructor) {
+			$$->destructor = ast_mkDestructor($$);
+		}
 	}
 	;
 

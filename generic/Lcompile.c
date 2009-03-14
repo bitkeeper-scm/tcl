@@ -311,14 +311,8 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 private void
 compile_classDecl(ClsDecl *class)
 {
-	char	*cls_name = class->decl->id->u.string;
-
-	unless (class->constructor) {
-		L_errf(class, "no constructor declared for class %s", cls_name);
-	}
-	unless (class->destructor) {
-		L_errf(class, "no destructor declared for class %s", cls_name);
-	}
+	ASSERT(class->constructor);
+	ASSERT(class->destructor);
 
 	/*
 	 * A class creates two scopes, one for the class symbols and
@@ -330,15 +324,13 @@ compile_classDecl(ClsDecl *class)
 
 	push_str("::namespace");
 	push_str("eval");
-	push_str("::L::_class_%s", cls_name);
+	push_str("::L::_class_%s", class->decl->id->u.string);
 	push_str("variable __num 0");
 	emit_invoke(4);
 
 	compile_varDecls(class->clsvars);
-
-	if (class->constructor) compile_fnDecl(class->constructor);
-	if (class->destructor)  compile_fnDecl(class->destructor);
-
+	compile_fnDecl(class->constructor);
+	compile_fnDecl(class->destructor);
 	compile_fnDecls(class->fns);
 
 	frame_pop();
@@ -424,18 +416,27 @@ compile_fnDecl(FnDecl *fun)
 
 	compile_fnParms(decl);
 
+	/* Gather class decl and name, for class member functions. */
+	clsdecl = fun->decl->clsdecl;
+	if (clsdecl) clsname = clsdecl->decl->id->u.string;
+
 	/*
-	 * Extra code for for class member functions.  First, always
-	 * declare the local variable "self".
+	 * For private class member fns and the constructor, declare
+	 * the local variable "self".  For public member fns, lookup
+	 * "self" which is required to be the first parameter (and is
+	 * added by compile_fnParms if not present).
 	 */
-	if (decl->flags & (DECL_CLASS_PUB_FN | DECL_CLASS_PRIV_FN)) {
+	if ((decl->flags & DECL_CLASS_PRIV_FN) ||
+	    (decl->flags & DECL_CLASS_CONSTRUCTOR)) {
 		self_id   = ast_mkId("self", 0, 0);
-		self_decl = ast_mkVarDecl(L_string, self_id, 0, 0);
+		self_decl = ast_mkVarDecl(clsdecl->decl->type, self_id, 0, 0);
 		self_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
 		self_sym  = sym_store(self_decl);
 		self_sym->used_p = TRUE;
-		clsdecl = fun->decl->clsdecl;
-		clsname = clsdecl->decl->id->u.string;
+		ASSERT(self_sym && self_sym->idx >= 0);
+	} else if (decl->flags & DECL_CLASS_PUB_FN) {
+		self_sym = sym_lookup(ast_mkId("self", 0, 0), NOWARN);
+		ASSERT(self_sym && self_sym->idx >= 0);
 	}
 
 	/*
@@ -479,22 +480,6 @@ compile_fnDecl(FnDecl *fun)
 		emit_pop();
 	}
 
-	/*
-	 * For public member functions (except the constructor), upvar
-	 * "self" to the first formal which is guaranteed to be the
-	 * object.
-	 */
-	if ((decl->flags & DECL_CLASS_PUB_FN) &&
-	    !(decl->flags & DECL_CLASS_CONSTRUCTOR)) {
-		push_str("0");
-		/* Name of 1st formal (must check in case it was omitted). */
-		if (decl->type->u.func.formals) {
-			push_str(decl->type->u.func.formals->id->u.string);
-		}
-		TclEmitInstInt4(INST_UPVAR, self_sym->idx, L->frame->envPtr);
-		emit_pop();
-	}
-
 	L->enclosing_func = fun;
 	compile_block(fun->body);
 	L->enclosing_func = NULL;
@@ -511,8 +496,8 @@ compile_fnDecl(FnDecl *fun)
 	}
 
 	/*
-	 * Emit a "fall of the end" implicit return, except for class
-	 * constructors which return the value of "self".
+	 * Emit a "fall off the end" implicit return.  Class
+	 * constructors return the value of "self".
 	 */
 	if (decl->flags & DECL_CLASS_CONSTRUCTOR) {
 		emit_load_scalar(self_sym->idx);
@@ -728,6 +713,7 @@ compile_block(Block *block)
 private void
 compile_return(Stmt *stmt)
 {
+	VarDecl	*decl;
 	Type	*ret_type;
 
 	unless (L->enclosing_func) {
@@ -735,13 +721,18 @@ compile_return(Stmt *stmt)
 		return;
 	}
 
-	ret_type = L->enclosing_func->decl->type->base_type;
+	decl     = L->enclosing_func->decl;
+	ret_type = decl->type->base_type;
 	if (isvoidtype(ret_type) && (stmt->u.expr)) {
 		L_errf(stmt, "void function cannot return value");
 	} else if (stmt->u.expr) {
 		compile_expr(stmt->u.expr, L_PUSH_VAL);  // return value
 		unless (L_typeck_compat(ret_type, stmt->u.expr->type)) {
 			L_errf(stmt, "incompatible return type");
+		} else if ((decl->flags & DECL_CLASS_CONSTRUCTOR) &&
+			   (stmt->u.expr->kind == L_EXPR_ID) &&
+			   strcmp(stmt->u.expr->u.string, "self")) {
+			L_errf(stmt, "class constructor must return 'self'");
 		}
 	} else {
 		push_str("");  // no return value -- push a ""
@@ -765,14 +756,25 @@ compile_fnParms(VarDecl *decl)
 	CompiledLocal	*local;
 
 	/*
-	 * Public class member fns (except constructor) must have
-	 * object as first arg.
+	 * Public class member fns (except constructor) must have "self"
+	 * as the first arg and it must be of the class type.
 	 */
-	if (decl->flags & DECL_CLASS_PUB_FN) {
-		unless ((param && (param->type == decl->clsdecl->decl->type)) ||
-			(decl->flags & DECL_CLASS_CONSTRUCTOR)) {
-			L_errf(decl->id, "class public member function must "
-			       "have class object as first arg");
+	if ((decl->flags & DECL_CLASS_PUB_FN) &&
+	    !(decl->flags & DECL_CLASS_CONSTRUCTOR)) {
+		Type	*clstype = decl->clsdecl->decl->type;
+		Expr	*self_id;
+		VarDecl	*self_decl;
+		if (!param || strcmp(param->id->u.string, "self")) {
+			L_errf(decl->id, "class public member function lacks "
+			       "'self' as first arg");
+			/* Add it so we can keep compiling. */
+			self_id   = ast_mkId("self", 0, 0);
+			self_decl = ast_mkVarDecl(clstype, self_id, 0, 0);
+			self_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+			self_decl->next = param;
+			param = self_decl;
+		} else if (param->type != clstype) {
+			L_errf(param, "'self' parameter must be of class type");
 		}
 	}
 
@@ -788,14 +790,6 @@ compile_fnParms(VarDecl *decl)
 			name = ckalloc(32);
 			snprintf(name, 32, "unnamed-arg-%d", i+1);
 			p->id = ast_mkId(name, 0, 0);
-		}
-		/* Class member fns cannot use "self" as a parameter. */
-		if (decl->flags & (DECL_CLASS_PUB_FN | DECL_CLASS_PRIV_FN)) {
-			if (!strcmp(p->id->u.string, "self")) {
-				L_errf(p, "'self' reserved in class member "
-				       "functions");
-				continue;
-			}
 		}
 		/*
 		 * For a pass-by-name formal, mangle the formal name
@@ -818,6 +812,16 @@ compile_fnParms(VarDecl *decl)
 			p->id->u.string = name;
 		}
 		name = p->id->u.string;
+		/*
+		 * Class constructor must not have "self" for any param.
+		 */
+		if ((decl->flags & DECL_CLASS_CONSTRUCTOR) &&
+		    !strcmp(name, "self")) {
+			L_errf(p,
+			       "'self' parameter illegal in class constructor");
+			continue;
+		}
+
 		/* Formal parameters are stored in local variable slots. */
 		proc->numArgs = i + 1;
 		proc->numCompiledLocals = i + 1;
@@ -843,6 +847,7 @@ compile_fnParms(VarDecl *decl)
 		local->defValuePtr = NULL;
 		strcpy(local->name, name);
 		sym = sym_store(p);
+		unless (sym) continue;  // multiple declaration
 		sym->idx = i;
 		if (by_name) {
 			/* Push a 1 the first time (arg to INST_UPVAR). */

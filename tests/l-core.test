@@ -171,6 +171,14 @@ void proc_1_4(int a, ...b, int c) {
 proc_1_4
 } -returnCodes {error} -match glob -result "*:1: L Error: Rest parameter must be last\n"
 
+test proc-1.5 {test parameter multiple declaration} -body {
+#lang L -nowarn
+void proc_1_5_1(int a, int a) {}
+void proc_1_5_2(int a, int a, int a) {}
+} -returnCodes error -match regexp -result {.*1: L Error: multiple declaration of local a
+.*2: L Error: multiple declaration of local a
+.*2: L Error: multiple declaration of local a
+}
 
 test var-1.0 {Test L variable assignment and reference} -body {
 #lang L
@@ -8803,24 +8811,24 @@ class class_1_1
 		inst = s;
 		++class_1_1_inits;
 	}
-	destructor class_1_1_free(class_1_1 obj)
+	destructor class_1_1_free(class_1_1 self)
 	{
 		++class_1_1_frees;
 	}
-	void class_1_1_foo(class_1_1 obj)
+	void class_1_1_foo(class_1_1 self)
 	{
 		++class_1_1_foos;
 		priv();
 	}
-	string class_1_1_inst(class_1_1 obj)
+	string class_1_1_inst(class_1_1 self)
 	{
 		return (inst);
 	}
-	int class_1_1_cvar1(class_1_1 obj)
+	int class_1_1_cvar1(class_1_1 self)
 	{
 		return (cvar1);
 	}
-	int class_1_1_cvar2(class_1_1 obj)
+	int class_1_1_cvar2(class_1_1 self)
 	{
 		return (cvar2);
 	}
@@ -8876,8 +8884,8 @@ class class_1_2
 		int	n;
 	}
 	constructor class_1_2_init(int i) { n = i; }
-	destructor class_1_2_free(class_1_2 obj) {}
-	int class_1_2_inst(class_1_2 obj) { return (n); }
+	destructor class_1_2_free(class_1_2 self) {}
+	int class_1_2_inst(class_1_2 self) { return (n); }
 }
 void class_1_2_main()
 {
@@ -8909,12 +8917,12 @@ class class_1_3
 {
 	string	cls_var = "first";
 	constructor class_1_3_init() {}
-	destructor class_1_3_free(class_1_3 obj) {}
-	void class_1_3_set(class_1_3 obj, string s)
+	destructor class_1_3_free(class_1_3 self) {}
+	void class_1_3_set(class_1_3 self, string s)
 	{
 		cls_var = s;
 	}
-	string class_1_3_get(class_1_3 obj)
+	string class_1_3_get(class_1_3 self)
 	{
 		return (cls_var);
 	}
@@ -8952,23 +8960,109 @@ void class_1_3_main()
 class_1_3_main();
 } -output {}
 
-test class-2.1 {check class missing constructor} -body {
+test class-1.4 {test no class instance variables} -body {
+#lang L
+class class_1_4
+{
+	int	cvar = 123;
+	constructor class_1_4_new()
+	{
+		unless (cvar == 123) puts ("bad c1");
+	}
+	destructor class_1_4_delete(class_1_4 self)
+	{
+		unless (cvar == 123) puts ("bad d1");
+	}
+}
+void class_1_4_main()
+{
+	class_1_4 o = class_1_4_new();
+	class_1_4_delete(o);
+}
+class_1_4_main();
+} -output {}
+
+test class-1.5 {test no class variables} -body {
+#lang L
+class class_1_5
+{
+	instance {
+		int	inst = 123;
+	}
+	constructor class_1_5_new()
+	{
+		unless (inst == 123) puts ("bad c1");
+	}
+	destructor class_1_5_delete(class_1_5 self)
+	{
+		unless (inst == 123) puts ("bad d1");
+	}
+}
+void class_1_5_main()
+{
+	class_1_5 o = class_1_5_new();
+	class_1_5_delete(o);
+}
+class_1_5_main();
+} -output {}
+
+test class-2.1 {check missing class constructor} -body {
 #lang L
 class class_2_1
 {
-	destructor class_2_1_free(class_2_1 obj) {}
+	instance {
+		int inst = 123;
+	}
+	destructor class_2_1_delete(class_2_1 self)
+	{
+		unless (inst == 123) puts("bad 1");
+	}
 }
-} -returnCodes {error} -match regexp -result {.*: L Error: no constructor declared.*
+void class_2_1_main()
+{
+	class_2_1 o = class_2_1_new();
+	class_2_1_delete(o);
 }
+class_2_1_main();
+} -output {}
 
 test class-2.2 {check class missing destructor} -body {
 #lang L
 class class_2_2
 {
-	constructor class_2_2_init() {}
+	instance {
+		int inst = 123;
+	}
+	constructor class_2_2_new()
+	{
+		unless (inst == 123) puts("bad 1");
+	}
 }
-} -returnCodes {error} -match regexp -result {.*: L Error: no destructor declared.*
+void class_2_2_main()
+{
+	class_2_2 o = class_2_2_new();
+	class_2_2_delete(o);
 }
+class_2_2_main();
+} -output {}
+
+test class-2.2.1 {check class missing constructor and destructor} -body {
+#lang L
+class class_2_2_1
+{
+	instance {
+		int inst = 123;
+	}
+	int class_2_2_1_get(class_2_2_1 self) { return inst; }
+}
+void class_2_2_1_main()
+{
+	class_2_2_1 o = class_2_2_1_new();
+	unless (class_2_2_1_get(o) == 123) puts("bad 1");
+	class_2_2_1_delete(o);
+}
+class_2_2_1_main();
+} -output {}
 
 test class-2.3 {check duplicate class constructor} -body {
 #lang L
@@ -8984,69 +9078,69 @@ test class-2.4 {check duplicate class destructor} -body {
 #lang L
 class class_2_4
 {
-	destructor class_2_3_free1(class_2_4 obj) {}
-	destructor class_2_3_free2(class_2_4 obj) {}
+	destructor class_2_3_free1(class_2_4 self) {}
+	destructor class_2_3_free2(class_2_4 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*4: L Error: class destructor already declared
 }
 
-test class-2.5 {check missing object argument in class destructor 1} -body {
+test class-2.5 {check missing self argument in class destructor 1} -body {
 #lang L
 class class_2_5
 {
 	constructor class_2_5_init() {}
 	destructor class_2_5_free() {}
 }
-} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function must have class object as first arg
+} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function lacks 'self' as first arg
 }
 
-test class-2.6 {check missing object argument in class destructor 2} -body {
-#lang L
+test class-2.6 {check missing self argument in class destructor 2} -body {
+#lang L -nowarn
 class class_2_6
 {
 	constructor class_2_6_init() {}
 	destructor class_2_6_free(string bad) {}
 }
-} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function must have class object as first arg
+} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function lacks 'self' as first arg
 }
 
-test class-2.7 {check missing object argument in class destructor 3} -body {
+test class-2.7 {check missing self argument in class destructor 3} -body {
 #lang L -nowarn
 class class_2_7
 {
 	constructor class_2_7_init() {}
-	destructor class_2_7_free(string bad, class_2_7 too_late) {}
+	destructor class_2_7_free(string bad, class_2_7 self) {}
 }
-} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function must have class object as first arg
+} -returnCodes {error} -match regexp -result {.*4: L Error: class public member function lacks 'self' as first arg
 }
 
-test class-2.8 {check missing object argument in public class member fn} -body {
+test class-2.8 {check missing self argument in public class member fn} -body {
 #lang L -nowarn
 class class_2_8
 {
 	constructor class_2_8_init() {}
-	destructor class_2_8_free(class_2_8 obj) {}
+	destructor class_2_8_free(class_2_8 self) {}
 	void class_2_8_foo1() {}
 	void class_2_8_foo2(string bad) {}
-	void class_2_8_foo3(string bad, class_2_8 too_late) {}
+	void class_2_8_foo3(string bad, class_2_8 self) {}
 }
-} -returnCodes {error} -match regexp -result {.*5: L Error: class public member function must ha.*6: L Error: class public member function must have class object as first arg
-.*7: L Error: class public member function must have class object as first arg
+} -returnCodes {error} -match regexp -result {.*5: L Error: class public member function lacks 'self' as first arg
+.*6: L Error: class public member function lacks 'self' as first arg
+.*7: L Error: class public member function lacks 'self' as first arg
 }
 
-test class-2.9 {check use of self arg in class member fn} -body {
+test class-2.9 {check use of self argument in class member fn} -body {
 #lang L
 class class_2_9
 {
 	constructor class_2_9_init() {}
-	destructor class_2_9_free(class_2_9 obj) {}
+	destructor class_2_9_free(class_2_9 self) {}
 	void class_2_9_foo1(class_2_9 self) {}
-	void class_2_9_foo2(class_2_9 obj, class_2_9 self) {}
-	void class_2_9_foo3(class_2_9 obj, string self) {}
+	void class_2_9_foo2(class_2_9 self, class_2_9 self) {}
+	void class_2_9_foo3(class_2_9 self, string self) {}
 }
-} -returnCodes {error} -match regexp -result {.*5: L Error: 'self' reserved in class member functions
-.*6: L Error: 'self' reserved in class member functions
-.*7: L Error: 'self' reserved in class member functions
+} -returnCodes {error} -match regexp -result {.*6: L Error: multiple declaration of local self
+.*7: L Error: multiple declaration of local self
 }
 
 test class-2.10 {check declaration of local named self in class} -body {
@@ -9057,11 +9151,11 @@ class class_2_10
 	{
 		int	self;
 	}
-	destructor class_2_10_free(class_2_10 obj)
+	destructor class_2_10_free(class_2_10 self)
 	{
 		class_2_10 self;
 	}
-	void class_2_10_foo(class_2_10 obj)
+	void class_2_10_foo(class_2_10 self)
 	{
 		int	self;
 	}
@@ -9069,6 +9163,149 @@ class class_2_10
 } -returnCodes {error} -match regexp -result {.*5: L Error: multiple declaration.*
 .*9: L Error: multiple declaration.*
 .*13: L Error: multiple declaration.*
+}
+
+test class-2.11 {check return stmt in class destructor 1} -body {
+#lang L
+class class_2_11
+{
+	destructor class_2_11_delete(class_2_11 self)
+	{
+		return;  // legal -- return type of void
+	}
+}
+void class_2_11_main()
+{
+	class_2_11 o = class_2_11_new();
+	class_2_11_delete(o);
+}
+class_2_11_main();
+} -output {}
+
+test class-2.12 {check return stmt in class destructor 2} -body {
+#lang L
+class class_2_12
+{
+	destructor class_2_12_delete(class_2_12 self)
+	{
+		return ("bad");  // err -- return type is void
+	}
+}
+} -returnCodes {error} -match regexp -result {.*5: L Error: void function cannot return value
+}
+
+test class-2.12.1 {check return stmt in class constructor 1} -body {
+#lang L
+class class_2_12_1
+{
+	instance { int inst = 123; }
+	constructor class_2_12_1_new()
+	{
+		return (self);
+	}
+	int class_2_12_1_get(class_2_12_1 self) { return (inst); }
+}
+void class_2_12_1_main()
+{
+	class_2_12_1 o = class_2_12_1_new();
+	unless (class_2_12_1_get(o) == 123) puts("bad 1");
+	class_2_12_1_delete(o);
+}
+class_2_12_1_main();
+} -output {}
+
+test class-2.12.2 {check return stmt in class constructor 2} -body {
+#lang L
+class class_2_12_2
+{
+	constructor class_2_12_2_new()
+	{
+		return ("bad");  // err -- bad return type
+	}
+}
+} -returnCodes {error} -match regexp -result {.*5: L Error: incompatible return type
+}
+
+test class-2.13 {check name clash with class constructor 1} -body {
+#lang L
+class class_2_13
+{
+	constructor class_2_13_new() {}
+	void class_2_13_new(class_2_13 self) {}  // err
+	private void class_2_13_new(class_2_13 self) {}  // err
+}
+} -returnCodes {error} -match regexp -result {.*4: L Error: function class_2_13_new already declared
+.*5: L Error: function class_2_13_new already declared
+}
+
+test class-2.14 {check name clash with class constructor 2} -body {
+#lang L
+class class_2_14
+{
+	void class_2_14_new(class_2_14 self) {}  // err
+	private void class_2_14_new(class_2_14 self) {}  // err
+}
+} -returnCodes {error} -match regexp -result {.*3: L Error: function class_2_14_new already declared
+.*4: L Error: function class_2_14_new already declared
+}
+
+test class-2.15 {check name clash with class destructor 1} -body {
+#lang L
+class class_2_15
+{
+	destructor class_2_15_delete() {}
+	void class_2_15_delete(class_2_15 self) {}  // err
+	private void class_2_15_delete(class_2_15 self) {}  // err
+}
+} -returnCodes {error} -match regexp -result {.*4: L Error: function class_2_15_delete already declared
+.*5: L Error: function class_2_15_delete already declared
+}
+
+test class-2.16 {check name clash with class destructor 2} -body {
+#lang L
+class class_2_16
+{
+	void class_2_16_delete(class_2_16 self) {}  // err
+	private void class_2_16_delete(class_2_16 self) {}  // err
+}
+} -returnCodes {error} -match regexp -result {.*3: L Error: function class_2_16_delete already declared
+.*4: L Error: function class_2_16_delete already declared
+}
+
+test class-2.17 {check illegal self parameter in class constructor 1} -body {
+#lang L
+class class_2_17
+{
+	constructor class_2_17_new(class_2_17 self) {}
+}
+} -returnCodes {error} -match regexp -result {.*3: L Error: 'self' parameter illegal in class constructor
+}
+
+test class-2.18 {check illegal self parameter in class constructor 2} -body {
+#lang L -nowarn
+class class_2_18
+{
+	constructor class_2_18_new(int a, class_2_17 self) {}
+}
+} -returnCodes {error} -match regexp -result {.*3: L Error: 'self' parameter illegal in class constructor
+}
+
+test class-2.19 {check class constructor not returning self} -body {
+#lang L
+class class_2_19
+{
+	/*
+	 * Previous tests checked returning something other than
+	 * the class type.  This checks when you return the right
+	 * type but it's not literally the "self" variable.
+	 */
+	constructor class_2_19_new()
+	{
+		class_2_19 o;
+		return (o);  // err
+	}
+}
+} -returnCodes {error} -match regexp -result {.*11: L Error: class constructor must return 'self'
 }
 
 test class-3.1 {check scoping of class vars and class instance vars 1} -body {
@@ -9084,7 +9321,7 @@ class class_3_1
 	}
 	int	x;  // err -- multiply declared
 	constructor class_3_1_init() {}
-	destructor class_3_1_free(class_3_1 obj) {}
+	destructor class_3_1_free(class_3_1 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
 }
@@ -9102,7 +9339,7 @@ class class_3_2
 	}
 	int	x;  // err -- multiply declared
 	constructor class_3_2_init() {}
-	destructor class_3_2_free(class_3_2 obj) {}
+	destructor class_3_2_free(class_3_2 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
 .*: L Error: multiple declaration of x
@@ -9124,7 +9361,7 @@ class class_3_3
 	int	x;  // err -- multiply declared
 	int	x;  // err -- multiply declared
 	constructor class_3_3_init() {}
-	destructor class_3_3_free(class_3_3 obj) {}
+	destructor class_3_3_free(class_3_3 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
 .*: L Error: multiple declaration of x
@@ -9147,7 +9384,7 @@ class class_3_4
 		int	x;  // err -- multiply declared
 	}
 	constructor class_3_4_init() {}
-	destructor class_3_4_free(class_3_4 obj) {}
+	destructor class_3_4_free(class_3_4 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
 .*: L Error: multiple declaration of x
@@ -9173,7 +9410,7 @@ class class_3_5
 	private void class_3_5_x() {}  // err -- already declared as a variable
 	void class_3_5_x() {}  // err -- already declared as a variable
 	constructor class_3_5_init() {}
-	destructor class_3_5_free(class_3_5 obj) {}
+	destructor class_3_5_free(class_3_5 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of class_3_5_x
 .*: L Error: multiple declaration of class_3_5_x
@@ -9200,7 +9437,7 @@ class class_3_6
 	int	class_3_6_x;  // err -- multiply declared
 	void class_3_6_x() {}  // err -- already declared as a variable
 	constructor class_3_6_init() {}
-	destructor class_3_6_free(class_3_6 obj) {}
+	destructor class_3_6_free(class_3_6 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of class_3_6_x
 .*: L Error: multiple declaration of class_3_6_x
@@ -9225,7 +9462,7 @@ class class_3_7
 		unless (cvar eq "cvar") puts("bad c1");
 		unless (ivar eq "ivar") puts("bad c2");
 	}
-	destructor class_3_7_free(class_3_7 obj)
+	destructor class_3_7_free(class_3_7 self)
 	{
 		unless (cvar eq "cvar") puts("bad d1");
 		unless (ivar eq "ivar") puts("bad d2");
@@ -9235,7 +9472,7 @@ class class_3_7
 		unless (cvar eq "cvar") puts("bad p1");
 		unless (ivar eq "ivar") puts("bad p2");
 	}
-	void class_3_7_foo(class_3_7 obj)
+	void class_3_7_foo(class_3_7 self)
 	{
 		unless (cvar eq "cvar") puts("bad f1");
 		unless (ivar eq "ivar") puts("bad f2");
@@ -9269,9 +9506,9 @@ class class_4_1_1
 	}
 
 	constructor class_4_1_1_init() {}
-	destructor class_4_1_1_free(class_4_1_1 obj) {}
+	destructor class_4_1_1_free(class_4_1_1 self) {}
 	private int priv() { return (class_4_1_global_var); }
-	int class_4_1_1_get(class_4_1_1 obj)
+	int class_4_1_1_get(class_4_1_1 self)
 	{
 		unless (class_4_1_global_var2 == 811) puts("bad c1");
 		return (priv());
@@ -9285,9 +9522,9 @@ class class_4_1_2
 	}
 
 	constructor class_4_1_2_init() {}
-	destructor class_4_1_2_free(class_4_1_2 obj) {}
+	destructor class_4_1_2_free(class_4_1_2 self) {}
 	private int priv() { return (class_4_1_global_var); }
-	int class_4_1_2_get(class_4_1_2 obj)
+	int class_4_1_2_get(class_4_1_2 self)
 	{
 		unless (class_4_1_global_var2 == 812) puts("bad c2");
 		return (priv());
@@ -9330,7 +9567,7 @@ class class_4_2
 	};
 
 	constructor class_4_2_init() {}
-	destructor class_4_2_free(class_4_2_1 obj) {}
+	destructor class_4_2_free(class_4_2_1 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*17: L Error: Cannot redefine type class_4_2_type
 .*19: L Error: multiple declaration of struct class_4_2_struct
@@ -9359,7 +9596,7 @@ class class_4_3_1
 		unless (s eq "431") puts("bad c1.1");
 		unless (st.s eq "431") puts("bad c1.2");
 	}
-	destructor class_4_3_1_free(class_4_3_1 obj) {}
+	destructor class_4_3_1_free(class_4_3_1 self) {}
 }
 
 class_4_3_type		gs = "g43";
@@ -9375,7 +9612,7 @@ class class_4_3_2
 		unless (s eq "432") puts("bad c2.1");
 		unless (st.s eq "432") puts("bad c2.2");
 	}
-	destructor class_4_3_2_free(class_4_3_2 obj) {}
+	destructor class_4_3_2_free(class_4_3_2 self) {}
 }
 void class_4_3_main()
 {
@@ -9393,14 +9630,14 @@ test class-5.1 {check class object type checking} -body {
 class class_5_1_1
 {
 	constructor class_5_1_1_init() {}
-	destructor class_5_1_1_free(class_5_1_1 obj) {}
-	void class_5_1_1_foo(class_5_1_1 obj, int a) {}
+	destructor class_5_1_1_free(class_5_1_1 self) {}
+	void class_5_1_1_foo(class_5_1_1 self, int a) {}
 }
 class class_5_1_2
 {
 	constructor class_5_1_2_init() {}
-	destructor class_5_1_2_free(class_5_1_2 obj) {}
-	void class_5_1_2_foo(class_5_1_2 obj, int a) {}
+	destructor class_5_1_2_free(class_5_1_2 self) {}
+	void class_5_1_2_foo(class_5_1_2 self, int a) {}
 }
 void class_5_1()
 {
@@ -9428,17 +9665,17 @@ test class-5.2 {check wrong object type in class member fn declarations} -body {
 class class_5_2_1
 {
 	constructor class_5_2_1_init() {}
-	destructor class_5_2_1_free(class_5_2_1 obj) {}
+	destructor class_5_2_1_free(class_5_2_1 self) {}
 }
 class class_5_2_2
 {
 	constructor class_5_2_2_init() {}
 	/* These have the wrong class as the arg type. */
-	destructor class_5_2_2_free(class_5_2_1 obj) {}
- 	void class_5_2_2_foo(class_5_2_1 obj) {}
+	destructor class_5_2_2_free(class_5_2_1 self) {}
+	void class_5_2_2_foo(class_5_2_1 self) {}
 }
-} -returnCodes {error} -match regexp -result {.*10: L Error: class public member function must have class object as first arg
-.*11: L Error: class public member function must have class object as first arg
+} -returnCodes {error} -match regexp -result {.*10: L Error: 'self' parameter must be of class type
+.*11: L Error: 'self' parameter must be of class type
 }
 
 test class-5.3 {check that class member fn args get type checked 1} -body {
@@ -9450,9 +9687,9 @@ test class-5.3 {check that class member fn args get type checked 1} -body {
 typedef string myhash{int};
 class class_5_3 {
 	constructor class_5_3_init(int a, string b, myhash c) {}
-	destructor class_5_3_free(class_5_3 obj) {}
+	destructor class_5_3_free(class_5_3 self) {}
 	private void priv(myhash a, int b, int c) {}
-	string class_5_3_foo(class_5_3 obj, string a, int b) {
+	string class_5_3_foo(class_5_3 self, string a, int b) {
 		myhash	h;
 		priv(h, 3, 4);
 		return(a);
@@ -9476,9 +9713,9 @@ test class-5.4 {check that class member fn args get type checked 2} -body {
 typedef string myhash{int};
 class class_5_4 {
 	constructor class_5_4_init(int a, string b, myhash c) {}
-	destructor class_5_4_free(class_5_4 obj) {}
+	destructor class_5_4_free(class_5_4 self) {}
 	private void priv(myhash a, int b, int c) {}
-	string class_5_4_foo(class_5_4 obj, string a, int b) {
+	string class_5_4_foo(class_5_4 self, string a, int b) {
 		myhash	h;
 		priv(3, h, 4);  // args 1,2 backwards
 		return(b);  // bad return type
