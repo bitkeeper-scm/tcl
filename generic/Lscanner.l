@@ -85,7 +85,7 @@ void L_lex_start()
 }
 
 /*
- * Count the newlines in a string and add the number to L_line_number.
+ * Count the newlines in a string and add the number to L->line.
  */
 private void
 tally_newlines(char *s, int len)
@@ -235,6 +235,10 @@ include_pop()
 	"foreach"	return T_FOREACH;
 	"break"		return T_BREAK;
 	"continue"	return T_CONTINUE;
+	"instance"	return T_INSTANCE;
+	"private"	return T_PRIVATE;
+	"constructor"	return T_CONSTRUCTOR;
+	"destructor"	return T_DESTRUCTOR;
 	"in"		return T_IN;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;
@@ -249,7 +253,7 @@ include_pop()
 	">="		return T_GREATEREQ;
 	"<"		return T_LESSTHAN;
 	"<="		return T_LESSTHANEQ;
-	{ID}[ \t\n\r]*:	{
+	{ID}:		{
 				int i, j;
 				tally_newlines(yytext, yyleng);
 				L_lval.s = ckalloc(yyleng+1);

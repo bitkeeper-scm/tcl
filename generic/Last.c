@@ -59,13 +59,12 @@ ast_mkForeach(Expr *expr, Expr *key, Expr *value, Stmt *body,
 }
 
 FnDecl *
-ast_mkFnDecl(VarDecl *decl, Block *body, int pattern_p, int beg, int end)
+ast_mkFnDecl(VarDecl *decl, Block *body, int beg, int end)
 {
 	FnDecl *fndecl = (FnDecl *)ckalloc(sizeof(FnDecl));
 	memset(fndecl, 0, sizeof(FnDecl));
-	fndecl->body      = body;
-	fndecl->decl      = decl;
-	fndecl->pattern_p = pattern_p;
+	fndecl->body = body;
+	fndecl->decl = decl;
 	ast_init(fndecl, L_NODE_FUNCTION_DECL, beg, end);
 	return (fndecl);
 }
@@ -130,6 +129,68 @@ ast_mkVarDecl(Type *type, Expr *id, int beg, int end)
 	return (vardecl);
 }
 
+ClsDecl *
+ast_mkClsDecl(VarDecl *decl, int beg, int end)
+{
+	ClsDecl *clsdecl = (ClsDecl *)ckalloc(sizeof(ClsDecl));
+	memset(clsdecl, 0, sizeof(ClsDecl));
+	clsdecl->decl   = decl;
+	ast_init(clsdecl, L_NODE_CLASS_DECL, beg, end);
+	return (clsdecl);
+}
+
+/* Build a default constructor if the user didn't provide one. */
+FnDecl *
+ast_mkConstructor(ClsDecl *class)
+{
+	char	*name;
+	Type	*type;
+	Expr	*id;
+	VarDecl	*decl;
+	Stmt	*code;
+	Block	*block;
+	FnDecl	*fn;
+
+	type  = type_mkFunc(class->decl->type, NULL, PER_INTERP);
+	name  = cksprintf("%s_new", class->decl->id->u.string);
+	id    = ast_mkId(name, 0, 0);
+	decl  = ast_mkVarDecl(type, id, 0, 0);
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_CONSTRUCTOR;
+	decl->clsdecl = class;
+	code  = ast_mkStmt(L_STMT_RETURN, NULL, 0, 0);
+	code->u.expr = ast_mkId("self", 0, 0);
+	block = ast_mkBlock(NULL, code, 0, 0);
+	fn    = ast_mkFnDecl(decl, block, 0, 0);
+
+	return (fn);
+}
+
+/* Build a default destructor if the user didn't provide one. */
+FnDecl *
+ast_mkDestructor(ClsDecl *class)
+{
+	char	*name;
+	Type	*type;
+	Expr	*id, *self;
+	VarDecl	*decl, *parm;
+	Block	*block;
+	FnDecl	*fn;
+
+	self = ast_mkId("self", 0, 0);
+	parm = ast_mkVarDecl(class->decl->type, self, 0, 0);
+	parm->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+	type = type_mkFunc(L_void, parm, PER_INTERP);
+	name = cksprintf("%s_delete", class->decl->id->u.string);
+	id   = ast_mkId(name, 0, 0);
+	decl = ast_mkVarDecl(type, id, 0, 0);
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_DESTRUCTOR;
+	decl->clsdecl = class;
+	block = ast_mkBlock(NULL, NULL, 0, 0);
+	fn    = ast_mkFnDecl(decl, block, 0, 0);
+
+	return (fn);
+}
+
 Expr *
 ast_mkUnOp(Op_k op, Expr *e1, int beg, int end)
 {
@@ -187,7 +248,7 @@ type_alloc(Type_k kind, enum typemk_k disposition)
 {
 	Type *type = (Type *)ckalloc(sizeof(Type));
 	memset(type, 0, sizeof(Type));
-	type->kind   = kind;
+	type->kind = kind;
 	unless (disposition == PERSIST) {
 		type->list   = L->type_list;
 		L->type_list = type;
@@ -251,5 +312,12 @@ type_mkList(Type *a, enum typemk_k disposition)
 {
 	Type *type = type_alloc(L_LIST, disposition);
 	type->base_type = a;
+	return (type);
+}
+
+Type *
+type_mkClass(enum typemk_k disposition)
+{
+	Type *type = type_alloc(L_CLASS, disposition);
 	return (type);
 }

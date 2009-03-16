@@ -65,6 +65,7 @@ extern int	L_lex (void);
 	Stmt	*Stmt;
 	TopLev	*TopLev;
 	VarDecl	*VarDecl;
+	ClsDecl	*ClsDecl;
 	struct {
 		Type	*t;
 		char	*s;
@@ -96,7 +97,7 @@ extern int	L_lex (void);
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_SPLIT T_DOTDOT
+%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_CONSTRUCTOR T_DESTRUCTOR
 
 /*
  * This follows the C operator-precedence rules, from lowest to
@@ -122,6 +123,7 @@ extern int	L_lex (void);
 %left HIGHEST
 
 %type <TopLev> toplevel_code
+%type <ClsDecl> class_decl
 %type <FnDecl> function_decl fundecl_tail fundecl_tail1
 %type <Stmt> stmt single_stmt compound_stmt stmt_list optional_else
 %type <Cond> selection_stmt
@@ -150,16 +152,21 @@ start:	  toplevel_code
 	;
 
 toplevel_code:
-	  toplevel_code function_decl
+	  toplevel_code class_decl
+	{
+		$$ = ast_mkTopLevel(L_TOPLEVEL_CLASS, $1, @1.beg, @2.end);
+		$$->u.class = $2;
+	}
+	| toplevel_code function_decl
 	{
 		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @2.end);
-		$2->decl->outer_p = TRUE;
+		$2->decl->flags |= SCOPE_GLOBAL | DECL_FN;
 		$$->u.fun = $2;
 	}
 	| toplevel_code T_EXTERN function_decl
 	{
 		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @3.end);
-		$3->decl->outer_p = TRUE;
+		$3->decl->flags |= SCOPE_GLOBAL | DECL_FN | DECL_EXTERN;
 		$$->u.fun = $3;
 	}
 	| toplevel_code struct_specifier ";"
@@ -178,7 +185,7 @@ toplevel_code:
 		VarDecl *v;
 		$$ = ast_mkTopLevel(L_TOPLEVEL_GLOBAL, $1, @1.beg, @2.end);
 		for (v = $2; v; v = v->next) {
-			v->outer_p = TRUE;
+			v->flags |= SCOPE_GLOBAL | DECL_GLOBAL_VAR;
 		}
 		$$->u.global = $2;
 	}
@@ -189,6 +196,114 @@ toplevel_code:
 		$$->u.stmt = $2;
 	}
 	| /* epsilon */		{ $$ = NULL; }
+	;
+
+class_decl:
+	  T_CLASS id "{"
+	{
+		/*
+		 * Alloc the VarDecl now and associate it with
+		 * the class name so that it is available while
+		 * parsing the class body.
+		 */
+		Type	*t = type_mkClass(PER_INTERP);
+		VarDecl	*d = ast_mkVarDecl(t, $2, @1.beg, 0);
+		ClsDecl	*c = ast_mkClsDecl(d, @1.beg, 0);
+		L_typedef_store(d);
+		$<ClsDecl>$ = c;
+	}
+	class_code "}"
+	{
+		$$ = $<ClsDecl>4;
+		$$->node.end       = @6.end;
+		$$->decl->node.end = @6.end;
+		/* If constructor or destructor were omitted, make defaults. */
+		unless ($$->constructor) {
+			$$->constructor = ast_mkConstructor($$);
+		}
+		unless ($$->destructor) {
+			$$->destructor = ast_mkDestructor($$);
+		}
+	}
+	;
+
+class_code:
+	  class_code T_INSTANCE "{" declaration_list "}" opt_semi
+	{
+		VarDecl	*v;
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		REVERSE(VarDecl, next, $4);
+		for (v = $4; v; v = v->next) {
+			v->clsdecl = clsdecl;
+			v->flags  |= SCOPE_CLASS | DECL_CLASS_INST_VAR;
+		}
+		APPEND_OR_SET(VarDecl, next, clsdecl->instvars, $4);
+	}
+	| class_code T_INSTANCE "{" "}" opt_semi
+	| class_code declaration
+	{
+		VarDecl	*v;
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		for (v = $2; v; v = v->next) {
+			v->clsdecl = clsdecl;
+			v->flags  |= SCOPE_CLASS | DECL_CLASS_VAR;
+		}
+		APPEND_OR_SET(VarDecl, next, clsdecl->clsvars, $2);
+	}
+	| class_code struct_specifier ";"
+	| class_code T_TYPEDEF type_specifier declarator ";"
+	{
+		L_set_declBaseType($4, $3);
+		L_typedef_store($4);
+	}
+	| class_code function_decl
+	{
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		$2->decl->clsdecl = clsdecl;
+		$2->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN;
+		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $2);
+	}
+	| class_code T_PRIVATE function_decl
+	{
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		$3->decl->clsdecl = clsdecl;
+		$3->decl->flags  |= SCOPE_CLASS | DECL_CLASS_PRIV_FN;
+		$3->decl->tclprefix = cksprintf("_L_class_%s_",
+						clsdecl->decl->id->u.string);
+		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $3);
+	}
+	| class_code T_CONSTRUCTOR fundecl_tail
+	{
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		$3->decl->type->base_type = clsdecl->decl->type;
+		$3->decl->clsdecl = clsdecl;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
+			DECL_CLASS_CONSTRUCTOR;
+		if (clsdecl->constructor) {
+			L_errf($3, "class constructor already declared");
+		} else {
+			clsdecl->constructor = $3;
+		}
+	}
+	| class_code T_DESTRUCTOR fundecl_tail
+	{
+		ClsDecl	*clsdecl = $<ClsDecl>0;
+		$3->decl->type->base_type = L_void;
+		$3->decl->clsdecl = clsdecl;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
+			DECL_CLASS_DESTRUCTOR;
+		if (clsdecl->destructor) {
+			L_errf($3, "class destructor already declared");
+		} else {
+			clsdecl->destructor = $3;
+		}
+	}
+	| /* epsilon */
+	;
+
+opt_semi:
+	  ";"
+	| /* epsilon */
 	;
 
 function_decl:
@@ -212,13 +327,13 @@ fundecl_tail:
 		VarDecl	*new_param;
 		Expr	*dollar1 = ast_mkId("$1", @2.beg, @2.end);
 
-		$2->pattern_p = TRUE;
 		$2->decl->id = ast_mkId($1, @1.beg, @1.end);
 		ckfree($1);
 		$$ = $2;
 		$$->node.beg = @1.beg;
 		/* Prepend a new arg "$1" as the first formal. */
 		new_param = ast_mkVarDecl(L_string, dollar1, @1.beg, @2.end);
+		new_param->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
 		new_param->next = $2->decl->type->u.func.formals;
 		$2->decl->type->u.func.formals = new_param;
 	}
@@ -229,13 +344,13 @@ fundecl_tail1:
 	{
 		Type	*type = type_mkFunc(NULL, $2, PER_INTERP);
 		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @3.end);
-		$$ = ast_mkFnDecl(decl, $4->u.block, FALSE, @1.beg, @4.end);
+		$$ = ast_mkFnDecl(decl, $4->u.block, @1.beg, @4.end);
 	}
 	| "(" parameter_list ")" ";"
 	{
 		Type	*type = type_mkFunc(NULL, $2, PER_INTERP);
 		VarDecl	*decl = ast_mkVarDecl(type, NULL, @1.beg, @3.end);
-		$$ = ast_mkFnDecl(decl, NULL, FALSE, @1.beg, @4.end);
+		$$ = ast_mkFnDecl(decl, NULL, @1.beg, @4.end);
 	}
 	;
 
@@ -373,7 +488,11 @@ stmt_list:
 parameter_list:
 	  parameter_decl_list
 	{
+		VarDecl *v;
 		REVERSE(VarDecl, next, $1);
+		for (v = $1; v; v = v->next) {
+			v->flags |= SCOPE_LOCAL | DECL_LOCAL_VAR;
+		}
 		$$ = $1;
 	}
 	| /* epsilon */	{ $$ = NULL; }
@@ -404,7 +523,7 @@ parameter_decl:
 	{
 		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @2.end);
-		$$->rest_p = TRUE;
+		$$->flags |= DECL_REST_ARG;
 	}
 	;
 
@@ -798,14 +917,22 @@ compound_stmt:
 	}
 	| "{" enter_scope declaration_list "}"
 	{
+		VarDecl	*v;
 		REVERSE(VarDecl, next, $3);
+		for (v = $3; v; v = v->next) {
+			v->flags |= SCOPE_LOCAL | DECL_LOCAL_VAR;
+		}
 		$$ = ast_mkStmt(L_STMT_BLOCK, NULL, @1.beg, @4.end);
 		$$->u.block = ast_mkBlock($3, NULL, @1.beg, @4.end);
 		L_scope_leave();
 	}
 	| "{" enter_scope declaration_list stmt_list "}"
 	{
+		VarDecl	*v;
 		REVERSE(VarDecl, next, $3);
+		for (v = $3; v; v = v->next) {
+			v->flags |= SCOPE_LOCAL | DECL_LOCAL_VAR;
+		}
 		REVERSE(Stmt, next, $4);
 		$$ = ast_mkStmt(L_STMT_BLOCK, NULL, @1.beg, @5.end);
 		$$->u.block = ast_mkBlock($3, $4, @1.beg, @5.end);
@@ -836,7 +963,7 @@ declaration:
 	{
 		VarDecl *v;
 		for (v = $2; v; v = v->next) {
-			v->extern_p = TRUE;
+			v->flags |= DECL_EXTERN;
 		}
 		$$ = $2;
 		$$->node.beg = @1.beg;

@@ -18,8 +18,11 @@ typedef struct Ast	Ast;
 typedef struct Block	Block;
 typedef struct VarDecl	VarDecl;
 typedef struct FnDecl	FnDecl;
+typedef struct ClsDecl	ClsDecl;
 typedef struct Stmt	Stmt;
 typedef struct TopLev	TopLev;
+typedef struct ClsLev	ClsLev;
+typedef struct Class	Class;
 typedef struct Cond	Cond;
 typedef struct Loop	Loop;
 typedef struct ForEach	ForEach;
@@ -46,6 +49,7 @@ typedef enum {
 } Stmt_k;
 
 typedef enum {
+	L_TOPLEVEL_CLASS,
 	L_TOPLEVEL_FUN,
 	L_TOPLEVEL_GLOBAL,
 	L_TOPLEVEL_STMT,
@@ -60,7 +64,9 @@ typedef enum {
 	L_NODE_LOOP,
 	L_NODE_STMT,
 	L_NODE_TOPLEVEL,
+	L_NODE_CLSLEVEL,
 	L_NODE_VAR_DECL,
+	L_NODE_CLASS_DECL,
 } Node_k;
 
 /*
@@ -91,6 +97,7 @@ typedef enum {
 	L_POLY		= 0x0200,
 	L_NAMEOF	= 0x0400,
 	L_FUNCTION	= 0x0800,
+	L_CLASS		= 0x1000,
 } Type_k;
 
 struct Type {
@@ -236,7 +243,17 @@ struct FnDecl {
 	Ast	node;
 	Block	*body;
 	VarDecl	*decl;
-	int	pattern_p;
+	FnDecl	*next;
+};
+
+struct ClsDecl {
+	Ast	node;
+	VarDecl	*decl;
+	VarDecl	*clsvars;
+	VarDecl	*instvars;
+	FnDecl	*fns;
+	FnDecl	*constructor;
+	FnDecl	*destructor;
 };
 
 struct Cond {
@@ -274,32 +291,55 @@ struct TopLev {
 	TopLev	*next;
 	Toplv_k	kind;
 	union {
+		ClsDecl	*class;
 		FnDecl	*fun;
 		Stmt	*stmt;
 		VarDecl	*global;
 	} u;
 };
 
+/*
+ * These encode both scope information and the kind of declaration.
+ * Some flags are redundant but were chosen for clarity.
+ */
+typedef enum {
+	SCOPE_LOCAL		= 0x0001, // the scope the symbol should go in
+	SCOPE_GLOBAL		= 0x0002,
+	SCOPE_CLASS		= 0x0004,
+	DECL_GLOBAL_VAR		= 0x0008, // the kind of declaration
+	DECL_LOCAL_VAR		= 0x0010,
+	DECL_FN			= 0x0020, //   function
+	DECL_CLASS_VAR		= 0x0040, //   class variable
+	DECL_CLASS_INST_VAR	= 0x0080, //   class instance variable
+	DECL_CLASS_PRIV_FN	= 0x0100, //   class private member fn
+	DECL_CLASS_PUB_FN	= 0x0200, //   class public member fn
+	DECL_CLASS_CONSTRUCTOR	= 0x0400,
+	DECL_CLASS_DESTRUCTOR	= 0x0800,
+	DECL_EXTERN		= 0x1000, //   extern fn or variable
+	DECL_REST_ARG		= 0x2000, //   ...arg formal parameter
+} Decl_f;
+
 struct VarDecl {
 	Ast	node;
 	Expr	*id;
+	char	*tclprefix;	// prepend to L var name to create Tcl var name
 	Expr	*initializer;
 	Type	*type;
+	ClsDecl	*clsdecl;	// for class member fns, class & instance vars
 	VarDecl	*next;
-	int	by_name;
-	int	outer_p;
-	int	extern_p;
-	int	rest_p;
+	Decl_f	flags;
 };
 
 extern Expr	*ast_mkBinOp(Op_k op, Expr *e1, Expr *e2, int beg, int end);
 extern Block	*ast_mkBlock(VarDecl *decls,Stmt *body, int beg, int end);
+extern ClsDecl	*ast_mkClsDecl(VarDecl *decl, int beg, int end);
 extern Expr	*ast_mkConst(Type *type, int beg, int end);
+extern FnDecl	*ast_mkConstructor(ClsDecl *class);
+extern FnDecl	*ast_mkDestructor(ClsDecl *class);
 extern Expr	*ast_mkExpr(Expr_k kind, Op_k op, Expr *a, Expr *b, Expr *c,
 			    int beg, int end);
 extern Expr	*ast_mkFnCall(Expr *id, Expr *arg_list, int beg, int end);
-extern FnDecl	*ast_mkFnDecl(VarDecl *decl, Block *body, int pattern_p,
-			      int beg, int end);
+extern FnDecl	*ast_mkFnDecl(VarDecl *decl, Block *body, int beg, int end);
 extern ForEach	*ast_mkForeach(Expr *hash, Expr *key, Expr *value,
 			       Stmt *body, int beg, int end);
 extern Expr	*ast_mkId(char *name, int beg, int end);
@@ -316,6 +356,7 @@ extern Expr	*ast_mkUnOp(Op_k op, Expr *e1, int beg, int end);
 extern VarDecl	*ast_mkVarDecl(Type *type, Expr *name, int beg, int end);
 extern Type	*type_mkArray(Expr *size, Type *base_type,
 			      enum typemk_k disposition);
+extern Type	*type_mkClass(enum typemk_k disposition);
 extern Type	*type_mkFunc(Type *base_type, VarDecl *formals,
 			     enum typemk_k disposition);
 extern Type	*type_mkHash(Type *index_type, Type *base_type,
