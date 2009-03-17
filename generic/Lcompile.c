@@ -84,6 +84,7 @@ private void	compile_assignment(Expr *expr);
 private void	compile_binOp(Expr *expr, L_Expr_f flags);
 private void	compile_block(Block *block);
 private void	compile_break(Stmt *stmt);
+private void	compile_classDecl(ClsDecl *class);
 private void	compile_condition(Expr *cond);
 private void	compile_continue(Stmt *stmt);
 private void	compile_idxOp(Expr *expr, L_Expr_f flags);
@@ -91,6 +92,7 @@ private void	compile_expr(Expr *expr, L_Expr_f flags);
 private int	compile_exprs(Expr *expr, L_Expr_f flags);
 private void	compile_fnCall(Expr *expr);
 private void	compile_fnDecl(FnDecl *fun);
+private void	compile_fnDecls(FnDecl *fun);
 private void	compile_foreach(ForEach *loop);
 private void	compile_foreachArray(ForEach *loop);
 private void	compile_foreachHash(ForEach *loop);
@@ -108,7 +110,6 @@ private void	compile_sort(Expr *expr);
 private void	compile_split(Expr *expr);
 private void	compile_stmt(Stmt *stmt);
 private void	compile_stmts(Stmt *stmt);
-private int	compile_topLevels(TopLev *stmt);
 private void	compile_trinOp(Expr *expr);
 private void	compile_twiddle(Expr *expr);
 private void	compile_twiddleSubst(Expr *expr);
@@ -122,10 +123,11 @@ private void	fixup_jmps(Jmp *jumps);
 private Frame	*frame_enclosingLoop();
 private Frame	*frame_outer(Frame *frame);
 private void	frame_pop(void);
-private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block);
+private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr,
+			   void *block, Frame_f flags);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private char	*mk_uniqSym(char *name);
-private Proc	*proc_begin(void);
+private Proc	*proc_begin(Frame_f flags);
 private void	proc_finish(Proc *procPtr, char *name);
 private int	push_index(Expr *expr);
 private void	push_lit(Expr *expr);
@@ -165,8 +167,7 @@ static struct {
 };
 
 /*
- * If TCL encounters an lang(L) directive while evaluating code directly,
- * e.g., from an upvar, it will enter the L compiler via this function.
+ * L compiler entry point.
  */
 int
 Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
@@ -210,44 +211,6 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	}
 	unless (ast) return (TCL_OK);	// empty script
 	return (L_CompileScript(interp, NULL, ast, opts));
-}
-
-/*
- * If TCL encounters an L pragma while compiling TCL code, for example when
- * processing an entire file in TclCompileScript(), it will enter L via
- * TclCompileLCmd().  In that case, we get a pointer to the toplevel
- * compilation environment, so we have the option of emitting global code.
- *
- * If there is an error during L compilation, we return TCL_ERROR.  However,
- * the error only causes TCL to defer evaluation of the L pragma until
- * runtime, at which point Tcl_LObjCmd() will recompile the L code and hit the
- * same error.
- */
-int
-TclCompileLCmd(Tcl_Interp *interp, Tcl_Parse *parsePtr, Command *cmdPtr,
-	       CompileEnv *envPtr)
-{
-	Ast	*ast;
-	Tcl_Token *ltok;
-
-	unless (parsePtr->numWords == 2) return (TCL_ERROR);
-
-	/* Extract the L global state from the interp. */
-	L = Tcl_GetAssocData(interp, "L", NULL);
-
-	/* The first component of the second token contains the code. */
-	ltok = parsePtr->tokenPtr + parsePtr->tokenPtr->numComponents + 1;
-	if (L_ParseScript(interp, ltok[1].start, &ast) != TCL_OK) {
-		return (TCL_ERROR);
-	}
-	unless (ast) {
-		/* Empty script -- leave a "" on the stack. */
-		frame_push(interp, envPtr, NULL);
-		push_str("");
-		frame_pop();
-		return (TCL_OK);
-	}
-	return (L_CompileScript(interp, envPtr, ast, 0));
 }
 
 /*
@@ -295,46 +258,32 @@ L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **ast_p)
 private int
 L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 {
-	int	ret;
+	int	ret = TCL_OK;
+	char	*name = mk_uniqSym("%%l_toplevel");
+	TopLev	*toplev;
+	Proc	*top_proc;
 
 	ASSERT(((Ast *)ast)->type == L_NODE_TOPLEVEL);
 
-	frame_push(interp, envPtr, ast);
+	top_proc = proc_begin(TOPLEV|SKIP);
 	L->frame->options = opts;
-	ret = compile_topLevels(ast);
-	frame_pop();
 
-	if (L->errs) {
-		Tcl_SetObjResult(interp, L->errs);
-		return (TCL_ERROR);
-	}
-	return (ret);
-}
-
-private int
-compile_topLevels(TopLev *stmt)
-{
-	int	ret = TCL_OK;
-	char	*name;
-	Proc	*top_proc;
-
-	name = mk_uniqSym("%%l_toplevel");
-	top_proc = proc_begin();
-	L->frame->toplevel_p = TRUE;
-
-	for (; stmt; stmt = stmt->next) {
-		switch (stmt->kind) {
+	for (toplev = (TopLev *)ast; toplev; toplev = toplev->next) {
+		switch (toplev->kind) {
+		    case L_TOPLEVEL_CLASS:
+			compile_classDecl(toplev->u.class);
+			break;
 		    case L_TOPLEVEL_FUN:
-			compile_fnDecl(stmt->u.fun);
+			compile_fnDecl(toplev->u.fun);
 			break;
 		    case L_TOPLEVEL_GLOBAL:
-			compile_varDecls(stmt->u.global);
+			compile_varDecls(toplev->u.global);
 			break;
 		    case L_TOPLEVEL_STMT:
-			compile_stmts(stmt->u.stmt);
+			compile_stmts(toplev->u.stmt);
 			break;
 		    default:
-			L_bomb("Unexpected toplevel stmt type %d", stmt->kind);
+			L_bomb("Unexpected toplevel stmt type %d", toplev->kind);
 		}
 	}
 
@@ -343,60 +292,102 @@ compile_topLevels(TopLev *stmt)
 	proc_finish(top_proc, name);
 
 	if (L->errs) {
-		ret = TCL_ERROR;
-		goto done;
+		ckfree(name);
+		Tcl_SetObjResult(interp, L->errs);
+		return (TCL_ERROR);
 	}
 
 	/* Invoke the top-level code that was just compiled. */
 	if (L->frame->envPtr) {
 		push_str(name);
 		emit_invoke(1);
-		goto done;
 	} else {
 		ret = Tcl_Eval(L->frame->interp, name);
-		goto done;
 	}
- done:
 	ckfree(name);
 	return (ret);
+}
+
+private void
+compile_classDecl(ClsDecl *class)
+{
+	ASSERT(class->constructor);
+	ASSERT(class->destructor);
+
+	/*
+	 * A class creates two scopes, one for the class symbols and
+	 * the other for its top-level code (class variable
+	 * initializers).  See the comments in sym_store().
+	 */
+	frame_push(L->frame->interp, L->frame->envPtr, NULL, CLS_OUTER|SEARCH);
+	frame_push(L->frame->interp, L->frame->envPtr, NULL, CLS_TOPLEV|SKIP);
+
+	push_str("::namespace");
+	push_str("eval");
+	push_str("::L::_class_%s", class->decl->id->u.string);
+	push_str("variable __num 0");
+	emit_invoke(4);
+
+	compile_varDecls(class->clsvars);
+	compile_fnDecl(class->constructor);
+	compile_fnDecl(class->destructor);
+	compile_fnDecls(class->fns);
+
+	frame_pop();
+	frame_pop();
+}
+
+private void
+compile_fnDecls(FnDecl *fun)
+{
+	for (; fun; fun = fun->next) {
+		compile_fnDecl(fun);
+	}
 }
 
 private void
 compile_fnDecl(FnDecl *fun)
 {
 	int	i;
-	char	*name = fun->decl->id->u.string;
+	Expr	*self_id;
+	VarDecl	*self_decl;
+	VarDecl	*decl = fun->decl;
+	char	*name = decl->id->u.string;
+	char	*clsname = NULL;
 	Proc	*procPtr;
+	ClsDecl	*clsdecl = NULL;
+	Sym	*self_sym = NULL;
 	Sym	*sym;
 
-	ASSERT(fun);
-	ASSERT(fun->decl->outer_p);
-
-	if (name[0] == '_') {
-		L_errf(fun->decl->id, "function names cannot begin with _");
-	}
-	if (!strcmp(name, "END")) {
-		L_errf(fun->decl->id, "cannot use END for function name");
-	}
-	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
-		if (!strcmp(builtins[i].name, name)) {
-			L_errf(fun->decl->id,
-			       "function '%s' conflicts with built-in",
-			       name);
-		}
-	}
+	ASSERT(fun && decl);
+	ASSERT(!(decl->flags & SCOPE_LOCAL));
+	ASSERT(decl->flags & (SCOPE_CLASS | SCOPE_GLOBAL));
+	ASSERT(decl->flags & (DECL_FN|DECL_CLASS_PRIV_FN|DECL_CLASS_PUB_FN));
 
 	/*
 	 * Sort out the possible error cases:
 	 *
+	 * - name illegal
 	 * - name already declared as a variable
 	 * - proto already declared and doesn't match this decl
 	 * - this decl declares function body but body already declared
 	 *
 	 * with the exception that "main" is allowed to be re-declared.
 	 */
-
-	sym = sym_lookup(fun->decl->id, NOWARN|NOUSED);
+	if (name[0] == '_') {
+		L_errf(decl->id, "function names cannot begin with _");
+	}
+	if (!strcmp(name, "END")) {
+		L_errf(decl->id, "cannot use END for function name");
+	}
+	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
+		if (!strcmp(builtins[i].name, name)) {
+			L_errf(decl->id,
+			       "function '%s' conflicts with built-in",
+			       name);
+		}
+	}
+	sym = sym_lookup(decl->id, NOWARN|NOUSED);
 	if (sym && strcmp(name, "main")) {
 		unless (sym->kind & L_SYM_FN) {
 			L_errf(fun, "%s already declared as a variable",name);
@@ -404,46 +395,139 @@ compile_fnDecl(FnDecl *fun)
 		} else if ((sym->kind & L_SYM_FNBODY) && fun->body) {
 			L_errf(fun, "function %s already declared", name);
 			return;
-		} else unless (L_typeck_same(fun->decl->type, sym->type)) {
+		} else unless (L_typeck_same(decl->type, sym->type)) {
 			L_errf(fun, "does not match prior declaration of %s",
 			       name);
 			return;
 		}
 	} else {
-		sym = sym_store(fun->decl);
+		sym = sym_store(decl);
 		unless (sym) return;
 	}
 
 	/* Check arg and return types for legality. */
-	L_typeck_declType(fun->decl);
+	L_typeck_declType(decl);
 
 	unless (fun->body) return;
 
-	procPtr = proc_begin();
+	procPtr = proc_begin(SEARCH);
 	sym->kind |= L_SYM_FNBODY;
 	L->frame->block = (Ast *)fun;
 
-	compile_fnParms(fun->decl);
+	compile_fnParms(decl);
+
+	/* Gather class decl and name, for class member functions. */
+	clsdecl = fun->decl->clsdecl;
+	if (clsdecl) clsname = clsdecl->decl->id->u.string;
+
+	/*
+	 * For private class member fns and the constructor, declare
+	 * the local variable "self".  For public member fns, lookup
+	 * "self" which is required to be the first parameter (and is
+	 * added by compile_fnParms if not present).
+	 */
+	if ((decl->flags & DECL_CLASS_PRIV_FN) ||
+	    (decl->flags & DECL_CLASS_CONSTRUCTOR)) {
+		self_id   = ast_mkId("self", 0, 0);
+		self_decl = ast_mkVarDecl(clsdecl->decl->type, self_id, 0, 0);
+		self_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+		self_sym  = sym_store(self_decl);
+		self_sym->used_p = TRUE;
+		ASSERT(self_sym && self_sym->idx >= 0);
+	} else if (decl->flags & DECL_CLASS_PUB_FN) {
+		self_sym = sym_lookup(ast_mkId("self", 0, 0), NOWARN);
+		ASSERT(self_sym && self_sym->idx >= 0);
+	}
+
+	/*
+	 * For the constructor, before compiling the user's
+	 * constructor body, emit code to increment the class instance
+	 * #, set "self" to the namespace name of the class instance,
+	 * create the namespace, then compile the instance-variable
+	 * initializers.  Basically this:
+	 *
+	 *     incrStkImm ::L::_class_<cls_name>::__num
+	 *     set self ::L::_instance_<cls_name>${__num}
+	 *     namespace eval $self {}
+	 *     ...instance variable initializers...
+	 *     ...user's constructor body...
+	 */
+	if (decl->flags & DECL_CLASS_CONSTRUCTOR) {
+		ASSERT(clsdecl && clsname && self_sym);
+		push_str("::L::_class_%s::__num", clsname);
+		TclEmitInstInt1(INST_INCR_STK_IMM, 1, L->frame->envPtr);
+		push_str("::namespace");
+		push_str("eval");
+		push_str("::L::_instance_%s", clsname);
+		push_str("::L::_class_%s::__num", clsname);
+		TclEmitOpcode(INST_LOAD_STK, L->frame->envPtr);
+		TclEmitInstInt1(INST_CONCAT1, 2, L->frame->envPtr);
+		emit_store_scalar(self_sym->idx);
+		push_str("");
+		emit_invoke(4);
+		compile_varDecls(clsdecl->instvars);
+	}
+
+	/*
+	 * For private member functions, upvar "self" to the "self" in
+	 * the calling frame.  This works because only other class member
+	 * functions can call private member functions, and they have "self".
+	 */
+	if (decl->flags & DECL_CLASS_PRIV_FN) {
+		push_str("1");
+		push_str("self");
+		TclEmitInstInt4(INST_UPVAR, self_sym->idx, L->frame->envPtr);
+		emit_pop();
+	}
 
 	L->enclosing_func = fun;
 	compile_block(fun->body);
 	L->enclosing_func = NULL;
 
-	/* This is the "fall off the end" implicit return. We return "". */
-	push_str("");
+	/*
+	 * For class destructor, delete the instance namespace.
+	 */
+	if (decl->flags & DECL_CLASS_DESTRUCTOR) {
+		ASSERT(self_sym);
+		push_str("::namespace");
+		push_str("delete");
+		emit_load_scalar(self_sym->idx);
+		emit_invoke(3);
+	}
+
+	/*
+	 * Emit a "fall off the end" implicit return.  Class
+	 * constructors return the value of "self".
+	 */
+	if (decl->flags & DECL_CLASS_CONSTRUCTOR) {
+		emit_load_scalar(self_sym->idx);
+	} else {
+		push_str("");
+	}
 	TclEmitOpcode(INST_DONE, L->frame->envPtr);
 
-	proc_finish(procPtr, fun->decl->id->u.string);
+	/*
+	 * The proc name is the L function name prepended by the tclprefix
+	 * in the decl.  The prefix is used for private class member
+	 * functions where it holds the class namespace.
+	 */
+	if (decl->tclprefix) {
+		char *tclname = cksprintf("%s%s", decl->tclprefix, name);
+		proc_finish(procPtr, tclname);
+		ckfree(tclname);
+	} else {
+		proc_finish(procPtr, name);
+	}
 }
 
 private Proc *
-proc_begin(void)
+proc_begin(Frame_f flags)
 {
 	Proc	*procPtr;
 	CompileEnv *envPtr;
 
 	envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
-	frame_push(L->frame->interp, envPtr, NULL);
+	frame_push(L->frame->interp, envPtr, NULL, flags);
 
 	procPtr = (Proc *)ckalloc(sizeof(Proc));
 	procPtr->iPtr              = (struct Interp *)L->frame->interp;
@@ -494,7 +578,7 @@ compile_varDecl(VarDecl *decl)
 
 	unless (L_typeck_declType(decl)) return;
 
-	if ((name[0] == '_') && !decl->outer_p) {
+	if ((name[0] == '_') && (decl->flags & DECL_LOCAL_VAR)) {
 		L_errf(decl, "local variable names cannot begin with _");
 	}
 	if (!strcmp(name, "END")) {
@@ -504,11 +588,11 @@ compile_varDecl(VarDecl *decl)
 	sym = sym_store(decl);
 	unless (sym) return;  // bail if multiply declared
 
-	if (decl->extern_p) {
+	if (decl->flags & DECL_EXTERN) {
 		if (decl->initializer) {
 			L_errf(decl, "extern initializers illegal");
 		}
-		unless (L->frame->toplevel_p) {
+		unless (L->frame->flags & TOPLEV) {
 			L_errf(decl, "externs illegal in local scopes");
 		}
 		sym->used_p = TRUE;  // to suppress extraneous warning
@@ -555,7 +639,7 @@ ast_mkInitializer(VarDecl *decl)
 		val->u.flote = 0.0;
 		break;
 	    default:
-		val = ast_mkConst(L_string, decl->node.beg, decl->node.end);
+		val = ast_mkConst(L_poly, decl->node.beg, decl->node.end);
 		val->u.string = ckstrdup("");
 		break;
 	}
@@ -572,7 +656,7 @@ compile_stmt(Stmt *stmt)
 	unless (stmt) return;
 	switch (stmt->kind) {
 	    case L_STMT_BLOCK:
-		frame_push(L->frame->interp, L->frame->envPtr, stmt);
+		frame_push(L->frame->interp, L->frame->envPtr, stmt, SEARCH);
 		compile_block(stmt->u.block);
 		frame_pop();
 		break;
@@ -629,6 +713,7 @@ compile_block(Block *block)
 private void
 compile_return(Stmt *stmt)
 {
+	VarDecl	*decl;
 	Type	*ret_type;
 
 	unless (L->enclosing_func) {
@@ -636,13 +721,18 @@ compile_return(Stmt *stmt)
 		return;
 	}
 
-	ret_type = L->enclosing_func->decl->type->base_type;
+	decl     = L->enclosing_func->decl;
+	ret_type = decl->type->base_type;
 	if (isvoidtype(ret_type) && (stmt->u.expr)) {
 		L_errf(stmt, "void function cannot return value");
 	} else if (stmt->u.expr) {
 		compile_expr(stmt->u.expr, L_PUSH_VAL);  // return value
 		unless (L_typeck_compat(ret_type, stmt->u.expr->type)) {
 			L_errf(stmt, "incompatible return type");
+		} else if ((decl->flags & DECL_CLASS_CONSTRUCTOR) &&
+			   (stmt->u.expr->kind == L_EXPR_ID) &&
+			   strcmp(stmt->u.expr->u.string, "self")) {
+			L_errf(stmt, "class constructor must return 'self'");
 		}
 	} else {
 		push_str("");  // no return value -- push a ""
@@ -664,6 +754,29 @@ compile_fnParms(VarDecl *decl)
 	Expr	*new_id;
 	VarDecl	*param = decl->type->u.func.formals;
 	CompiledLocal	*local;
+
+	/*
+	 * Public class member fns (except constructor) must have "self"
+	 * as the first arg and it must be of the class type.
+	 */
+	if ((decl->flags & DECL_CLASS_PUB_FN) &&
+	    !(decl->flags & DECL_CLASS_CONSTRUCTOR)) {
+		Type	*clstype = decl->clsdecl->decl->type;
+		Expr	*self_id;
+		VarDecl	*self_decl;
+		if (!param || strcmp(param->id->u.string, "self")) {
+			L_errf(decl->id, "class public member function lacks "
+			       "'self' as first arg");
+			/* Add it so we can keep compiling. */
+			self_id   = ast_mkId("self", 0, 0);
+			self_decl = ast_mkVarDecl(clstype, self_id, 0, 0);
+			self_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+			self_decl->next = param;
+			param = self_decl;
+		} else if (param->type != clstype) {
+			L_errf(param, "'self' parameter must be of class type");
+		}
+	}
 
 	for (p = param, i = 0; p; p = p->next, i++) {
 		/*
@@ -692,12 +805,23 @@ compile_fnParms(VarDecl *decl)
 					  p->id->node.end);
 			new_decl = ast_mkVarDecl(p->type->base_type, new_id,
 						 p->node.beg, p->node.end);
+			new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
 			name = ckalloc(strlen(p->id->u.string) + 2);
 			sprintf(name, "&%s", p->id->u.string);
 			ckfree(p->id->u.string);
 			p->id->u.string = name;
 		}
 		name = p->id->u.string;
+		/*
+		 * Class constructor must not have "self" for any param.
+		 */
+		if ((decl->flags & DECL_CLASS_CONSTRUCTOR) &&
+		    !strcmp(name, "self")) {
+			L_errf(p,
+			       "'self' parameter illegal in class constructor");
+			continue;
+		}
+
 		/* Formal parameters are stored in local variable slots. */
 		proc->numArgs = i + 1;
 		proc->numCompiledLocals = i + 1;
@@ -715,7 +839,7 @@ compile_fnParms(VarDecl *decl)
 		local->nameLength = strlen(name);
 		local->frameIndex = i;
 		local->flags = VAR_ARGUMENT;
-		if (p->rest_p) {
+		if (p->flags & DECL_REST_ARG) {
 			local->flags |= VAR_IS_ARGS;
 			if (p->next) L_errf(p, "Rest parameter must be last");
 		}
@@ -723,6 +847,7 @@ compile_fnParms(VarDecl *decl)
 		local->defValuePtr = NULL;
 		strcpy(local->name, name);
 		sym = sym_store(p);
+		unless (sym) continue;  // multiple declaration
 		sym->idx = i;
 		if (by_name) {
 			/* Push a 1 the first time (arg to INST_UPVAR). */
@@ -733,6 +858,12 @@ compile_fnParms(VarDecl *decl)
 			emit_load_scalar(sym->idx);
 			TclEmitInstInt4(INST_UPVAR, new_sym->idx,
 					L->frame->envPtr);
+		}
+		/* Suppress unused warning for obj arg in class member fns. */
+		if ((p == param) &&
+		    (decl->flags & DECL_CLASS_PUB_FN) &&
+		    !(decl->flags & DECL_CLASS_CONSTRUCTOR)) {
+			sym->used_p = TRUE;
 		}
 	}
 	/* Pop the 1 pushed for INST_UPVAR. */
@@ -1042,7 +1173,11 @@ compile_fnCall(Expr *expr)
 
 	if (sym && isfntype(sym->type)) {
 		/* A regular call -- the name is the fn name. */
-		push_str(name);
+		if (sym->decl->tclprefix) {
+			push_str("%s%s", sym->decl->tclprefix, name);
+		} else {
+			push_str(name);
+		}
 		expr->type = sym->type->base_type;
 	} else if (sym && (sym->type->kind == L_NAMEOF) &&
 		   (sym->type->base_type->kind == L_FUNCTION)) {
@@ -1190,19 +1325,17 @@ push_pointer(Expr *expr)
 private void
 push_lit(Expr *expr)
 {
-	char	buf[64];
-
 	switch (expr->type->kind) {
 	    case L_STRING:
-		push_str(expr->u.string);
+	    case L_POLY:
+	    case L_CLASS:
+		push_str("%s", expr->u.string);
 		break;
 	    case L_INT:
-		snprintf(buf, sizeof(buf), "%lu", expr->u.integer);
-		push_str(buf);
+		push_str("%lu", expr->u.integer);
 		break;
 	    case L_FLOAT:
-		snprintf(buf, sizeof(buf), "%f", expr->u.flote);
-		push_str(buf);
+		push_str("%f", expr->u.flote);
 		break;
 	    default:
 		ASSERT(0);
@@ -1614,6 +1747,7 @@ compile_twiddle(Expr *expr)
 			id = ast_mkId(buf, 0, 0);
 			unless (sym_lookup(id, NOWARN)) {
 				v = ast_mkVarDecl(L_string, id, 0, 0);
+				v->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
 				s = sym_store(v);
 				s->used_p = TRUE; // suppress unused var warning
 			}
@@ -1656,7 +1790,7 @@ compile_twiddleSubst(Expr *expr)
 		// <lhs-ptr> ::regsub <mods> -line -- <re> <subst> <lhs-val>
 		TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
 		// <lhs-ptr> ::regsub <mods> -line -- <re> <lhs-val> <subst>
-		push_str(tmpNm);
+		push_str("%s", tmpNm);
 		// <lhs-ptr> ::regsub <mods> -line -- <re> <lhs-val> <subst> <tmp-name>
 	} else {
 		// ::regsub <mods> -line -- <re> <subst> <lhs-val>
@@ -1752,13 +1886,13 @@ compile_ifUnless(Cond *cond)
 	falsejmp = emit_jmp(INST_JUMP_FALSE4);
 
 	/* Compile the "if" leg. */
-	frame_push(L->frame->interp, L->frame->envPtr, cond);
+	frame_push(L->frame->interp, L->frame->envPtr, cond, SEARCH);
 	compile_stmts(cond->if_body);
 
 	if (cond->else_body) {
 		/* "Else" leg present. */
 		frame_pop();
-		frame_push(L->frame->interp, L->frame->envPtr, cond);
+		frame_push(L->frame->interp, L->frame->envPtr, cond, SEARCH);
 		endjmp = emit_jmp(INST_JUMP4);
 		fixup_jmps(falsejmp);
 		compile_stmts(cond->else_body);
@@ -1795,7 +1929,7 @@ compile_loop(Loop *loop)
 	 * Compile loop body.  Note that we must grab the jump fix-ups
 	 * out of the frame before popping it.
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, loop);
+	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
 	body_off = currOffset(L->frame->envPtr);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
@@ -1978,7 +2112,7 @@ compile_foreachArray(ForEach *loop)
 	TclEmitForwardJump(L->frame->envPtr, TCL_FALSE_JUMP, &jumpFalseFixup);
 
 	/* Loop body. */
-	frame_push(L->frame->interp, L->frame->envPtr, loop);
+	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
 	continue_jumps = L->frame->continue_jumps;
@@ -2063,7 +2197,7 @@ compile_foreachHash(ForEach *loop)
 	 * Compile loop body.  Note that we must grab the jump fix-ups
 	 * out of the frame before popping it.
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, loop);
+	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
 	continue_jumps = L->frame->continue_jumps;
@@ -2494,39 +2628,60 @@ frame_outer(Frame *frame)
 {
 	ASSERT(frame);
 	while (frame->prevFrame) frame = frame->prevFrame;
-	ASSERT(frame->outer_p);
+	ASSERT(frame->flags & OUTER);
 	return (frame);
 }
 
 private void
 emit_globalUpvar(Sym *sym, Expr *id)
 {
-	/* Tim comment:
-	   XXX: This might be bogus.  We attempt to detect
-	   whether L global variables should be true globals,
-	   or should be shared with the calling proc, by
-	   checking if the current variable frame pointer in
-	   interp is the same as the global frame pointer.
-	   (Sharing variables with the calling proc is useful
-	   if you want to use L as an expr replacement). */
-
-	if (((Interp *)L->frame->interp)->rootFramePtr ==
+	/*
+	 * Tim comment: We attempt to detect whether L global
+	 * variables should be true globals, or should be shared with
+	 * the calling proc, by checking if the current variable frame
+	 * pointer in interp is the same as the global frame pointer.
+	 * (Sharing variables with the calling proc is useful if you
+	 * want to use L as an expr replacement).
+	 */
+	if (((Interp *)L->frame->interp)->rootFramePtr !=
 	    ((Interp *)L->frame->interp)->varFramePtr) {
-		push_str("::");
-		push_str(id->u.string);
-		TclEmitInstInt4(INST_NSUPVAR, sym->idx, L->frame->envPtr);
-	} else {
+		ASSERT(!(sym->decl->flags & (DECL_CLASS_VAR |
+					     DECL_CLASS_INST_VAR)));
 		push_str("1");
 		push_str(id->u.string);
 		TclEmitInstInt4(INST_UPVAR, sym->idx, L->frame->envPtr);
+		emit_pop();
+		return;
 	}
+
+	/*
+	 * The namespace of the var we're creating an upvar alias to is
+	 * either ::, an L class namespace, or an L class instance namespace
+	 * (and in this case the local "self" holds the namespace name).
+	 */
+	switch (sym->decl->flags &
+		(DECL_GLOBAL_VAR | DECL_CLASS_VAR | DECL_CLASS_INST_VAR)) {
+	    case DECL_GLOBAL_VAR:
+		push_str("::");
+		break;
+	    case DECL_CLASS_VAR:
+		push_str("::L::_class_%s", sym->decl->clsdecl->decl->id->u.string);
+		break;
+	    case DECL_CLASS_INST_VAR: {
+		Sym *self = sym_lookup(ast_mkId("self", 0, 0), NOWARN);
+		ASSERT(!self || (self->idx >= 0));
+		if (self) emit_load_scalar(self->idx);
+		break;
+	    }
+	}
+	push_str(id->u.string);
+	TclEmitInstInt4(INST_NSUPVAR, sym->idx, L->frame->envPtr);
 	emit_pop();
 }
 
 /*
- * Add a variable or function name to the current scope's symbol
- * table.  If it's a local variable, allocate a slot for it in the
- * current proc.
+ * Add a variable or function name to the symbol table.  If it's a
+ * local variable, allocate a slot for it in the current proc.
  *
  * Print an error if the symbol is already defined.  The rules are
  *
@@ -2536,6 +2691,51 @@ emit_globalUpvar(Sym *sym, Expr *id)
  * - A local can shadow a global.
  * - A local can shadow a global upvar shadow (which is a local
  *   with special status).
+ *
+ * Scopes are created as follows.  The complexity stems from Tcl
+ * requiring local upvar shadows as the only way to access globals.
+ * So we have a scope in which the global symbol is stored and a
+ * nested scope for the proc in which the local upvar shadow is
+ * stored.
+ *
+ * There is one scope hierarchy per Tcl Interp in which L code
+ * appears, as illustrated next.  OUTER,TOPLEV,SKIP etc are frame
+ * flags (Frame_f); SKIP means that the scope is skipped when
+ * searching enclosing scopes.
+ *
+ * [ outer-most scope (OUTER): globals go in this frame's symtab
+ *     [ * (%%n_toplevel proc) (TOPLEV|SKIP)
+ *         global initializers get compiled in this scope, causing the local
+ *         upvar shadows to go in this scope's symtab
+ *         [ class outer-most (CLS_OUTER): class/instance vars & private
+ *             member fns go in this frame's symtab
+ *             [ * class top-level (CLS_TOPLEV|SKIP)
+ *                 class variable initializers get compiled in this scope
+ *                 (note that this is still in the %%n_toplevel proc)
+ *                 [ (constructor proc)
+ *                     instance var initializers get compiled here
+ *                 ]
+ *                 [ (destructor proc)
+ *                 ]
+ *                 [ (member fn proc): public fn names go in outer-most scope's
+ *                     symtable, private fn names go in class outer-most scope,
+ *                     fn locals go in this frame's symtab
+ *                     [ block
+ *                         [ nested blocks...
+ *                         ]
+ *                     ]
+ *                 ]
+ *             ]
+ *         ]
+ *         [ regular function (proc): fn name goes in outer-most scope's symtab,
+ *           fn locals go in this frame's symtab
+ *             [ block
+ *                 [ nested blocks...
+ *                 ]
+ *             ]
+ *         ]
+ *     ]
+ * ]
  */
 private Sym *
 sym_store(VarDecl *decl)
@@ -2543,10 +2743,12 @@ sym_store(VarDecl *decl)
 	int	new;
 	char	*name = decl->id->u.string;
 	Sym	*sym;
-	Frame	*frame;
+	Frame	*frame = NULL;
 	Tcl_HashEntry *hPtr;
 
-	if (decl->outer_p) {
+	/* Check for multiple declaration. */
+	switch (decl->flags & (SCOPE_LOCAL | SCOPE_GLOBAL | SCOPE_CLASS)) {
+	    case SCOPE_GLOBAL:
 		/* Declaring a global -- search outer-most frame. */
 		frame = frame_outer(L->frame);
 		hPtr = Tcl_FindHashEntry(frame->symtab, name);
@@ -2566,7 +2768,20 @@ sym_store(VarDecl *decl)
 			L_errf(decl, "multiple declaration of global %s", name);
 			return (NULL);
 		}
-	} else {
+		break;
+	    case SCOPE_CLASS:
+		/* Declaring class var -- search up thru class outer scope. */
+		for (frame = L->frame; frame; frame = frame->prevFrame) {
+			hPtr = Tcl_FindHashEntry(frame->symtab, name);
+			if (hPtr) {
+				L_errf(decl, "multiple declaration of %s",
+				       name);
+				return (NULL);
+			}
+			if (frame->flags & CLS_OUTER) break;
+		}
+		break;
+	    case SCOPE_LOCAL:
 		/* Declaring a local -- search current proc's local scopes. */
 		for (frame = L->frame; frame; frame = frame->prevFrame) {
 			unless (frame->envPtr == L->frame->envPtr) break;
@@ -2581,25 +2796,39 @@ sym_store(VarDecl *decl)
 				}
 			}
 		}
+		break;
+	    default:
+		ASSERT(0);
+		break;
 	}
 
-	/*
-	 * The decl says whether this sym goes in the outer-most scope
-	 * so it persists across L files, or in the local scope.
-	 */
-	if (decl->outer_p) {
+	/* Select the frame to add the symbol to. */
+	switch (decl->flags & (SCOPE_LOCAL | SCOPE_GLOBAL | SCOPE_CLASS)) {
+	    case SCOPE_GLOBAL:
 		frame = frame_outer(L->frame);
-	} else {
+		break;
+	    case SCOPE_CLASS:
+		for (frame = L->frame; frame; frame = frame->prevFrame) {
+			if (frame->flags & CLS_OUTER) break;
+		}
+		ASSERT(frame->flags & CLS_OUTER);
+		break;
+	    case SCOPE_LOCAL:
 		frame = L->frame;
+		break;
+	    default:
+		ASSERT(0);
+		break;
 	}
 	hPtr = Tcl_CreateHashEntry(frame->symtab, name, &new);
-	ASSERT(new || ((sym->kind & L_SYM_LSHADOW) && !decl->outer_p));
-
+	/* If it's not new, it must be shadowing a global. */
+	ASSERT(new || ((sym->kind & L_SYM_LSHADOW) &&
+		       (decl->flags & (DECL_LOCAL_VAR | DECL_CLASS_INST_VAR))));
 	sym = (Sym *)ckalloc(sizeof(Sym));
 	memset(sym, 0, sizeof(*sym));
-	sym->name    = ckstrdup(name);
-	sym->type    = decl->type;
-	sym->decl    = decl;
+	sym->name = ckstrdup(name);
+	sym->type = decl->type;
+	sym->decl = decl;
 
 	/*
 	 * The decl also says whether variables are local or global.
@@ -2609,13 +2838,17 @@ sym_store(VarDecl *decl)
 	 * Locals and function names are not allowed to begin with "_".
 	 */
 	if (isfntype(decl->type)) {
+		ASSERT(decl->flags &
+		       (DECL_FN | DECL_CLASS_PRIV_FN | DECL_CLASS_PUB_FN));
 		sym->kind    = L_SYM_FN;
 		sym->tclname = ckstrdup(name);
-	} else if (decl->outer_p) {
+	} else if (decl->flags &
+		   (DECL_GLOBAL_VAR | DECL_CLASS_VAR | DECL_CLASS_INST_VAR)) {
 		sym->kind    = L_SYM_GVAR;
 		sym->tclname = ckalloc(strlen(name)+2);
 		sprintf(sym->tclname, "_%s", name);
 	} else {
+		ASSERT(decl->flags & DECL_LOCAL_VAR);
 		sym->kind    = L_SYM_LVAR;
 		sym->tclname = ckstrdup(name);
 	}
@@ -2660,7 +2893,8 @@ sym_lookup(Expr *id, enum lookup flags)
 	name = id->u.string;
 
 	for (frame = L->frame; frame; frame = frame->prevFrame) {
-		if ((frame->envPtr == L->frame->envPtr) || frame->outer_p) {
+		if ((frame->envPtr == L->frame->envPtr) ||
+		    (frame->flags & SEARCH)) {
 			hPtr = Tcl_FindHashEntry(frame->symtab, name);
 			if (hPtr) break;
 		}
@@ -2672,7 +2906,15 @@ sym_lookup(Expr *id, enum lookup flags)
 		 * in this scope, create a local upvar to shadow it.
 		 */
 		if ((sym->kind & L_SYM_GVAR) && (sym->idx == -1)) {
-			ASSERT(frame == frame_outer(L->frame));
+			// assert global => in outer-most frame
+			ASSERT(!(sym->decl->flags & DECL_GLOBAL_VAR) ||
+			       (frame->flags & OUTER));
+			// assert class var => in class outer-most frame
+			ASSERT(!(sym->decl->flags & DECL_CLASS_VAR) ||
+			       (frame->flags & CLS_OUTER));
+			// assert class instance var => class outer-most frame
+			ASSERT(!(sym->decl->flags & DECL_CLASS_INST_VAR) ||
+			       (frame->flags & CLS_OUTER));
 			hPtr = Tcl_CreateHashEntry(L->frame->symtab, name,
 						   &new);
 			ASSERT(new);
@@ -2718,7 +2960,7 @@ mk_uniqSym(char *name)
 }
 
 private void
-frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block)
+frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block, Frame_f flags)
 {
 	Frame *new_frame = (Frame *)ckalloc(sizeof(Frame));
 	memset(new_frame, 0, sizeof(*new_frame));
@@ -2726,6 +2968,7 @@ frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block)
 	new_frame->interp = interp;
 	new_frame->envPtr = envPtr;
 	new_frame->block  = block;
+	new_frame->flags  = flags;
 	new_frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
 	Tcl_InitHashTable(new_frame->symtab, TCL_STRING_KEYS);
 	new_frame->prevFrame = L->frame;
@@ -2819,18 +3062,20 @@ L_warnf(void *node, const char *format, ...)
 	}
 }
 
-#define ERRBUF_SZ	1024
-
 /* L_err is yyerror and is called by the parser for syntax errs. */
 void
 L_err(const char *format, ...)
 {
 	va_list ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, format);
-	buf = ckalloc(ERRBUF_SZ);
-	vsnprintf(buf, ERRBUF_SZ, format, ap);
+	while (!(buf = ckvsprintf(format, ap, len))) {
+		va_end(ap);
+		va_start(ap, format);
+		len *= 2;
+	}
 	va_end(ap);
 
 	unless (L->errs) {
@@ -2845,12 +3090,17 @@ void
 L_errf(void *node, const char *format, ...)
 {
 	va_list ap;
+	int	len = 64;
 	char	*buf;
 
 	va_start(ap, format);
-	buf = ckalloc(ERRBUF_SZ);
-	vsnprintf(buf, ERRBUF_SZ, format, ap);
+	while (!(buf = ckvsprintf(format, ap, len))) {
+		va_end(ap);
+		va_start(ap, format);
+		len *= 2;
+	}
 	va_end(ap);
+
 	unless (L->errs) {
 		L->errs = Tcl_NewObj();
 	}
@@ -2868,7 +3118,8 @@ ast_free(Ast *ast_list)
 	while (ast_list) {
 		Ast	*node = ast_list;
 		ast_list = ast_list->next;
-		if (node->type == L_NODE_EXPR) {
+		switch (node->type) {
+		    case L_NODE_EXPR:
 			switch (((Expr *)node)->kind) {
 			    case L_EXPR_CONST:
 				if (((Expr *)node)->type == L_string) {
@@ -2887,6 +3138,12 @@ ast_free(Ast *ast_list)
 			    default:
 				break;
 			}
+			break;
+		    case L_NODE_VAR_DECL:
+			ckfree(((VarDecl *)node)->tclprefix);
+			break;
+		    default:
+			break;
 		}
 		ckfree((char *)node);
 	}
@@ -3014,6 +3271,41 @@ ckstrndup(const char *str, int len)
 	return (newStr);
 }
 
+char *
+cksprintf(const char *fmt, ...)
+{
+	va_list	ap;
+	int	len = 64;
+	char	*buf;
+
+	va_start(ap, fmt);
+	while (!(buf = ckvsprintf(fmt, ap, len))) {
+		va_end(ap);
+		va_start(ap, fmt);
+		len *= 2;
+	}
+	va_end(ap);
+	return (buf);
+}
+
+/*
+ * Allocate a buffer of len bytes and attempt a vsnprintf and fail
+ * (return NULL) if len isn't enough.  The caller should double len
+ * and re-try.  We require the caller to re-try instead of re-trying
+ * here because on some platforms "ap" is changed by the vsnprintf
+ * call and there is no portable way to save and restore it.
+ */
+char *
+ckvsprintf(const char *fmt, va_list ap, int len)
+{
+	char	*buf = ckalloc(len);
+	if (vsnprintf(buf, len, fmt, ap) >= len) {
+		ckfree(buf);
+		return (NULL);
+	}
+	return (buf);
+}
+
 /*
  * Since we have C-like variable declarations in L, when hashes and
  * arrays are declared, the base type is parsed separately from the
@@ -3072,8 +3364,7 @@ TclLInitCompiler(Tcl_Interp *interp)
 	Tcl_SetAssocData(interp, "L", TclLCleanupCompiler, L);
 
 	L->interp = interp;
-	frame_push(NULL, NULL, NULL);
-	L->frame->outer_p = TRUE;
+	frame_push(interp, NULL, NULL, OUTER|SEARCH);
 	L_scope_enter();
 }
 

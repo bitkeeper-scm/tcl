@@ -562,6 +562,33 @@ test leak-6.4 {leaks in string indexing} -body {
     leak_6_4();
 } -constraints memory -output "0\n"
 
+test leak-7.1 {leaks in classes} -body {
+#lang L
+class leak_7_1
+{
+	int	v1;
+	instance {
+		 int	v2;
+	}
+	constructor leak_7_1_init() {}
+	destructor leak_7_1_free(leak_7_1 self) {}
+}
+void leak_7_1_main()
+{
+	int		end, i, start, tmp;
+	leak_7_1	o;
+
+	end = getbytes();
+	for (i = 0; i < 5; ++i) {
+		o = leak_7_1_init();
+		leak_7_1_free(o);
+		tmp = end;
+		end = getbytes();
+	}
+	puts(end - tmp);
+}
+leak_7_1_main();
+} -constraints memory -output "0\n"
 
 # cleanup
 ::tcltest::cleanupTests
