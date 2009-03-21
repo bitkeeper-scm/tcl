@@ -566,9 +566,9 @@ test leak-7.1 {leaks in classes} -body {
 #lang L
 class leak_7_1
 {
-	int	v1;
+	public	int v1;
 	instance {
-		 int	v2;
+		 public	int v2;
 	}
 	constructor leak_7_1_init() {}
 	destructor leak_7_1_free(leak_7_1 self) {}

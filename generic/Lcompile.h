@@ -38,6 +38,7 @@ typedef enum {
 	CLS_TOPLEV	= 0x08,  // is for class top-levels
 	SKIP		= 0x10,  // skip frame when searching enclosing scopes
 	SEARCH		= 0x20,  //   don't skip this frame
+	KEEPSYMS	= 0x40,  // don't free symtab when scope is closed
 } Frame_f;
 typedef struct Frame {
 	Tcl_Interp	*interp;
@@ -56,6 +57,7 @@ typedef struct Frame {
 
 	Frame_f		flags;
 	Lopt_f		options;
+	int		tmpnum;  // for creating tmp variables
 	struct Frame	*prevFrame;
 } Frame;
 
@@ -116,24 +118,6 @@ struct Sym {
 	int	used_p;		// TRUE iff var has been referenced
 	VarDecl	*decl;
 };
-
-/*
- * Flags for L expression compilation.  Bits are used for simplicity
- * even though some of these are mutually exclusive.
- */
-typedef enum {
-	L_IDX_ARRAY   = 0x0001,	// what kind of thing we're indexing
-	L_IDX_HASH    = 0x0002,
-	L_IDX_STRING  = 0x0004,
-	L_LVALUE      = 0x0010, // if we will be writing the obj
-	L_PUSH_VAL    = 0x0020,	// what we want INST_L_INDEX to leave on
-	L_PUSH_PTR    = 0x0040,	//   the stack
-	L_PUSH_VALPTR = 0x0080,
-	L_PUSH_PTRVAL = 0x0100,
-	L_DISCARD     = 0x0200,	// have compile_expr discard the val, not push
-	L_PUSH_NEW    = 0x0400,	// whether INST_L_DEEP_WRITE should push the
-	L_PUSH_OLD    = 0x0800,	//   new or old value
-} L_Expr_f;
 
 extern char	*cksprintf(const char *fmt, ...);
 extern char	*ckstrdup(const char *str);
@@ -219,14 +203,6 @@ ispoly(Expr *expr)
 	return (expr->type && (expr->type->kind == L_POLY));
 }
 static inline int
-isindexop(Expr *expr)
-{
-	return ((expr->kind == L_EXPR_BINOP) &&
-		((expr->op == L_OP_ARRAY_INDEX) ||
-		 (expr->op == L_OP_HASH_INDEX)  ||
-		 (expr->op == L_OP_STRUCT_INDEX)));
-}
-static inline int
 isscalar(Expr *expr)
 {
 	return (expr->type && (expr->type->kind & (L_INT |
@@ -238,11 +214,6 @@ static inline int
 islist(Expr *expr)
 {
 	return (expr->type && (expr->type->kind == L_LIST));
-}
-static inline int
-isnameof(Expr *expr)
-{
-	return (expr->type && (expr->type->kind == L_NAMEOF));
 }
 static inline int
 isclass(Expr *expr)
@@ -258,6 +229,20 @@ static inline int
 isvoidtype(Type *type)
 {
 	return (type->kind == L_VOID);
+}
+static inline int
+isaddrof(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_UNOP) && (expr->op == L_OP_ADDROF));
+}
+/*
+ * This checks whether the Expr node is a deep-dive operation that has
+ * left a deep-ptr on the run-time stack.
+ */
+static inline int
+isdeepdive(Expr *expr)
+{
+	return (expr->flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
 }
 static inline void
 emit_load_scalar(int idx)
@@ -331,14 +316,6 @@ static inline void
 emit_pop()
 {
 	TclEmitOpcode(INST_POP, L->frame->envPtr);
-}
-static inline int
-mk_singleTemp(char **p)
-{
-	static char *nm = "%% L: single tempvar for non-conflicting usage";
-	*p = nm;
-	return (TclFindCompiledLocal(nm, strlen(nm), 1,
-				     L->frame->envPtr));
 }
 static inline int
 currOffset(CompileEnv *envPtr)

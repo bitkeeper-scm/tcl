@@ -753,7 +753,7 @@ static void L_sizes_push(int size);
 static int L_sizes_top();
 static void L_sizes_pop();
 static Tcl_Obj **L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj *idxObj,
-			    L_Expr_f flags);
+			    Expr_f flags);
 
 /*
  *----------------------------------------------------------------------
@@ -7689,6 +7689,9 @@ TclExecuteByteCode(
 	int lvalue = (flags & L_LVALUE);
 	int needPtr = (flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
 
+	// needPtr => L_PUSH_VAL not set
+	ASSERT(!needPtr || !(flags & L_PUSH_VAL));
+
 	/*
 	 * Get the bytecode arguments -- the index and object being indexed in
 	 * to.  If the object is an L_deepPtrType from an earlier instance of
@@ -9537,7 +9540,7 @@ L_deepDiveArray(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index (array subscript) into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int i, idx, len, result;
     Tcl_Obj **elemPtrs, **pad;
@@ -9640,7 +9643,7 @@ L_deepDiveHash(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index (key) into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int result, tmp;
     Tcl_Obj *objPtr;
@@ -9705,7 +9708,7 @@ L_deepDiveString(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int idx, len;
     const unsigned char *s;
@@ -9775,7 +9778,7 @@ L_deepDive(
     Tcl_Interp *interp,
     Tcl_Obj *obj,
     Tcl_Obj *idxObj,
-    L_Expr_f flags)
+    Expr_f flags)
 {
     switch (flags & (L_IDX_ARRAY | L_IDX_HASH | L_IDX_STRING)) {
 	case L_IDX_ARRAY:

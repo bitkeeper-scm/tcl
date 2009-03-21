@@ -20,7 +20,7 @@ extern int	L_lex (void);
  *
  * This introduced a shift/reduce conflict on "{" due to "{" being in
  * the FOLLOW set of scalar_type_specifier because "{" can follow
- * type_specifier in function_declaration.  For example, after you
+ * type_specifier in function_decl.  For example, after you
  * have seen
  *
  *    struct s
@@ -87,6 +87,7 @@ extern int	L_lex (void);
 %token T_RETURN
 %token T_COMMA ","
 %token T_DOT "."
+%token T_POINTS "->"
 %token T_ARROW "=>"
 %token T_RIGHT_INTERPOL T_PLUSPLUS T_MINUSMINUS
 %token <s> T_ID T_STR_LITERAL T_LEFT_INTERPOL T_RE T_SUBST T_RE_MODIFIER
@@ -97,7 +98,8 @@ extern int	L_lex (void);
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_CONSTRUCTOR T_DESTRUCTOR
+%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
+%token T_CONSTRUCTOR T_DESTRUCTOR
 
 /*
  * This follows the C operator-precedence rules, from lowest to
@@ -119,7 +121,7 @@ extern int	L_lex (void);
 %left T_PLUS T_MINUS
 %left T_STAR T_SLASH T_PERC
 %right PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
-%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
+%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_POINTS T_PLUSPLUS T_MINUSMINUS
 %left HIGHEST
 
 %type <TopLev> toplevel_code
@@ -141,6 +143,7 @@ extern int	L_lex (void);
 %type <Type> array_or_hash_type type_specifier scalar_type_specifier
 %type <Type> struct_specifier
 %type <obj> dotted_id_1
+%type <i> decl_qualifier
 
 %%
 
@@ -162,12 +165,6 @@ toplevel_code:
 		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @2.end);
 		$2->decl->flags |= SCOPE_GLOBAL | DECL_FN;
 		$$->u.fun = $2;
-	}
-	| toplevel_code T_EXTERN function_decl
-	{
-		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @3.end);
-		$3->decl->flags |= SCOPE_GLOBAL | DECL_FN | DECL_EXTERN;
-		$$->u.fun = $3;
 	}
 	| toplevel_code struct_specifier ";"
 	{
@@ -236,6 +233,12 @@ class_code:
 		for (v = $4; v; v = v->next) {
 			v->clsdecl = clsdecl;
 			v->flags  |= SCOPE_CLASS | DECL_CLASS_INST_VAR;
+			unless (v->flags & (DECL_PUBLIC | DECL_PRIVATE)) {
+				L_errf(v, "class instance variable %s not "
+				       "declared public or private",
+				       v->id->u.string);
+				v->flags |= DECL_PUBLIC;
+			}
 		}
 		APPEND_OR_SET(VarDecl, next, clsdecl->instvars, $4);
 	}
@@ -244,9 +247,16 @@ class_code:
 	{
 		VarDecl	*v;
 		ClsDecl	*clsdecl = $<ClsDecl>0;
+		REVERSE(VarDecl, next, $2);
 		for (v = $2; v; v = v->next) {
 			v->clsdecl = clsdecl;
 			v->flags  |= SCOPE_CLASS | DECL_CLASS_VAR;
+			unless (v->flags & (DECL_PUBLIC | DECL_PRIVATE)) {
+				L_errf(v, "class variable %s not "
+				       "declared public or private",
+				       v->id->u.string);
+				v->flags |= DECL_PUBLIC;
+			}
 		}
 		APPEND_OR_SET(VarDecl, next, clsdecl->clsvars, $2);
 	}
@@ -260,25 +270,23 @@ class_code:
 	{
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$2->decl->clsdecl = clsdecl;
-		$2->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN;
-		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $2);
-	}
-	| class_code T_PRIVATE function_decl
-	{
-		ClsDecl	*clsdecl = $<ClsDecl>0;
-		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_CLASS | DECL_CLASS_PRIV_FN;
-		$3->decl->tclprefix = cksprintf("_L_class_%s_",
+		$2->decl->flags  |= DECL_CLASS_FN;
+		unless ($2->decl->flags & DECL_PRIVATE) {
+			$2->decl->flags |= SCOPE_GLOBAL | DECL_PUBLIC;
+		} else {
+			$2->decl->flags |= SCOPE_CLASS;
+			$2->decl->tclprefix = cksprintf("_L_class_%s_",
 						clsdecl->decl->id->u.string);
-		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $3);
+		}
+		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $2);
 	}
 	| class_code T_CONSTRUCTOR fundecl_tail
 	{
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$3->decl->type->base_type = clsdecl->decl->type;
 		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
-			DECL_CLASS_CONSTRUCTOR;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+			DECL_CLASS_CONST;
 		if (clsdecl->constructor) {
 			L_errf($3, "class constructor already declared");
 		} else {
@@ -290,8 +298,8 @@ class_code:
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$3->decl->type->base_type = L_void;
 		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
-			DECL_CLASS_DESTRUCTOR;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+			DECL_CLASS_DESTR;
 		if (clsdecl->destructor) {
 			L_errf($3, "class destructor already declared");
 		} else {
@@ -311,6 +319,13 @@ function_decl:
 	{
 		$2->decl->type->base_type = $1;
 		$$ = $2;
+		$$->node.beg = @1.beg;
+	}
+	| decl_qualifier type_specifier fundecl_tail
+	{
+		$3->decl->type->base_type = $2;
+		$3->decl->flags |= $1;
+		$$ = $3;
 		$$->node.beg = @1.beg;
 	}
 	;
@@ -576,7 +591,7 @@ expr:
 	}
 	| "(" type_specifier ")" expr %prec PREFIX_INCDEC
 	{
-		// This is the only binop where an arg is a Type*.
+		// This is a binop where an arg is a Type*.
 		$$ = ast_mkBinOp(L_OP_CAST, (Expr *)$2, $4, @1.beg, @4.end);
 	}
 	| T_BANG expr
@@ -841,6 +856,25 @@ expr:
 		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
 		$$->u.string = $3;
 	}
+	| T_TYPE "." T_ID
+	{
+		// This is a binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CLASS_INDEX, (Expr *)$1.t, NULL, @1.beg,
+				 @3.end);
+		$$->u.string = $3;
+	}
+	| expr "->" T_ID
+	{
+		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
+	}
+	| T_TYPE "->" T_ID
+	{
+		// This is a binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CLASS_INDEX, (Expr *)$1.t, NULL, @1.beg,
+				 @3.end);
+		$$->u.string = $3;
+	}
 	| expr "," expr
 	{
 		$$ = ast_mkBinOp(L_OP_COMMA, $1, $3, @1.beg, @3.end);
@@ -959,15 +993,21 @@ declaration_list:
 
 declaration:
 	  declaration2 ";"
-	| T_EXTERN declaration2 ";"
+	| decl_qualifier declaration2 ";"
 	{
 		VarDecl *v;
 		for (v = $2; v; v = v->next) {
-			v->flags |= DECL_EXTERN;
+			v->flags |= $1;
 		}
 		$$ = $2;
 		$$->node.beg = @1.beg;
 	}
+	;
+
+decl_qualifier:
+	  T_PRIVATE	{ $$ = DECL_PRIVATE; }
+	| T_PUBLIC	{ $$ = DECL_PUBLIC; }
+	| T_EXTERN	{ $$ = DECL_EXTERN; }
 	;
 
 declaration2:

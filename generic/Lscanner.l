@@ -237,6 +237,7 @@ include_pop()
 	"continue"	return T_CONTINUE;
 	"instance"	return T_INSTANCE;
 	"private"	return T_PRIVATE;
+	"public"	return T_PUBLIC;
 	"constructor"	return T_CONSTRUCTOR;
 	"destructor"	return T_DESTRUCTOR;
 	"in"		return T_IN;
@@ -253,6 +254,7 @@ include_pop()
 	">="		return T_GREATEREQ;
 	"<"		return T_LESSTHAN;
 	"<="		return T_LESSTHANEQ;
+	"->"		return T_POINTS;
 	{ID}:		{
 				int i, j;
 				tally_newlines(yytext, yyleng);
