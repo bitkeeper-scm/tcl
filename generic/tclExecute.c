@@ -8021,7 +8021,7 @@ TclExecuteByteCode(
     }
 
     case INST_L_DEFINED: {
-	objResultPtr = constants[(OBJ_AT_TOS)->typePtr != &L_undefType];
+	objResultPtr = constants[(OBJ_AT_TOS)->undef == 0];
 	TRACE_WITH_OBJ(("=> "), objResultPtr);
 	NEXT_INST_F(1, 1, 1);
     }
@@ -8082,6 +8082,11 @@ TclExecuteByteCode(
     case INST_L_POP_SIZE: {
 	L_sizes_pop();
 	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_PUSH_UNDEF: {
+	objResultPtr = *L_undefObjPtrPtr();
+	NEXT_INST_F(1, 0, 1);
     }
 
     default:
@@ -9547,7 +9552,7 @@ L_deepDiveArray(
     Tcl_Obj *subObj;
     int lvalue = (flags & L_LVALUE);
 
-    if (idxObj->typePtr == &L_undefType) {
+    if (L_isUndef(idxObj)) {
 	if (lvalue) {
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "cannot write to undefined array index",
@@ -9558,10 +9563,14 @@ L_deepDiveArray(
 	}
     }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert index to integer", NULL);
+	return (NULL);
     }
     if (TclListObjGetElements(NULL, obj, &len, &elemPtrs) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert object to list", NULL);
+	return (NULL);
     }
 
     if (lvalue) {
@@ -9575,15 +9584,19 @@ L_deepDiveArray(
 	    int n = idx - len + 1;
 	    pad = (Tcl_Obj **)ckalloc(n * sizeof(Tcl_Obj *));
 	    for (i = 0; i < n; ++i) {
-		    pad[i] = Tcl_DuplicateObj(*L_undefObjPtrPtr());
+		pad[i] = *L_undefObjPtrPtr();
 	    }
 	    result = Tcl_ListObjReplace(interp, obj, len, 0, n, pad);
 	    ckfree((char *)pad);
 	    if (result != TCL_OK) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 		return (NULL);
 	    }
 	}
 	if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 	    return (NULL);
 	}
 	if (Tcl_IsShared(elemPtrs[idx])) {
@@ -9594,6 +9607,8 @@ L_deepDiveArray(
 		subObj = Tcl_DuplicateObj(subObj);
 	    }
 	    if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 		return (NULL);
 	    }
 	}
@@ -9652,8 +9667,17 @@ L_deepDiveHash(
     Tcl_HashEntry *hPtr;
     int lvalue = (flags & L_LVALUE);
 
+    ASSERT(!lvalue || !Tcl_IsShared(obj));  // lvalue => obj is unshared
+
     unless (Tcl_DictObjSize(NULL, obj, &tmp) == TCL_OK) {
-	return (L_undefObjPtrPtr());  // obj not a dict
+	/* Obj is not a dict and can't be converted to one. */
+	if (lvalue) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "not a hash", NULL);
+	    return (NULL);
+	} else {
+	    return (L_undefObjPtrPtr());
+	}
     }
     dict = (Dict *)obj->internalRep.otherValuePtr;
     hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
@@ -9669,6 +9693,7 @@ L_deepDiveHash(
 	hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
     }
     elt = (Tcl_Obj **)(void *)&Tcl_GetHashValue(hPtr);
+    ASSERT(elt);
     if (lvalue && Tcl_IsShared(*elt)) {
 	Tcl_DecrRefCount(*elt);
 	*elt = Tcl_DuplicateObj(*elt);
@@ -9714,7 +9739,7 @@ L_deepDiveString(
     const unsigned char *s;
     Tcl_Obj *newObj;
 
-    if (idxObj->typePtr == &L_undefType) {
+    if (L_isUndef(idxObj)) {
 	if (flags & L_LVALUE) {
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "cannot write to undefined string index",
@@ -9725,7 +9750,9 @@ L_deepDiveString(
 	}
     }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert index to integer", NULL);
+	return (NULL);
     }
 
     s = Tcl_GetByteArrayFromObj(obj, &len);

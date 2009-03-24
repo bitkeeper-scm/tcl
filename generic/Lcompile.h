@@ -126,6 +126,7 @@ extern char	*ckvsprintf(const char *fmt, va_list ap, int len);
 extern void	L_bomb(const char *format, ...);
 extern void	L_err(const char *s, ...);	// yyerror
 extern void	L_errf(void *node, const char *format, ...);
+extern int	L_isUndef(Tcl_Obj *o);
 extern void	L_lex_begReArg();
 extern void	L_lex_endReArg();
 extern void	L_lex_start(void);

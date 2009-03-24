@@ -38,8 +38,8 @@ undef_setFromAny(Tcl_Interp *interp, Tcl_Obj *o)
 
 /*
  * Get a pointer to the "undefined" object pointer, allocating it the
- * first time it is needed.  It is OK to bump the ref count each time;
- * we want the one-and-only undef object to never be freed.
+ * first time it is needed.  Keep the refCount high because we want
+ * the one-and-only undef object to never be freed.
  */
 Tcl_Obj **
 L_undefObjPtrPtr()
@@ -48,13 +48,19 @@ L_undefObjPtrPtr()
 
 	unless (undef_obj) {
 		undef_obj = Tcl_NewObj();
-		Tcl_InvalidateStringRep(undef_obj);
-		undef_obj->bytes = tclEmptyStringRep;
+		undef_obj->bytes   = tclEmptyStringRep;
 		undef_obj->typePtr = &L_undefType;
-		Tcl_IncrRefCount(undef_obj);
+		undef_obj->undef   = 1;
 	}
-	Tcl_IncrRefCount(undef_obj);
+	ASSERT(undef_obj->undef);
+	undef_obj->refCount = 1234;
 	return (&undef_obj);
+}
+
+int
+L_isUndef(Tcl_Obj *o)
+{
+	return (o->undef);
 }
 
 Tcl_ObjType L_undefType = {
@@ -390,6 +396,8 @@ compile_fnDecl(FnDecl *fun)
 	}
 	if (!strcmp(name, "END")) {
 		L_errf(decl->id, "cannot use END for function name");
+	} else if (!strcmp(name, "undef")) {
+		L_errf(decl->id, "cannot use undef for function name");
 	}
 	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
 		if (!strcmp(builtins[i].name, name)) {
@@ -595,6 +603,9 @@ compile_varDecl(VarDecl *decl)
 	}
 	if (!strcmp(name, "END")) {
 		L_errf(decl, "cannot use END for variable name");
+		return;
+	} else if (!strcmp(name, "undef")) {
+		L_errf(decl, "cannot use undef for variable name");
 		return;
 	}
 	if ((decl->type->kind == L_CLASS) &&
@@ -1332,7 +1343,12 @@ compile_var(Expr *expr, Expr_f flags)
 			L_errf(expr,
 			       "END illegal outside of a string or array index");
 		}
+		n = 1;
 		expr->type = L_int;
+	} else if (!strcmp(expr->u.string, "undef")) {
+		TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
+		n = 1;
+		expr->type = L_poly;
 	} else if ((sym = sym_lookup(expr, flags))) {
 		if (flags & L_PUSH_VAL) {
 			emit_load_scalar(sym->idx);
@@ -2580,7 +2596,7 @@ compile_clsInstDeref(Expr *expr, Expr_f flags)
 	unless (hPtr) {
 		L_errf(expr, "%s is not a member of class %s", varnm, clsnm);
 		expr->type = L_poly;
-		return(0);
+		return (0); // stack effect
 	}
 	sym = (Sym *)Tcl_GetHashValue(hPtr);
 	unless (in_class || (sym->decl->flags & DECL_PUBLIC)) {

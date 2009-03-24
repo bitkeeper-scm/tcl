@@ -621,6 +621,7 @@ TclDbInitNewObj(
     objPtr->bytes = tclEmptyStringRep;
     objPtr->length = 0;
     objPtr->typePtr = NULL;
+    objPtr->undef = 0;
 
 #ifdef TCL_THREADS
     /*
@@ -1035,6 +1036,7 @@ Tcl_DuplicateObj(
 	    typePtr->dupIntRepProc(objPtr, dupPtr);
 	}
     }
+    dupPtr->undef = objPtr->undef;
     return dupPtr;
 }
 

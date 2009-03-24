@@ -427,6 +427,8 @@ InstructionDesc const tclInstructionTable[] = {
 	/* Push what's on the top of the internal L sizes stack. */
     {"l-pop-size",	 1,    0,         0,	{OPERAND_NONE}},
 	/* Pop the internal L sizes stack. */
+    {"l-push-undef",	 1,    1,         0,	{OPERAND_NONE}},
+	/* Push the L undef object. */
     {0}
 };
 
