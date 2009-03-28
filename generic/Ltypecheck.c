@@ -11,6 +11,7 @@
 private int	typeck_decls(VarDecl *a, VarDecl *b);
 private int	typeck_list(Type *a, Type *b);
 private int	typeck_declType(Type *type, VarDecl *decl, int nameof_ok);
+private void	typeck_parm(VarDecl *formal, Expr *actual, int n);
 
 /*
  * Create the pre-defined types.  Init only once so all L scripts see
@@ -143,9 +144,8 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 
 	for (i = 1; actuals && formals; ++i) {
 		rest_arg = formals->flags & DECL_REST_ARG;  // is it "...id"?
-		unless (L_typeck_compat(formals->type, actuals->type) ||
-			rest_arg) {
-			L_errf(call, "parameter %d has incompatible type", i);
+		unless (rest_arg) {
+			typeck_parm(formals, actuals, i);
 		}
 		actuals = actuals->next;
 		formals = formals->next;
@@ -157,6 +157,71 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 	if (formals && !(formals->flags & DECL_REST_ARG)) {
 		L_errf(call, "not enough arguments for function %s",
 		       call->a->u.string);
+	}
+}
+/*
+ * Type check a function argument.  In addition to checking the types
+ * for compatibility, the parameter-passing mode of the actual is
+ * checked for compatibility with the formal.  The rules depend on
+ * whether the actual is a scalar or a complex type (array/hash/struct),
+ * and what kind of qualifiers the formal and actual have:
+ *
+ * SCALAR:
+ *        | no qual   cow     &   <- formal
+ * actual |------------------------------------------
+ * no qual| cow       cow     err
+ * cow    | cow       cow     err
+ * &      | err       err     &
+ *
+ * COMPLEX:
+ *        | no qual   cow     &   <- formal
+ * actual |------------------------------------------
+ * no qual| &         err     &
+ * cow    | err       cow     err
+ * &      | &         err     &
+ *
+ * This function's job is to catch the err entries, and let
+ * L_typeck_compat() check the non-err entries.
+ *
+ * Note that the formal's mode is represented by its decl flags, and
+ * the actual's mode is known by whether it has a nameof or cow type
+ * (created by the & and (cow) operators) -- name-of or cow-of types
+ * are not created for the formals.  This is a bit of inconsistency
+ * but it seemed to give the simplest implementation.
+ */
+private void
+typeck_parm(VarDecl *formal, Expr *actual, int n)
+{
+	Type	*f_type = formal->type;
+	Type	*a_type = actual->type;
+	int	f_ref   = ((formal->flags & DECL_REF) != 0);
+	int	f_cow   = ((formal->flags & DECL_COW) != 0);
+	int	f_none  = !f_ref && !f_cow;
+	int	a_ref   = isnameoftype(a_type);
+	int	a_cow   = iscowtype(a_type);
+	int	a_none  = !a_ref && !a_cow;
+	int	bad     = 0;
+
+	ASSERT(!(f_ref && f_cow));
+
+	/*
+	 * Strip any name-of or cow-of types.  The asymmetry is because
+	 * we do not create a cow-of type for formals.
+	 */
+	if (a_ref || a_cow) a_type = a_type->base_type;
+	if (f_ref) f_type = f_type->base_type;
+
+	unless (((f_ref == a_ref) && (f_cow == a_cow))) {
+		if (iscomplextype(f_type)) {
+			unless ((a_ref && f_none) || (f_ref && a_none)) bad = 1;
+		} else {
+			unless ((a_cow && f_none) || (f_cow && a_none)) bad = 1;
+		}
+	}
+	if (bad) {
+		L_errf(actual, "parameter %d passed with incompatible mode", n);
+	} else unless (L_typeck_compat(f_type, a_type)) {
+		L_errf(actual, "parameter %d has incompatible type", n);
 	}
 }
 
@@ -351,6 +416,7 @@ L_typeck_same(Type *a, Type *b)
 		/* Struct members must match in type and number
 		 * but member names can be different. */
 		return (typeck_decls(a->u.struc.members, b->u.struc.members));
+	    case L_COW:
 	    case L_NAMEOF:
 		return (L_typeck_same(a->base_type, b->base_type));
 	    case L_FUNCTION:

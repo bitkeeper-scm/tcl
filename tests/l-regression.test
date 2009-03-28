@@ -53,6 +53,7 @@ test multi-dimensional-1.0 {move[state][read_symbol] was being evaluated as
 move[state][state[read_symbol]][read_symbol], or thereabouts, because the AST
 was built in an ambiguous way.} -body {
 #lang L
+string dump_tape(int tape[]);
 void turing(int step, int state, int tape[], int pos) {
     int write_symbol[5][2], move[5][2], new_state[5][2], read_symbol;
 

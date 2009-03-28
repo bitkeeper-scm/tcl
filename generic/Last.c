@@ -298,6 +298,14 @@ type_mkNameOf(Type *base_type, enum typemk_k disposition)
 }
 
 Type *
+type_mkCOW(Type *base_type, enum typemk_k disposition)
+{
+	Type *type = type_alloc(L_COW, disposition);
+	type->base_type = base_type;
+	return (type);
+}
+
+Type *
 type_mkFunc(Type *ret_type, VarDecl *formals, enum typemk_k disposition)
 {
 	Type *type = type_alloc(L_FUNCTION, disposition);
