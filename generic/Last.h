@@ -98,11 +98,13 @@ typedef enum {
 	L_NAMEOF	= 0x0400,
 	L_FUNCTION	= 0x0800,
 	L_CLASS		= 0x1000,
+	L_COW		= 0x2000,
 } Type_k;
 
 struct Type {
 	Type_k	kind;
-	Type	*base_type;	// for array, hash, list, nameof, & fn ret type
+	Type	*base_type;	// for array, hash, list, nameof, fn ret type,
+				// and COW base type
 	Type	*next;		// for linking list types
 	union {
 		struct {
@@ -210,6 +212,7 @@ typedef enum {
 	L_OP_KV,
 	L_OP_COMMA,
 	L_OP_ARRAY_SLICE,
+	L_OP_COW,
 } Op_k;
 
 /*
@@ -221,19 +224,20 @@ typedef enum {
 typedef enum {
 	L_EXPR_RE_I   = 0x0001, // expr is an re with "i" qualifier
 	L_EXPR_RE_G   = 0x0002, // expr is an re with "g" qualifier
-	L_IDX_ARRAY   = 0x0004,	// what kind of thing we're indexing
-	L_IDX_HASH    = 0x0008,
-	L_IDX_STRING  = 0x0010,
-	L_LVALUE      = 0x0020, // if we will be writing the obj
-	L_PUSH_VAL    = 0x0040,	// what we want INST_L_INDEX to leave on
-	L_PUSH_PTR    = 0x0080,	//   the stack
-	L_PUSH_VALPTR = 0x0100,
-	L_PUSH_PTRVAL = 0x0200,
-	L_DISCARD     = 0x0400,	// have compile_expr discard the val, not push
-	L_PUSH_NEW    = 0x0800,	// whether INST_L_DEEP_WRITE should push the
-	L_PUSH_OLD    = 0x1000,	//   new or old value
-	L_NOTUSED     = 0x2000,	// do not update used_p boolean in symtab entry
-	L_NOWARN      = 0x4000,	// issue no err if symbol undefined
+	L_EXPR_DEEP   = 0x0004, // expr is the result of a deep dive
+	L_IDX_ARRAY   = 0x0008,	// what kind of thing we're indexing
+	L_IDX_HASH    = 0x0010,
+	L_IDX_STRING  = 0x0020,
+	L_LVALUE      = 0x0040, // if we will be writing the obj
+	L_PUSH_VAL    = 0x0080,	// what we want INST_L_INDEX to leave on
+	L_PUSH_PTR    = 0x0100,	//   the stack
+	L_PUSH_VALPTR = 0x0200,
+	L_PUSH_PTRVAL = 0x0400,
+	L_DISCARD     = 0x0800,	// have compile_expr discard the val, not push
+	L_PUSH_NEW    = 0x1000,	// whether INST_L_DEEP_WRITE should push the
+	L_PUSH_OLD    = 0x2000,	//   new or old value
+	L_NOTUSED     = 0x4000,	// do not update used_p boolean in symtab entry
+	L_NOWARN      = 0x8000,	// issue no err if symbol undefined
 } Expr_f;
 
 struct Expr {
@@ -327,22 +331,24 @@ struct TopLev {
  * Some flags are redundant but were chosen for clarity.
  */
 typedef enum {
-	SCOPE_LOCAL		= 0x0001, // the scope the symbol should go in
-	SCOPE_GLOBAL		= 0x0002,
-	SCOPE_CLASS		= 0x0004,
-	DECL_GLOBAL_VAR		= 0x0008, // the kind of declaration
-	DECL_LOCAL_VAR		= 0x0010,
-	DECL_TEMP		= 0x0020, //   temp variable
-	DECL_FN			= 0x0040, //   regular function
-	DECL_CLASS_VAR		= 0x0080, //   class variable
-	DECL_CLASS_INST_VAR	= 0x0100, //   class instance variable
-	DECL_CLASS_FN		= 0x0200, //   class member fn
-	DECL_CLASS_CONST	= 0x0400, //   class constructor
-	DECL_CLASS_DESTR	= 0x0800, //   class destructor
-	DECL_EXTERN		= 0x1000, //   extern fn or variable
-	DECL_REST_ARG		= 0x2000, //   ...arg formal parameter
-	DECL_PRIVATE		= 0x4000, // decl has private qualifier
-	DECL_PUBLIC		= 0x8000, // decl has public qualifier
+	SCOPE_LOCAL		= 0x00001, // the scope the symbol should go in
+	SCOPE_GLOBAL		= 0x00002,
+	SCOPE_CLASS		= 0x00004,
+	DECL_GLOBAL_VAR		= 0x00008, // the kind of declaration
+	DECL_LOCAL_VAR		= 0x00010,
+	DECL_TEMP		= 0x00020, //   temp variable
+	DECL_FN			= 0x00040, //   regular function
+	DECL_CLASS_VAR		= 0x00080, //   class variable
+	DECL_CLASS_INST_VAR	= 0x00100, //   class instance variable
+	DECL_CLASS_FN		= 0x00200, //   class member fn
+	DECL_CLASS_CONST	= 0x00400, //   class constructor
+	DECL_CLASS_DESTR	= 0x00800, //   class destructor
+	DECL_REST_ARG		= 0x01000, //   ...arg formal parameter
+	DECL_EXTERN		= 0x02000, // decl has extern qualifier
+	DECL_PRIVATE		= 0x04000, // decl has private qualifier
+	DECL_PUBLIC		= 0x08000, // decl has public qualifier
+	DECL_COW		= 0x10000, // decl has cow qualifier
+	DECL_REF		= 0x20000, // decl has & qualifier
 } Decl_f;
 
 struct VarDecl {
@@ -383,6 +389,7 @@ extern VarDecl	*ast_mkVarDecl(Type *type, Expr *name, int beg, int end);
 extern Type	*type_mkArray(Expr *size, Type *base_type,
 			      enum typemk_k disposition);
 extern Type	*type_mkClass(enum typemk_k disposition);
+extern Type	*type_mkCOW(Type *base_type, enum typemk_k disposition);
 extern Type	*type_mkFunc(Type *base_type, VarDecl *formals,
 			     enum typemk_k disposition);
 extern Type	*type_mkHash(Type *index_type, Type *base_type,

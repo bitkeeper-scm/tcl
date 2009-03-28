@@ -105,6 +105,7 @@ private int	compile_keys(Expr *expr);
 private int	compile_length(Expr *expr);
 private void	compile_loop(Loop *loop);
 private void	compile_fnParms(VarDecl *decl);
+private void	compile_nameof(Expr *expr);
 private int	compile_push(Expr *expr);
 private void	compile_return(Stmt *stmt);
 private void	compile_shortCircuit(Expr *expr);
@@ -128,13 +129,14 @@ private Frame	*frame_outer(Frame *frame);
 private void	frame_pop(void);
 private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr,
 			   void *block, Frame_f flags);
+private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private Proc	*proc_begin(Frame_f flags);
 private void	proc_finish(Proc *procPtr, char *name);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
 private int	push_index(Expr *expr);
 private int	push_lit(Expr *expr);
-private int	push_parms(Expr *parameters);
+private int	push_parms(Expr *actuals, VarDecl *formals);
 private void	push_pointer(Expr *lval);
 private int	push_regexpModifiers(Expr *regexp);
 private void	re_gatherTxt(Expr *e, Tcl_Obj *s);
@@ -799,10 +801,42 @@ proc_mkArg(Proc *proc, VarDecl *decl)
 	if (decl->flags & DECL_REST_ARG) local->flags |= VAR_IS_ARGS;
 }
 
+/*
+ * Determine whether the parameter-passing mode for a formal parameter
+ * declaration is call-by-reference.  Return NULL or the base type of
+ * the parameter (without the name-of).  You get call-by-reference if
+ * the parameter was declared with & (and is not a function pointer)
+ * or if it's a complex type without a cow qualifier.
+ */
+private Type *
+iscallbyname(VarDecl *formal)
+{
+	unless (formal) return (NULL);
+
+	switch (formal->flags & (DECL_REF | DECL_COW)) {
+	    case DECL_REF:
+		ASSERT(isnameoftype(formal->type));
+		if (isfntype(formal->type->base_type)) {
+			return (NULL);
+		} else {
+			return (formal->type->base_type);
+		}
+	    case DECL_COW:
+		ASSERT(!iscowtype(formal->type));
+		return (NULL);
+	    default:
+		if (iscomplextype(formal->type)) {
+			return (formal->type);
+		} else {
+			return (NULL);
+		}
+	}
+}
+
 private void
 compile_fnParms(VarDecl *decl)
 {
-	int	i, by_name;
+	int	i;
 	int	name_parms = 0;
 	char	*name;
 	Proc	*proc = L->frame->envPtr->procPtr;
@@ -810,6 +844,7 @@ compile_fnParms(VarDecl *decl)
 	VarDecl	*new_decl = NULL;
 	Sym	*new_sym, *sym;
 	Expr	*new_id;
+	Type	*type;
 	VarDecl	*param = decl->type->u.func.formals;
 
 	proc->numArgs = 0;
@@ -839,45 +874,41 @@ compile_fnParms(VarDecl *decl)
 	}
 
 	/*
-	 * Make two passes to handle call-by-name formals.  In the
-	 * first pass, mangle the formal name to "&name".  In the
-	 * second pass, create a local "name" as an upvar to the
-	 * variable one frame up whose name is passed in the arg.
-	 * Note that the formal will have type "name-of <t>" and the
-	 * local gets type <t>.  This is needed since Tcl requires the
-	 * locals to follow the args.
+	 * To handle call-by-name formals, make two passes through the
+	 * formals list.  In the first pass, mangle any formal name to
+	 * "&name".  In the second pass, for formals only, create a
+	 * local "name" as an upvar to the variable one frame up whose
+	 * name is passed in the arg.  Note that the formal will have
+	 * type "name-of <t>" and the local gets type <t>.  This is
+	 * needed since Tcl requires the locals to follow the args.
 	 */
 	for (p = param, i = 0; p; p = p->next, i++) {
-		/*
-		 * For prototypes, the grammar lets you declare a
-		 * function arg with a type but no name, but in a
-		 * declaration it's an error to omit the name.  Handle
-		 * that by making up a name so we can keep compiling.
-		 */
 		unless (p->id) {
 			L_errf(p, "formal parameter #%d lacks a name", i+1);
 			name = cksprintf("unnamed-arg-%d", i+1);
 			p->id = ast_mkId(name, 0, 0);
 		}
-		by_name = ((p->type->kind == L_NAMEOF) &&
-			   (p->type->base_type->kind != L_FUNCTION));
-		if (by_name) {
-			name = cksprintf("&%s", p->id->u.string);
-			ckfree(p->id->u.string);
-			p->id->u.string = name;
-			++name_parms;
-		}
 		name = p->id->u.string;
-		/* Class constructor must not have "self" for any param. */
+		if ((p->flags & (DECL_REF|DECL_COW)) == (DECL_REF|DECL_COW)) {
+			L_errf(p, "formal parameter #%d declared with "
+			       "both cow and & qualifiers", i+1);
+			p->flags &= ~DECL_COW;
+		}
 		if ((decl->flags & DECL_CLASS_CONST) && !strcmp(name, "self")) {
 			L_errf(p,
 			       "'self' parameter illegal in class constructor");
 			continue;
 		}
-		proc_mkArg(proc, p);
 		if ((p->flags & DECL_REST_ARG) && (p->next)) {
 			L_errf(p, "Rest parameter must be last");
 		}
+		if (iscallbyname(p)) {
+			name = cksprintf("&%s", p->id->u.string);
+			ckfree(p->id->u.string);
+			p->id->u.string = name;
+			++name_parms;
+		}
+		proc_mkArg(proc, p);
 		sym = sym_store(p);
 		unless (sym) continue;  // multiple declaration
 		sym->idx = i;
@@ -891,15 +922,14 @@ compile_fnParms(VarDecl *decl)
 	/* For call by name, push a 1 the first time (arg to INST_UPVAR). */
 	if (name_parms) push_str("1");
 	for (p = param; p; p = p->next) {
-		unless ((p->type->kind == L_NAMEOF) &&
-			(p->type->base_type->kind != L_FUNCTION)) {
-			continue;
-		}
+		/* If the formal is &p, type gets the type of p. */
+		type = iscallbyname(p);
+		unless (type) continue;
 		ASSERT(p->id->u.string[0] == '&');
 		name = ckstrdup(p->id->u.string + 1);  // point past the &
 		new_id   = ast_mkId(name, p->id->node.beg, p->id->node.end);
-		new_decl = ast_mkVarDecl(p->type->base_type, new_id,
-					 p->node.beg, p->node.end);
+		new_decl = ast_mkVarDecl(type, new_id, p->node.beg,
+					 p->node.end);
 		new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
 		new_decl->node.line = p->node.line;
 
@@ -1246,9 +1276,11 @@ private int
 compile_fnCall(Expr *expr)
 {
 	int	i, num_parms;
+	int	typchk = FALSE;
 	char	*name;
 	Expr	*Foo_star, *bar;
 	Sym	*sym;
+	VarDecl	*formals = NULL;
 
 	ASSERT(expr->a->kind == L_EXPR_ID);
 	name = expr->a->u.string;
@@ -1269,6 +1301,8 @@ compile_fnCall(Expr *expr)
 		} else {
 			push_str(name);
 		}
+		formals = sym->type->u.func.formals;
+		typchk = TRUE;
 		expr->type = sym->type->base_type;
 	} else if (sym && (sym->type->kind == L_NAMEOF) &&
 		   (sym->type->base_type->kind == L_FUNCTION)) {
@@ -1277,6 +1311,8 @@ compile_fnCall(Expr *expr)
 		 * name and its type is the function proto.
 		 */
 		emit_load_scalar(sym->idx);
+		formals = sym->type->base_type->u.func.formals;
+		typchk = TRUE;
 		expr->type = sym->type->base_type->base_type;
 	} else if (sym) {
 		/* Name is declared but isn't a function or fn pointer. */
@@ -1289,6 +1325,8 @@ compile_fnCall(Expr *expr)
 			push_str(Foo_star->u.string);
 			bar->next = expr->b;
 			expr->b = bar;
+			formals = sym->type->u.func.formals;
+			typchk = TRUE;
 			expr->type = sym->type;
 		} else {
 			/* Compile as *a(bar,b,c). */
@@ -1312,14 +1350,9 @@ compile_fnCall(Expr *expr)
 		push_str(name);
 		expr->type = L_poly;
 	}
-	num_parms = push_parms(expr->b);
+	num_parms = push_parms(expr->b, formals);
 	emit_invoke(num_parms+1);
-	if (sym && isfntype(sym->type)) {
-		L_typeck_fncall(sym->type->u.func.formals, expr);
-	} else if (sym && (sym->type->kind == L_NAMEOF) &&
-		   (sym->type->base_type->kind == L_FUNCTION)) {
-		L_typeck_fncall(sym->type->base_type->u.func.formals, expr);
-	}
+	if (typchk) L_typeck_fncall(formals, expr);
 	return (1);  // stack effect
 }
 
@@ -1374,33 +1407,77 @@ compile_exprs(Expr *expr, Expr_f flags)
 }
 
 /*
+ * Compile &var -- push the tcl name of var.  This works for function
+ * names, regular variables, and class variables (&x, &classname->var,
+ * &obj->var).  You can pass in the expr node either for &x or x.
+ */
+private void
+compile_nameof(Expr *expr)
+{
+	Expr	*op;
+
+	if (isaddrof(expr)) {
+		op = expr->a;
+	} else {
+		op = expr;
+	}
+	compile_expr(op, L_DISCARD);
+	if (!(op->flags & L_EXPR_DEEP) &&
+	    (op->sym && (op->sym->decl->flags &
+			(DECL_FN | DECL_GLOBAL_VAR | DECL_LOCAL_VAR |
+			 DECL_TEMP)))) {
+		push_str(op->sym->tclname);
+		unless (op == expr) {
+			expr->type = type_mkNameOf(op->type, PER_INTERP);
+		}
+	} else {
+		L_errf(expr, "cannot take reference of argument");
+		expr->type = op->type;
+	}
+}
+
+/*
  * Emit code to push the parameters to a function call and return the
- * # pushed.  If we see two parms like "-foovariable, &foo", then push an
- * L pointer.
+ * # pushed.  Rules:
+ *
+ * - For a composite (non-scalar) parm without a (cow) cast, treat
+ *   as call-by-reference (by pushing the name instead of the value)
+ *   unless the corresponding formal is declared with cow.
+ *
+ * - For two consecutive parms like "-foovariable, &foo", push "-foovariable"
+ *   and then an L pointer.
+ *
+ * - For everything else, push the value or name as indicated by whether
+ *   the parm has the & operator; compile_expr() handles that.  The type
+ *   checker sorts out any mis-matches with the declared formals.
  */
 private int
-push_parms(Expr *parms)
+push_parms(Expr *actuals, VarDecl *formals)
 {
 	int	i = 0;
 	int	widget_flag = FALSE;
 	char	*s;
-	Expr	*p;
+	Expr	*a;
+	VarDecl	*f;
 
-	for (i = 0, p = parms; p; p = p->next, i++) {
-		if (widget_flag && (p->kind == L_EXPR_UNOP) &&
-		    (p->op == L_OP_ADDROF)) {
-			push_pointer(p->a);     // L pointer
+	for (i = 0, a = actuals, f = formals; a; a = a->next, ++i) {
+		if (f && iscallbyname(f)) {
+			compile_nameof(a);
+		} else if (widget_flag && isaddrof(a)) {
+			push_pointer(a->a);  // L pointer
 		} else {
-			compile_expr(p, L_PUSH_VAL);  // regular parm
+			compile_expr(a, L_PUSH_VAL);
 		}
-		s = p->u.string;
-		widget_flag = ((p->kind == L_EXPR_CONST) && isstring(p) &&
+		s = a->u.string;
+		widget_flag = ((a->kind == L_EXPR_CONST) &&
+		    isstring(a) &&
 		    /* has at least the minimum length */
 		    (strlen(s) >= strlen("-variable")) &&
 		    /* starts with '-' */
 		    (s[0] == '-') &&
 		    /* ends with "variable" */
 		    !strcmp("variable", s + (strlen(s) - strlen("variable"))));
+		if (f) f = f->next;
 	}
 	return (i);
 }
@@ -1472,22 +1549,12 @@ compile_unOp(Expr *expr)
 		expr->type = L_int;
 		break;
 	    case L_OP_ADDROF:
-		/*
-		 * &var -- push the tcl name of var.  This works for
-		 * function names, regular variables, and class
-		 * variables (&x, &classname->var, &obj->var).
-		 */
-		compile_expr(expr->a, L_DISCARD);
-		if (expr->a->sym &&
-		    (expr->a->sym->decl->flags &
-		     (DECL_FN | DECL_GLOBAL_VAR | DECL_LOCAL_VAR | DECL_TEMP))) {
-			push_str(expr->a->sym->tclname);
-			expr->type = type_mkNameOf(expr->a->type,
-						   PER_INTERP);
-		} else {
-			L_errf(expr, "invalid argument to &");
-			expr->type = L_poly;
-		}
+		compile_nameof(expr);
+		break;
+	    case L_OP_COW:
+		compile_expr(expr->a, L_PUSH_VAL);
+		L_typeck_deny(L_VOID, expr->a);
+		expr->type = type_mkCOW(expr->a->type, PER_INTERP);
 		break;
 	    case L_OP_PLUSPLUS_PRE:
 	    case L_OP_PLUSPLUS_POST:
@@ -2478,8 +2545,9 @@ compile_idxOp(Expr *expr, Expr_f flags)
 	 * See the comments in compile_expr().
 	 *
 	 * This wart is here because the caller can't know in general
-	 * whether expr is a deep dive or a class deref, and the
-	 * two are written in drastically different ways.
+	 * whether expr is a deep dive or a class deref.  Their
+	 * expressions look identical but are evaluated in drastically
+	 * different ways.
 	 */
 	if (isclass(expr) && (flags & (L_PUSH_VAL | L_DISCARD))) {
 		flags &= ~(L_PUSH_PTR | L_PUSH_VALPTR | L_PUSH_PTRVAL |
@@ -2501,7 +2569,7 @@ compile_idxOp(Expr *expr, Expr_f flags)
 	}
 
 	expr->sym   = expr->a->sym;  // propagate sym table ptr up the tree
-	expr->flags = flags;
+	expr->flags = flags | L_EXPR_DEEP;
 	return (1);
 }
 
@@ -3609,6 +3677,7 @@ L_set_declBaseType(VarDecl *decl, Type *base_type)
 	} else {
 		decl->type = base_type;
 	}
+	if (isnameoftype(base_type)) decl->flags |= DECL_REF;
 }
 
 /*

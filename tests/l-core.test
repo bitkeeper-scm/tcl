@@ -1886,7 +1886,7 @@ slice_1();
 
 test slice-2 {array slicing} -body {
 #lang L
-string slice_2_tostr(int a[])
+string slice_2_tostr(cow int a[])
 {
 	int	i;
 	string	ret = "";
@@ -1900,44 +1900,44 @@ void slice_2()
 	string	s;
 
 	ai = { 0, 1, 2, 3, 4 };
-	unless (slice_2_tostr(ai[0..0]) eq "<0>") puts("bad 1.1");
-	unless (slice_2_tostr(ai[0..1]) eq "<0><1>") puts("bad 1.2");
-	unless (slice_2_tostr(ai[0..2]) eq "<0><1><2>") puts("bad 1.3");
-	unless (slice_2_tostr(ai[0..3]) eq "<0><1><2><3>") puts("bad 1.4");
-	unless (slice_2_tostr(ai[0..4]) eq "<0><1><2><3><4>") puts("bad 1.5");
-	unless (slice_2_tostr(ai[1..1]) eq "<1>") puts("bad 1.6");
-	unless (slice_2_tostr(ai[1..2]) eq "<1><2>") puts("bad 1.7");
-	unless (slice_2_tostr(ai[1..3]) eq "<1><2><3>") puts("bad 1.8");
-	unless (slice_2_tostr(ai[1..4]) eq "<1><2><3><4>") puts("bad 1.9");
-	unless (slice_2_tostr(ai[2..2]) eq "<2>") puts("bad 1.10");
-	unless (slice_2_tostr(ai[2..3]) eq "<2><3>") puts("bad 1.11");
-	unless (slice_2_tostr(ai[2..4]) eq "<2><3><4>") puts("bad 1.12");
-	unless (slice_2_tostr(ai[3..3]) eq "<3>") puts("bad 1.13");
-	unless (slice_2_tostr(ai[3..4]) eq "<3><4>") puts("bad 1.14");
-	unless (slice_2_tostr(ai[4..4]) eq "<4>") puts("bad 1.15");
+	unless (slice_2_tostr((cow)ai[0..0]) eq "<0>") puts("bad 1.1");
+	unless (slice_2_tostr((cow)ai[0..1]) eq "<0><1>") puts("bad 1.2");
+	unless (slice_2_tostr((cow)ai[0..2]) eq "<0><1><2>") puts("bad 1.3");
+	unless (slice_2_tostr((cow)ai[0..3]) eq "<0><1><2><3>") puts("bad 1.4");
+	unless (slice_2_tostr((cow)ai[0..4]) eq "<0><1><2><3><4>") puts("bad 1.5");
+	unless (slice_2_tostr((cow)ai[1..1]) eq "<1>") puts("bad 1.6");
+	unless (slice_2_tostr((cow)ai[1..2]) eq "<1><2>") puts("bad 1.7");
+	unless (slice_2_tostr((cow)ai[1..3]) eq "<1><2><3>") puts("bad 1.8");
+	unless (slice_2_tostr((cow)ai[1..4]) eq "<1><2><3><4>") puts("bad 1.9");
+	unless (slice_2_tostr((cow)ai[2..2]) eq "<2>") puts("bad 1.10");
+	unless (slice_2_tostr((cow)ai[2..3]) eq "<2><3>") puts("bad 1.11");
+	unless (slice_2_tostr((cow)ai[2..4]) eq "<2><3><4>") puts("bad 1.12");
+	unless (slice_2_tostr((cow)ai[3..3]) eq "<3>") puts("bad 1.13");
+	unless (slice_2_tostr((cow)ai[3..4]) eq "<3><4>") puts("bad 1.14");
+	unless (slice_2_tostr((cow)ai[4..4]) eq "<4>") puts("bad 1.15");
 
-	s = slice_2_tostr(ai[0..3][0..2]);
+	s = slice_2_tostr((cow)ai[0..3][0..2]);
 	unless (s eq "<0><1><2>") puts("bad 2.1");
-	s = slice_2_tostr(ai[0..3][0..2][0..1]);
+	s = slice_2_tostr((cow)ai[0..3][0..2][0..1]);
 	unless (s eq "<0><1>") puts("bad 2.2");
-	s = slice_2_tostr(ai[0..3][0..2][0..1][0..0]);
+	s = slice_2_tostr((cow)ai[0..3][0..2][0..1][0..0]);
 	unless (s eq "<0>") puts("bad 2.3");
 
-	s = slice_2_tostr(ai[1..3][0..2]);
+	s = slice_2_tostr((cow)ai[1..3][0..2]);
 	unless (s eq "<1><2><3>") puts("bad 3.1");
-	s = slice_2_tostr(ai[1..3][0..1]);
+	s = slice_2_tostr((cow)ai[1..3][0..1]);
 	unless (s eq "<1><2>") puts("bad 3.2");
-	s = slice_2_tostr(ai[1..3][0..2][0..2][0..2][0..2]);
+	s = slice_2_tostr((cow)ai[1..3][0..2][0..2][0..2][0..2]);
 	unless (s eq "<1><2><3>") puts("bad 3.3");
 
 	/* Check expressions as slice indices. */
-	s = slice_2_tostr(ai[1-1..2+1][0*10..2]);
+	s = slice_2_tostr((cow)ai[1-1..2+1][0*10..2]);
 	unless (s eq "<0><1><2>") puts("bad 4.1");
-	s = slice_2_tostr(ai[1-1..ai[2..2][0]+1][0*10..ai[2]]);
+	s = slice_2_tostr((cow)ai[1-1..ai[2..2][0]+1][0*10..ai[2]]);
 	unless (s eq "<0><1><2>") puts("bad 4.2");
 
 	/* Check slices of lists. */
-	s = slice_2_tostr({0,1,2,3,4}[1..3]);
+	s = slice_2_tostr((cow){0,1,2,3,4}[1..3]);
 	unless (s eq "<1><2><3>") puts("bad 5.1");
 }
 slice_2();
@@ -3904,26 +3904,6 @@ end
 
 test hash-1.5 {hashes of hashes and arrays} -body {
 #lang L
-// "keys" eventually will be a built-in, but do an integer one
-// here for fun.
-int[]
-ikeys(poly h{int})
-{
-	int	k, thekeys[];
-
-	foreach (k in h) push(&thekeys, k);
-	return (thekeys);
-}
-
-// This is basically a cast since "sort" isn't yet a built-in so
-// the compiler doesn't see it as having the proper return type.
-int[]
-isort(int a[])
-{
-	int	sorted[] = sort(a);
-	return (sorted);
-}
-
 void
 hash_1_5()
 {
@@ -3947,7 +3927,7 @@ hash_1_5()
 	hai[2]{1} = "21";
 	hai[2]{2} = "22";
 	foreach (hi in hai) {
-		foreach (k1 in isort(ikeys(hi))) {
+		foreach (k1 in sort(keys(hi))) {
 			printf("hai has %d=>%s\n", k1, hi{k1});
 		}
 	}
@@ -3962,7 +3942,7 @@ hash_1_5()
 	hia{2}[0] = "20";
 	hia{2}[1] = "21";
 	hia{2}[2] = "22";
-	foreach (k1 in isort(ikeys(hia))) {
+	foreach (k1 in sort(keys(hia))) {
 		foreach (vs in hia{k1}) {
 			printf("hia{%d} has %s\n", k1, vs);
 		}
@@ -3978,8 +3958,8 @@ hash_1_5()
 	hii{0}{1} = "01";
 	hii{2}{0} = "20";
 	hii{2}{2} = "22";
-	foreach (k1 in isort(ikeys(hii))) {
-		foreach (k2 in isort(ikeys(hii{k1}))) {
+	foreach (k1 in sort(keys(hii))) {
+		foreach (k2 in sort(keys(hii{k1}))) {
 			printf("hii{%d}{%d} has %s\n", k1, k2, hii{k1}{k2});
 		}
 	}
@@ -5525,10 +5505,6 @@ void defined_1_8()
 test defined-1.9 {check that undef has type poly} -body {
 #lang L
 class defined_1_9_cls {}
-int defined_1_9_foo(int &fnptr(int), int arg)
-{
-	if (defined(fnptr)) return (fnptr(arg));
-}
 void defined_1_9()
 {
 	int	i;
@@ -5559,8 +5535,6 @@ void defined_1_9()
 	if (defined(st)) puts("bad 8");
 	o = undef;
 	if (defined(o)) puts("bad 9");
-
-	defined_1_9_foo(undef, undef);
 }
 defined_1_9();
 } -output {}
@@ -5573,7 +5547,7 @@ void defined_1_10()
 	defined_1_10_foo(&undef);  // err
 }
 defined_1_10();
-} -returnCodes error -match regexp -result {.*4: L Error: invalid argument to &
+} -returnCodes error -match regexp -result {.*4: L Error: cannot take reference of argument
 }
 
 test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
@@ -6826,19 +6800,146 @@ typecheck_6_3()
 typecheck_6_3
 } -output {}
 
-test typecheck-7.1 {type check reference parameters} -body {
-#lang L -nowarn
-void typecheck_7_1_foo(int &a) {}
-void
-typecheck_7_1()
-{
-	int	a;
+test typecheck-7.1 {test checking of parameter-passing modes, non-error cases} -body {
+#lang L
+typedef int &tc71byref[];
 
-	typecheck_7_1_foo(a);  // incorrect arg type
+int  tc71_foo(int a)		{ return (a*2); }
+void tc71_s_none(int i)		{ i = 123; }
+void tc71_s_cow(cow int i)	{ i = 123; }
+void tc71_s_ref(int &i)		{ i = 123; }
+void tc71_c_none(int a[])	{ a = {1,2,3}; }
+void tc71_c_cow(cow int a[])	{ a = {1,2,3}; }
+void tc71_c_ref(int &a[])	{ a = {1,2,3}; }
+void tc71_c_ref2(tc71byref a)	{ a = {1,2,3}; }
+int  tc71_f(int &fn(int), int i){ return (fn(i)); }
+
+void typecheck_7_1()
+{
+	int	a[], i;
+
+	unless (tc71_f(&tc71_foo, 3) == 6) puts("bad 0.1");
+
+	i = 0;
+	tc71_s_none(i);
+	unless (i == 0) puts("bad 1.1");
+
+	i = 0;
+	tc71_s_none((cow)i);
+	unless (i == 0) puts("bad 1.2");
+
+	i = 0;
+	tc71_s_cow(i);
+	unless (i == 0) puts("bad 1.3");
+
+	i = 0;
+	tc71_s_cow((cow)i);
+	unless (i == 0) puts("bad 1.4");
+
+	i = 0;
+	tc71_s_ref(&i);
+	unless (i == 123) puts("bad 1.5");
+
+	a = {0};
+	tc71_c_none(a);
+	unless ((length(a) == 3) && (a[0] == 1) && (a[1] == 2) && (a[2] == 3)) {
+		puts("bad 2.1");
+	}
+
+	a = {0};
+	tc71_c_ref(a);
+	unless ((length(a) == 3) && (a[0] == 1) && (a[1] == 2) && (a[2] == 3)) {
+		puts("bad 2.2.1");
+	}
+
+	a = {0};
+	tc71_c_ref2(a);
+	unless ((length(a) == 3) && (a[0] == 1) && (a[1] == 2) && (a[2] == 3)) {
+		puts("bad 2.2.2");
+	}
+
+	a = {0};
+	tc71_c_cow((cow)a);
+	unless ((length(a) == 1) && (a[0] == 0)) puts("bad 2.3");
+
+	a = {0};
+	tc71_c_ref(a);
+	unless ((length(a) == 3) && (a[0] == 1) && (a[1] == 2) && (a[2] == 3)) {
+		puts("bad 2.4");
+	}
+
+	a = {0};
+	tc71_c_ref(&a);
+	unless ((length(a) == 3) && (a[0] == 1) && (a[1] == 2) && (a[2] == 3)) {
+		puts("bad 2.5");
+	}
 }
-#lang tcl
-typecheck_7_1
-} -returnCodes {error} -match regexp -result {.*:7: L Error: parameter 1 has incompatible type}
+typecheck_7_1();
+} -output {}
+
+test typecheck-7.2 {test checking of parameter-passing modes, error cases} -body {
+#lang L
+void tc72_s_none(int i)		{ i = 123; }
+void tc72_s_cow(cow int i)	{ i = 123; }
+void tc72_s_ref(int &i)		{ i = 123; }
+void tc72_c_none(int a[])	{ a = {1,2,3}; }
+void tc72_c_cow(cow int a[])	{ a = {1,2,3}; }
+void tc72_c_ref(int &a[])	{ a = {1,2,3}; }
+void tc72_fnptr(void &fn(int))	{ fn(0); }
+void typecheck_7_2()
+{
+	int	a[], i;
+
+	/* These are all errors. */
+
+	tc72_s_none(&i);
+	tc72_s_cow(&i);
+	tc72_s_ref(i);
+	tc72_s_ref((cow)i);
+	tc72_c_none((cow)a);
+	tc72_c_cow(a);
+	tc72_c_cow(&a);
+	tc72_c_ref((cow)a);
+	tc72_fnptr(tc72_s_none);
+}
+} -returnCodes error -match regexp -result {.*14: L Error: parameter 1 passed with incompatible mode
+.*15: L Error: parameter 1 passed with incompatible mode
+.*16: L Error: parameter 1 passed with incompatible mode
+.*17: L Error: parameter 1 passed with incompatible mode
+.*18: L Error: parameter 1 passed with incompatible mode
+.*19: L Error: parameter 1 passed with incompatible mode
+.*20: L Error: parameter 1 passed with incompatible mode
+.*21: L Error: parameter 1 passed with incompatible mode
+.*22: L Error: parameter 1 passed with incompatible mode
+}
+
+test typecheck-7.3 {test cow/ref formal parameter checking} -body {
+#lang L -nowarn
+typedef int &tc72byref[];
+void typecheck_7_3_1(cow int &a[]) {}
+void typecheck_7_3_2(cow tc72byref a) {}
+} -returnCodes error -match regexp -result {.*2: L Error: formal parameter #1 declared with both cow and \& qualifiers
+.*3: L Error: formal parameter #1 declared with both cow and \& qualifiers
+}
+
+test typecheck-7.4 {test cow/ref actual parameter checking} -body {
+#lang L -nowarn
+void typecheck_7_4_f1(cow int a[]) {}
+void typecheck_7_4_f2(int a[]) {}
+void typecheck_7_4()
+{
+	int	a[];
+
+	typecheck_7_4_f1((cow)(cow)a);
+	typecheck_7_4_f1((cow)&a);
+	typecheck_7_4_f2(&(cow)a);
+	typecheck_7_4_f2(& &a);
+}
+} -returnCodes error -match regexp -result {.*7: L Error:.*
+.*8: L Error:.*
+.*9: L Error:.*
+.*10: L Error:.*
+}
 
 test typecheck-9.1 {illegal types in function prototype declarations} -body {
 #lang L
@@ -7133,18 +7234,12 @@ void typecheck_9_4_3()
 	t943(&i, &s, &f, &a, &h,  st);
 	t943( i,  s,  f,  a,  h,  st);
 }
-} -returnCodes error -match regexp -result {.*15: L Error:.*incompatible type.*
-.*16: L Error:.*incompatible type.*
-.*17: L Error:.*incompatible type.*
-.*18: L Error:.*incompatible type.*
-.*19: L Error:.*incompatible type.*
-.*20: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
+} -returnCodes error -match regexp -result {.*15: L Error: parameter 1 passed with incompatible mode
+.*16: L Error: parameter 2 passed with incompatible mode
+.*17: L Error: parameter 3 passed with incompatible mode
+.*21: L Error: parameter 1 passed with incompatible mode
+.*21: L Error: parameter 2 passed with incompatible mode
+.*21: L Error: parameter 3 passed with incompatible mode
 }
 
 test fnptr-1 {function pointers 1} -body {
@@ -7203,7 +7298,7 @@ int ucmp(string a, string b)
 	}
 }
 
-string fnptr2_sort(poly[] a, fnptr2_t compar)
+string fnptr2_sort(cow poly[] a, fnptr2_t compar)
 {
 	int	i, swapped;
 
@@ -7224,10 +7319,10 @@ string fnptr2_sort(poly[] a, fnptr2_t compar)
 
 void fnptr_2()
 {
-	unless (fnptr2_sort((int[])"3 1 4 1 5 9", &icmp) eq "1 1 3 4 5 9") {
+	unless (fnptr2_sort((cow)(int[])"3 1 4 1 5 9", &icmp) eq "1 1 3 4 5 9") {
 		puts("bad 1");
 	}
-	unless (fnptr2_sort((string[])"111 1 1 11 111111111 11111", &ucmp) eq
+	unless (fnptr2_sort((cow)(string[])"111 1 1 11 111111111 11111", &ucmp) eq
 		"1 1 11 111 11111 111111111") {
 		puts("bad 2");
 	}
@@ -7266,66 +7361,61 @@ void fnptr_3()
 
 	/* Try all the various error combinations, given the above types. */
 
-	fp3f_vv(fp3_v_v);
+
 	fp3f_vv(&fp3_v_i);
 	fp3f_vv(&fp3_i_v);
 	fp3f_vv(&fp3_i_i);
 	fp3f_vv(&fp3_v_is);
 
-	fp3f_vi(fp3_v_i);
+
 	fp3f_vi(&fp3_v_v);
 	fp3f_vi(&fp3_i_v);
 	fp3f_vi(&fp3_i_i);
 	fp3f_vi(&fp3_v_is);
 
-	fp3f_iv(fp3_i_v);
+
 	fp3f_iv(&fp3_v_v);
 	fp3f_iv(&fp3_v_i);
 	fp3f_iv(&fp3_i_i);
 	fp3f_iv(&fp3_v_is);
 
-	fp3f_ii(fp3_i_i);
+
 	fp3f_ii(&fp3_v_v);
 	fp3f_ii(&fp3_v_i);
 	fp3f_ii(&fp3_i_v);
 	fp3f_ii(&fp3_v_is);
 
-	fp3f_vis(fp3_v_is);
+
 	fp3f_vis(&fp3_v_v);
 	fp3f_vis(&fp3_v_i);
 	fp3f_vis(&fp3_i_v);
 	fp3f_vis(&fp3_i_i);
 }
-} -returnCodes error -match regexp -result {.*21: L Error:.*incompatible type.*
-.*22: L Error:.*incompatible type.*
-.*23: L Error:.*incompatible type.*
-.*24: L Error:.*incompatible type.*
-.*25: L Error:.*incompatible type.*
-.*29: L Error:.*incompatible type.*
-.*30: L Error:.*incompatible type.*
-.*31: L Error:.*incompatible type.*
-.*32: L Error:.*incompatible type.*
-.*33: L Error:.*incompatible type.*
-.*35: L Error:.*incompatible type.*
-.*36: L Error:.*incompatible type.*
-.*37: L Error:.*incompatible type.*
-.*38: L Error:.*incompatible type.*
-.*39: L Error:.*incompatible type.*
-.*41: L Error:.*incompatible type.*
-.*42: L Error:.*incompatible type.*
-.*43: L Error:.*incompatible type.*
-.*44: L Error:.*incompatible type.*
-.*45: L Error:.*incompatible type.*
-.*47: L Error:.*incompatible type.*
-.*48: L Error:.*incompatible type.*
-.*49: L Error:.*incompatible type.*
-.*50: L Error:.*incompatible type.*
-.*51: L Error:.*incompatible type.*
-.*53: L Error:.*incompatible type.*
-.*54: L Error:.*incompatible type.*
-.*55: L Error:.*incompatible type.*
-.*56: L Error:.*incompatible type.*
-.*57: L Error:.*incompatible type.*
+} -returnCodes error -match regexp -result {.*21: L Error: parameter 1.*
+.*22: L Error: parameter 1.*
+.*23: L Error: parameter 1.*
+.*24: L Error: parameter 1.*
+.*25: L Error: parameter 1.*
+.*30: L Error: parameter 1.*
+.*31: L Error: parameter 1.*
+.*32: L Error: parameter 1.*
+.*33: L Error: parameter 1.*
+.*36: L Error: parameter 1.*
+.*37: L Error: parameter 1.*
+.*38: L Error: parameter 1.*
+.*39: L Error: parameter 1.*
+.*42: L Error: parameter 1.*
+.*43: L Error: parameter 1.*
+.*44: L Error: parameter 1.*
+.*45: L Error: parameter 1.*
+.*48: L Error: parameter 1.*
+.*49: L Error: parameter 1.*
+.*50: L Error: parameter 1.*
+.*51: L Error: parameter 1.*
+.*54: L Error: parameter 1.*
+.*55: L Error: parameter 1.*
+.*56: L Error: parameter 1.*
+.*57: L Error: parameter 1.*
 }
 
 test assign-1 {check assignment statement value and type} -body {
@@ -8705,7 +8795,7 @@ composite_1
 
 test composite-2 {check composite values in expressions 2} -body {
 #lang L
-string composite_2_join(string[] a)
+string composite_2_join(cow string[] a)
 {
 	string	s;
 	string	ret = "";
@@ -8722,7 +8812,7 @@ void composite_2()
 	int	i;
 	int	ai[];
 
-	unless (composite_2_join({"a","b","c"}) eq "abc") puts("bad 1");
+	unless (composite_2_join((cow){"a","b","c"}) eq "abc") puts("bad 1");
 
 	for (i = 0; i < 5; ++i) {
 		unless ({0,1,2,3,4}[i] == i) printf("bad 2 %d\n", i);
@@ -8745,22 +8835,22 @@ composite_2
 
 test composite-3 {check type errors with composite values} -body {
 #lang L -nowarn
-void composite_3_as(string[] a) {}
-void composite_3_ai(int[] a) {}
-void composite_3_his(int{string} a) {}
-void composite_3_hsi(string{int} a) {}
-void composite_3_hss(string{string} a) {}
-void composite_3_hii(int{int} a) {}
+void composite_3_as(cow string[] a) {}
+void composite_3_ai(cow int[] a) {}
+void composite_3_his(cow int{string} a) {}
+void composite_3_hsi(cow string{int} a) {}
+void composite_3_hss(cow string{string} a) {}
+void composite_3_hii(cow int{int} a) {}
 
 void composite_3()
 {
-	composite_3_as({1,2,3});
-	composite_3_ai({"a","b","c"});
-	composite_3_his({1,2,3});
-	composite_3_his({1=>2,3=>4});
-	composite_3_hsi({1=>2,3=>4});
-	composite_3_hss({1=>2,3=>4});
-	composite_3_hii({"1"=>2,"3"=>4});
+	composite_3_as((cow){1,2,3});
+	composite_3_ai((cow){"a","b","c"});
+	composite_3_his((cow){1,2,3});
+	composite_3_his((cow){1=>2,3=>4});
+	composite_3_hsi((cow){1=>2,3=>4});
+	composite_3_hss((cow){1=>2,3=>4});
+	composite_3_hii((cow){"1"=>2,"3"=>4});
 }
 } -returnCodes {error} -match regexp -result {.*10: L Error:.*incompatible type.*
 .*11: L Error:.*incompatible type.*
@@ -8932,6 +9022,8 @@ int lvalue_5_foo() { return (1); }
 void lvalue_5_bar(int &i) {}
 void lvalue_5()
 {
+	int	a[], aa[][];
+
 	lvalue_5_bar(&lvalue_5_foo());
 	lvalue_5_bar(&1);
 	&1;
@@ -8940,17 +9032,23 @@ void lvalue_5()
 	&{1,2,3};
 	&{1=>1};
 	&(1+2);
+	&a[0];
+	&aa[0];
+	&aa[0][0];
 }
 #lang tcl
 lvalue_5
-} -returnCodes {error} -match regexp -result {.*5: L Error: invalid argument to &
-.*6: L Error: invalid argument to &
-.*7: L Error: invalid argument to &
-.*8: L Error: invalid argument to &
-.*9: L Error: invalid argument to &
-.*10: L Error: invalid argument to &
-.*11: L Error: invalid argument to &
-.*12: L Error: invalid argument to &
+} -returnCodes {error} -match regexp -result {.*7: L Error: cannot take reference of argument
+.*8: L Error: cannot take reference of argument
+.*9: L Error: cannot take reference of argument
+.*10: L Error: cannot take reference of argument
+.*11: L Error: cannot take reference of argument
+.*12: L Error: cannot take reference of argument
+.*13: L Error: cannot take reference of argument
+.*14: L Error: cannot take reference of argument
+.*15: L Error: cannot take reference of argument
+.*16: L Error: cannot take reference of argument
+.*17: L Error: cannot take reference of argument
 }
 
 test builtin-1 {check keys built-in} -body {
@@ -10845,7 +10943,7 @@ class class_8_4_2
 		public	string s;
 	}
 }
-void class_8_4_foo(class_8_4_1 &o, string s)
+void class_8_4_foo(class_8_4_1 o, string s)
 {
 	o->s = s;
 }
@@ -10875,7 +10973,7 @@ void class_8_4_main()
 	o842->o->o->s = "841 in 841 in 842";
 	unless (o842->o->o->s eq "841 in 841 in 842") puts("bad 4.1");
 
-	class_8_4_foo(&o842->o->o, "new");
+	class_8_4_foo(o842->o->o, "new");
 	unless (o842->o->o->s eq "new") puts("bad 5.1");
 
 	class_8_4_1_delete(o841->o);
@@ -10892,12 +10990,61 @@ void class_8_4_main()
 	a[0]->o = class_8_4_1_new();
 	a[0]->o->s = "0-841 in 841";
 	unless (a[0]->o->s eq "0-841 in 841") puts("bad 10.3");
-	class_8_4_foo(&a[0]->o, "new");
+	class_8_4_foo(a[0]->o, "new");
 	unless (a[0]->o->s eq "new") puts("bad 10.4");
 	class_8_4_str(&a[0]->o->s, "new2");
 	unless (a[0]->o->s eq "new2") puts("bad 10.5");
 }
 class_8_4_main();
+} -output {}
+
+test class-8.5 {check objects as reference parameters} -body {
+#lang L
+class class_8_5
+{
+	private int n = 0;
+	instance { public int num = n++; }
+}
+void class_8_5_create_1(class_8_5 &o)
+{
+	o = class_8_5_new();
+}
+void class_8_5_create_n(class_8_5 o[], int n)
+{
+	int	i;
+
+	for (i = 0; i < n; ++i) o[i] = class_8_5_new();
+}
+void class_8_5_check_n(class_8_5 o[], class_8_5 &oref[], int n)
+{
+	int	i;
+
+	for (i = 0; i < n; ++i) {
+		unless (o[i]->num    == (i+2)) puts("bad chk.1");
+		unless (oref[i]->num == (i+2)) puts("bad chk.2");
+	}
+}
+void class_8_5_main()
+{
+	int	i;
+	int	n = 10;
+	class_8_5 o1, o2;
+	class_8_5 o[];
+
+	class_8_5_create_1(&o1);
+	class_8_5_create_1(&o2);
+	unless (o1->num == 0) puts("bad 1");
+	unless (o2->num == 1) puts("bad 2");
+	class_8_5_delete(o1);
+	class_8_5_delete(o2);
+
+	class_8_5_create_n(o, n);
+	class_8_5_check_n( o,  o, n);
+	class_8_5_check_n(&o,  o, n);
+	class_8_5_check_n( o, &o, n);
+	class_8_5_check_n(&o, &o, n);
+}
+class_8_5_main();
 } -output {}
 
 test class-9.1 {check class and instance variables in comma expression} -body {

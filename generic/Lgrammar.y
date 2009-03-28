@@ -98,7 +98,7 @@ extern int	L_lex (void);
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
+%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC T_COW
 %token T_CONSTRUCTOR T_DESTRUCTOR
 
 /*
@@ -527,6 +527,7 @@ parameter_decl:
 	  type_specifier
 	{
 		$$ = ast_mkVarDecl($1, NULL, @1.beg, @1.end);
+		if (isnameoftype($1)) $$->flags |= DECL_REF;
 	}
 	| type_specifier declarator
 	{
@@ -534,11 +535,18 @@ parameter_decl:
 		$$ = $2;
 		$$->node.beg = @1.beg;
 	}
+	| T_COW type_specifier declarator
+	{
+		L_set_declBaseType($3, $2);
+		$$ = $3;
+		$$->flags |= DECL_COW;
+		$$->node.beg = @1.beg;
+	}
 	| T_ELLIPSIS id
 	{
 		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @2.end);
-		$$->flags |= DECL_REST_ARG;
+		$$->flags |= DECL_REST_ARG | DECL_COW;
 	}
 	;
 
@@ -593,6 +601,10 @@ expr:
 	{
 		// This is a binop where an arg is a Type*.
 		$$ = ast_mkBinOp(L_OP_CAST, (Expr *)$2, $4, @1.beg, @4.end);
+	}
+	| "(" T_COW ")" expr %prec PREFIX_INCDEC
+	{
+		$$ = ast_mkUnOp(L_OP_COW, $4, @1.beg, @4.end);
 	}
 	| T_BANG expr
 	{
@@ -1060,18 +1072,21 @@ declarator:
 	{
 		Expr *id = ast_mkId($1.s, @1.beg, @1.end);
 		$$ = ast_mkVarDecl($2, id, @1.beg, @2.end);
+		if (isnameoftype($1.t)) $$->flags |= DECL_REF;
 		ckfree($1.s);
 	}
 	| T_BITAND id array_or_hash_type
 	{
 		Type *t = type_mkNameOf($3, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @3.end);
+		$$->flags |= DECL_REF;
 	}
 	| T_BITAND id "(" parameter_list ")"
 	{
 		Type *tf = type_mkFunc(NULL, $4, PER_INTERP);
 		Type *tn = type_mkNameOf(tf, PER_INTERP);
 		$$ = ast_mkVarDecl(tn, $2, @1.beg, @5.end);
+		$$->flags |= DECL_REF;
 	}
 	;
 
