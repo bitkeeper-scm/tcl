@@ -824,7 +824,7 @@ compile_fnParms(VarDecl *decl)
 		Type	*clstype = decl->clsdecl->decl->type;
 		Expr	*self_id;
 		VarDecl	*self_decl;
-		if (!param || strcmp(param->id->u.string, "self")) {
+		if (!param||!param->id || strcmp(param->id->u.string, "self")) {
 			L_errf(decl->id, "class public member function lacks "
 			       "'self' as first arg");
 			/* Add it so we can keep compiling. */
@@ -3258,7 +3258,7 @@ frame_pop(void)
 private int
 tmp_getFree(char **p)
 {
-	char *s = cksprintf("=temp%d", L->frame->tmpnum++);
+	char *s = cksprintf("=temp%d", L->tmpnum++);
 	*p = s;
 	return (TclFindCompiledLocal(s, strlen(s), 1, L->frame->envPtr));
 }

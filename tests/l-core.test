@@ -7504,6 +7504,29 @@ void pattern_1_1()
 .*17: L Error: first arg to pattern function is not string
 }
 
+test pattern-1.2 {check pattern function argument type checking} -body {
+#lang L -nowarn
+void Pattern120_*() {}
+void Pattern121_*(int a) {}
+void Pattern122_*(int a, int b) {}
+void pattern_1_2()
+{
+	Pattern120_foo(1);
+	Pattern121_foo();
+	Pattern121_foo(1,2);
+	Pattern122_foo();
+	Pattern122_foo(1);
+	Pattern122_foo(1,2,3);
+}
+pattern_1_2();
+} -returnCodes {error} -match regexp -result {.*6: L Error: too many arguments for function Pattern120_foo
+.*7: L Error: not enough arguments for function Pattern121_foo
+.*8: L Error: too many arguments for function Pattern121_foo
+.*9: L Error: not enough arguments for function Pattern122_foo
+.*10: L Error: not enough arguments for function Pattern122_foo
+.*11: L Error: too many arguments for function Pattern122_foo
+}
+
 test include-1.0 {include files} -setup {
 	set fname [makeFile {++include_1_0;} foo.l ../tests]
 } -body {
@@ -9769,6 +9792,19 @@ class class_2_19
 } -returnCodes {error} -match regexp -result {.*11: L Error: class constructor must return 'self'
 }
 
+test class-2.20 {check class public member fn with arg without name} -body {
+#lang L -nowarn
+class class_2_20
+{
+	/*
+	 * This is syntactically legal and the compiler should check
+	 * for this error.
+	 */
+	public void class_2_20_foo(class_2_20) {}
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: class public member function lacks 'self' as first arg
+}
+
 test class-3.1 {check scoping of class vars and class instance vars 1} -body {
 #lang L
 class class_3_1
@@ -10641,6 +10677,54 @@ void class_8_1_main()
 	class_8_1_chk(o);
 }
 class_8_1_main();
+} -output {}
+
+test class-8.1.5 {check class and class instance variables used in nested scopes} -body {
+#lang L
+class class_8_1_5
+{
+	private	int n = 0;
+	public	int cnum = -1;
+	instance { public int num = n++; }
+	constructor class_8_1_5_new() { ++cnum; }
+}
+void class_8_1_5_main()
+{
+	/*
+	 * This test checks that the compiler-generated temps used for
+	 * accessing class and instance variables are allocated
+	 * properly in the presence of nested scopes.  There was a
+	 * prior compiler bug where duplicate temps could be created.
+	 */
+
+	int	i, j;
+	int	n = 10;
+	class_8_1_5 o1, o2, o3, o4, o[];
+
+	o1 = class_8_1_5_new();
+	unless ((o1->num == 0) && (class_8_1_5->cnum == 0)) puts("bad 1");
+	o2 = class_8_1_5_new();
+	unless ((o2->num == 1) && (class_8_1_5->cnum == 1)) puts("bad 2");
+
+	for (i = 0; i < n; ++i) {
+		o[i] = class_8_1_5_new();
+		unless (o[i]->num == (i+2)) puts("bad 3.1");
+		unless (class_8_1_5->cnum == (i+2)) puts("bad 3.2");
+		for (j = 0; j < i; ++j) {
+			unless (o[j]->num == (j+2)) puts("bad 4.1");
+		}
+	}
+	for (i = 0; i < n; ++i) {
+		unless (o[i]->num == (i+2)) puts("bad 5.1");
+	}
+	o3 = class_8_1_5_new();
+	unless (o3->num == (n+2)) puts("bad 6.1");
+	unless (class_8_1_5->cnum == (n+2)) puts("bad 6.2");
+	o4 = class_8_1_5_new();
+	unless (o4->num == (n+3)) puts("bad 7.1");
+	unless (class_8_1_5->cnum == (n+3)) puts("bad 7.2");
+}
+class_8_1_5_main();
 } -output {}
 
 test class-8.2 {check class instance variables as l-values} -body {

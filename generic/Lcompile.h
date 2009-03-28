@@ -57,7 +57,6 @@ typedef struct Frame {
 
 	Frame_f		flags;
 	Lopt_f		options;
-	int		tmpnum;  // for creating tmp variables
 	struct Frame	*prevFrame;
 } Frame;
 
@@ -93,6 +92,7 @@ typedef struct {
 	Tcl_HashTable	*include_table;
 	Tcl_Interp	*interp;
 	int	idx_nesting;	// current depth of nested []'s
+	int	tmpnum;		// for creating tmp variables
 } Lglobal;
 
 /*
