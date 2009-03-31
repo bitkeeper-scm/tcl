@@ -2735,6 +2735,8 @@ MODULE_SCOPE Tcl_Obj *	TclLindexFlat(Tcl_Interp *interp, Tcl_Obj *listPtr,
 MODULE_SCOPE void	TclListLines(const char *listStr, int line, int n,
 			    int *lines);
 MODULE_SCOPE Tcl_Obj *	TclListObjCopy(Tcl_Interp *interp, Tcl_Obj *listPtr);
+MODULE_SCOPE void	TclListWalk(Tcl_Obj *objPtr, void (*fn)(Tcl_Obj *, void *),
+				    void *arg);
 MODULE_SCOPE int	TclLoadFile(Tcl_Interp *interp, Tcl_Obj *pathPtr,
 			    int symc, const char *symbols[],
 			    Tcl_PackageInitProc **procPtrs[],

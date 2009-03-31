@@ -99,7 +99,7 @@ extern int	L_lex (void);
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC T_COW
-%token T_CONSTRUCTOR T_DESTRUCTOR
+%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND
 
 /*
  * This follows the C operator-precedence rules, from lowest to
@@ -132,7 +132,7 @@ extern int	L_lex (void);
 %type <Loop> iteration_stmt
 %type <ForEach> foreach_stmt
 %type <Expr> expr expression_stmt argument_expr_list opt_arg re_or_string
-%type <Expr> id id_list constant_expr string_literal dotted_id
+%type <Expr> id id_list string_literal dotted_id
 %type <Expr> regexp_literal subst_literal interpolated_expr
 %type <Expr> list list_element
 %type <VarDecl> parameter_list parameter_decl_list parameter_decl
@@ -606,6 +606,21 @@ expr:
 	{
 		$$ = ast_mkUnOp(L_OP_COW, $4, @1.beg, @4.end);
 	}
+	| "(" T_EXPAND ")" expr %prec PREFIX_INCDEC
+	{
+		$$ = ast_mkUnOp(L_OP_EXPAND, $4, @1.beg, @4.end);
+	}
+	| "(" T_EXPAND id ")" expr %prec PREFIX_INCDEC
+	{
+		/*
+		 * This rule is for (expand all).  It's an error if id
+		 * is not "all".
+		 */
+		unless (!strcmp($3->u.string, "all")) {
+			L_errf($3, "only (expand) and (expand all) are legal");
+		}
+		$$ = ast_mkUnOp(L_OP_EXPAND_ALL, $5, @1.beg, @5.end);
+	}
 	| T_BANG expr
 	{
 		$$ = ast_mkUnOp(L_OP_BANG, $2, @1.beg, @2.end);
@@ -908,7 +923,7 @@ expr:
 	}
 	| "{" "}"
 	{
-		$$ = ast_mkUnOp(L_OP_LIST, NULL, 0, 0);
+		$$ = ast_mkBinOp(L_OP_LIST, NULL, NULL, 0, 0);
 	}
 	;
 
@@ -1096,7 +1111,7 @@ array_or_hash_type:
 	{
 		$$ = NULL;
 	}
-	| "[" constant_expr "]" array_or_hash_type
+	| "[" expr "]" array_or_hash_type
 	{
 		$$ = type_mkArray($2, $4, PER_INTERP);
 	}
@@ -1187,17 +1202,12 @@ struct_declarator_list:
 	}
 	;
 
-/*
- * XXX at some point this tree should be built right-heavy (by
- * appending) instead of the left-heavy tree that left recursion gives
- * you, so that the compiler won't get caught in deep recursion when
- * the initializer lists are very long.
- */
 list:
 	  list_element
 	| list "," list_element
 	{
-		$$ = ast_mkBinOp(L_OP_CONS, $1, $3, @1.beg, @3.end);
+		APPEND(Expr, b, $1, $3);
+		$$ = $1;
 	}
 	| list ","
 	;
@@ -1205,16 +1215,13 @@ list:
 list_element:
 	  expr %prec HIGHEST
 	{
-		$$ = ast_mkUnOp(L_OP_LIST, $1, @1.beg, @1.end);
+		$$ = ast_mkBinOp(L_OP_LIST, $1, NULL, @1.beg, @1.end);
 	}
 	| expr "=>" expr %prec HIGHEST
 	{
-		$$ = ast_mkBinOp(L_OP_KV, $1, $3, @1.beg, @3.end);
+		Expr *kv = ast_mkBinOp(L_OP_KV, $1, $3, @1.beg, @3.end);
+		$$ = ast_mkBinOp(L_OP_LIST, kv, NULL, @1.beg, @3.end);
 	}
-	;
-
-constant_expr:
-	  expr
 	;
 
 string_literal:

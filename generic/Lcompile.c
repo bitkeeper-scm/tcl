@@ -90,7 +90,7 @@ private int	compile_clsInstDeref(Expr *expr, Expr_f flags);
 private void	compile_condition(Expr *cond);
 private void	compile_continue(Stmt *stmt);
 private int	compile_idxOp(Expr *expr, Expr_f flags);
-private void	compile_expr(Expr *expr, Expr_f flags);
+private int	compile_expr(Expr *expr, Expr_f flags);
 private int	compile_exprs(Expr *expr, Expr_f flags);
 private int	compile_fnCall(Expr *expr);
 private void	compile_fnDecl(FnDecl *fun);
@@ -657,8 +657,8 @@ ast_mkInitializer(VarDecl *decl)
 	    case L_ARRAY:
 	    case L_STRUCT:
 	    case L_HASH:
-		val = ast_mkUnOp(L_OP_LIST, NULL, decl->node.beg,
-				 decl->node.end);
+		val = ast_mkBinOp(L_OP_LIST, NULL, NULL, decl->node.beg,
+				  decl->node.end);
 		break;
 	    case L_INT:
 		val = ast_mkConst(L_int, decl->node.beg, decl->node.end);
@@ -1172,14 +1172,14 @@ compile_join(Expr *expr)
  * L_LVALUE		if deep dive, create an un-shared copy for writing
  * L_DISCARD		evaluate expr then discard its value
  */
-private void
+private int
 compile_expr(Expr *expr, Expr_f flags)
 {
 	int	n = 0;
 	int	start_off = currOffset(L->frame->envPtr);
 
 	/* The compile_xxx returns indicate whether they pushed anything. */
-	unless (expr) return;
+	unless (expr) return (0);
 	switch (expr->kind) {
 	    case L_EXPR_FUNCALL:
 		n = compile_fnCall(expr);
@@ -1209,12 +1209,16 @@ compile_expr(Expr *expr, Expr_f flags)
 	 * for expressions that are statements, in for-loop pre and
 	 * post expressions, etc.
 	 */
-	if ((flags & L_DISCARD) && n) emit_pop();
+	if (flags & L_DISCARD) {
+		while (n--) emit_pop();
+	}
 
 	if ((expr->kind == L_EXPR_UNOP)   || (expr->kind == L_EXPR_BINOP) ||
 	    (expr->kind == L_EXPR_TRINOP) || (expr->kind == L_EXPR_FUNCALL)) {
 		track_cmd(start_off, expr);
 	}
+
+	return (n);
 }
 
 /*
@@ -1275,10 +1279,10 @@ ispatternfn(char *name, Expr **Foo_star, Expr **bar)
 private int
 compile_fnCall(Expr *expr)
 {
-	int	i, num_parms;
+	int	expand, i, num_parms;
 	int	typchk = FALSE;
 	char	*name;
-	Expr	*Foo_star, *bar;
+	Expr	*Foo_star, *bar, *p;
 	Sym	*sym;
 	VarDecl	*formals = NULL;
 
@@ -1289,6 +1293,16 @@ compile_fnCall(Expr *expr)
 	for (i = 0; i < sizeof(builtins)/sizeof(builtins[0]); ++i) {
 		if (!strcmp(builtins[i].name, name)) {
 			return (builtins[i].fn(expr));
+		}
+	}
+
+	/* Check for an (expand) or (expand all) in the arg list. */
+	expand = 0;
+	for (p = expr->b; p; p = p->next) {
+		if (isexpand(p)) {
+			TclEmitOpcode(INST_EXPAND_START, L->frame->envPtr);
+			expand = 1;
+			break;
 		}
 	}
 
@@ -1351,7 +1365,11 @@ compile_fnCall(Expr *expr)
 		expr->type = L_poly;
 	}
 	num_parms = push_parms(expr->b, formals);
-	emit_invoke(num_parms+1);
+	if (expand) {
+		emit_invoke_expanded();
+	} else {
+		emit_invoke(num_parms+1);
+	}
 	if (typchk) L_typeck_fncall(formals, expr);
 	return (1);  // stack effect
 }
@@ -1563,17 +1581,19 @@ compile_unOp(Expr *expr)
 		compile_incdec(expr);
 		expr->type = expr->a->type;
 		break;
-	    case L_OP_LIST:
-		push_str("::list");
-		if (expr->a) {
-			compile_expr(expr->a, L_PUSH_VAL);
-			emit_invoke(2);
-			expr->type = type_mkList(expr->a->type, PER_INTERP);
-		} else {
-			/* Empty list {}. */
-			emit_invoke(1);
-			expr->type = L_poly;
-		}
+	    case L_OP_EXPAND:
+		compile_expr(expr->a, L_PUSH_VAL);
+		TclEmitInstInt4(INST_EXPAND_STKTOP,
+				L->frame->envPtr->currStackDepth,
+				L->frame->envPtr);
+		expr->type = L_poly;
+		break;
+	    case L_OP_EXPAND_ALL:
+		compile_expr(expr->a, L_PUSH_VAL);
+		TclEmitInstInt4(INST_EXPAND_STKTOP_RECURSE,
+				L->frame->envPtr->currStackDepth,
+				L->frame->envPtr);
+		expr->type = L_poly;
 		break;
 	    default:
 		L_bomb("Unknown unary operator %d", expr->op);
@@ -1585,7 +1605,9 @@ compile_unOp(Expr *expr)
 private int
 compile_binOp(Expr *expr, Expr_f flags)
 {
+	int	expand, n;
 	Type	*type;
+	Expr	*e;
 
 	/* Return the net run-time stack effect (i.e., how much was pushed). */
 
@@ -1671,42 +1693,64 @@ compile_binOp(Expr *expr, Expr_f flags)
 		TclEmitInstInt1(INST_CONCAT1, 2, L->frame->envPtr);
 		expr->type = L_string;
 		return (1);
-	    case L_OP_CONS:
-		push_str("::concat");
-		compile_expr(expr->a, L_PUSH_VAL);
-		compile_expr(expr->b, L_PUSH_VAL);
-		emit_invoke(3);
-		ASSERT(islist(expr->a) || ishash(expr->a));
-		ASSERT(islist(expr->b) || ishash(expr->b));
-		if (ishash(expr->a) && ishash(expr->b)) {
-			unless (L_typeck_same(expr->a->type, expr->b->type)) {
-				L_errf(expr,
-				     "hash elements must all be of same type");
+	    case L_OP_LIST:
+		for (e = expr, expand = 0; e; e = e->b) {
+			if (e->a && isexpand(e->a)) {
+				TclEmitOpcode(INST_EXPAND_START,
+					      L->frame->envPtr);
+				expand = 1;
+				break;
 			}
-			expr->type = expr->a->type;
-		} else if (islist(expr->a) && islist(expr->b)) {
-			/*
-			 * The list type is literally a list of all the
-			 * individual element types linked together.
-			 */
-			APPEND(Type, next, expr->a->type, expr->b->type);
-			expr->type = expr->a->type;
-		} else {
-			L_errf(expr, "cannot mix hash and non-hash elements");
-			expr->type = L_poly;
 		}
+		push_str("::list");
+		n = compile_expr(expr->a, L_PUSH_VAL);
+		if (n == 0) {  // empty list {}
+			ASSERT(!expr->a && !expr->b);
+			type = L_poly;
+		} else if (iskv(expr->a)) {
+			ASSERT((n == 2) && ishash(expr->a));
+			type = expr->a->type;
+		} else {
+			type = type_mkList(expr->a->type, PER_INTERP);
+		}
+		for (e = expr->b; e; e = e->b) {
+			ASSERT(e->op == L_OP_LIST);
+			n += compile_expr(e->a, L_PUSH_VAL);
+			if (ishashtype(type) && iskv(e->a)) {
+				unless (L_typeck_same(type, e->a->type)) {
+					L_errf(expr, "hash elements must all "
+					       "be of same type");
+				}
+			} else if (islisttype(type) && !iskv(e->a)) {
+				/*
+				 * The list type is literally a list of all the
+				 * individual element types linked together.
+				 */
+				Type *t = type_mkList(e->a->type, PER_INTERP);
+				APPEND(Type, next, type, t);
+			} else unless (ispolytype(type)) {
+				L_errf(expr, "cannot mix hash and "
+				       "non-hash elements");
+				type = L_poly;
+			}
+		}
+		if (expand) {
+			emit_invoke_expanded();
+		} else {
+			emit_invoke(n+1);
+		}
+		expr->type = type;
 		return (1);
 	    case L_OP_KV:
-		push_str("::list");
-		compile_expr(expr->a, L_PUSH_VAL);
-		compile_expr(expr->b, L_PUSH_VAL);
-		emit_invoke(3);
+		n  = compile_expr(expr->a, L_PUSH_VAL);
+		n += compile_expr(expr->b, L_PUSH_VAL);
+		ASSERT(n == 2);
 		unless (isscalar(expr->a)) {
 			L_errf(expr->a, "hash keys must be scalar");
 		}
 		expr->type = type_mkHash(expr->a->type, expr->b->type,
 					 PER_INTERP);
-		return (1);
+		return (n);
 	    case L_OP_EQTWID:
 		compile_twiddle(expr);
 		expr->type = L_int;

@@ -143,6 +143,7 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 	if (L->frame->options & L_OPT_POLY) return;
 
 	for (i = 1; actuals && formals; ++i) {
+		if (isexpand(actuals)) return;
 		rest_arg = formals->flags & DECL_REST_ARG;  // is it "...id"?
 		unless (rest_arg) {
 			typeck_parm(formals, actuals, i);

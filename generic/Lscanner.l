@@ -241,6 +241,7 @@ include_pop()
 	"cow"		return T_COW;
 	"constructor"	return T_CONSTRUCTOR;
 	"destructor"	return T_DESTRUCTOR;
+	"expand"	return T_EXPAND;
 	"in"		return T_IN;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;

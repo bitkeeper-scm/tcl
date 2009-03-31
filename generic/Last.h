@@ -208,11 +208,12 @@ typedef enum {
 	L_OP_INTERP_STRING,
 	L_OP_INTERP_RE,
 	L_OP_LIST,
-	L_OP_CONS,
 	L_OP_KV,
 	L_OP_COMMA,
 	L_OP_ARRAY_SLICE,
 	L_OP_COW,
+	L_OP_EXPAND,
+	L_OP_EXPAND_ALL,
 } Op_k;
 
 /*

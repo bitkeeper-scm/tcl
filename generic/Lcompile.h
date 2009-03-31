@@ -222,6 +222,21 @@ isclass(Expr *expr)
 	return (expr->type && (expr->type->kind == L_CLASS));
 }
 static inline int
+ispolytype(Type *type)
+{
+	return (type->kind == L_POLY);
+}
+static inline int
+islisttype(Type *type)
+{
+	return (type->kind == L_LIST);
+}
+static inline int
+ishashtype(Type *type)
+{
+	return (type->kind == L_HASH);
+}
+static inline int
 isfntype(Type *type)
 {
 	return (type->kind == L_FUNCTION);
@@ -253,6 +268,17 @@ static inline int
 isaddrof(Expr *expr)
 {
 	return ((expr->kind == L_EXPR_UNOP) && (expr->op == L_OP_ADDROF));
+}
+static inline int
+isexpand(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_UNOP) && ((expr->op == L_OP_EXPAND) ||
+						(expr->op == L_OP_EXPAND_ALL)));
+}
+static inline int
+iskv(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_BINOP) && (expr->op == L_OP_KV));
 }
 /*
  * This checks whether the Expr node is a deep-dive operation that has
@@ -330,6 +356,11 @@ emit_invoke(int size)
 	} else {
 		TclEmitInstInt4(INST_INVOKE_STK4, size, L->frame->envPtr);
 	}
+}
+static inline void
+emit_invoke_expanded()
+{
+	TclEmitOpcode(INST_INVOKE_EXPANDED, L->frame->envPtr);
 }
 static inline void
 emit_pop()
