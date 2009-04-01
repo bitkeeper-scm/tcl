@@ -102,6 +102,7 @@ private void	compile_fnDecls(FnDecl *fun);
 private void	compile_foreach(ForEach *loop);
 private void	compile_foreachArray(ForEach *loop);
 private void	compile_foreachHash(ForEach *loop);
+private void	compile_foreachString(ForEach *loop);
 private void	compile_ifUnless(Cond *cond);
 private void	compile_incdec(Expr *expr);
 private int	compile_join(Expr *expr);
@@ -2261,7 +2262,7 @@ compile_foreach(ForEach *loop)
 		compile_foreachHash(loop);
 		break;
 	    case L_STRING:
-		L_errf(loop->expr, "Foreach over string not yet implemented");
+		compile_foreachString(loop);
 		break;
 	    case L_POLY:
 		L_errf(loop->expr, "Foreach over poly not yet implemented");
@@ -2454,6 +2455,84 @@ compile_foreachHash(ForEach *loop)
 	   implementation of "dict for" in tclCompCmds.c.  --timjr
 	   2006.11.3 */
 	TclEmitInstInt4(INST_DICT_DONE, it_idx, L->frame->envPtr);
+}
+
+/*
+ * Foreach over a string uses three temp variables (str_idx, len_idx,
+ * and it_idx) and compiles to this:
+ *
+ *    str_idx = string value already on stack
+ *    len_idx = [::string length $str_idx]
+ *    it_idx  = 0
+ *    jmp 2
+ * 1: loopvar1 = str_idx[it_idx++]
+ *    loopvar2 = str_idx[it_idx++]
+ *    ...
+ *    loopvarn = str_idx[it_idx++]
+ *    <loop body>
+ * 2: test it_idx < len_idx
+ *    jmp if true to 1
+ */
+private void
+compile_foreachString(ForEach *loop)
+{
+	int	body_off, it_idx, jmp_dist, len_idx, str_idx;
+	Jmp	*break_jmps, *continue_jmps;
+	Jmp	*cond_jmp = 0;
+	Expr	*id;
+
+	/* Temps for the loop index, string value, and string length. */
+	it_idx  = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr);
+	str_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr);
+	len_idx = TclFindCompiledLocal(NULL, 0, 1, L->frame->envPtr);
+
+	emit_store_scalar(str_idx);
+
+	push_str("::string");
+	push_str("length");
+	TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
+	emit_invoke(3);
+	emit_store_scalar(len_idx);
+	emit_pop();
+
+	push_str("0");
+	emit_store_scalar(it_idx);
+	emit_pop();
+
+	cond_jmp = emit_jmp(INST_JUMP4);
+	body_off = currOffset(L->frame->envPtr);
+
+	for (id = loop->key; id; id = id->next) {
+		unless (sym_lookup(id, L_NOTUSED)) return;  // undeclared var
+		unless (L_typeck_compat(id->type, L_string)) {
+			L_errf(id, "loop index not of string type");
+		}
+		emit_load_scalar(str_idx);
+		emit_load_scalar(it_idx);
+		TclEmitInstInt4(INST_L_INDEX, L_IDX_STRING | L_PUSH_VAL,
+				L->frame->envPtr);
+		emit_store_scalar(id->sym->idx);
+		emit_pop();
+		TclEmitInstInt1(INST_INCR_SCALAR1_IMM, it_idx,
+				L->frame->envPtr);
+		TclEmitInt1(1, L->frame->envPtr);
+		emit_pop();
+	}
+
+	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
+	compile_stmts(loop->body);
+	break_jmps    = L->frame->break_jumps;
+	continue_jmps = L->frame->continue_jumps;
+	frame_pop();
+	fixup_jmps(continue_jmps);
+
+	fixup_jmps(cond_jmp);
+	emit_load_scalar(it_idx);
+	emit_load_scalar(len_idx);
+	TclEmitOpcode(INST_LT, L->frame->envPtr);
+	jmp_dist = currOffset(L->frame->envPtr) - body_off;
+	TclEmitInstInt4(INST_JUMP_TRUE4, -jmp_dist, L->frame->envPtr);
+	fixup_jmps(break_jmps);
 }
 
 private VarDecl *

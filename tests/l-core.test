@@ -3182,6 +3182,92 @@ void loop_1_2_5()
 .*9: L Error: loop index value type incompatible.*
 }
 
+test loop-1.2.6 {test foreach over string} -body {
+#lang L
+void loop_1_2_6()
+{
+	int	i;
+	string	a, b, c, d, s;
+	string	as[];
+	poly	p;
+
+	a = "x";
+	foreach (a in "") puts("bad 1.1");
+	unless (a eq "x") puts("bad 1.2");
+
+	/* as[0] has the value undef */
+	a = "x";
+	if (defined(as[0])) puts("bad 2.0");
+	foreach(a in as[0]) puts("bad 2.1");
+	unless (a eq "x") puts("bad 2.2");
+
+	i = 0;
+	foreach(a in "0123456789") {
+		unless (a eq (string)i++) printf("bad 2.1 i=%d\n", i);
+	}
+	i = 0;
+	foreach(p in "0123456789") {
+		unless (p eq (string)i++) printf("bad 2.2 i=%d\n", i);
+	}
+	i = 0;
+	foreach(a,b in "0123456789") {
+		unless (a eq (string)i++) printf("bad 3.1 i=%d\n", i);
+		unless (b eq (string)i++) printf("bad 3.2 i=%d\n", i);
+	}
+	i = 0;
+	foreach(a,b,c in "0123456789") {
+		unless (a eq (string)i++) printf("bad 4.1 i=%d\n", i);
+		if (i == 10) {
+			if (defined(b)) puts("bad 4.2 b undef");
+			if (defined(c)) puts("bad 4.2 c undef");
+		} else {
+			unless (b eq (string)i++) printf("bad 4.3 i=%d\n", i);
+			unless (c eq (string)i++) printf("bad 4.4 i=%d\n", i);
+		}
+	}
+	i = 0;
+	foreach(a,b,c,d in "0123456789") {
+		unless (a eq (string)i++) printf("bad 5.1 i=%d\n", i);
+		unless (b eq (string)i++) printf("bad 5.2 i=%d\n", i);
+		if (i == 10) {
+			if (defined(c)) puts("bad 5.2 b undef");
+			if (defined(d)) puts("bad 5.2 c undef");
+		} else {
+			unless (c eq (string)i++) printf("bad 5.3 i=%d\n", i);
+			unless (d eq (string)i++) printf("bad 5.4 i=%d\n", i);
+		}
+	}
+}
+loop_1_2_6();
+} -output {}
+
+test loop-1.2.7 {test foreach over string type errors} -body {
+#lang L
+class loop_1_2_7_class {}
+void loop_1_2_7()
+{
+	int	i;
+	float	f;
+	int	a[];
+	int	h{int};
+	loop_1_2_7_class o;
+	struct { int i,j; } st;
+
+	foreach(i in "string") {}
+	foreach(f in "string") {}
+	foreach(h in "string") {}
+	foreach(a in "string") {}
+	foreach(o in "string") {}
+	foreach(st in "string") {}
+}
+} -returnCodes error -match regexp -result {.*11: L Error: loop index not of string type
+.*12: L Error: loop index not of string type
+.*13: L Error: loop index not of string type
+.*14: L Error: loop index not of string type
+.*15: L Error: loop index not of string type
+.*16: L Error: loop index not of string type
+}
+
 test loop-1.3 {continue statements} -body {
 #lang L
 void loop_1_3() {
