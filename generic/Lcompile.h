@@ -84,8 +84,9 @@ typedef struct {
 	char	*file;
 	int	line;
 	int	prev_token_len;
-	int	token_offset;	// offset of curr token from start of input
-	char	*script;	// src of script being compiled
+	int	token_off;	// offset of curr token from start of input
+	int	prev_token_off;	// offset of prev token from start of input
+	Tcl_Obj	*script;	// src of script being compiled
 	int	script_len;
 	FnDecl	*enclosing_func;
 	Ast	*mains_ast;	// root of AST when main() last seen

@@ -66,13 +66,45 @@ private Include	include_stk[INCLUDE_STACK_SZ];
  * YY_USER_ACTION is run before each action.  Note that some actions
  * further modify L_lloc.
  */
-#define YY_USER_ACTION					\
-	do {						\
-		L->token_offset += L->prev_token_len;	\
-		L->prev_token_len = yyleng;		\
-		L_lloc.beg = L->token_offset;		\
-		L_lloc.end = L->token_offset + yyleng;	\
-	} while (0);
+
+#define YY_USER_ACTION	yy_user_action();
+
+private void
+yy_user_action()
+{
+	L->prev_token_off = L->token_off;
+	L->token_off     += L->prev_token_len;
+	L->prev_token_len = yyleng;
+
+	L_lloc.beg = L->token_off;
+	L_lloc.end = L->token_off + yyleng;
+
+	/*
+	 * Build up in L->script the text that the scanner scans.
+	 * The compiler later passes this on to tcl as the script
+	 * source.  This allows include() stmts to be handled properly.
+	 */
+	Tcl_AppendToObj(L->script, yytext, yyleng);
+	L->script_len += yyleng;
+}
+
+/*
+ * Un-do the effects of the YY_USER_ACTION on the token offset
+ * tracking.  This is useful in include() processing where the
+ * characters in the 'include("file");' must be ignored.
+ */
+private void
+undo_yy_user_action()
+{
+	L->prev_token_len = L->token_off - L->prev_token_off;
+	L->token_off      = L->prev_token_off;
+
+	L_lloc.beg = L->prev_token_off;
+	L_lloc.end = L->prev_token_off + L->prev_token_len;
+
+	L->script_len -= yyleng;
+	Tcl_SetObjLength(L->script, L->script_len);
+}
 
 /*
  * In case of errors, the start condition stack will be left in an
@@ -316,12 +348,13 @@ include_pop()
 				return T_FLOAT_LITERAL;
 			}
 	^include[ \t]*\([ \t]*\" {
+				undo_yy_user_action();
 				BEGIN(include);
 			}
 	"//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
 	[ \t\n\r\f]+	tally_newlines(yytext, yyleng);
-	\"		yy_push_state(str_double); STRBUF_START(L->token_offset);
-	\'		yy_push_state(str_single); STRBUF_START(L->token_offset);
+	\"		yy_push_state(str_double); STRBUF_START(L->token_off);
+	\'		yy_push_state(str_single); STRBUF_START(L->token_off);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
 		tally_newlines(yytext, yyleng);
@@ -361,6 +394,7 @@ include_pop()
 		char	*name = ckstrndup(yytext, len);
 		FILE	*f = include_search(name);
 
+		undo_yy_user_action();
 		unless (f) {
 			L_err("cannot find include file %s", name);
 		} else {
@@ -497,19 +531,7 @@ include_pop()
 			}
 	.		{
 				unput(yytext[0]);
-				/*
-				 * This is ugly, but since we just
-				 * unput a character, we have to undo
-				 * the effects of the YY_USER_ACTION
-				 * rule to keep the source-file
-				 * offsets correct.  We rely on the
-				 * fact that the previous token must
-				 * have been a single character,
-				 * matched by the "." rule in
-				 * <glob_re,subst_re> above.
-				 */
-				--L->token_offset;
-				--L_lloc.end;  // now, L_lloc.beg == L_lloc.end
+				undo_yy_user_action();
 				yy_pop_state();
 				L_lval.s = ckstrdup("");
 				return T_RE_MODIFIER;

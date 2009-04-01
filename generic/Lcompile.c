@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 BitMover, Inc.
+ * Copyright (c) 2006-2009 BitMover, Inc.
  */
 #include <stdio.h>
 #include <stdarg.h>
@@ -10,11 +10,14 @@
 #include "Lgrammar.h"
 
 /*
- * To implement the defined() operator, we have an L-specific type to
- * represent the undefined value of array, hash, or struct members
- * when they dynamically are brought into life by an array
- * auto-extend.  We create one object of this type and dup it as the
- * value of all undefined objects.
+ * As of March 2009, we use a bit in the Tcl_Obj structure to
+ * represent when an object has the L undefined value.  This avoids
+ * the problems we had when Tcl would shimmer undef away into another
+ * type, making it look defined.  But we also need an undef object, as
+ * the value of array, hash, and struct members when they dynamically
+ * are brought into life.  This is also the value of the "undef"
+ * pre-defined constant.  We create one object of this type and dup it
+ * whenever undef is requested.
  */
 
 private void
@@ -25,14 +28,15 @@ undef_freeInternalRep(Tcl_Obj *o)
 }
 
 /*
- * Return an error if someone tries to convert a value of undef type
- * to anything else.
+ * Return an error if someone tries to convert something to undef
+ * type.
  */
 private int
 undef_setFromAny(Tcl_Interp *interp, Tcl_Obj *o)
 {
 	Tcl_SetObjResult(interp,
-			 Tcl_NewStringObj("cannot read undefined value", -1));
+			 Tcl_NewStringObj("cannot convert to undefined value",
+					  -1));
 	return (TCL_ERROR);
 }
 
@@ -53,7 +57,7 @@ L_undefObjPtrPtr()
 		undef_obj->undef   = 1;
 	}
 	ASSERT(undef_obj->undef);
-	undef_obj->refCount = 1234;
+	undef_obj->refCount = 1234;  // arbitrary; chosen to be recognizable
 	return (&undef_obj);
 }
 
@@ -181,6 +185,7 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 {
 	int	i, index, len;
 	int	opts = 0;
+	int	ret = TCL_OK;
 	char	*str;
 	Ast	*ast;
 	static	CONST char *options[] = { "-poly", "-nowarn", NULL };
@@ -211,12 +216,19 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 			L_bomb("bad opt Tcl_GetIndexFromObj should've caught");
 		}
 	}
+
+	L->script = Tcl_NewObj();
+	Tcl_IncrRefCount(L->script);
+	L->script_len = 0;
+
 	str = Tcl_GetStringFromObj(objv[objc - 1], &len);
-	if (L_ParseScript(interp, str, &ast) != TCL_OK) {
-		return (TCL_ERROR);
+	ret = L_ParseScript(interp, str, &ast);
+
+	if ((ret == TCL_OK) && ast) {
+		ret = L_CompileScript(interp, NULL, ast, opts);
 	}
-	unless (ast) return (TCL_OK);	// empty script
-	return (L_CompileScript(interp, NULL, ast, opts));
+
+	return (ret);
 }
 
 /*
@@ -239,13 +251,13 @@ L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **ast_p)
 		L->file = ckstrdup("<stdin>");
 	}
 
-	L->line		= 1;
-	L->token_offset = L->prev_token_len = 0;
-	L->script       = ckstrdup(str);
-	L->script_len   = len;
-	L->errs		= NULL;
+	L->line		  = 1;
+	L->token_off      = 0;
+	L->prev_token_off = 0;
+	L->prev_token_len = 0;
+	L->errs		  = NULL;
 	L_lex_start();
-	lex_buffer      = (void *)L__scan_bytes(str, len);
+	lex_buffer	  = (void *)L__scan_bytes(str, len);
 
 	L_parse();
 	ASSERT(ast_p);
@@ -560,8 +572,8 @@ proc_begin(Frame_f flags)
 	procPtr->lastLocalPtr      = NULL;
 	procPtr->bodyPtr           = Tcl_NewObj();
 	Tcl_IncrRefCount(procPtr->bodyPtr);
-	TclInitCompileEnv(L->frame->interp, envPtr, L->script, L->script_len,
-			  NULL, 0);
+	TclInitCompileEnv(L->frame->interp, envPtr, TclGetString(L->script),
+			  L->script_len, NULL, 0);
 	envPtr->procPtr = procPtr;
 
 	return (procPtr);
@@ -3759,7 +3771,6 @@ TclLCleanupCompiler(ClientData clientData, Tcl_Interp *interp)
 		Tcl_DeleteHashTable(L->include_table);
 		ckfree((char *)L->include_table);
 	}
-	ckfree(L->script);
 	ckfree(L->file);
 	ckfree((char *)L);
 	L = NULL;

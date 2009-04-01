@@ -8604,6 +8604,57 @@ src_mappings_3
 .*Command \d+: "continue"
 }
 
+test src-mappings-4 {test bytecode <-> source-file-offset mappings with includes} -setup {
+	set fname1 [makeFile {
+void src_mappings_4_foo1()
+{
+	int v1 = 123;
+	while (0) {
+		puts(v1);
+	}
+}
+include ("foo2.l");
+} foo1.l ../tests]
+	set fname2 [makeFile {
+void src_mappings_4_foo2()
+{
+	int	i, j;
+	i = j+1;
+}
+} foo2.l ../tests]
+} -body {
+#lang L
+include ("foo1.l");
+void src_mappings_4()
+{
+	/*
+	 * We don't need much for this test.  If the source offsets are
+	 * mis-aligned, it can be seen with even just one command.
+	 */
+
+	int	k, l;
+
+	puts("--foo1--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4_foo1"));
+	puts("--foo2--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4_foo2"));
+	puts("--main--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4"));
+	return;
+
+	k = l+2;
+}
+src_mappings_4();
+} -match regexp -output {--foo1--
+.*Command \d+: "v1 = 123"
+.*Command \d+: "puts\(v1\)"
+.*--foo2--
+.*Command \d+: "i = j\+1"
+.*--main--
+.*Command \d+: "return"
+.*Command \d+: "k = l\+2"
+}
+
 test function-1.0 {check function call rules} -body {
 #lang L
 void function_1_0_foo() { puts("foo"); }
