@@ -84,7 +84,9 @@ private int	L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr,
 			       void *ast, int opts);
 private void	ast_free(Ast *ast_list);
 private Expr	*ast_mkInitializer(VarDecl *decl);
-private void	compile_assignment(Expr *expr);
+private void	compile_assign(Expr *expr);
+private void	compile_assignComposite(Expr *expr);
+private void	compile_assignFromStack(Expr *lhs, Expr *rhs, Expr *expr);
 private int	compile_binOp(Expr *expr, Expr_f flags);
 private void	compile_block(Block *block);
 private void	compile_break(Stmt *stmt);
@@ -136,6 +138,7 @@ private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr,
 			   void *block, Frame_f flags);
 private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
+private void	list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg);
 private Proc	*proc_begin(Frame_f flags);
 private void	proc_finish(Proc *procPtr, char *name);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
@@ -773,8 +776,7 @@ compile_return(Stmt *stmt)
 		unless (L_typeck_compat(ret_type, stmt->u.expr->type)) {
 			L_errf(stmt, "incompatible return type");
 		} else if ((decl->flags & DECL_CLASS_CONST) &&
-			   (stmt->u.expr->kind == L_EXPR_ID) &&
-			   strcmp(stmt->u.expr->u.string, "self")) {
+			   !isid(stmt->u.expr, "self")) {
 			L_errf(stmt, "class constructor must return 'self'");
 		}
 	} else {
@@ -1636,7 +1638,7 @@ compile_binOp(Expr *expr, Expr_f flags)
 	    case L_OP_EQBITXOR:
 	    case L_OP_EQLSHIFT:
 	    case L_OP_EQRSHIFT:
-		compile_assignment(expr);
+		compile_assign(expr);
 		expr->type = expr->a->type; // type of assignment is type of lhs
 		return (1);
 	    case L_OP_ANDAND:
@@ -2835,14 +2837,27 @@ compile_clsInstDeref(Expr *expr, Expr_f flags)
 }
 
 private void
-compile_assignment(Expr *expr)
+compile_assign(Expr *expr)
 {
 	Expr	*lhs = expr->a;
 	Expr	*rhs = expr->b;
+
+	if (lhs->op == L_OP_LIST) {
+		/* Handle {a,b,c} = ... */
+		compile_assignComposite(expr);
+	} else {
+		/* Handle regular assignment. */
+		compile_expr(rhs, L_PUSH_VAL);
+		compile_assignFromStack(lhs, rhs, expr);
+	}
+}
+
+private void
+compile_assignFromStack(Expr *lhs, Expr *rhs, Expr *expr)
+{
 	/* Whether it's an arithmetic assignment (lhs op= rhs). */
 	int	arith = (expr->op != L_OP_EQUALS);
 
-	compile_expr(rhs, L_PUSH_VAL);
 	compile_expr(lhs, (arith?L_PUSH_VALPTR:L_PUSH_PTR) | L_LVALUE);
 	unless (lhs->sym) {
 		L_errf(expr, "invalid l-value in assignment");
@@ -2880,6 +2895,65 @@ compile_assignment(Expr *expr)
 		emit_store_scalar(lhs->sym->idx);
 	}
 	// <rval>
+}
+
+private void
+list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg)
+{
+	ASSERT(l->op == L_OP_LIST);
+
+	if (l->b) {
+		list_mapReverse(l->b, fn, arg);
+	}
+	if (l->a) fn(l->a, arg);
+}
+
+private void
+compile_assignComposite(Expr *expr)
+{
+	Expr	*lhs = expr->a;
+	Expr	*rhs = expr->b;
+
+	unless (expr->op == L_OP_EQUALS) {
+		L_errf(expr, "arithmetic assignment illegal");
+		return;
+	}
+	unless (rhs->op == L_OP_LIST) {
+		L_errf(expr, "right-hand side must be list {}");
+		return;
+	}
+	ASSERT(lhs->op == L_OP_LIST);
+
+	/* Push all rhs list elements (right to left). */
+	list_mapReverse(rhs, compile_expr, L_PUSH_VAL);
+
+	/* Assign lhs <- rhs elements (left to right) until we run out. */
+	for (lhs = expr->a, rhs = expr->b;
+	     lhs && rhs && rhs->a;
+	     lhs = lhs->b, rhs = rhs->b) {
+		ASSERT((lhs->op == L_OP_LIST) && (rhs->op == L_OP_LIST));
+		/* A lhs undef means skip the corresponding rhs element. */
+		unless (isid(lhs->a, "undef")) {
+			compile_assignFromStack(lhs->a, rhs->a, expr);
+		}
+		emit_pop();
+	}
+	/* Any left-over lhs elements get assigned undef. */
+	for (; lhs; lhs = lhs->b) {
+		ASSERT(lhs->op == L_OP_LIST);
+		unless (isid(lhs->a, "undef")) {
+			TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
+			compile_assignFromStack(lhs->a, NULL, expr);
+			emit_pop();
+		}
+	}
+	/* Pop any left-over rhs elements to balance run-time stack. */
+	for (; rhs && rhs->a; rhs = rhs->b) {
+		emit_pop();
+	}
+
+	/* The value of the assignment is undef. */
+	TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
 }
 
 private void

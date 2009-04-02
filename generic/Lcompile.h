@@ -281,6 +281,11 @@ iskv(Expr *expr)
 {
 	return ((expr->kind == L_EXPR_BINOP) && (expr->op == L_OP_KV));
 }
+static inline int
+isid(Expr *expr, char *s)
+{
+	return ((expr->kind == L_EXPR_ID) && !strcmp(expr->u.string, s));
+}
 /*
  * This checks whether the Expr node is a deep-dive operation that has
  * left a deep-ptr on the run-time stack.

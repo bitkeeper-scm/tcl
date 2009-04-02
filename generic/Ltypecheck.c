@@ -125,6 +125,7 @@ void
 L_typeck_assign(Expr *lhs, Expr *rhs)
 {
 	if (L->frame->options & L_OPT_POLY) return;
+	unless (lhs && rhs) return;
 
 	L_typeck_deny(L_VOID, lhs);
 	L_typeck_deny(L_VOID, rhs);
