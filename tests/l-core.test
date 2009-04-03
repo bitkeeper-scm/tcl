@@ -8796,7 +8796,7 @@ function_1_1()
 }
 #lang tcl
 function_1_1
-} -returnCodes {error} -match regexp -result {.*2: L Error: function_1_1_f1 already declared as a variable
+} -returnCodes {error} -match regexp -result {.*1: L Error: multiple declaration of global function_1_1_f1
 .*4: L Error: multiple declaration of global function_1_1_f2
 .*6: L Error: function function_1_1_f3 already declared
 .*:17: L Error: 'i' is declared but not as a function
@@ -8840,9 +8840,49 @@ function_1_2()
 
 	s = function_1_2_f5(a, "f5", c, d, e);
 	unless (s eq "f5") puts("bad 2");
+
+	unless (function_1_2_f10(12) == 12) puts("bad 3");
+	unless (function_1_2_f11(13) == 13) puts("bad 4");
+	unless (function_1_2_f12(14) == 14) puts("bad 5");
+
+	/*
+	 * These check that the right parameter-passing mode is
+	 * in the calls to the functions declared later.
+	 */
+
+	d = {1,2,3,4};
+	unless (function_1_2_sum_ref(d) == 10) puts("bad 6.1");
+	unless (length(d) == 3) puts("bad 6.2");
+	unless ((d[0] == 9) && (d[1] == 10) && (d[2] == 11)) puts("bad 6.3");
+
+	d = {1,2,3,4};
+	unless (function_1_2_sum_cow((cow)d) == 10) puts("bad 7.1");
+	unless (length(d) == 4) puts("bad 7.2");
+	unless ((d[0] == 1) && (d[1] == 2)) puts("bad 7.3");
+	unless ((d[2] == 3) && (d[3] == 4)) puts("bad 7.4");
 }
-#lang tcl
-function_1_2
+function_1_2();
+int function_1_2_f10(int a) { return (a); }
+int function_1_2_f11(int a) { return (a); }
+int function_1_2_f11(int a);
+int function_1_2_f12(int a);
+int function_1_2_f12(int a) { return (a); }
+int function_1_2_sum_ref(int a[])
+{
+	int	i, sum = 0;
+
+	foreach (i in a) sum += i;
+	a = {9,10,11};
+	return (sum);
+}
+int function_1_2_sum_cow(cow int a[])
+{
+	int	i, sum = 0;
+
+	foreach (i in a) sum += i;
+	a = {9,10,11};
+	return (sum);
+}
 } -output {}
 
 test function-1.3 {check function prototypes 2} -body {
@@ -8906,15 +8946,35 @@ string function_1_5_f8(int a, string b, float c, int d[], hash e){ return (b); }
 
 string function_1_5_f9(string b, float c, int d[], hash e);
 string function_1_5_f9(string b, ...rest){ return (b); }
-} -returnCodes {error} -match regexp -result {.*2: L Error: does not match prior declaration of function_1_5_f1
-.*5: L Error: does not match prior declaration of function_1_5_f2
-.*8: L Error: does not match prior declaration of function_1_5_f3
-.*11: L Error: does not match prior declaration of function_1_5_f4
-.*14: L Error: does not match prior declaration of function_1_5_f5
-.*17: L Error: does not match prior declaration of function_1_5_f6
-.*20: L Error: does not match prior declaration of function_1_5_f7
-.*23: L Error: does not match prior declaration of function_1_5_f8
-.*26: L Error: does not match prior declaration of function_1_5_f9
+} -returnCodes {error} -match regexp -result {.*2: L Error: does not match other declaration of function_1_5_f1
+.*5: L Error: does not match other declaration of function_1_5_f2
+.*8: L Error: does not match other declaration of function_1_5_f3
+.*11: L Error: does not match other declaration of function_1_5_f4
+.*14: L Error: does not match other declaration of function_1_5_f5
+.*17: L Error: does not match other declaration of function_1_5_f6
+.*20: L Error: does not match other declaration of function_1_5_f7
+.*23: L Error: does not match other declaration of function_1_5_f8
+.*26: L Error: does not match other declaration of function_1_5_f9
+}
+
+test function-1.6 {check function prototype errors 3} -body {
+#lang L
+void function_1_6()
+{
+	/*
+	 * Check that type checking is done to calls of functions
+	 * declared later.
+	 */
+
+	function_1_6_v(1);
+	function_1_6_i();
+	function_1_6_i("bad");
+}
+void function_1_6_v() {}
+void function_1_6_i(int i) { i = 0; }
+} -returnCodes {error} -match regexp -result {.*8: L Error: too many arguments for function function_1_6_v
+.*9: L Error: not enough arguments for function function_1_6_i
+.*10: L Error: parameter 1 has incompatible type
 }
 
 test initializers-1 {check variable initializer error cases} -body {
@@ -10345,7 +10405,7 @@ test class-2.15 {check name clash with class destructor 1} -body {
 #lang L
 class class_2_15
 {
-	destructor class_2_15_delete() {}
+	destructor class_2_15_delete(class_2_15 self) {}
 	void class_2_15_delete(class_2_15 self) {}  // err
 	private void class_2_15_delete(class_2_15 self) {}  // err
 }
@@ -10412,6 +10472,33 @@ class class_2_20
 }
 } -returnCodes {error} -match regexp -result {.*7: L Error: class public member function lacks 'self' as first arg
 }
+
+test class-2.21 {check class member function use before declare} -body {
+#lang L
+class class_2_21
+{
+	public int class_2_21_foo(class_2_21 self, int arg)
+	{
+		return (priv(arg) + class_2_21_pub(self, arg));
+	}
+	private int priv(int arg)
+	{
+		return (arg);
+	}
+	public int class_2_21_pub(class_2_21 self, int arg)
+	{
+		return (-arg);
+	}
+}
+void class_2_21_main()
+{
+	class_2_21 o;
+
+	o = class_2_21_new();
+	unless (class_2_21_foo(o, 13) == 0) puts("bad 1");
+}
+class_2_21_main();
+} -output {}
 
 test class-3.1 {check scoping of class vars and class instance vars 1} -body {
 #lang L

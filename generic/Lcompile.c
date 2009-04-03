@@ -99,8 +99,8 @@ private int	compile_idxOp(Expr *expr, Expr_f flags);
 private int	compile_expr(Expr *expr, Expr_f flags);
 private int	compile_exprs(Expr *expr, Expr_f flags);
 private int	compile_fnCall(Expr *expr);
-private void	compile_fnDecl(FnDecl *fun);
-private void	compile_fnDecls(FnDecl *fun);
+private void	compile_fnDecl(FnDecl *fun, Decl_f flags);
+private void	compile_fnDecls(FnDecl *fun, Decl_f flags);
 private void	compile_foreach(ForEach *loop);
 private void	compile_foreachArray(ForEach *loop);
 private void	compile_foreachHash(ForEach *loop);
@@ -292,13 +292,27 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 	top_proc = proc_begin(TOPLEV|SKIP);
 	L->frame->options = opts;
 
+	/*
+	 * Before compiling, enter prototypes for all functions into
+	 * the global symbol table.
+	 */
+	for (toplev = (TopLev *)ast; toplev; toplev = toplev->next) {
+		switch (toplev->kind) {
+		    case L_TOPLEVEL_FUN:
+			compile_fnDecl(toplev->u.fun, FN_PROTO_ONLY);
+			break;
+		    default:
+			break;
+		}
+	}
+
 	for (toplev = (TopLev *)ast; toplev; toplev = toplev->next) {
 		switch (toplev->kind) {
 		    case L_TOPLEVEL_CLASS:
 			compile_clsDecl(toplev->u.class);
 			break;
 		    case L_TOPLEVEL_FUN:
-			compile_fnDecl(toplev->u.fun);
+			compile_fnDecl(toplev->u.fun, FN_PROTO_AND_BODY);
 			break;
 		    case L_TOPLEVEL_GLOBAL:
 			compile_varDecls(toplev->u.global);
@@ -360,26 +374,28 @@ compile_clsDecl(ClsDecl *clsdecl)
 	emit_invoke(4);
 
 	compile_varDecls(clsdecl->clsvars);
-	compile_fnDecl(clsdecl->constructor);
-	compile_fnDecl(clsdecl->destructor);
-	compile_fnDecls(clsdecl->fns);
+	compile_fnDecl(clsdecl->constructor, FN_PROTO_AND_BODY);
+	compile_fnDecl(clsdecl->destructor, FN_PROTO_AND_BODY);
+	/* Process functions decls first, then compile the functions. */
+	compile_fnDecls(clsdecl->fns, FN_PROTO_ONLY);
+	compile_fnDecls(clsdecl->fns, FN_PROTO_AND_BODY);
 
 	frame_pop();
 	frame_pop();
 }
 
 private void
-compile_fnDecls(FnDecl *fun)
+compile_fnDecls(FnDecl *fun, Decl_f flags)
 {
 	for (; fun; fun = fun->next) {
-		compile_fnDecl(fun);
+		compile_fnDecl(fun, flags);
 	}
 }
 
 private void
-compile_fnDecl(FnDecl *fun)
+compile_fnDecl(FnDecl *fun, Decl_f flags)
 {
-	int	i;
+	int	i, ismain;
 	Expr	*self_id;
 	VarDecl	*self_decl;
 	VarDecl	*decl = fun->decl;
@@ -389,7 +405,9 @@ compile_fnDecl(FnDecl *fun)
 	ClsDecl	*clsdecl = NULL;
 	Sym	*self_sym = NULL;
 	Sym	*sym;
-	Decl_f	flags = decl->flags;
+
+	flags |= decl->flags;
+	ismain = !strcmp(name, "main");
 
 	ASSERT(fun && decl);
 	ASSERT(!(flags & SCOPE_LOCAL));
@@ -398,6 +416,7 @@ compile_fnDecl(FnDecl *fun)
 	// DECL_CLASS_FN ==> DECL_PUBLIC | DECL_PRIVATE
 	ASSERT(!(flags & DECL_CLASS_FN) ||
 	       (flags & (DECL_PUBLIC | DECL_PRIVATE)));
+	ASSERT(flags & (FN_PROTO_ONLY | FN_PROTO_AND_BODY));
 
 	/*
 	 * Sort out the possible error cases:
@@ -426,7 +445,7 @@ compile_fnDecl(FnDecl *fun)
 		}
 	}
 	sym = sym_lookup(decl->id, L_NOWARN|L_NOTUSED);
-	if (sym && strcmp(name, "main")) {
+	if (sym && !ismain) {
 		unless (sym->kind & L_SYM_FN) {
 			L_errf(fun, "%s already declared as a variable",name);
 			return;
@@ -434,11 +453,11 @@ compile_fnDecl(FnDecl *fun)
 			L_errf(fun, "function %s already declared", name);
 			return;
 		} else unless (L_typeck_same(decl->type, sym->type)) {
-			L_errf(fun, "does not match prior declaration of %s",
+			L_errf(fun, "does not match other declaration of %s",
 			       name);
 			return;
 		}
-	} else {
+	} else unless (ismain && (flags & FN_PROTO_ONLY)) {
 		sym = sym_store(decl);
 		unless (sym) return;
 	}
@@ -446,7 +465,7 @@ compile_fnDecl(FnDecl *fun)
 	/* Check arg and return types for legality. */
 	L_typeck_declType(decl);
 
-	unless (fun->body) return;
+	if (!fun->body || (flags & FN_PROTO_ONLY)) return;
 
 	procPtr = proc_begin(SEARCH);
 	sym->kind |= L_SYM_FNBODY;
@@ -3284,7 +3303,7 @@ sym_store(VarDecl *decl)
 		frame = frame_outer(L->frame);
 		hPtr = Tcl_FindHashEntry(frame->symtab, name);
 		/*
-		 * Special case for main: don't allow redeclaration within
+		 * Special case for main: allow redeclaration but not within
 		 * the same script, determined by whether the current AST
 		 * root is the same one as when main was last declared.
 		 */
