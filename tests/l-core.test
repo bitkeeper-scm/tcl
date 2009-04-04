@@ -169,6 +169,260 @@ void scan_1_6()
 scan_1_6();
 } -output {}
 
+test scan-1.7 {test here documents 1} -body {
+#lang L
+void scan_1_7()
+{
+	/* Vary the whitespace. */
+
+	string	s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11;
+
+	s1 = <<'E'
+str1
+E
+	unless (s1 eq "str1\n") puts("bad 1");
+
+	s2 = <<'EN'
+str2
+EN
+	unless (s2 eq "str2\n") puts("bad 2");
+
+	s3 = <<'END'
+str3
+END
+	unless (s3 eq "str3\n") puts("bad 3");
+
+	s4 =<<'END'
+str4
+END
+	unless (s4 eq "str4\n") puts("bad 4");
+
+	s5 =  <<'END'
+str5
+END
+	unless (s5 eq "str5\n") puts("bad 5");
+
+	s6 =	<<'END'
+str6
+END
+	unless (s6 eq "str6\n") puts("bad 6");
+
+	s7 =	 <<'END'
+str7
+END
+	unless (s7 eq "str7\n") puts("bad 7");
+
+	s8 =
+<<'END'
+str8
+END
+	unless (s8 eq "str8\n") puts("bad 8");
+
+	s9 =
+ <<'END'
+str9
+END
+	unless (s9 eq "str9\n") puts("bad 9");
+
+	/*
+	 * These test the patterns in the scanner that check for a ;
+	 * after the end delim.  Note that there are spaces after
+	 * some of the ; below.
+	 */
+
+	s10 = <<'END'
+NOTEND;
+NOTEND ;
+NOTEND; 
+NOTEND ; 
+END
+	unless (s10 eq "NOTEND;\nNOTEND ;\nNOTEND; \nNOTEND ; \n") {
+		puts("bad 10");
+	}
+
+	s11 = <<END
+NOTEND;
+NOTEND ;
+NOTEND; 
+NOTEND ; 
+END
+	unless (s11 eq "NOTEND;\nNOTEND ;\nNOTEND; \nNOTEND ; \n") {
+		puts("bad 11");
+	}
+}
+scan_1_7();
+} -output {}
+
+test scan-1.8 {test here documents 2} -body {
+#lang L
+void scan_1_8()
+{
+	string	s;
+	string	foo = "foo";
+
+	/* Check string interpolation. */
+
+	s = <<END
+interpolated string ${foo}
+END
+	unless (s eq "interpolated string foo\n") puts("bad 1");
+
+	s = <<'END'
+uninterpolated string ${foo}
+END
+	unless (s eq "uninterpolated string \${foo}\n") puts("bad 2");
+
+	/*
+	 * The scanner handles an ID inside a here document
+	 * differently than a non-ID, so try both.
+	 */
+
+	s = <<END
+${foo}
+aword
+two words
+END
+	unless (s eq "foo\naword\ntwo words\n") puts("bad 3");
+
+	s = <<'END'
+${foo}
+aword
+two words
+END
+	unless (s eq "\${foo}\naword\ntwo words\n") puts("bad 4");
+
+	/*
+	 * Ensure delimeter isn't found mistakenly.  It isn't
+	 * allowed to have leading or trailing whitespace or
+	 * anything else.
+	 */
+
+	s = <<END
+EN
+EN D
+END 
+ END
+ENDEND
+END
+	unless (s eq "EN\nEN D\nEND \n END\nENDEND\n") puts("bad 5");
+
+	s = <<'END'
+EN
+EN D
+END 
+ END
+ENDEND
+END
+	unless (s eq "EN\nEN D\nEND \n END\nENDEND\n") puts("bad 6");
+
+	/* Check escapes. */
+
+	s = <<END
+a\tb\nc\\d\x
+END
+	unless (s eq "a\tb\nc\\dx\n") puts("bad 9");
+
+	s = <<'END'
+a\tb\nc\\d\x\\\'
+END
+	unless (s eq "a\\tb\\nc\\d\\x\\'\n") puts("bad 10");
+}
+scan_1_8();
+} -output {}
+
+test scan-1.9 {test here document error 1} -body {
+#lang L
+void
+scan_1_9()
+{
+	/*
+	 * Error, since nothing is allowed after the END except
+	 * a newline.
+	 */
+	string s1 = <<'END'err
+END
+}
+scan_1_9();
+} -returnCodes {error} -match regexp -result ".*syntax error.*"
+
+test scan-1.10 {test here document error 2} -body {
+#lang L
+void
+scan_1_10()
+{
+	/*
+	 * Error, since nothing is allowed after the END except
+	 * a newline.
+	 */
+	string s1 = <<END err
+END
+}
+scan_1_10();
+} -returnCodes {error} -match regexp -result ".*syntax error.*"
+
+test scan-1.11 {test nested here documents error} -body {
+#lang L
+void
+scan_1_11()
+{
+	string s1, s2 = <<END
+${s1=<<BAD
+should be error
+BAD
+}
+END
+}
+scan_1_11();
+} -returnCodes {error} -match regexp -result ".*nested here documents illegal.*"
+
+test scan-1.12 {test here documents semicolon error 1} -body {
+#lang L
+void
+scan_1_12()
+{
+	string s = <<END
+should be error
+END;
+}
+scan_1_12();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.13 {test here documents semicolon error 2} -body {
+#lang L
+void
+scan_1_13()
+{
+	string s = <<'END'
+should be error
+END;
+}
+scan_1_13();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.14 {test here documents semicolon error 3} -body {
+#lang L
+void
+scan_1_14()
+{
+	string s = <<END
+should be error
+END ;
+}
+scan_1_14();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.15 {test here documents semicolon error 4} -body {
+#lang L
+void
+scan_1_15()
+{
+	string s = <<'END'
+should be error
+END ;
+}
+scan_1_15();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
 test proc-1.0 {Test L function definition.} -body {
 #lang L
 void proc_1_0(void) {
@@ -8883,6 +9137,24 @@ src_mappings_4();
 .*--main--
 .*Command \d+: "return"
 .*Command \d+: "k = l\+2"
+}
+
+test src-mappings-5 {test bytecode <-> source-file-offset mappings w/here docs} -body {
+#lang L
+void src_mappings_5()
+{
+	string s1 = <<END
+str1
+END
+	string s2 = <<'END'
+str2
+END
+
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_5"));
+}
+src_mappings_5();
+} -match regexp -output {.*Command \d+: "s1 = <<END\\nstr1\\nEND"
+.*Command \d+: "s2 = <<'END'\\nstr2\\nEND"
 }
 
 test function-1.0 {check function call rules} -body {

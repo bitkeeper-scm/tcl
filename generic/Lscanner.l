@@ -10,6 +10,8 @@
 %x str_single
 %x interpol
 %x include
+%x here_doc_interp
+%x here_doc_nointerp
 ID	([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
 /*
@@ -38,6 +40,7 @@ typedef struct {
 private char	re_quote_char;	// delim char that began the current regexp
 private Tcl_Obj	*str;		// string collection buffer
 private int	str_beg;	// source offset of string
+private char	*here_delim = NULL;
 private int	include_top;
 private Include	include_stk[INCLUDE_STACK_SZ];
 
@@ -387,6 +390,46 @@ include_pop()
 		L_lloc.end = L_lloc.beg + 2;	// this token spans the "=~"
 		return T_EQTWID;
 	}
+	/* here document (interpolated), valid only on rhs of an assignment */
+	"="[ \t\r\n]*"<<"[a-zA-Z_][a-zA-Z_0-9]*"\n"		{
+		int	len;
+		char	*p;
+		if (here_delim) {
+			L_err("%s:%d: nested here documents illegal",
+			      L->file, L->line);
+		}
+		/* point p at the here-document delimeter */
+		for (p = yytext+1; *p != '<'; ++p) ;
+		p += 2;  // now points one past the end of the <<
+		len = yyleng - (p - yytext) - 1;
+		here_delim = ckalloc(len+1);
+		strncpy(here_delim, p, len);
+		here_delim[len] = 0;
+		STRBUF_START(L->token_off);
+		L_lloc.end = L_lloc.beg + 1;
+		yy_push_state(here_doc_interp);
+		return T_EQUALS;
+	}
+	/* here document (uninterpolated), valid only on rhs of an assignment */
+	"="[ \t\r\n]*"<<\'"[a-zA-Z_][a-zA-Z_0-9]*"\'\n"		{
+		int	len;
+		char	*p;
+		if (here_delim) {
+			L_err("%s:%d: nested here documents illegal",
+			      L->file, L->line);
+		}
+		/* point p at the here-document delimeter */
+		for (p = yytext+1; *p != '<'; ++p) ;
+		p += 3;  // now points one past the end of the <<'
+		len = yyleng - (p - yytext) - 2;
+		here_delim = ckalloc(len+1);
+		strncpy(here_delim, p, len);
+		here_delim[len] = 0;
+		STRBUF_START(L->token_off);
+		L_lloc.end = L_lloc.beg + 1;
+		yy_push_state(here_doc_nointerp);
+		return T_EQUALS;
+	}
 }
 
 <include>{
@@ -483,6 +526,107 @@ include_pop()
 				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
 			}
+}
+
+<here_doc_nointerp>{
+	\\\\		STRBUF_ADD("\\", 1);
+	\\\'		STRBUF_ADD("'", 1);
+	^[a-zA-Z_][a-zA-Z_0-9]*$	{
+				if (strcmp(yytext, here_delim)) {
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					yy_pop_state();
+					unput(';');
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*[ \t\n]*;[ \t]*$	{
+				/*
+				 * This is an error check -- look for a
+				 * trailing ; after end delimeter.
+				 */
+				int	len;
+				char	*p = &yytext[yyleng-1];
+				/* walk back over the ; to the delim end */
+				while (*p == ' ') --p;
+				--p;
+				while (*p == ' ') --p;
+				len = p - yytext;
+				if (strncmp(yytext, here_delim, len)) {
+					/* not the delim -- add to here doc */
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					/* delim w/trailing ; found -- error */
+					L_err("%s:%d: ; illegal ; after "
+					      "here document\n",
+					      L->file, L->line);
+					yy_pop_state();
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	.|\n		STRBUF_ADD(yytext, 1);
+}
+
+<here_doc_interp>{
+	\\n		STRBUF_ADD("\n", 1);
+	\\t		STRBUF_ADD("\t", 1);
+	\\.		STRBUF_ADD(yytext+1, 1);
+	"${"		{
+				yy_push_state(interpol);
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.beg);
+				return T_LEFT_INTERPOL;
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*$	{
+				if (strcmp(yytext, here_delim)) {
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					yy_pop_state();
+					unput(';');
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*[ \t\n]*;[ \t]*$	{
+				/*
+				 * This is an error check -- look for a
+				 * trailing ; after ending delimeter.
+				 */
+				int	len;
+				char	*p = &yytext[yyleng-1];
+				/* walk back over the ; to the delim end */
+				while (*p == ' ') --p;
+				--p;
+				while (*p == ' ') --p;
+				len = p - yytext;
+				if (strncmp(yytext, here_delim, len)) {
+					/* not the delim -- add to here doc */
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					/* delim w/trailing ; found -- error */
+					L_err("%s:%d: ; illegal ; after "
+					      "here document\n",
+					      L->file, L->line);
+					yy_pop_state();
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	.|\n		STRBUF_ADD(yytext, 1);
 }
 
 <comment>{
