@@ -1810,6 +1810,18 @@ compile_binOp(Expr *expr, Expr_f flags)
 		L_typeck_deny(L_VOID|L_FUNCTION, expr->b);
 		expr->type = type;
 		return (1);
+	    case L_OP_CONCAT:
+		push_str("::join");
+		push_str("::list");
+		compile_expr(expr->a, L_PUSH_VAL);
+		compile_expr(expr->b, L_PUSH_VAL);
+		L_typeck_expect(L_STRING, expr->a, "in . operator");
+		L_typeck_expect(L_STRING, expr->b, "in . operator");
+		emit_invoke(3);
+		push_str("");
+		emit_invoke(3);
+		expr->type = L_string;
+		return (1);
 	    default:
 		L_bomb("compile_binOp: malformed AST");
 		return (1);

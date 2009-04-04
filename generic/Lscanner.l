@@ -24,7 +24,7 @@ ID	([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 private int	include_pop();
 private int	include_push(FILE *f, char *name);
 private FILE *	include_search(char *file);
-private void	tally_newlines(char *s, int len);
+private void	tally_newlines(char *s, int len, int tally);
 
 // Stack for tracking include() statements.
 #define INCLUDE_STACK_SZ	10
@@ -79,6 +79,8 @@ yy_user_action()
 	L_lloc.beg = L->token_off;
 	L_lloc.end = L->token_off + yyleng;
 
+	tally_newlines(yytext, yyleng, 1);
+
 	/*
 	 * Build up in L->script the text that the scanner scans.
 	 * The compiler later passes this on to tcl as the script
@@ -102,6 +104,8 @@ undo_yy_user_action()
 	L_lloc.beg = L->prev_token_off;
 	L_lloc.end = L->prev_token_off + L->prev_token_len;
 
+	tally_newlines(yytext, yyleng, -1);
+
 	L->script_len -= yyleng;
 	Tcl_SetObjLength(L->script, L->script_len);
 }
@@ -117,19 +121,20 @@ void L_lex_start()
 }
 
 /*
- * Count the newlines in a string and add the number to L->line.
+ * Count the newlines in a string and add the number to L->line.  Pass
+ * in tally == 1 to count them and tally == -1 to undo it.
  */
 private void
-tally_newlines(char *s, int len)
+tally_newlines(char *s, int len, int tally)
 {
 	char	*end, *p;
 
 	for (p = s, end = p + len; p < end; p++) {
 		if (*p == '\n') {
-			L->line++;
+			L->line += tally;
 		} else if ((*p == '\r') && ((p+1) < end) && (*(p+1) != '\n')) {
 			/* Mac line endings. */
-			L->line++;
+			L->line += tally;
 		}
 	}
 }
@@ -291,7 +296,6 @@ include_pop()
 	"->"		return T_POINTS;
 	{ID}:		{
 				int i, j;
-				tally_newlines(yytext, yyleng);
 				L_lval.s = ckalloc(yyleng+1);
 				L_lval.s[0] = '-';
 				/* Strip the whitespace. */
@@ -351,13 +355,12 @@ include_pop()
 				undo_yy_user_action();
 				BEGIN(include);
 			}
-	"//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
-	[ \t\n\r\f]+	tally_newlines(yytext, yyleng);
+	"//".*("\r"|"\n"|"\r\n")
+	[ \t\n\r\f]+
 	\"		yy_push_state(str_double); STRBUF_START(L->token_off);
 	\'		yy_push_state(str_single); STRBUF_START(L->token_off);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 2);	// next token starts at the "m"
@@ -367,7 +370,6 @@ include_pop()
 	}
 	/* if / is used to delimit the regexp, the m can be omitted */
 	"=~"[ \t\r\n]*"/"	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
@@ -377,7 +379,6 @@ include_pop()
 	}
 	/* a substitution pattern */
 	"=~"[ \t\r\n]*"s".	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
 		yy_push_state(glob_re);
@@ -415,13 +416,11 @@ include_pop()
 	 * built-in).
 	 */
 	[ \t\r\n]*"/"	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = '/';
 	}
 	[ \t\r\n]*"m"[^a-zA-Z \t\r\n]	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = *(yytext + yyleng - 1);
@@ -447,17 +446,19 @@ include_pop()
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
 	"$"		STRBUF_ADD("$", 1);
-	[^\\\"$]+	{
-				tally_newlines(yytext, yyleng);
-				STRBUF_ADD(yytext, yyleng);
+	\n		{
+				L_err("%s:%d: missing string terminator \"",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
 			}
+	[^\\\"$\n]+	STRBUF_ADD(yytext, yyleng);
 	"${"		{
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
-	\"[ \t\r\n]*\"	tally_newlines(yytext, yyleng);
+	\"[ \t\r\n]*\"
 	\"		{
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -467,13 +468,15 @@ include_pop()
 }
 
 <str_single>{
-	\\n		STRBUF_ADD("\n", 1);
-	\\t		STRBUF_ADD("\t", 1);
-	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
-	[^\\\']+	{
-				tally_newlines(yytext, yyleng);
-				STRBUF_ADD(yytext, yyleng);
+	\\\\		STRBUF_ADD("\\", 1);
+	\\\'		STRBUF_ADD("'", 1);
+	\n		{
+				L_err("%s:%d: missing string terminator \'",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
 			}
+	\\.		|
+	[^\\\'\n]+	STRBUF_ADD(yytext, yyleng);
 	\'		{
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -483,7 +486,7 @@ include_pop()
 }
 
 <comment>{
-	[^*]+		tally_newlines(yytext, yyleng);
+	[^*]+
 	"*"
 	"*/"		yy_pop_state();
 }
@@ -517,7 +520,6 @@ include_pop()
 						return T_RE;
 					}
 				} else {
-					tally_newlines(yytext, yyleng);
 					STRBUF_ADD(yytext, yyleng);
 				}
 			}
