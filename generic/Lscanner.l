@@ -278,7 +278,6 @@ include_pop()
 	"instance"	return T_INSTANCE;
 	"private"	return T_PRIVATE;
 	"public"	return T_PUBLIC;
-	"cow"		return T_COW;
 	"constructor"	return T_CONSTRUCTOR;
 	"destructor"	return T_DESTRUCTOR;
 	"expand"	return T_EXPAND;

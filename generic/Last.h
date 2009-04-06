@@ -98,13 +98,11 @@ typedef enum {
 	L_NAMEOF	= 0x0400,
 	L_FUNCTION	= 0x0800,
 	L_CLASS		= 0x1000,
-	L_COW		= 0x2000,
 } Type_k;
 
 struct Type {
 	Type_k	kind;
-	Type	*base_type;	// for array, hash, list, nameof, fn ret type,
-				// and COW base type
+	Type	*base_type;	// for array, hash, list, nameof, fn ret type
 	Type	*next;		// for linking list types
 	union {
 		struct {
@@ -211,7 +209,6 @@ typedef enum {
 	L_OP_KV,
 	L_OP_COMMA,
 	L_OP_ARRAY_SLICE,
-	L_OP_COW,
 	L_OP_EXPAND,
 	L_OP_EXPAND_ALL,
 	L_OP_CONCAT,
@@ -349,10 +346,9 @@ typedef enum {
 	DECL_EXTERN		= 0x02000, // decl has extern qualifier
 	DECL_PRIVATE		= 0x04000, // decl has private qualifier
 	DECL_PUBLIC		= 0x08000, // decl has public qualifier
-	DECL_COW		= 0x10000, // decl has cow qualifier
-	DECL_REF		= 0x20000, // decl has & qualifier
-	FN_PROTO_ONLY		= 0x40000, // compile fn proto only
-	FN_PROTO_AND_BODY	= 0x80000, // compile entire fn decl
+	DECL_REF		= 0x10000, // decl has & qualifier
+	FN_PROTO_ONLY		= 0x20000, // compile fn proto only
+	FN_PROTO_AND_BODY	= 0x40000, // compile entire fn decl
 } Decl_f;
 
 struct VarDecl {
@@ -393,7 +389,6 @@ extern VarDecl	*ast_mkVarDecl(Type *type, Expr *name, int beg, int end);
 extern Type	*type_mkArray(Expr *size, Type *base_type,
 			      enum typemk_k disposition);
 extern Type	*type_mkClass(enum typemk_k disposition);
-extern Type	*type_mkCOW(Type *base_type, enum typemk_k disposition);
 extern Type	*type_mkFunc(Type *base_type, VarDecl *formals,
 			     enum typemk_k disposition);
 extern Type	*type_mkHash(Type *index_type, Type *base_type,

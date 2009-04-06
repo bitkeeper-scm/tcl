@@ -112,7 +112,6 @@ private int	compile_keys(Expr *expr);
 private int	compile_length(Expr *expr);
 private void	compile_loop(Loop *loop);
 private void	compile_fnParms(VarDecl *decl);
-private void	compile_nameof(Expr *expr);
 private int	compile_push(Expr *expr);
 private void	compile_return(Stmt *stmt);
 private void	compile_shortCircuit(Expr *expr);
@@ -144,7 +143,7 @@ private void	proc_finish(Proc *procPtr, char *name);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
 private int	push_index(Expr *expr);
 private int	push_lit(Expr *expr);
-private int	push_parms(Expr *actuals, VarDecl *formals);
+private int	push_parms(Expr *actuals);
 private void	push_pointer(Expr *lval);
 private int	push_regexpModifiers(Expr *regexp);
 private void	re_gatherTxt(Expr *e, Tcl_Obj *s);
@@ -839,32 +838,20 @@ proc_mkArg(Proc *proc, VarDecl *decl)
  * Determine whether the parameter-passing mode for a formal parameter
  * declaration is call-by-reference.  Return NULL or the base type of
  * the parameter (without the name-of).  You get call-by-reference if
- * the parameter was declared with & (and is not a function pointer)
- * or if it's a complex type without a cow qualifier.
+ * the parameter was declared with & and is not a function pointer.
  */
 private Type *
 iscallbyname(VarDecl *formal)
 {
 	unless (formal) return (NULL);
-
-	switch (formal->flags & (DECL_REF | DECL_COW)) {
-	    case DECL_REF:
-		ASSERT(isnameoftype(formal->type));
+	if (formal->flags & DECL_REF) {
 		if (isfntype(formal->type->base_type)) {
 			return (NULL);
 		} else {
 			return (formal->type->base_type);
 		}
-	    case DECL_COW:
-		ASSERT(!iscowtype(formal->type));
-		return (NULL);
-	    default:
-		if (iscomplextype(formal->type)) {
-			return (formal->type);
-		} else {
-			return (NULL);
-		}
 	}
+	return (NULL);
 }
 
 private void
@@ -923,11 +910,6 @@ compile_fnParms(VarDecl *decl)
 			p->id = ast_mkId(name, 0, 0);
 		}
 		name = p->id->u.string;
-		if ((p->flags & (DECL_REF|DECL_COW)) == (DECL_REF|DECL_COW)) {
-			L_errf(p, "formal parameter #%d declared with "
-			       "both cow and & qualifiers", i+1);
-			p->flags &= ~DECL_COW;
-		}
 		if ((decl->flags & DECL_CLASS_CONST) && !strcmp(name, "self")) {
 			L_errf(p,
 			       "'self' parameter illegal in class constructor");
@@ -1398,7 +1380,7 @@ compile_fnCall(Expr *expr)
 		push_str(name);
 		expr->type = L_poly;
 	}
-	num_parms = push_parms(expr->b, formals);
+	num_parms = push_parms(expr->b);
 	if (expand) {
 		emit_invoke_expanded();
 	} else {
@@ -1459,42 +1441,8 @@ compile_exprs(Expr *expr, Expr_f flags)
 }
 
 /*
- * Compile &var -- push the tcl name of var.  This works for function
- * names, regular variables, and class variables (&x, &classname->var,
- * &obj->var).  You can pass in the expr node either for &x or x.
- */
-private void
-compile_nameof(Expr *expr)
-{
-	Expr	*op;
-
-	if (isaddrof(expr)) {
-		op = expr->a;
-	} else {
-		op = expr;
-	}
-	compile_expr(op, L_DISCARD);
-	if (!(op->flags & L_EXPR_DEEP) &&
-	    (op->sym && (op->sym->decl->flags &
-			(DECL_FN | DECL_GLOBAL_VAR | DECL_LOCAL_VAR |
-			 DECL_TEMP)))) {
-		push_str(op->sym->tclname);
-		unless (op == expr) {
-			expr->type = type_mkNameOf(op->type, PER_INTERP);
-		}
-	} else {
-		L_errf(expr, "cannot take reference of argument");
-		expr->type = op->type;
-	}
-}
-
-/*
  * Emit code to push the parameters to a function call and return the
  * # pushed.  Rules:
- *
- * - For a composite (non-scalar) parm without a (cow) cast, treat
- *   as call-by-reference (by pushing the name instead of the value)
- *   unless the corresponding formal is declared with cow.
  *
  * - For two consecutive parms like "-foovariable, &foo", push "-foovariable"
  *   and then an L pointer.
@@ -1504,18 +1452,15 @@ compile_nameof(Expr *expr)
  *   checker sorts out any mis-matches with the declared formals.
  */
 private int
-push_parms(Expr *actuals, VarDecl *formals)
+push_parms(Expr *actuals)
 {
 	int	i = 0;
 	int	widget_flag = FALSE;
 	char	*s;
 	Expr	*a;
-	VarDecl	*f;
 
-	for (i = 0, a = actuals, f = formals; a; a = a->next, ++i) {
-		if (f && iscallbyname(f)) {
-			compile_nameof(a);
-		} else if (widget_flag && isaddrof(a)) {
+	for (i = 0, a = actuals; a; a = a->next, ++i) {
+		if (widget_flag && isaddrof(a)) {
 			push_pointer(a->a);  // L pointer
 		} else {
 			compile_expr(a, L_PUSH_VAL);
@@ -1529,7 +1474,6 @@ push_parms(Expr *actuals, VarDecl *formals)
 		    (s[0] == '-') &&
 		    /* ends with "variable" */
 		    !strcmp("variable", s + (strlen(s) - strlen("variable"))));
-		if (f) f = f->next;
 	}
 	return (i);
 }
@@ -1601,12 +1545,22 @@ compile_unOp(Expr *expr)
 		expr->type = L_int;
 		break;
 	    case L_OP_ADDROF:
-		compile_nameof(expr);
-		break;
-	    case L_OP_COW:
-		compile_expr(expr->a, L_PUSH_VAL);
-		L_typeck_deny(L_VOID, expr->a);
-		expr->type = type_mkCOW(expr->a->type, PER_INTERP);
+		/*
+		 * Compile &var -- push the tcl name of var.  This
+		 * works for function names, regular variables, and
+		 * class variables (&x, &classname->var, &obj->var).
+		 */
+		compile_expr(expr->a, L_DISCARD);
+		if (!(expr->a->flags & L_EXPR_DEEP) &&
+		    (expr->a->sym && (expr->a->sym->decl->flags &
+				      (DECL_FN | DECL_GLOBAL_VAR |
+				       DECL_LOCAL_VAR | DECL_TEMP)))) {
+			push_str(expr->a->sym->tclname);
+			expr->type = type_mkNameOf(expr->a->type, PER_INTERP);
+		} else {
+			L_errf(expr, "cannot take reference of argument");
+			expr->type = L_poly;
+		}
 		break;
 	    case L_OP_PLUSPLUS_PRE:
 	    case L_OP_PLUSPLUS_POST:
