@@ -1899,39 +1899,54 @@ void op_1_12()
 		string	a, b, c;
 	} st;
 
-	unless ("a"."b" eq "ab") puts("bad 1.1");
-	unless ("ab"."cd" eq "abcd") puts("bad 1.2");
-	unless ("ab"."cd"."ef" eq "abcdef") puts("bad 1.3");
-	unless ("ab"."cd"."ef"."gh" eq "abcdefgh") puts("bad 1.4");
-	unless (""."a" eq "a") puts("bad 1.5");
-	unless ("a"."" eq "a") puts("bad 1.6");
-	unless (""."a"."" eq "a") puts("bad 1.7");
-	unless (""."".""""."a"."" eq "a") puts("bad 1.8");
-	unless (""."" eq "") puts("bad 1.9");
-	unless ("".""."" eq "") puts("bad 1.10");
+	unless ("a" . "b" eq "ab") puts("bad 1.1");
+	unless ("ab" . "cd" eq "abcd") puts("bad 1.2");
+	unless ("ab" . "cd" . "ef" eq "abcdef") puts("bad 1.3");
+	unless ("ab" . "cd" . "ef" . "gh" eq "abcdefgh") puts("bad 1.4");
+	unless ("" . "a" eq "a") puts("bad 1.5");
+	unless ("a" . "" eq "a") puts("bad 1.6");
+	unless ("" . "a" . "" eq "a") puts("bad 1.7");
+	unless ("" . "" . """" . "a" . "" eq "a") puts("bad 1.8");
+	unless ("" . "" eq "") puts("bad 1.9");
+	unless ("" . "" . "" eq "") puts("bad 1.10");
 
 	a = "a";
 	b = "b";
 	c = "c";
-	unless (a.b.c eq "abc") puts("bad 2.1");
+	unless (a . b . c eq "abc") puts("bad 2.1");
 
 	p = "a";
-	unless (p."b" eq "ab") puts("bad 3.1");
+	unless (p . "b" eq "ab") puts("bad 3.1");
 
 	/* Test precedence. "." should be lower than [], {}, and -> */
 
 	as[0] = "a";
 	as[1] = "b";
 	as[2] = "c";
-	unless (as[0].as[1].as[2] eq "abc") puts("bad 10.1");
+	unless (as[0] . as[1] . as[2] eq "abc") puts("bad 10.1");
 	hs{"a"} = "a";
 	hs{"b"} = "b";
 	hs{"c"} = "c";
-	unless (hs{"a"}.hs{"b"}.hs{"c"} eq "abc") puts("bad 10.2");
+	unless (hs{"a"} . hs{"b"} . hs{"c"} eq "abc") puts("bad 10.2");
 	st->a = "a";
 	st->b = "b";
 	st->c = "c";
-	unless (st->a.st->b.st->c eq "abc") puts("bad 10.3");
+	unless (st->a . st->b . st->c eq "abc") puts("bad 10.3");
+
+	/* Check varying whitespace around the "." */
+
+	unless ("a"  . "b" eq "ab") puts("bad 20.1");
+	unless ("a" .  "b" eq "ab") puts("bad 20.2");
+	unless ("a"  .  "b" eq "ab") puts("bad 20.3");
+	unless ("a"	. "b" eq "ab") puts("bad 20.4");  // tab
+	unless ("a" .	"b" eq "ab") puts("bad 20.5");  // tab
+	unless ("a" .
+		"b" eq "ab") puts("bad 20.6");
+	unless ("a"
+		. "b" eq "ab") puts("bad 20.7");
+	unless ("a" .
+		"b" .
+		"c" eq "abc") puts("bad 20.8");
 }
 op_1_12();
 } -output {}
@@ -1944,12 +1959,12 @@ void op_1_13()
 	float	f;
 	int	h{string};
 
-	i.j;
-	i.f;
-	h{"bad"}.i;
-	i."s";
-	"s".f;
-	h{"bad"}."s";
+	i . j;
+	i . f;
+	h{"bad"} . i;
+	i . "s";
+	"s" . f;
+	h{"bad"} . "s";
 }
 } -returnCodes {error} -match regexp -result {.*7: L Error: expected type string.*
 .*8: L Error: expected type string.*
@@ -1958,6 +1973,21 @@ void op_1_13()
 .*11: L Error: expected type string.*
 .*12: L Error: expected type string.*
 }
+
+test op-1.14 {test "." and "->" as struct selection operators} -body {
+#lang L
+void op_1_14()
+{
+	/* Check that both . and -> work as struct member selection. */
+
+	struct { int i, j; } st = { 5, 6 };
+
+	unless (st.i  == 5) puts("bad 1.1");
+	unless (st.j  == 6) puts("bad 1.2");
+	unless (st->i == 5) puts("bad 2.1");
+	unless (st->j == 6) puts("bad 2.2");
+}
+} -output {}
 
 test cast-1.0 { Casts to integer and float } -body {
 #lang L
@@ -10572,6 +10602,31 @@ void class_1_5_main()
 	class_1_5_delete(o);
 }
 class_1_5_main();
+} -output {}
+
+test class-1.6 {test both "." and "->" as member variable selection} -body {
+#lang L
+class class_1_6
+{
+	public	string cvar = "cvar";
+	instance {
+		public	string ivar = "ivar";
+	}
+}
+void class_1_6_main()
+{
+	/* Check that both . and -> work. */
+
+	class_1_6 o = class_1_6_new();
+
+	unless (class_1_6.cvar  eq "cvar") puts("bad 1.1");
+	unless (class_1_6->cvar eq "cvar") puts("bad 1.2");
+
+	unless (o.ivar  eq "ivar") puts("bad 2.1");
+	unless (o->ivar eq "ivar") puts("bad 2.2");
+
+	class_1_6_delete(o);
+}
 } -output {}
 
 test class-2.1 {check missing class constructor} -body {

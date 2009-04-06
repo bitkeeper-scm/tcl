@@ -251,6 +251,7 @@ include_pop()
 	"="		return T_EQUALS;
 	";"		return T_SEMI;
 	"."		return T_DOT;
+	[ \t\n\r]+"."[ \t\n\r]+		return T_STRCAT;
 	".."		return T_DOTDOT;
 	"..."		return T_ELLIPSIS;
 	"class"		return T_CLASS;
@@ -298,22 +299,11 @@ include_pop()
 	"<="		return T_LESSTHANEQ;
 	"->"		return T_POINTS;
 	{ID}:		{
-				int i, j;
+				/* Return -ID (strip the :). */
 				L_lval.s = ckalloc(yyleng+1);
 				L_lval.s[0] = '-';
-				/* Strip the whitespace. */
-				for (i=0, j=1; i<yyleng-1; i++) {
-					switch (yytext[i]) {
-					case ' ':
-					case '\t':
-					case '\n':
-					case '\r':
-						break;
-					default:
-						L_lval.s[j++] = yytext[i];
-					}
-				}
-				L_lval.s[j] = '\0';
+				strncpy(L_lval.s+1, yytext, yyleng-1);
+				L_lval.s[yyleng] = 0;
 				return T_KEYWORD;
 			}
 	{ID}		{

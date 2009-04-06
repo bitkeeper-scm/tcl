@@ -87,6 +87,7 @@ extern int	L_lex (void);
 %token T_RETURN
 %token T_COMMA ","
 %token T_DOT "."
+%token T_STRCAT
 %token T_POINTS "->"
 %token T_ARROW "=>"
 %token T_RIGHT_INTERPOL T_PLUSPLUS T_MINUSMINUS
@@ -118,10 +119,10 @@ extern int	L_lex (void);
 %left T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID
 %left T_GT T_GE T_LT T_LE T_GREATER T_GREATEREQ T_LESSTHAN T_LESSTHANEQ
 %left T_LSHIFT T_RSHIFT
-%left T_PLUS T_MINUS T_DOT
+%left T_PLUS T_MINUS T_STRCAT
 %left T_STAR T_SLASH T_PERC
 %right PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
-%left T_LBRACKET T_LBRACE T_RBRACE T_POINTS T_PLUSPLUS T_MINUSMINUS
+%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_POINTS T_PLUSPLUS T_MINUSMINUS
 %left HIGHEST
 
 %type <TopLev> toplevel_code
@@ -878,13 +879,25 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_HASH_INDEX, $1, $3, @1.beg, @4.end);
 	}
-	| expr "." expr
+	| expr T_STRCAT expr
 	{
 		$$ = ast_mkBinOp(L_OP_CONCAT, $1, $3, @1.beg, @3.end);
+	}
+	| expr "." T_ID
+	{
+		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
 	}
 	| expr "->" T_ID
 	{
 		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
+	}
+	| T_TYPE "." T_ID
+	{
+		// This is a binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CLASS_INDEX, (Expr *)$1.t, NULL, @1.beg,
+				 @3.end);
 		$$->u.string = $3;
 	}
 	| T_TYPE "->" T_ID
