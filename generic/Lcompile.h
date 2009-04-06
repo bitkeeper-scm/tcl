@@ -248,22 +248,9 @@ isvoidtype(Type *type)
 	return (type->kind == L_VOID);
 }
 static inline int
-iscomplextype(Type *type)
-{
-	return (type->kind & (L_ARRAY |
-			      L_HASH |
-			      L_STRUCT |
-			      L_LIST));
-}
-static inline int
 isnameoftype(Type *type)
 {
 	return (type->kind == L_NAMEOF);
-}
-static inline int
-iscowtype(Type *type)
-{
-	return (type->kind == L_COW);
 }
 static inline int
 isaddrof(Expr *expr)
