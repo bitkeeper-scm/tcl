@@ -870,8 +870,8 @@ void var_1_3(void)
 
         puts(lglobal1_3);
         while (i < 5) {
-          lglobal1_3[i]->x = i * 10;
-          lglobal1_3[i]->y = i * 20;
+          lglobal1_3[i].x = i * 10;
+          lglobal1_3[i].y = i * 20;
           i++;
         }
         puts(lglobal1_3);
@@ -881,8 +881,8 @@ void var_1_3(void)
 
 void var_1_3_aux(int i)
 {
-        lglobal1_3[i]->x = i * 35;
-        lglobal1_3[i]->y = i * 45;
+        lglobal1_3[i].x = i * 35;
+        lglobal1_3[i].y = i * 45;
 }
 #lang tcl
 var_1_3
@@ -1431,15 +1431,15 @@ struct return_2_6_s {
 struct return_2_6_s return_2_6_f()
 {
 	struct return_2_6_s s;
-	s->x = 1;
-	s->y = 2;
-	s->z = 3;
+	s.x = 1;
+	s.y = 2;
+	s.z = 3;
 	return s;
 }
 void return_2_6()
 {
 	struct return_2_6_s res = return_2_6_f();
-	unless ((res->x == 1) && (res->y == 2) && (res->z == 3)) printf("BAD\n");
+	unless ((res.x == 1) && (res.y == 2) && (res.z == 3)) printf("BAD\n");
 }
 #lang tcl
 return_2_6
@@ -1996,10 +1996,10 @@ void op_1_12()
 	hs{"b"} = "b";
 	hs{"c"} = "c";
 	unless (hs{"a"} . hs{"b"} . hs{"c"} eq "abc") puts("bad 10.2");
-	st->a = "a";
-	st->b = "b";
-	st->c = "c";
-	unless (st->a . st->b . st->c eq "abc") puts("bad 10.3");
+	st.a = "a";
+	st.b = "b";
+	st.c = "c";
+	unless (st.a . st.b . st.c eq "abc") puts("bad 10.3");
 
 	/* Check varying whitespace around the "." */
 
@@ -2044,18 +2044,56 @@ void op_1_13()
 
 test op-1.14 {test "." and "->" as struct selection operators} -body {
 #lang L
+struct op14 {
+       int	i, j;
+};
+void op_1_14_ref(struct op14 &st)
+{
+	st->i = 7;
+}
+void op_1_14_val(struct op14 st)
+{
+	st.i = 8;
+}
 void op_1_14()
 {
-	/* Check that both . and -> work as struct member selection. */
-
-	struct { int i, j; } st = { 5, 6 };
+	struct op14 st = { 5, 6 };
 
 	unless (st.i  == 5) puts("bad 1.1");
 	unless (st.j  == 6) puts("bad 1.2");
-	unless (st->i == 5) puts("bad 2.1");
-	unless (st->j == 6) puts("bad 2.2");
+
+	op_1_14_ref(&st);
+	unless (st.i == 7) puts("bad 2.1");
+
+	op_1_14_val(st);
+	unless (st.i == 7) puts("bad 3.1");
 }
+op_1_14();
 } -output {}
+
+test op-1.15 {check "." and "->" usage errors} -body {
+#lang L
+struct op15 {
+       int	i, j;
+};
+void op_1_15_ref(struct op14 &st)
+{
+	st.i = 7;  // err
+}
+void op_1_15_val(struct op14 st)
+{
+	st->i = 8; // err
+}
+void op_1_15()
+{
+	struct op14 st;
+
+	st->i = st.j;  // st->i is an err
+}
+} -returnCodes {error} -match regexp -result {.*6: L Error: \. illegal on call-by-reference parms; use -> instead
+.*10: L Error: -> illegal except on call-by-reference parms; use \. instead
+.*16: L Error: -> illegal except on call-by-reference parms; use \. instead
+}
 
 test cast-1.0 { Casts to integer and float } -body {
 #lang L
@@ -2184,9 +2222,9 @@ void cast_1_6()
 
 	/* Cast a string to a struct s. */
 	st = (struct s)"1 str { { 1 one 2 two } 33 }";
-	unless ((st->i == 1) && (st->s eq "str")) puts("bad 1");
-	unless ((st->st->h{1} eq "one") && (st->st->h{2} eq "two")) puts("bad 2");
-	unless (st->st->i == 33) puts("bad 3");
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 1");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 2");
+	unless (st.st.i == 33) puts("bad 3");
 
 	/* Same as above except casting from a composite constant. */
 	st = (struct s) {
@@ -2197,16 +2235,16 @@ void cast_1_6()
 				  33
 			  }
 	};
-	unless ((st->i == 1) && (st->s eq "str")) puts("bad 4");
-	unless ((st->st->h{1} eq "one") && (st->st->h{2} eq "two")) puts("bad 5");
-	unless (st->st->i == 33) puts("bad 6");
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 4");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 5");
+	unless (st.st.i == 33) puts("bad 6");
 
 	/* Cast a string to a struct s but spell out the entire struct type. */
 	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
 		"1 str { { 1 one 2 two } 33 }";
-	unless ((st->i == 1) && (st->s eq "str")) puts("bad 7");
-	unless ((st->st->h{1} eq "one") && (st->st->h{2} eq "two")) puts("bad 8");
-	unless (st->st->i == 33) puts("bad 9");
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 7");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 8");
+	unless (st.st.i == 33) puts("bad 9");
 
 	/* Same as above except casting from a composite constant. */
 	st = (struct { int i; string s; struct { string h{int}; int i; } st; })
@@ -2218,9 +2256,9 @@ void cast_1_6()
 				  33
 			  }
 		};
-	unless ((st->i == 1) && (st->s eq "str")) puts("bad 10");
-	unless ((st->st->h{1} eq "one") && (st->st->h{2} eq "two")) puts("bad 11");
-	unless (st->st->i == 33) puts("bad 12");
+	unless ((st.i == 1) && (st.s eq "str")) puts("bad 10");
+	unless ((st.st.h{1} eq "one") && (st.st.h{2} eq "two")) puts("bad 11");
+	unless (st.st.i == 33) puts("bad 12");
 
 	a = (int[])"1 2 3";
 	n = 0;
@@ -2376,25 +2414,25 @@ void strindex_1()
 	s = "abcd";
 	if (defined(s[4])) puts("bad 1.9");
 
-	st->s = "abcd";
-	st->s[0] = "x";
-	unless (st->s eq "xbcd") puts("bad 2.1");
-	st->s[1] = "y";
-	unless (st->s eq "xycd") puts("bad 2.2");
-	st->s[2] = "z";
-	unless (st->s eq "xyzd") puts("bad 2.3");
-	st->s[3] = "q";
-	unless (st->s eq "xyzq") puts("bad 2.4");
-	st->s[3] = "";
-	unless (st->s eq "xyz") puts("bad 2.5");
-	st->s[0] = "";
-	unless (st->s eq "yz") puts("bad 2.6");
-	st->s[0] = "";
-	unless (st->s eq "z") puts("bad 2.7");
-	st->s[0] = "";
-	unless (st->s eq "") puts("bad 2.8");
-	st->s = "abcd";
-	if (defined(st->s[4])) puts("bad 2.9");
+	st.s = "abcd";
+	st.s[0] = "x";
+	unless (st.s eq "xbcd") puts("bad 2.1");
+	st.s[1] = "y";
+	unless (st.s eq "xycd") puts("bad 2.2");
+	st.s[2] = "z";
+	unless (st.s eq "xyzd") puts("bad 2.3");
+	st.s[3] = "q";
+	unless (st.s eq "xyzq") puts("bad 2.4");
+	st.s[3] = "";
+	unless (st.s eq "xyz") puts("bad 2.5");
+	st.s[0] = "";
+	unless (st.s eq "yz") puts("bad 2.6");
+	st.s[0] = "";
+	unless (st.s eq "z") puts("bad 2.7");
+	st.s[0] = "";
+	unless (st.s eq "") puts("bad 2.8");
+	st.s = "abcd";
+	if (defined(st.s[4])) puts("bad 2.9");
 
 	sa[0] = "abcd";
 	sa[0][0] = "x";
@@ -2665,11 +2703,11 @@ void slice_2_1()
 	} st2;
 
 	st2 = (struct s2){1,2,3,4}[1..2];
-	unless ((st2->i1 == 2) && (st2->i2 == 3)) puts("bad 1");
+	unless ((st2.i1 == 2) && (st2.i2 == 3)) puts("bad 1");
 
 	st1 = { 5, 6, 7, 8 };
 	st2 = (struct s2) ((int[])st1)[1..2];
-	unless ((st2->i1 == 6) && (st2->i2 == 7)) puts("bad 2");
+	unless ((st2.i1 == 6) && (st2.i2 == 7)) puts("bad 2");
 }
 slice_2_1();
 } -output {}
@@ -3169,17 +3207,17 @@ loop_1_2_0()
 	foreach (vf in ai3) {
 		printf("ai3 has %1.1f\n", vf);
 	}
-	ac[0]->i = 1;
-	ac[0]->j = 2;
-	ac[0]->s = "a";
-	ac[1]->i = 11;
-	ac[1]->j = 22;
-	ac[1]->s = "aa";
-	ac[2]->i = 111;
-	ac[2]->j = 222;
-	ac[2]->s = "aaa";
+	ac[0].i = 1;
+	ac[0].j = 2;
+	ac[0].s = "a";
+	ac[1].i = 11;
+	ac[1].j = 22;
+	ac[1].s = "aa";
+	ac[2].i = 111;
+	ac[2].j = 222;
+	ac[2].s = "aaa";
 	foreach (vc in ac) {
-		printf("ac has %d,%d,%s\n", vc->i, vc->j, vc->s);
+		printf("ac has %d,%d,%s\n", vc.i, vc.j, vc.s);
 	}
 	printf("end\n");
 }
@@ -4176,14 +4214,14 @@ struct struct_1_0_point {
 void struct_1_0() {
         struct struct_1_0_point p1, p2;
 
-        p1->x = 1;
-        p1->y = 2;
-        p1->label = "this is a label";
+        p1.x = 1;
+        p1.y = 2;
+        p1.label = "this is a label";
         puts("p1 is:");
         puts(p1);
-        puts(format("p1->x is %d, p1->y is %d, and p1->label is %s", p1->x, p1->y, p1->label));
+        puts(format("p1.x is %d, p1.y is %d, and p1.label is %s", p1.x, p1.y, p1.label));
         p2 = p1;
-        p2->label = "this is another label";
+        p2.label = "this is another label";
         puts("p1 is:");
         puts(p1);
         puts("p2 is:");
@@ -4193,7 +4231,7 @@ void struct_1_0() {
 struct_1_0
 } -output "p1 is:
 1 2 {this is a label}
-p1->x is 1, p1->y is 2, and p1->label is this is a label
+p1.x is 1, p1.y is 2, and p1.label is this is a label
 p1 is:
 1 2 {this is a label}
 p2 is:
@@ -4212,9 +4250,9 @@ void struct_1_1() {
    struct struct_1_1_point s[10];
 
    while(i < 10) {
-      s[i]->y = i;
-      s[i]->x = 42 + i;
-      s[i]->label = format("%d cows", 10 - i);
+      s[i].y = i;
+      s[i].x = 42 + i;
+      s[i].label = format("%d cows", 10 - i);
       i++;
    }
    for (i=0; i<10; i++) {
@@ -4248,10 +4286,10 @@ void struct_1_2() {
    struct struct_1_2_point s[10];
 
    while(i < 10) {
-      s[i]->y = i;
-      s[i]->x = 42 + i;
-      s[i]->label = format("%d cows", 10 - i);
-      s[i]->z[i%4] = i;
+      s[i].y = i;
+      s[i].x = 42 + i;
+      s[i].label = format("%d cows", 10 - i);
+      s[i].z[i%4] = i;
       i++;
    }
    for (i=0; i<10; i++) {
@@ -4281,29 +4319,29 @@ struct foo {
 void struct_1_3() {
   struct foo v;
 
-  v->i = 0;
-  for (v->i=0; v->i<5; v->i++);
+  v.i = 0;
+  for (v.i=0; v.i<5; v.i++);
   puts(v);
 
   puts("pre:");
-  puts(v->i);
-  ++v->i;
-  puts(v->i);
-  puts(++v->i);
-  --v->i;
-  puts(v->i);
-  puts(--v->i);
+  puts(v.i);
+  ++v.i;
+  puts(v.i);
+  puts(++v.i);
+  --v.i;
+  puts(v.i);
+  puts(--v.i);
 
   puts("post:");
-  puts(v->i);
-  v->i++;
-  puts(v->i);
-  puts(v->i++);
-  puts(v->i);
-  v->i--;
-  puts(v->i);
-  puts(v->i--);
-  puts(v->i);
+  puts(v.i);
+  v.i++;
+  puts(v.i);
+  puts(v.i++);
+  puts(v.i);
+  v.i--;
+  puts(v.i);
+  puts(v.i--);
+  puts(v.i);
 }
 #lang tcl
 struct_1_3
@@ -4332,22 +4370,22 @@ void struct_1_4()
 	/* This redeclaration hides the global one. */
 	struct struct_1_4_2 { int k,l; } st4 = { 6, 7 };
 
-	unless ((st1->i == 2) && (st1->j == 3)) puts("bad 1");
-	unless (st2->s eq "s2") puts("bad 2");
-	unless ((st3->i == 4) && (st3->j == 5) && (st3->st->s eq "s3")) {
+	unless ((st1.i == 2) && (st1.j == 3)) puts("bad 1");
+	unless (st2.s eq "s2") puts("bad 2");
+	unless ((st3.i == 4) && (st3.j == 5) && (st3.st.s eq "s3")) {
 	       puts("bad 3");
 	}
-	unless ((st4->k == 6) && (st4->l == 7)) puts("bad 4");
+	unless ((st4.k == 6) && (st4.l == 7)) puts("bad 4");
 
 	if (1) {
 		/* This redeclaration hides the global one in this scope. */
 		struct struct_1_4_1 { string t,u; } st5 = { "t", "u" };
-		unless ((st5->t eq "t") && (st5->u eq "u")) puts("bad 5");
+		unless ((st5.t eq "t") && (st5.u eq "u")) puts("bad 5");
 	}
 	if (1) {
 		/* This should reference the global one. */
 		struct struct_1_4_1 st6 = { 8, 9 };
-		unless ((st6->i == 8) && (st6->j == 9)) puts("bad 7");
+		unless ((st6.i == 8) && (st6.j == 9)) puts("bad 7");
 	}
 }
 #lang tcl
@@ -4372,7 +4410,7 @@ test struct-1.6 {check struct member errors} -body {
 void struct_1_6()
 {
 	struct struct_1_6 { string s; } st;
-	st->x = 1;  // err -- x is not a member
+	st.x = 1;  // err -- x is not a member
 }
 } -returnCodes error -match regexp -result {.*4: L Error: struct field x not found
 }
@@ -4586,44 +4624,44 @@ hash_1_4()
 		printf("php has %s=>%s\n", kp, vp);
 	}
 
-	sthi{0}->x = 100;
-	sthi{0}->y = 101;
-	sthi{1}->x = 200;
-	sthi{1}->y = 201;
-	sthi{2}->x = 300;
-	sthi{2}->y = 301;
+	sthi{0}.x = 100;
+	sthi{0}.y = 101;
+	sthi{1}.x = 200;
+	sthi{1}.y = 201;
+	sthi{2}.x = 300;
+	sthi{2}.y = 301;
 	foreach (ki=>vst in sthi) {
-		printf("sthi has %d=>(%d,%d)\n", ki, vst->x, vst->y);
+		printf("sthi has %d=>(%d,%d)\n", ki, vst.x, vst.y);
 	}
 
-	sths{"zero"}->x = 100;
-	sths{"zero"}->y = 101;
-	sths{"one"}->x  = 200;
-	sths{"one"}->y  = 201;
-	sths{"two"}->x  = 300;
-	sths{"two"}->y  = 301;
+	sths{"zero"}.x = 100;
+	sths{"zero"}.y = 101;
+	sths{"one"}.x  = 200;
+	sths{"one"}.y  = 201;
+	sths{"two"}.x  = 300;
+	sths{"two"}.y  = 301;
 	foreach (ks=>vst in sths) {
-		printf("sths has %s=>(%d,%d)\n", ks, vst->x, vst->y);
+		printf("sths has %s=>(%d,%d)\n", ks, vst.x, vst.y);
 	}
 
-	sthf{1.1}->x = 100;
-	sthf{1.1}->y = 101;
-	sthf{2.2}->x = 200;
-	sthf{2.2}->y = 201;
-	sthf{3.3}->x = 300;
-	sthf{3.3}->y = 301;
+	sthf{1.1}.x = 100;
+	sthf{1.1}.y = 101;
+	sthf{2.2}.x = 200;
+	sthf{2.2}.y = 201;
+	sthf{3.3}.x = 300;
+	sthf{3.3}.y = 301;
 	foreach (kf=>vst in sthf) {
-		printf("sthf has %3.1f=>(%d,%d)\n", kf, vst->x, vst->y);
+		printf("sthf has %3.1f=>(%d,%d)\n", kf, vst.x, vst.y);
 	}
 
-	sthp{0}->x     = 100;
-	sthp{0}->y     = 101;
-	sthp{1.1}->x   = 200;
-	sthp{1.1}->y   = 201;
-	sthp{"two"}->x = 300;
-	sthp{"two"}->y = 301;
+	sthp{0}.x     = 100;
+	sthp{0}.y     = 101;
+	sthp{1.1}.x   = 200;
+	sthp{1.1}.y   = 201;
+	sthp{"two"}.x = 300;
+	sthp{"two"}.y = 301;
 	foreach (kp=>vst in sthp) {
-		printf("sthp has %s=>(%d,%d)\n", kp, vst->x, vst->y);
+		printf("sthp has %s=>(%d,%d)\n", kp, vst.x, vst.y);
 	}
 
 	printf("end\n");
@@ -4817,23 +4855,23 @@ deep_1_1()
 	 * Test a hash that has a struct that has another hash.
 	 */
 
-	h{0}->a = "h{0}->a";
-	h{0}->b = "h{0}->b";
-	h{0}->h{0}->x = "h{0}->h{0}->x";
-	h{0}->h{0}->y = "h{0}->h{0}->y";
-	h{1}->a = "h{1}->a";
-	h{1}->b = "h{1}->b";
-	h{1}->h{0}->x = "h{1}->h{0}->x";
-	h{1}->h{0}->y = "h{1}->h{0}->y";
-	h{1}->h{2}->x = "h{1}->h{2}->x";
-	h{1}->h{2}->y = "h{1}->h{2}->y";
+	h{0}.a = "h{0}.a";
+	h{0}.b = "h{0}.b";
+	h{0}.h{0}.x = "h{0}.h{0}.x";
+	h{0}.h{0}.y = "h{0}.h{0}.y";
+	h{1}.a = "h{1}.a";
+	h{1}.b = "h{1}.b";
+	h{1}.h{0}.x = "h{1}.h{0}.x";
+	h{1}.h{0}.y = "h{1}.h{0}.y";
+	h{1}.h{2}.x = "h{1}.h{2}.x";
+	h{1}.h{2}.y = "h{1}.h{2}.y";
 
 	foreach (k1=>s in h) {
-		printf("h{%d}->a = %s\n", k1, s->a);
-		printf("h{%d}->b = %s\n", k1, s->b);
-		foreach (k2=>xy in s->h) {
-			printf("h{%d}->h{%d}->x = %s\n", k1, k2, xy->x);
-			printf("h{%d}->h{%d}->y = %s\n", k1, k2, xy->y);
+		printf("h{%d}.a = %s\n", k1, s.a);
+		printf("h{%d}.b = %s\n", k1, s.b);
+		foreach (k2=>xy in s.h) {
+			printf("h{%d}.h{%d}.x = %s\n", k1, k2, xy.x);
+			printf("h{%d}.h{%d}.y = %s\n", k1, k2, xy.y);
 		}
 	}
 
@@ -4842,16 +4880,16 @@ deep_1_1()
 #lang tcl
 deep_1_1
 } -output "start
-h{0}->a = h{0}->a
-h{0}->b = h{0}->b
-h{0}->h{0}->x = h{0}->h{0}->x
-h{0}->h{0}->y = h{0}->h{0}->y
-h{1}->a = h{1}->a
-h{1}->b = h{1}->b
-h{1}->h{0}->x = h{1}->h{0}->x
-h{1}->h{0}->y = h{1}->h{0}->y
-h{1}->h{2}->x = h{1}->h{2}->x
-h{1}->h{2}->y = h{1}->h{2}->y
+h{0}.a = h{0}.a
+h{0}.b = h{0}.b
+h{0}.h{0}.x = h{0}.h{0}.x
+h{0}.h{0}.y = h{0}.h{0}.y
+h{1}.a = h{1}.a
+h{1}.b = h{1}.b
+h{1}.h{0}.x = h{1}.h{0}.x
+h{1}.h{0}.y = h{1}.h{0}.y
+h{1}.h{2}.x = h{1}.h{2}.x
+h{1}.h{2}.y = h{1}.h{2}.y
 end
 "
 
@@ -5787,8 +5825,8 @@ typedef_1_0_nike typedef_1_0_aux() {
   typedef_1_0_nike shoe = "pegasus";
   typedef_1_0_point p;
 
-  p->x = 1;
-  p->y = 2;
+  p.x = 1;
+  p.y = 2;
   puts(p);
   cheese[2] = 1;
   cheese[3] = 2;
@@ -5963,7 +6001,7 @@ typedef_1_4_t typedef_1_4_bars{string};
 void typedef_1_4_foo(typedef_1_4_t f)
 {
 	typedef_1_4_bars{"FOO"} = f;
-	puts("X = ${f->x}");
+	puts("X = ${f.x}");
 }
 
 void typedef_1_4()
@@ -7171,7 +7209,7 @@ typecheck_4_4()
 
 	if (p) puts("bad 6");
 }
-#lang tcl
+typecheck_4_4();
 } -output {}
 
 test typecheck-5.1 {type errors in hash elements} -body {
@@ -9439,20 +9477,20 @@ void initializers_2()
 	foreach (i1 in hs) ++i;
 	unless (i == 3) puts("bad 15");
 
-	unless ((st->i == 1) && (st->j == 2) && (st->k == 3)) puts("bad 16");
-	unless ((st->s eq "s") && (st->as[0] eq "x")) puts("bad 17");
-	unless ((st->as[1] eq "y") && (st->as[2] eq "z")) puts("bad 18");
+	unless ((st.i == 1) && (st.j == 2) && (st.k == 3)) puts("bad 16");
+	unless ((st.s eq "s") && (st.as[0] eq "x")) puts("bad 17");
+	unless ((st.as[1] eq "y") && (st.as[2] eq "z")) puts("bad 18");
 	i = 0;
-	foreach (s in st->as) ++i;
+	foreach (s in st.as) ++i;
 	unless (i == 3) puts("bad 19");
-	unless ((st->hs{3} eq "t") && (st->hs{6} eq "s")) puts("bad 20");
+	unless ((st.hs{3} eq "t") && (st.hs{6} eq "s")) puts("bad 20");
 	i = 0;
-	foreach (i1 in st->hs) ++i;
+	foreach (i1 in st.hs) ++i;
 	unless (i == 2) puts("bad 21");
 
 	if (defined(aempty[0])) puts("bad 30");
-	unless ((h2{1}->i == 2) && (h2{1}->j == 3)) puts("bad 31");
-	unless ((h2{2}->i == 4) && (h2{2}->j == 5)) puts("bad 32");
+	unless ((h2{1}.i == 2) && (h2{1}.j == 3)) puts("bad 31");
+	unless ((h2{2}.i == 4) && (h2{2}.j == 5)) puts("bad 32");
 }
 #lang tcl
 initializers_2
@@ -9596,20 +9634,20 @@ void composite_1()
 	foreach (i1 in hs) ++i;
 	unless (i == 3) puts("bad 15");
 
-	unless ((st->i == 1) && (st->j == 2) && (st->k == 3)) puts("bad 16");
-	unless ((st->s eq "s") && (st->as[0] eq "x")) puts("bad 17");
-	unless ((st->as[1] eq "y") && (st->as[2] eq "z")) puts("bad 18");
+	unless ((st.i == 1) && (st.j == 2) && (st.k == 3)) puts("bad 16");
+	unless ((st.s eq "s") && (st.as[0] eq "x")) puts("bad 17");
+	unless ((st.as[1] eq "y") && (st.as[2] eq "z")) puts("bad 18");
 	i = 0;
-	foreach (s in st->as) ++i;
+	foreach (s in st.as) ++i;
 	unless (i == 3) puts("bad 19");
-	unless ((st->hs{3} eq "t") && (st->hs{6} eq "s")) puts("bad 20");
+	unless ((st.hs{3} eq "t") && (st.hs{6} eq "s")) puts("bad 20");
 	i = 0;
-	foreach (i1 in st->hs) ++i;
+	foreach (i1 in st.hs) ++i;
 	unless (i == 2) puts("bad 21");
 
 	if (defined(aempty[0])) puts("bad 30");
-	unless ((h2{1}->i == 2) && (h2{1}->j == 3)) puts("bad 31");
-	unless ((h2{2}->i == 4) && (h2{2}->j == 5)) puts("bad 32");
+	unless ((h2{1}.i == 2) && (h2{1}.j == 3)) puts("bad 31");
+	unless ((h2{2}.i == 4) && (h2{2}.j == 5)) puts("bad 32");
 }
 #lang tcl
 composite_1
@@ -9645,9 +9683,9 @@ void composite_2()
 	unless ({1=>"one", 2=>"two", 3=>"three"}{2} eq "two") puts("bad 5");
 	unless ({1=>"one", 2=>"two", 3=>"three"}{3} eq "three") puts("bad 6");
 
-	unless (((struct { int i,j,k; }){1,2,3})->i == 1) puts("bad 10");
-	unless (((struct { int i,j,k; }){1,2,3})->j == 2) puts("bad 11");
-	unless (((struct { int i,j,k; }){1,2,3})->k == 3) puts("bad 12");
+	unless (((struct { int i,j,k; }){1,2,3}).i == 1) puts("bad 10");
+	unless (((struct { int i,j,k; }){1,2,3}).j == 2) puts("bad 11");
+	unless (((struct { int i,j,k; }){1,2,3}).k == 3) puts("bad 12");
 
 	unless ({{1,2},{3,4},{4,5}}[1][0] == 3) puts("bad 20");
 }
@@ -10550,7 +10588,7 @@ void class_1_5_main()
 class_1_5_main();
 } -output {}
 
-test class-1.6 {test both "." and "->" as member variable selection} -body {
+test class-1.6 {test "->" as member variable selection} -body {
 #lang L
 class class_1_6
 {
@@ -10561,19 +10599,37 @@ class class_1_6
 }
 void class_1_6_main()
 {
-	/* Check that both . and -> work. */
+	/* Check that -> works ("." is not allowed). */
 
 	class_1_6 o = class_1_6_new();
 
-	unless (class_1_6.cvar  eq "cvar") puts("bad 1.1");
-	unless (class_1_6->cvar eq "cvar") puts("bad 1.2");
-
-	unless (o.ivar  eq "ivar") puts("bad 2.1");
-	unless (o->ivar eq "ivar") puts("bad 2.2");
+	unless (class_1_6->cvar eq "cvar") puts("bad 1.1");
+	unless (o->ivar eq "ivar") puts("bad 2.1");
 
 	class_1_6_delete(o);
 }
+class_1_6_main();
 } -output {}
+
+test class-1.7 {test "." error as member variable selection} -body {
+#lang L
+class class_1_7
+{
+	public	string cvar = "cvar";
+	instance {
+		public	string ivar = "ivar";
+	}
+}
+void class_1_7_main()
+{
+	/* Check that . is caught as an error. */
+
+	class_1_7 o = class_1_7_new();
+
+	unless (o.ivar eq "ivar") puts("bad 2.1");
+}
+} -returnCodes {error} -match regexp -result {.*14: L Error: . illegal on objects; use -> instead
+}
 
 test class-2.1 {check missing class constructor} -body {
 #lang L
@@ -11273,7 +11329,7 @@ class class_4_3_1
 	constructor class_4_3_1_init()
 	{
 		unless (s eq "431") puts("bad c1.1");
-		unless (st->s eq "431") puts("bad c1.2");
+		unless (st.s eq "431") puts("bad c1.2");
 	}
 	destructor class_4_3_1_free(class_4_3_1 self) {}
 }
@@ -11289,7 +11345,7 @@ class class_4_3_2
 	constructor class_4_3_2_init()
 	{
 		unless (s eq "432") puts("bad c2.1");
-		unless (st->s eq "432") puts("bad c2.2");
+		unless (st.s eq "432") puts("bad c2.2");
 	}
 	destructor class_4_3_2_free(class_4_3_2 self) {}
 }
@@ -11299,7 +11355,7 @@ void class_4_3_main()
 	class_4_3_2	o432 = class_4_3_2_init();
 
 	unless (gs eq "g43") puts("bad 1");
-	unless (gst->s eq "g43") puts("bad 2");
+	unless (gst.s eq "g43") puts("bad 2");
 }
 class_4_3_main();
 } -output {}

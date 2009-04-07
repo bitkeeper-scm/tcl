@@ -875,12 +875,12 @@ expr:
 	}
 	| expr "." T_ID
 	{
-		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$ = ast_mkBinOp(L_OP_DOT, $1, NULL, @1.beg, @3.end);
 		$$->u.string = $3;
 	}
 	| expr "->" T_ID
 	{
-		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$ = ast_mkBinOp(L_OP_POINTS, $1, NULL, @1.beg, @3.end);
 		$$->u.string = $3;
 	}
 	| T_TYPE "." T_ID

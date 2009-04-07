@@ -41,8 +41,8 @@ struct values_1_0 {
 
 void values_1_0() {
   struct values_1_0 main_entry;
-  puts(main_entry->clicks = 0);
-  puts(++main_entry->clicks);
+  puts(main_entry.clicks = 0);
+  puts(++main_entry.clicks);
 }
 #lang tcl
 values_1_0
@@ -317,7 +317,7 @@ void
 crash_1_1()
 {
     struct c11xy xys[2];
-    xys[0]->x = 1;
+    xys[0].x = 1;
     printf("%s", xys);
 }
 crash_1_1();
@@ -362,7 +362,7 @@ foo_st_11 bars_st_11{string};
 void a_st_11(foo_st_11 f)
 {
 	bars_st_11{"FOO"} = f;
-	puts("X = ${f->x}");
+	puts("X = ${f.x}");
 }
 
 void struct_typedef_1_1()

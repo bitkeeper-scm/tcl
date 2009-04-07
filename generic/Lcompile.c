@@ -946,7 +946,7 @@ compile_fnParms(VarDecl *decl)
 		new_id   = ast_mkId(name, p->id->node.beg, p->id->node.end);
 		new_decl = ast_mkVarDecl(type, new_id, p->node.beg,
 					 p->node.end);
-		new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR;
+		new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR | DECL_REF;
 		new_decl->node.line = p->node.line;
 
 		sym = sym_lookup(p->id, L_NOWARN);
@@ -1489,7 +1489,8 @@ push_pointer(Expr *expr)
 	} else if (expr->op == L_OP_HASH_INDEX) {
 		L_errf(expr, "hash keys are not yet supported by pointers");
 	} else if ((expr->op == L_OP_ARRAY_INDEX) ||
-		   (expr->op == L_OP_STRUCT_INDEX)) {
+		   (expr->op == L_OP_DOT) ||
+		   (expr->op == L_OP_POINTS)) {
 		unless (expr->a->kind == L_EXPR_ID) {
 			L_errf(expr, "more than one index is unsupported");
 		}
@@ -1688,7 +1689,8 @@ compile_binOp(Expr *expr, Expr_f flags)
 		return (1);
 	    case L_OP_ARRAY_INDEX:
 	    case L_OP_HASH_INDEX:
-	    case L_OP_STRUCT_INDEX:
+	    case L_OP_DOT:
+	    case L_OP_POINTS:
 		return (compile_idxOp(expr, flags));
 	    case L_OP_CLASS_INDEX:
 		return (compile_clsDeref(expr, flags));
@@ -2541,7 +2543,7 @@ struct_lookupMember(Type *t, Expr *idx, int *offset)
 {
 	VarDecl *m;
 
-	ASSERT(idx->op == L_OP_STRUCT_INDEX);
+	ASSERT((idx->op == L_OP_DOT) || (idx->op == L_OP_POINTS));
 
 	unless (t->u.struc.members) {
 		L_errf(idx, "incomplete struct type %s", t->u.struc.tag);
@@ -2575,7 +2577,8 @@ push_index(Expr *expr)
 
 	ASSERT(type);
 	switch (expr->op) {
-	    case L_OP_STRUCT_INDEX:
+	    case L_OP_DOT:
+	    case L_OP_POINTS:
 		unless (isstruct(expr->a)) {
 			L_errf(expr, "not a struct");
 			goto out;
@@ -2633,7 +2636,7 @@ push_index(Expr *expr)
 
 /*
  * Compile a hash/array/struct/class or string index.  These are the
- * L_OP_HASH_INDEX, L_OP_ARRAY_INDEX, and L_OP_STRUCT_INDEX nodes.
+ * L_OP_HASH_INDEX, L_OP_ARRAY_INDEX, L_OP_DOT, and L_OP_POINTS nodes.
  *
  * The resulting stack depends on the flags which specify whether the
  * indexed element's value, pointer, or both (and in what order) are
@@ -2650,10 +2653,31 @@ compile_idxOp(Expr *expr, Expr_f flags)
 	compile_expr(expr->a, L_PUSH_PTR | L_PUSH_VAL | (flags & L_LVALUE));
 
 	/*
+	 * Require "->" for all objects and call-by-reference structures.
+	 * Require "." for all call-by-value and non-parameter structures.
+	 */
+	if (isclass(expr->a)) {
+		unless (expr->op == L_OP_POINTS) {
+			L_errf(expr, ". illegal on objects; use -> instead");
+		}
+	} else if (expr->a->sym && (expr->a->sym->decl->flags & DECL_REF)) {
+		if (expr->op == L_OP_DOT) {
+			L_errf(expr, ". illegal on call-by-reference "
+			       "parms; use -> instead");
+		}
+	} else {
+		if (expr->op == L_OP_POINTS) {
+			L_errf(expr, "-> illegal except on call-by-reference "
+			       "parms; use . instead");
+		}
+	}
+
+	/*
 	 * Handle obj->var.  We check here because, in general, we
 	 * don't know until now whether expr->a has type class.
 	 */
-	if (isclass(expr->a) && (expr->op == L_OP_STRUCT_INDEX)) {
+	if (isclass(expr->a) && ((expr->op == L_OP_DOT) ||
+				 (expr->op == L_OP_POINTS))) {
 		return (compile_clsInstDeref(expr, flags));
 	}
 
@@ -3659,26 +3683,29 @@ ast_free(Ast *ast_list)
 		Ast	*node = ast_list;
 		ast_list = ast_list->next;
 		switch (node->type) {
-		    case L_NODE_EXPR:
-			switch (((Expr *)node)->kind) {
+		    case L_NODE_EXPR: {
+			Expr *e = (Expr *)node;
+			switch (e->kind) {
 			    case L_EXPR_CONST:
-				if (((Expr *)node)->type == L_string) {
-					ckfree(((Expr *)node)->u.string);
+				if (e->type == L_string) {
+					ckfree(e->u.string);
 				}
 				break;
 			    case L_EXPR_BINOP:
-				if (((Expr *)node)->op == L_OP_STRUCT_INDEX) {
-					ckfree(((Expr *)node)->u.string);
+				if ((e->op == L_OP_DOT) ||
+				    (e->op == L_OP_POINTS)) {
+					ckfree(e->u.string);
 				}
 				break;
 			    case L_EXPR_ID:
 			    case L_EXPR_RE:
-				ckfree(((Expr *)node)->u.string);
+				ckfree(e->u.string);
 				break;
 			    default:
 				break;
 			}
 			break;
+		    }
 		    case L_NODE_VAR_DECL:
 			ckfree(((VarDecl *)node)->tclprefix);
 			break;

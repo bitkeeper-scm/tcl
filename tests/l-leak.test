@@ -354,8 +354,8 @@ test leak-4.1 {leaks in structs} -body {
 	struct leak_4_1_js j;
 	end = getbytes();
 	for(i=0; i<5;i++) {
-	    j->x=i;
-	    j->y=2*j->x+i;
+	    j.x=i;
+	    j.y=2*j.x+i;
 	    tmp=end;
 	    end = getbytes();
 	}
@@ -372,9 +372,9 @@ test leak-4.2 {leaks in structs} -body {
 	struct leak_4_2_js j;
 	end = getbytes();
 	for(i=0; i<5;i++) {
-	    j->x=i;
-	    j->y[0]=2*j->x+i;
-	    j->y[1]=2*j->y[0]+i;
+	    j.x=i;
+	    j.y[0]=2*j.x+i;
+	    j.y[1]=2*j.y[0]+i;
 	    tmp=end;
 	    end = getbytes();
 	}
@@ -391,10 +391,10 @@ test leak-4.3 {leaks in structs} -body {
 	struct leak_4_3_js j[2];
 	end = getbytes();
 	for(i=0; i<5;i++) {
-	    j[0]->x=i;
-	    j[0]->y=2*j[0]->x+i;
-	    j[1]->x=j[0]->x+j[0]->y;
-	    j[1]->y=2*j[1]->x+i;
+	    j[0].x=i;
+	    j[0].y=2*j[0].x+i;
+	    j[1].x=j[0].x+j[0].y;
+	    j[1].y=2*j[1].x+i;
 	    tmp=end;
 	    end = getbytes();
 	}
@@ -412,17 +412,17 @@ test leak-5.1 {leaks in deep diving} -body {
 	int tmp, end, i;
 	end = getbytes();
 	for(i=0; i<5;i++) {
-	    j[0]->h{"foo"}= j[1]->a[1];
-	    j[1]->h{"foo"}= "moo";
-	    j[0]->a[0]=j[1]->h;
-	    j[0]->a[1]=j[0]->h{"foo"};
-	    j[1]->a[0]=j[0]->h{"foo"};
-	    j[1]->a[1]=j[1]->a[0];
+	    j[0].h{"foo"}= j[1].a[1];
+	    j[1].h{"foo"}= "moo";
+	    j[0].a[0]=j[1].h;
+	    j[0].a[1]=j[0].h{"foo"};
+	    j[1].a[0]=j[0].h{"foo"};
+	    j[1].a[1]=j[1].a[0];
 	    tmp=end;
 	    end = getbytes();
 	}
-	h = (hash)j[0]->a[0];
-	puts(list(end-tmp, h{"foo"}, j[1]->h{"foo"}));
+	h = (hash)j[0].a[0];
+	puts(list(end-tmp, h{"foo"}, j[1].h{"foo"}));
     }
     leak_5_1();
 } -constraints memory -output "0 moo moo\n"
