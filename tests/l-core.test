@@ -133,6 +133,23 @@ void scan_1_4()
 }
 } -returnCodes {error} -match regexp -result {.*missing string terminator '\n}
 
+test scan-1.4.2 {test detection of run-away string 5} -body {
+#lang L
+void scan_1_4_2()
+{
+	string	s = `echo this is bad
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator `\n}
+
+test scan-1.4.3 {test detection of run-away string 5} -body {
+#lang L
+void scan_1_4_3()
+{
+	string	s = `echo this is bad
+>foo`;
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator `\n}
+
 test scan-1.5 {check escapes in single-quoted strings} -body {
 #lang L
 void scan_1_5()
@@ -422,6 +439,57 @@ END ;
 }
 scan_1_15();
 } -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test cmdsubst-1 {test command substitution} -body {
+#lang L
+void cmdsubst_1()
+{
+	string	s1, s2;
+
+	`echo testing1 >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing1") puts("bad 1.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing2";
+	`echo ${s1} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing2") puts("bad 2.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing3";
+	s2 = "xyz";
+	`echo ${s1}${s2} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing3xyz") puts("bad 3.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing4";
+	s2 = "pdq";
+	`echo ${s1}-${s2} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing4-pdq") puts("bad 4.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing";
+	s2 = "xyz";
+	`echo ${s1}${5}${s2} ${"zyx"} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing5xyz zyx") puts("bad 5.1");
+	`rm -f foo.txt`;
+
+	/*
+	 * Check escapes.  The \r\n\t should get expanded but then
+	 * ignored when the compiler splits the command string.
+	 */
+
+	`echo \r\n\t\a$x >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "a$x") puts("bad 10.1");
+	`rm -f foo.txt`;
+}
+cmdsubst_1();
+} -output {}
 
 test proc-1.0 {Test L function definition.} -body {
 #lang L

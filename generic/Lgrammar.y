@@ -92,7 +92,7 @@ extern int	L_lex (void);
 %token T_ARROW "=>"
 %token T_RIGHT_INTERPOL T_PLUSPLUS T_MINUSMINUS
 %token <s> T_ID T_STR_LITERAL T_LEFT_INTERPOL T_RE T_SUBST T_RE_MODIFIER
-%token <s> T_PATTERN T_KEYWORD
+%token <s> T_STR_BACKTICK T_PATTERN T_KEYWORD
 %token <i> T_INT_LITERAL
 %token <f> T_FLOAT_LITERAL
 %token <Typename> T_TYPE
@@ -133,7 +133,7 @@ extern int	L_lex (void);
 %type <Loop> iteration_stmt
 %type <ForEach> foreach_stmt
 %type <Expr> expr expression_stmt argument_expr_list opt_arg re_or_string
-%type <Expr> id id_list string_literal dotted_id
+%type <Expr> id id_list string_literal cmdsubst_literal dotted_id
 %type <Expr> regexp_literal subst_literal interpolated_expr
 %type <Expr> list list_element
 %type <VarDecl> parameter_list parameter_decl_list parameter_decl
@@ -759,6 +759,7 @@ expr:
 	}
 	| id
 	| string_literal
+	| cmdsubst_literal
 	| T_INT_LITERAL
 	{
 		$$ = ast_mkConst(L_int, @1.beg, @1.end);
@@ -1230,6 +1231,19 @@ string_literal:
 		right->u.string = $2;
 		$$ = ast_mkBinOp(L_OP_INTERP_STRING, $1, right,
 				 @1.beg, @2.end);
+	}
+	;
+
+cmdsubst_literal:
+	  T_STR_BACKTICK
+	{
+		$$ = ast_mkUnOp(L_OP_CMDSUBST, NULL, @1.beg, @1.end);
+		$$->u.string = $1;
+	}
+	| interpolated_expr T_STR_BACKTICK
+	{
+		$$ = ast_mkUnOp(L_OP_CMDSUBST, $1, @1.beg, @2.end);
+		$$->u.string = $2;
 	}
 	;
 

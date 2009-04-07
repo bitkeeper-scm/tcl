@@ -1583,6 +1583,24 @@ compile_unOp(Expr *expr)
 				L->frame->envPtr);
 		expr->type = L_poly;
 		break;
+	    case L_OP_CMDSUBST:
+		TclEmitOpcode(INST_EXPAND_START, L->frame->envPtr);
+		push_str("::exec");
+		if (expr->a) {
+			compile_expr(expr->a, L_PUSH_VAL);
+			push_str(expr->u.string);
+			TclEmitInstInt1(INST_CONCAT1, 2, L->frame->envPtr);
+		} else {
+			push_str(expr->u.string);
+		}
+		/* ::exec wants an argv list, so split the cmd string. */
+		TclEmitInstInt1(INST_L_SPLIT, 1, L->frame->envPtr);
+		TclEmitInstInt4(INST_EXPAND_STKTOP,
+				L->frame->envPtr->currStackDepth,
+				L->frame->envPtr);
+		emit_invoke_expanded();
+		expr->type = L_string;
+		break;
 	    default:
 		L_bomb("Unknown unary operator %d", expr->op);
 		break;

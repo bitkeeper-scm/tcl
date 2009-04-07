@@ -8,6 +8,7 @@
 %x comment
 %x str_double
 %x str_single
+%x str_backtick
 %x interpol
 %x include
 %x here_doc_interp
@@ -351,6 +352,7 @@ include_pop()
 	[ \t\n\r\f]+
 	\"		yy_push_state(str_double); STRBUF_START(L->token_off);
 	\'		yy_push_state(str_single); STRBUF_START(L->token_off);
+	\`		yy_push_state(str_backtick); STRBUF_START(L->token_off);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
 		yy_push_state(re_modifier);
@@ -514,6 +516,32 @@ include_pop()
 				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.end);
 				return T_STR_LITERAL;
+			}
+}
+
+<str_backtick>{
+	\\r		STRBUF_ADD("\r", 1);
+	\\n		STRBUF_ADD("\n", 1);
+	\\t		STRBUF_ADD("\t", 1);
+	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
+	"$"		STRBUF_ADD("$", 1);
+	\n		{
+				L_err("%s:%d: missing string terminator `",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
+			}
+	[^\\`$\n]+	STRBUF_ADD(yytext, yyleng);
+	"${"		{
+				yy_push_state(interpol);
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.beg);
+				return T_LEFT_INTERPOL;
+			}
+	`		{
+				yy_pop_state();
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.end);
+				return T_STR_BACKTICK;
 			}
 }
 
