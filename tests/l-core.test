@@ -1508,7 +1508,11 @@ void syntax_1_0() {
         // single-line comments are 
         puts("working"); //see?
         //////cruftilioucious 
+	# this too
+# and this
 }
+# and this
+
 #lang tcl
 syntax_1_0
 } -output "working\n" 

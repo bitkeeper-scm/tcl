@@ -348,7 +348,7 @@ include_pop()
 				undo_yy_user_action();
 				BEGIN(include);
 			}
-	"//".*("\r"|"\n"|"\r\n")
+	("//"|#).*("\r"|"\n"|"\r\n")
 	[ \t\n\r\f]+
 	\"		yy_push_state(str_double); STRBUF_START(L->token_off);
 	\'		yy_push_state(str_single); STRBUF_START(L->token_off);
