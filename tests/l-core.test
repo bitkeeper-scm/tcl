@@ -3008,13 +3008,13 @@ void end_8()
 	string	a[];
 
 	a = { "1", "2", "3", "4", "5", "6" };
-	unless (join(a[0..END]) eq "1 2 3 4 5 6") puts("bad 1.1");
-	unless (join(a[1..END]) eq "2 3 4 5 6") puts("bad 1.2");
-	unless (join(a[2..END]) eq "3 4 5 6") puts("bad 1.3");
-	unless (join(a[2..END-1]) eq "3 4 5") puts("bad 1.4");
-	unless (join(a[2..END-2]) eq "3 4") puts("bad 1.5");
-	unless (join(a[END-1..END]) eq "5 6") puts("bad 1.6");
-	unless (join(a[END-1..END-1]) eq "5") puts("bad 1.7");
+	unless (join(" ", a[0..END]) eq "1 2 3 4 5 6") puts("bad 1.1");
+	unless (join(" ", a[1..END]) eq "2 3 4 5 6") puts("bad 1.2");
+	unless (join(" ", a[2..END]) eq "3 4 5 6") puts("bad 1.3");
+	unless (join(" ", a[2..END-1]) eq "3 4 5") puts("bad 1.4");
+	unless (join(" ", a[2..END-2]) eq "3 4") puts("bad 1.5");
+	unless (join(" ", a[END-1..END]) eq "5 6") puts("bad 1.6");
+	unless (join(" ", a[END-1..END-1]) eq "5") puts("bad 1.7");
 }
 end_8();
 } -output {}
@@ -6384,35 +6384,6 @@ defined_1_10();
 } -returnCodes error -match regexp -result {.*4: L Error: cannot take reference of argument
 }
 
-test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
-#lang L
-void lib_1_0() {
-	puts("don't overwrite");
-	setenv("PATH", "nil", 0);
-	if (getenv("PATH") ne "nil") {
-		puts("worked");
-	}
-	puts("overwrite");
-	setenv("PATH", "nil");
-	if (getenv("PATH") eq "nil") {
-		puts("worked");
-	}
-	puts("unset");
-	unsetenv("PATH");
-	if (getenv("PATH") eq "") {
-		puts("worked");
-	}
-}
-#lang tcl
-lib_1_0
-} -output {don't overwrite
-worked
-overwrite
-worked
-unset
-worked
-}
-
 test toplevel-1.0 {Toplevel code in L} -body {
 #lang L
 int toplevel_1_0_i = 2;
@@ -8463,19 +8434,19 @@ split_1_0()
 
 	s = "This is not a test. This is really not a test.";
 	r = split(s);
-	unless (s eq join(r, " ")) puts("bad 2.1");
+	unless (s eq join(" ", r)) puts("bad 2.1");
 
 	s = " This is not a test. This is really not a test.";
 	r = split(s);
-	unless (s eq join(r, " ")) puts("bad 2.2");
+	unless (s eq join(" ", r)) puts("bad 2.2");
 
 	s = "This:is:not:a:test.:This:is:really:not:a:test.";
 	r = split(s, ":");
-	unless (s eq join(r, ":")) puts("bad 2.3");
+	unless (s eq join(":", r)) puts("bad 2.3");
 
 	s = ":This:is:not:a:test.:This:is:really:not:a:test.";
 	r = split(s, ":");
-	unless (s eq join(r, ":")) puts("bad 2.4");
+	unless (s eq join(":", r)) puts("bad 2.4");
 
 	/*
 	 * A split on ' ' should split on white space but return
@@ -10261,12 +10232,12 @@ void builtin_7()
 	string	s = "x";
 	poly	p = "p";
 
-	unless (join(as) eq "a b c") puts("bad 1");
-	unless (join(as,s) eq "axbxc") puts("bad 2");
-	unless (join(as,"xyz") eq "axyzbxyzc") puts("bad 3");
-	unless (join(as,p) eq "apbpc") puts("bad 4");
+	unless (join(" ", as) eq "a b c") puts("bad 1");
+	unless (join(s, as) eq "axbxc") puts("bad 2");
+	unless (join("xyz", as) eq "axyzbxyzc") puts("bad 3");
+	unless (join(p, as) eq "apbpc") puts("bad 4");
 	unless (join(p,p) eq "p") puts("bad 5");
-	unless (join(ai) eq "1 2 3") puts("bad 6");
+	unless (join(" ", ai) eq "1 2 3") puts("bad 6");
 }
 builtin_7();
 } -output {}
@@ -10279,19 +10250,19 @@ void builtin_8()
 
 	join();
 	join(ai,"s1","s2");
-	join("s", ai);
+	join(ai, "s");
 	join(1);
 	join(1.1);
 	join("s");
-	join(ai, ai);
+	join("s", 1);
 }
 } -returnCodes {error} -match regexp -result {.*5: L Error: incorrect # args to join
 .*6: L Error: incorrect # args to join
-.*7: L Error: first arg to join not an array or list
-.*8: L Error: first arg to join not an array or list
-.*9: L Error: first arg to join not an array or list
-.*10: L Error: first arg to join not an array or list
-.*11: L Error: second arg to join not a string
+.*7: L Error: first arg to join not a string
+.*8: L Error: incorrect # args to join
+.*9: L Error: incorrect # args to join
+.*10: L Error: incorrect # args to join
+.*11: L Error: second arg to join not an array or list
 }
 
 test builtin-9 {check re-declaration of built-ins} -body {
@@ -10327,7 +10298,7 @@ void builtin_10()
 		length(h);
 		split("x y z");
 		sort({3,2,1});
-		join({"a","b"});
+		join(" ", {"a","b"});
 	}
 	unless (length(a) == n) puts("bad 1");
 }

@@ -100,7 +100,7 @@ extern int	L_lex (void);
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
-%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND
+%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND T_UNUSED
 
 /*
  * This follows the C operator-precedence rules, from lowest to
@@ -536,11 +536,24 @@ parameter_decl:
 		$$ = $2;
 		$$->node.beg = @1.beg;
 	}
+	| T_UNUSED type_specifier declarator
+	{
+		L_set_declBaseType($3, $2);
+		$$ = $3;
+		$$->flags |= DECL_UNUSED;
+		$$->node.beg = @1.beg;
+	}
 	| T_ELLIPSIS id
 	{
 		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @2.end);
 		$$->flags |= DECL_REST_ARG;
+	}
+	| T_UNUSED T_ELLIPSIS id
+	{
+		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
+		$$ = ast_mkVarDecl(t, $3, @1.beg, @3.end);
+		$$->flags |= DECL_REST_ARG | DECL_UNUSED;
 	}
 	;
 

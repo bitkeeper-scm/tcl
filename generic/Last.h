@@ -349,8 +349,9 @@ typedef enum {
 	DECL_PRIVATE		= 0x04000, // decl has private qualifier
 	DECL_PUBLIC		= 0x08000, // decl has public qualifier
 	DECL_REF		= 0x10000, // decl has & qualifier
-	FN_PROTO_ONLY		= 0x20000, // compile fn proto only
-	FN_PROTO_AND_BODY	= 0x40000, // compile entire fn decl
+	DECL_UNUSED		= 0x20000, // decl has _unused qualifier
+	FN_PROTO_ONLY		= 0x40000, // compile fn proto only
+	FN_PROTO_AND_BODY	= 0x80000, // compile entire fn decl
 } Decl_f;
 
 struct VarDecl {

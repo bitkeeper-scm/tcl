@@ -946,7 +946,7 @@ compile_fnParms(VarDecl *decl)
 		new_id   = ast_mkId(name, p->id->node.beg, p->id->node.end);
 		new_decl = ast_mkVarDecl(type, new_id, p->node.beg,
 					 p->node.end);
-		new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR | DECL_REF;
+		new_decl->flags = SCOPE_LOCAL | DECL_LOCAL_VAR | p->flags;
 		new_decl->node.line = p->node.line;
 
 		sym = sym_lookup(p->id, L_NOWARN);
@@ -1131,25 +1131,26 @@ compile_join(Expr *expr)
 {
 	int	n;
 	Expr	*array;
-	Expr	*sep = NULL;
+	Expr	*sep;
 
 	expr->type = L_string;
 
 	n = compile_exprs(expr->b, L_PUSH_VAL);
-	unless ((n == 1) || (n == 2)) {
+	unless (n == 2) {
 		L_errf(expr, "incorrect # args to join");
 		return (0);  // stack effect
 	}
-	array = expr->b;
-	if (n == 2) sep = expr->b->next;
+	sep   = expr->b;
+	array = expr->b->next;
+	unless (isstring(sep) || ispoly(sep)) {
+		L_errf(expr, "first arg to join not a string");
+		return (0);  // stack effect
+	}
 	unless (isarray(array) || islist(array) || ispoly(array)) {
-		L_errf(expr, "first arg to join not an array or list");
+		L_errf(expr, "second arg to join not an array or list");
 		return (0);  // stack effect
 	}
-	unless (!sep || (isstring(sep) || ispoly(sep))) {
-		L_errf(expr, "second arg to join not a string");
-		return (0);  // stack effect
-	}
+	TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
 	push_str("::join");
 	TclEmitInstInt1(INST_ROT, -n, L->frame->envPtr);
 	emit_invoke(n+1);
@@ -3534,7 +3535,8 @@ frame_pop(void)
 	     hPtr != NULL;
 	     hPtr = Tcl_NextHashEntry(&hSearch)) {
 		sym = (Sym *)Tcl_GetHashValue(hPtr);
-		unless (sym->used_p || !(sym->kind & L_SYM_LVAR)) {
+		unless (sym->used_p || !(sym->kind & L_SYM_LVAR) ||
+			(sym->decl->flags & DECL_UNUSED)) {
 			L_warnf(sym->decl, "%s unused", sym->name);
 		}
 		unless (L->frame->flags & KEEPSYMS) {

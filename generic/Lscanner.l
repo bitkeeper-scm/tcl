@@ -284,6 +284,7 @@ include_pop()
 	"destructor"	return T_DESTRUCTOR;
 	"expand"	return T_EXPAND;
 	"in"		return T_IN;
+	"_unused"	return T_UNUSED;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;
 	"ne"		return T_NE;
