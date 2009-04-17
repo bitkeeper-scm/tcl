@@ -84,6 +84,7 @@ private int	L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr,
 			       void *ast, int opts);
 private void	ast_free(Ast *ast_list);
 private Expr	*ast_mkInitializer(VarDecl *decl);
+private int	compile_assert(Expr *expr);
 private void	compile_assign(Expr *expr);
 private void	compile_assignComposite(Expr *expr);
 private void	compile_assignFromStack(Expr *lhs, Expr *rhs, Expr *expr);
@@ -135,6 +136,7 @@ private Frame	*frame_outer(Frame *frame);
 private void	frame_pop(void);
 private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr,
 			   void *block, Frame_f flags);
+private char	*get_text(Expr *expr);
 private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private void	list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg);
@@ -171,6 +173,7 @@ static struct {
 	char	*name;
 	int	(*fn)(Expr *);
 } builtins[] = {
+	{ "assert",	compile_assert },
 	{ "join",	compile_join },
 	{ "keys",	compile_keys },
 	{ "length",	compile_length },
@@ -664,7 +667,11 @@ compile_varDecl(VarDecl *decl)
 	}
 
 	unless (decl->initializer) {
-		decl->initializer = ast_mkInitializer(decl);
+		decl->initializer = ast_mkBinOp(L_OP_EQUALS,
+						decl->id,
+						ast_mkInitializer(decl),
+						decl->node.beg,
+						decl->node.end);
 	}
 	compile_expr(decl->initializer, L_DISCARD);
 	track_cmd(start_off, decl);
@@ -679,20 +686,32 @@ compile_varDecls(VarDecl *decls)
 }
 
 /*
- * Make an assignment node to initialize a variable with an initial
- * "blank" value appropriate for its type.
+ * Make an expression node with an initial "blank" value appropriate
+ * for the given decl's type.
  */
 private Expr *
 ast_mkInitializer(VarDecl *decl)
 {
-	Expr	*assign, *val;
+	Expr	*e;
+	Expr	*val = NULL;
+	VarDecl	*m;
 
 	switch (decl->type->kind) {
 	    case L_ARRAY:
-	    case L_STRUCT:
 	    case L_HASH:
 		val = ast_mkBinOp(L_OP_LIST, NULL, NULL, decl->node.beg,
 				  decl->node.end);
+		break;
+	    case L_STRUCT:
+		for (m = decl->type->u.struc.members; m; m = m->next) {
+			e = ast_mkBinOp(L_OP_LIST, ast_mkInitializer(m), NULL,
+					decl->node.beg, decl->node.end);
+			APPEND_OR_SET(Expr, b, val, e);
+		}
+		unless (val) {  // empty struct
+			val = ast_mkBinOp(L_OP_LIST, NULL, NULL,
+					  decl->node.beg, decl->node.end);
+		}
 		break;
 	    case L_INT:
 		val = ast_mkConst(L_int, decl->node.beg, decl->node.end);
@@ -707,9 +726,7 @@ ast_mkInitializer(VarDecl *decl)
 		val->u.string = ckstrdup("");
 		break;
 	}
-	assign = ast_mkBinOp(L_OP_EQUALS, decl->id, val, decl->node.beg,
-			     decl->node.end);
-	return (assign);
+	return (val);
 }
 
 private void
@@ -780,13 +797,20 @@ compile_return(Stmt *stmt)
 	VarDecl	*decl;
 	Type	*ret_type;
 
+	/* Handle return from the top level. */
 	unless (L->enclosing_func) {
-		L_errf(stmt, "return from global scope illegal");
+		if (stmt->u.expr) {
+			compile_expr(stmt->u.expr, L_PUSH_VAL);
+		} else {
+			push_str("");
+		}
+		TclEmitOpcode(INST_DONE, L->frame->envPtr);
 		return;
 	}
 
 	decl     = L->enclosing_func->decl;
 	ret_type = decl->type->base_type;
+
 	if (isvoidtype(ret_type) && (stmt->u.expr)) {
 		L_errf(stmt, "void function cannot return value");
 	} else if (stmt->u.expr) {
@@ -1157,6 +1181,47 @@ compile_join(Expr *expr)
 	return (1);  // stack effect
 }
 
+private int
+compile_assert(Expr *expr)
+{
+	Jmp	*jmp;
+	char	*cond_txt;
+
+	unless (expr->b && !expr->b->next) {
+		L_errf(expr, "incorrect # args to assert");
+		return (0);  // stack effect
+	}
+	compile_condition(expr->b);
+	jmp = emit_jmp(INST_JUMP_TRUE4);
+	cond_txt = get_text(expr->b);
+	push_str("die");
+	push_str("ASSERTION FAILED %s:%d: %s\n", expr->node.file,
+		 expr->node.line, cond_txt);
+	emit_invoke(2);
+	ckfree(cond_txt);
+	fixup_jmps(jmp);
+	expr->type = L_void;
+	return (0);  // stack effect
+}
+
+/*
+ * Return a copy of the source text for the given expression.  Caller
+ * must free.
+ */
+private char *
+get_text(Expr *expr)
+{
+	int	beg = expr->node.beg;
+	int	end = expr->node.end;
+	int	len = end - beg;
+	char	*s;
+
+	s = ckalloc(len + 1);
+	strncpy(s, Tcl_GetString(L->script)+beg, len);
+	s[len] = 0;
+	return (s);
+}
+
 /*
  * Emit code to compute the value of the given expression.  The flags
  * say in what form the generated code should produce the value.  The
@@ -1399,11 +1464,7 @@ compile_var(Expr *expr, Expr_f flags)
 
 	ASSERT(expr->op == L_EXPR_ID);
 
-	/*
-	 * Special case for the pre-defined identifier END which gets
-	 * the last index of the most recent string or array/list
-	 * being indexed.
-	 */
+	/* Check for pre-defined identifiers first. */
 	if (!strcmp(expr->u.string, "END")) {
 		if (L->idx_nesting) {
 			TclEmitOpcode(INST_L_READ_SIZE, L->frame->envPtr);
@@ -1417,6 +1478,14 @@ compile_var(Expr *expr, Expr_f flags)
 		TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
 		n = 1;
 		expr->type = L_poly;
+	} else if (!strcmp(expr->u.string, "__FILE__")) {
+		push_str(expr->node.file);
+		n = 1;
+		expr->type = L_string;
+	} else if (!strcmp(expr->u.string, "__LINE__")) {
+		push_str("%d", expr->node.line);
+		n = 1;
+		expr->type = L_int;
 	} else if ((sym = sym_lookup(expr, flags))) {
 		if (flags & L_PUSH_VAL) {
 			emit_load_scalar(sym->idx);
@@ -1621,10 +1690,18 @@ compile_binOp(Expr *expr, Expr_f flags)
 
 	switch (expr->op) {
 	    case L_OP_EQUALS:
+		compile_assign(expr);
+		expr->type = expr->a->type;
+		return (1);
 	    case L_OP_EQPLUS:
 	    case L_OP_EQMINUS:
 	    case L_OP_EQSTAR:
 	    case L_OP_EQSLASH:
+		compile_assign(expr);
+		L_typeck_expect(L_INT|L_FLOAT, expr->a,
+				"in arithmetic assignment");
+		expr->type = expr->a->type;
+		return (1);
 	    case L_OP_EQPERC:
 	    case L_OP_EQBITAND:
 	    case L_OP_EQBITOR:
@@ -1632,7 +1709,13 @@ compile_binOp(Expr *expr, Expr_f flags)
 	    case L_OP_EQLSHIFT:
 	    case L_OP_EQRSHIFT:
 		compile_assign(expr);
-		expr->type = expr->a->type; // type of assignment is type of lhs
+		L_typeck_expect(L_INT, expr->a, "in arithmetic assignment");
+		expr->type = expr->a->type;
+		return (1);
+	    case L_OP_EQDOT:
+		compile_assign(expr);
+		L_typeck_expect(L_STRING, expr->a, "in .=");
+		expr->type = expr->a->type;
 		return (1);
 	    case L_OP_ANDAND:
 	    case L_OP_OROR:
@@ -1788,8 +1871,8 @@ compile_binOp(Expr *expr, Expr_f flags)
 	    case L_OP_CONCAT:
 		compile_expr(expr->a, L_PUSH_VAL);
 		compile_expr(expr->b, L_PUSH_VAL);
-		L_typeck_expect(L_STRING, expr->a, "in . operator");
-		L_typeck_expect(L_STRING, expr->b, "in . operator");
+		L_typeck_expect(L_STRING, expr->a, "in lhs of . operator");
+		L_typeck_expect(L_STRING, expr->b, "in rhs of . operator");
 		TclEmitInstInt1(INST_CONCAT1, 2, L->frame->envPtr);
 		expr->type = L_string;
 		return (1);
@@ -2940,10 +3023,14 @@ compile_assignComposite(Expr *expr)
 
 	unless (expr->op == L_OP_EQUALS) {
 		L_errf(expr, "arithmetic assignment illegal");
+		lhs->type = L_poly;
+		rhs->type = L_poly;
 		return;
 	}
 	unless (rhs->op == L_OP_LIST) {
 		L_errf(expr, "right-hand side must be list {}");
+		lhs->type = L_poly;
+		rhs->type = L_poly;
 		return;
 	}
 	ASSERT(lhs->op == L_OP_LIST);
@@ -3042,7 +3129,8 @@ push_regexpModifiers(Expr *regexp)
 private void
 emit_instrForLOp(Expr *expr)
 {
-	int	op = 0;
+	int	arg = 0;
+	int	op  = 0;
 
 	switch (expr->op) {
 	    case L_OP_STR_EQ:
@@ -3122,10 +3210,24 @@ emit_instrForLOp(Expr *expr)
 		op = INST_BITNOT;
 		break;
 	    default:
+		break;
+	}
+	if (op) {
+		TclEmitOpcode(op, L->frame->envPtr);
+		return;
+	}
+	switch (expr->op) {
+	    case L_OP_EQDOT:
+		op  = INST_CONCAT1;
+		arg = 2;
+		break;
+	    default:
 		L_bomb("Unable to map operator %d to an instruction", expr->op);
 		break;
 	}
-	TclEmitOpcode(op, L->frame->envPtr);
+	if (op) {
+		TclEmitInstInt1(op, arg, L->frame->envPtr);
+	}
 }
 
 private void

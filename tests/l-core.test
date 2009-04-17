@@ -105,7 +105,7 @@ void scan_1_1()
 	and should be an error";
 	puts(s);
 }
-} -returnCodes {error} -match regexp -result {.*missing string terminator "\n}
+} -returnCodes {error} -match regexp -result {.*missing string terminator \"\n}
 
 test scan-1.2 {test detection of run-away string 2} -body {
 #lang L
@@ -113,7 +113,8 @@ void scan_1_2()
 {
 	string	s = "This is bad
 }
-} -returnCodes {error} -match regexp -result {.*missing string terminator "\n}
+#"
+} -returnCodes {error} -match regexp -result {.*missing string terminator \"\n}
 
 test scan-1.3 {test detection of run-away string 3} -body {
 #lang L
@@ -123,7 +124,7 @@ void scan_1_3()
 	and should be an error';
 	puts(s);
 }
-} -returnCodes {error} -match regexp -result {.*missing string terminator '\n}
+} -returnCodes {error} -match regexp -result {.*missing string terminator \'\n}
 
 test scan-1.4 {test detection of run-away string 4} -body {
 #lang L
@@ -131,7 +132,8 @@ void scan_1_4()
 {
 	string	s = 'This is bad
 }
-} -returnCodes {error} -match regexp -result {.*missing string terminator '\n}
+#'
+} -returnCodes {error} -match regexp -result {.*missing string terminator \'\n}
 
 test scan-1.4.2 {test detection of run-away string 5} -body {
 #lang L
@@ -167,6 +169,14 @@ void scan_1_5()
 	s = '\\\'';
 	unless (length(s) == 2) puts("bad 2.0");
 	unless ((s[0] eq "\\") && (s[1] eq "'")) puts("bad 2.1");
+
+	/*
+	 * The following test doesn't work unless run from the
+	 * command line.  Perhaps tcltest is munging the string.  ?
+	s = 'line\
+break';
+	unless (s eq "line\nbreak") puts("bad 3.1");
+	*/
 }
 scan_1_5();
 } -output {}
@@ -182,6 +192,14 @@ void scan_1_6()
 	unless ((s[0] eq "a")  && (s[1] eq "\t")) puts("bad 1.1");
 	unless ((s[2] eq "\n") && (s[3] eq "\r")) puts("bad 1.2");
 	unless ((s[4] eq "\\") && (s[5] eq "\"")) puts("bad 1.3");
+
+	/*
+	 * The following test doesn't work unless run from the
+	 * command line.  Perhaps tcltest is munging the string.  ?
+	s = "line\
+break";
+	unless (s eq "line\nbreak") puts("bad 2.1");
+	*/
 }
 scan_1_6();
 } -output {}
@@ -1361,10 +1379,20 @@ void return_1_8() {
 }
 } -returnCodes error -match regexp -result ".*void function cannot return value"
 
-test return-1.9 {return from global scope illegal} -body {
+test return-1.9.1 {return from global scope 1} -body {
 #lang L
 return;
-} -returnCodes error -match regexp -result ".*return from global scope illegal"
+} -output {}
+
+test return-1.9.2 {return from global scope 2} -body {
+#lang L
+return(1);
+} -result {1} -output {}
+
+test return-1.9.3 {return from global scope 3} -body {
+#lang L
+return("ret");
+} -result {ret} -output {}
 
 test return-2.1 {int return value from int function allowed} -body {
 #lang L
@@ -2019,6 +2047,22 @@ void op_1_12()
 	unless ("a" .
 		"b" .
 		"c" eq "abc") puts("bad 20.8");
+
+	/* Check .= */
+
+	a = "a";
+	a .= "bcd";
+	unless (a eq "abcd") puts("bad 30.1");
+	b = "e";
+	unless ((a.=b) eq "abcde") puts("bad 30.2");
+
+	as[0] = "0";
+	as[0] .= "123";
+	unless (as[0] eq "0123") puts("bad 31.1");
+
+	a = "0234";
+	a[0] .= "1";
+	unless (a eq "01234") puts("bad 32.1");
 }
 op_1_12();
 } -output {}
@@ -2028,6 +2072,7 @@ test op-1.13 {test string concat type errors} -body {
 void op_1_13()
 {
 	int	i, j;
+	string	s;
 	float	f;
 	int	h{string};
 
@@ -2037,13 +2082,20 @@ void op_1_13()
 	i . "s";
 	"s" . f;
 	h{"bad"} . "s";
+
+	i .= "s";
+	i .= j;
+	s .= i;
 }
-} -returnCodes {error} -match regexp -result {.*7: L Error: expected type string.*
-.*8: L Error: expected type string.*
+} -returnCodes {error} -match regexp -result {.*8: L Error: expected type string.*
 .*9: L Error: expected type string.*
 .*10: L Error: expected type string.*
 .*11: L Error: expected type string.*
 .*12: L Error: expected type string.*
+.*13: L Error: expected type string.*
+.*15: L Error: expected type string.*
+.*16: L Error: expected type string.*
+.*17: L Error: assignment of incompatible types
 }
 
 test op-1.14 {test "." and "->" as struct selection operators} -body {
@@ -5664,19 +5716,17 @@ struct reference_1_1_point { int x, y; };
 
 void reference_1_1() {
   struct reference_1_1_point a;
-  puts(a);
+  unless ((a.x == 0) && (a.y == 0)) puts("bad 1");
   reference_1_1_tweak(&a);
-  puts(a);
+  unless ((a.x == 2) && (a.y == 0)) puts("bad 2");
 }
 
 void reference_1_1_tweak(struct reference_1_1_point &foo) {
   foo->x = 2;
 }
-#lang tcl
-reference_1_1
-} -output "
-2
-"
+reference_1_1();
+} -output {}
+
 test reference-1.2 {widget pointer thingys} -body {
 #lang L
 int
@@ -7925,6 +7975,57 @@ void typecheck_9_4_3()
 .*21: L Error: parameter 6 has incompatible type
 }
 
+test typecheck-10.1 {check type errors in op=} -body {
+#lang L
+void typecheck_10_1()
+{
+	int	i1, i2;
+	string	s1, s2;
+	float	f1, f2;
+
+	i1 += s1;
+	i1 -= s1;
+	i1 *= s1;
+	i1 /= s1;
+
+	i1 %= s1;
+	s1 %= i1;
+	i1 &= s1;
+	s1 &= i1;
+	i1 |= s1;
+	s1 |= i1;
+	i1 ^= s1;
+	s1 ^= i1;
+	i1 <<= s1;
+	s1 <<= i1;
+	i1 >>= s1;
+	s1 >>= i1;
+
+	i1 .= i2;
+	i1 .= s1;
+	s1 .= i1;
+}
+} -returnCodes error -match regexp -result {.*7: L Error: assignment of incompatible types
+.*8: L Error: assignment of incompatible types
+.*9: L Error: assignment of incompatible types
+.*10: L Error: assignment of incompatible types
+.*12: L Error: assignment of incompatible types
+.*13: L Error: assignment of incompatible types
+.*14: L Error: assignment of incompatible types
+.*15: L Error: assignment of incompatible types
+.*16: L Error: assignment of incompatible types
+.*17: L Error: assignment of incompatible types
+.*18: L Error: assignment of incompatible types
+.*19: L Error: assignment of incompatible types
+.*20: L Error: assignment of incompatible types
+.*21: L Error: assignment of incompatible types
+.*22: L Error: assignment of incompatible types
+.*23: L Error: assignment of incompatible types
+.*25: L Error: expected type string but got int in .=
+.*26: L Error: assignment of incompatible types
+.*27: L Error: assignment of incompatible types
+}
+
 test fnptr-1 {function pointers 1} -body {
 #lang L
 typedef string &fnptr1_t(int);
@@ -8301,7 +8402,11 @@ pattern_1_2();
 }
 
 test include-1.0 {include files} -setup {
-	set fname [makeFile {++include_1_0;} foo.l ../tests]
+	set fname [makeFile {
+			++include_1_0;
+			unless (basename(__FILE__) eq "foo.l") puts("bad 1");
+			unless (__LINE__ == 4) puts("bad 2");
+		   } foo.l ../tests]
 } -body {
 #lang L
 int include_1_0 = 0;
@@ -8324,22 +8429,38 @@ puts(include_1_0);
 }
 
 test include-1.1 {nested include files} -setup {
-	set fname1 [makeFile {include("foo2.l");} foo1.l ../tests]
-	set fname2 [makeFile {int include_1_1a = 3;
-include("foo3.l");} foo2.l ../tests]
-	set fname3 [makeFile {int include_1_1b = 4;} foo3.l ../tests]
+#
+# The code for these files isn't indented because L recognizes
+# include() only when it starts at the beginning of the line.
+#
+	set fname1 [makeFile {
+include("foo2.l");
+unless (basename(__FILE__) eq "foo1.l") puts("bad 1");
+unless (__LINE__ == 4) puts("bad 2");
+} foo1.l ../tests]
+	set fname2 [makeFile {
+int include_1_1a = 3;
+unless (basename(__FILE__) eq "foo2.l") puts("bad 3");
+unless (__LINE__ == 4) puts("bad 4");
+include("foo3.l");
+unless (basename(__FILE__) eq "foo2.l") puts("bad 5");
+unless (__LINE__ == 7) puts("bad 6");
+} foo2.l ../tests]
+	set fname3 [makeFile {
+int include_1_1b = 4;
+unless (basename(__FILE__) eq "foo3.l") puts("bad 7");
+unless (__LINE__ == 4) puts("bad 8");
+} foo3.l ../tests]
 } -body {
 #lang L
 include("foo1.l");
-puts(include_1_1a);
-puts(include_1_1b);
+unless (include_1_1a == 3) puts("bad 10.1");
+unless (include_1_1b == 4) puts("bad 10.2");
 } -cleanup {
 	removeFile $fname1
 	removeFile $fname2
 	removeFile $fname3
-} -output {3
-4
-}
+} -output {}
 
 test include-1.2 {malformed includes} -body {
 #lang L
@@ -9551,6 +9672,68 @@ void initializers_5()
 initializers_5();
 } -output {}
 
+test initializers-6 {check blank initial values} -body {
+#lang L
+void initializers_6()
+{
+	int	i;
+	float	f;
+	string	s;
+	poly	p;
+	string	as[];
+	string	hs{string};
+	struct s1 {
+		int	i;
+		float	f;
+		string	s;
+		string	sa[];
+		string	hs{string};
+	} st1;
+	struct s2 {
+		int		i;
+		float		f;
+		string		s;
+		string		sa[];
+		string		hs{string};
+		struct s1	s1;
+	} st2;
+
+	unless (i == 0) puts("bad 1");
+	unless (f == 0.0) puts("bad 2");
+	unless (s eq "") puts("bad 3");
+	unless (p eq "") puts("bad 4");
+	unless (length(as) == 0) puts("bad 5.1");
+	unless (defined(as)) puts("bad 5.2");
+	unless (length(hs) == 0) puts("bad 6");
+	unless (defined(hs)) puts("bad 6.2");
+
+	unless ((st1.i == 0) && (st1.f == 0.0) && (st1.s eq "")) {
+		puts("bad 7.1");
+	}
+	unless (length(st1.sa) == 0) puts("bad 7.2");
+	unless (defined(st1.sa)) puts("bad 7.3");
+	unless (length(st1.hs) == 0) puts("bad 7.4");
+	unless (defined(st1.hs)) puts("bad 7.5");
+
+	unless ((st2.i == 0) && (st2.f == 0.0) && (st2.s eq "")) {
+		puts("bad 8.1");
+	}
+	unless (length(st2.sa) == 0) puts("bad 8.2");
+	unless (defined(st2.sa)) puts("bad 8.3");
+	unless (length(st2.hs) == 0) puts("bad 8.4");
+	unless (defined(st2.hs)) puts("bad 8.5");
+	unless (defined(st2.s1)) puts("bad 8.6");
+	unless ((st2.s1.i == 0) && (st2.s1.f == 0.0) && (st2.s1.s eq "")) {
+		puts("bad 8.7");
+	}
+	unless (length(st2.s1.sa) == 0) puts("bad 8.8");
+	unless (defined(st2.s1.sa)) puts("bad 8.9");
+	unless (length(st2.s1.hs) == 0) puts("bad 8.10");
+	unless (defined(st2.s1.hs)) puts("bad 8.11");
+}
+initializers_6();
+} -output {}
+
 test composite-1 {check composite values in expressions 1} -body {
 #lang L
 struct composite_1_s1 {
@@ -10272,11 +10455,13 @@ void keys() {}
 void length() {}
 void push() {}
 void sort() {}
+void assert() {}
 } -returnCodes {error} -match regexp -result {.*1: L Error: function 'join' conflicts with built-in
 .*2: L Error: function 'keys' conflicts with built-in
 .*3: L Error: function 'length' conflicts with built-in
 .*4: L Error: function 'push' conflicts with built-in
 .*5: L Error: function 'sort' conflicts with built-in
+.*6: L Error: function 'assert' conflicts with built-in
 }
 
 test builtin-10 {check built-ins stack integrity} -body {
@@ -10338,6 +10523,53 @@ void builtin_11_main()
 }
 builtin_11_main();
 } -output {}
+
+test builtin-12 {check assert built-in errors} -body {
+#lang L
+void builtin_12_foo();
+void builtin_12()
+{
+	string	s;
+
+	assert();
+	assert(1,2);
+	assert(builtin_12_foo());
+	s = assert(0);
+}
+} -returnCodes {error} -match regexp -result {.*6: L Error: incorrect # args to assert
+.*7: L Error: incorrect # args to assert
+.*8: L Error: void type illegal in predicate
+.*9: L Error: type void illegal
+}
+
+test line-file-1 {test __LINE__ and __FILE__} -body {
+#lang L
+void line_file_1()
+{
+	unless(basename(__FILE__) eq "l-core.test") puts("bad 1.1");
+	unless(__LINE__ == 4) puts("bad 1.2");
+	unless(__LINE__ == 5) puts("bad 1.3");
+	unless(__LINE__ == 6) puts("bad 1.4");
+}
+line_file_1();
+} -output {}
+
+test line-file-2 {test __LINE__ and __FILE__ errors} -body {
+#lang L
+void line_file_2_s(string &s) { s = "bad"; }
+void line_file_2_i(int &i) { i = 1; }
+void line_file_2()
+{
+	__FILE__ = "bad";
+	__LINE__ = 1;
+	line_file_2_s(&__FILE__);
+	line_file_2_i(&__LINE__);
+}
+} -returnCodes {error} -match regexp -result {.*5: L Error: invalid l-value in assignment
+.*6: L Error: invalid l-value in assignment
+.*7: L Error: cannot take reference of argument
+.*8: L Error: cannot take reference of argument
+}
 
 test lregex-1 {test a trivial regex} -body {
 #lang L

@@ -110,7 +110,7 @@ extern int	L_lex (void);
 %left T_COMMA
 %nonassoc T_ELSE T_SEMI
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
-       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
+       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT T_EQDOT
 %left T_OROR
 %left T_ANDAND
 %left T_BITOR
@@ -869,6 +869,10 @@ expr:
 	| expr T_EQRSHIFT expr
 	{
 		$$ = ast_mkBinOp(L_OP_EQRSHIFT, $1, $3, @1.beg, @3.end);
+	}
+	| expr T_EQDOT expr
+	{
+		$$ = ast_mkBinOp(L_OP_EQDOT, $1, $3, @1.beg, @3.end);
 	}
 	| T_DEFINED "(" expr ")"
 	{

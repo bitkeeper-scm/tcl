@@ -239,6 +239,7 @@ include_pop()
 	"^="		return T_EQBITXOR;
 	"<<="		return T_EQLSHIFT;
 	">>="		return T_EQRSHIFT;
+	".="		return T_EQDOT;
 	"++"		return T_PLUSPLUS;
 	"--"		return T_MINUSMINUS;
 	"&&"		return T_ANDAND;
@@ -505,6 +506,7 @@ include_pop()
 <str_single>{
 	\\\\		STRBUF_ADD("\\", 1);
 	\\\'		STRBUF_ADD("'", 1);
+	\\\n		STRBUF_ADD("\n", 1);
 	\n		{
 				L_err("%s:%d: missing string terminator \'",
 				      L->file, L->line);
