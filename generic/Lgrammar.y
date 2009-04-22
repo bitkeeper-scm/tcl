@@ -164,7 +164,12 @@ toplevel_code:
 	| toplevel_code function_decl
 	{
 		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @2.end);
-		$2->decl->flags |= SCOPE_GLOBAL | DECL_FN;
+		$2->decl->flags |= DECL_FN;
+		if ($2->decl->flags & DECL_PRIVATE) {
+			$2->decl->flags |= SCOPE_SCRIPT;
+		} else {
+			$2->decl->flags |= SCOPE_GLOBAL;
+		}
 		$$->u.fun = $2;
 	}
 	| toplevel_code struct_specifier ";"
@@ -183,7 +188,12 @@ toplevel_code:
 		VarDecl *v;
 		$$ = ast_mkTopLevel(L_TOPLEVEL_GLOBAL, $1, @1.beg, @2.end);
 		for (v = $2; v; v = v->next) {
-			v->flags |= SCOPE_GLOBAL | DECL_GLOBAL_VAR;
+			v->flags |= DECL_GLOBAL_VAR;
+			if ($2->flags & DECL_PRIVATE) {
+				v->flags |= SCOPE_SCRIPT;
+			} else {
+				v->flags |= SCOPE_GLOBAL;
+			}
 		}
 		$$->u.global = $2;
 	}

@@ -1,5 +1,5 @@
 # Test the L language.
-# Copyright (c) 2007 BitMover, Inc.
+# Copyright (c) 2007-2009 BitMover, Inc.
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest 2
@@ -1102,7 +1102,7 @@ void decl_1_6_bad()
 .*35: L Error: multiple declaration of local l2
 .*40: L Error: multiple declaration of global decl_1_6_extern
 .*41: L Error: multiple declaration of global decl_1_6_g2
-.*44: L Error: externs illegal in local scopes
+.*44: L Error: externs legal only at global scope
 }
 
 test decl-1.7 {Check scoping rules for globals and externs} -body {
@@ -1189,6 +1189,93 @@ void main()
 } -returnCodes error -match regexp -result {.*4: L Error: redeclaration of main
 .*7: L Error: redeclaration of main
 }
+
+test decl-1.11.1 {private globals 1} -body {
+#lang L
+private string priv_global = "test 1";
+private void priv_global_test_fn()
+{
+	puts(priv_global);
+}
+void decl_1_11_1()
+{
+	unless (priv_global eq "test 1") puts("bad decl_1_11_1");
+}
+priv_global_test_fn();
+decl_1_11_1();
+} -output "test 1\n"
+
+test decl-1.11.2 {private globals 2} -body {
+#lang L
+/*
+ * This test declares the same (private) names as the previous test.
+ * They should not clash.
+ */
+private string priv_global = "test 2";
+private void priv_global_test_fn()
+{
+	puts(priv_global);
+}
+priv_global_test_fn();
+/*
+ * Call the previous test's function.  It should see the value of its
+ * own private global, not ours.
+ */
+decl_1_11_1();
+} -output "test 2\n"
+
+test decl-1.11.3 {test public/private global declaration errors} -body {
+#lang L
+private int decl_1_11_3_priv_first;
+int decl_1_11_3_priv_first;
+
+int decl_1_11_3_publ_first;
+private int decl_1_11_3_publ_first;
+
+private int two_privates;
+private int two_privates;
+
+private void decl_1_11_1() {}  // already declared in earlier test
+
+private string stdin;  // already declared in libl
+
+void decl_1_11_3()
+{
+	public	string bad1;
+	private	string bad2;
+}
+} -returnCodes {error} -match regexp -result {.*2: L Error: multiple declaration of global decl_1_11_3_priv_first
+.*5: L Error: multiple declaration of global decl_1_11_3_publ_first
+.*8: L Error: multiple declaration of global two_privates
+.*10: L Error: function decl_1_11_1 already declared
+.*12: L Error: multiple declaration of global stdin
+.*16: L Error: public/private qualifiers illegal for locals
+.*17: L Error: public/private qualifiers illegal for locals
+}
+
+test decl-1.12.1 {public globals 1} -body {
+#lang L
+/*
+ * This simply tests that the "public" qualifier on a global
+ * declaration acts like a no-op.
+ */
+public string decl_1_12_s = "public decl test";
+public void decl_1_12_1()
+{
+	puts(decl_1_12_s);
+}
+decl_1_12_1();
+} -output "public decl test\n"
+
+test decl-1.12.1 {public globals 2} -body {
+#lang L
+/* This is the second half of the test above. */
+public void decl_1_12_2()
+{
+	puts(decl_1_12_s);  // print global defined in the previous test
+}
+decl_1_12_2();
+} -output "public decl test\n"
 
 test if-1.0 {If statements} -body {
 #lang L

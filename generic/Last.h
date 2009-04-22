@@ -333,26 +333,27 @@ struct TopLev {
  * Some flags are redundant but were chosen for clarity.
  */
 typedef enum {
-	SCOPE_LOCAL		= 0x00001, // the scope the symbol should go in
-	SCOPE_GLOBAL		= 0x00002,
-	SCOPE_CLASS		= 0x00004,
-	DECL_GLOBAL_VAR		= 0x00008, // the kind of declaration
-	DECL_LOCAL_VAR		= 0x00010,
-	DECL_TEMP		= 0x00020, //   temp variable
-	DECL_FN			= 0x00040, //   regular function
-	DECL_CLASS_VAR		= 0x00080, //   class variable
-	DECL_CLASS_INST_VAR	= 0x00100, //   class instance variable
-	DECL_CLASS_FN		= 0x00200, //   class member fn
-	DECL_CLASS_CONST	= 0x00400, //   class constructor
-	DECL_CLASS_DESTR	= 0x00800, //   class destructor
-	DECL_REST_ARG		= 0x01000, //   ...arg formal parameter
-	DECL_EXTERN		= 0x02000, // decl has extern qualifier
-	DECL_PRIVATE		= 0x04000, // decl has private qualifier
-	DECL_PUBLIC		= 0x08000, // decl has public qualifier
-	DECL_REF		= 0x10000, // decl has & qualifier
-	DECL_UNUSED		= 0x20000, // decl has _unused qualifier
-	FN_PROTO_ONLY		= 0x40000, // compile fn proto only
-	FN_PROTO_AND_BODY	= 0x80000, // compile entire fn decl
+	SCOPE_LOCAL		= 0x000001, // scope the symbol should go in
+	SCOPE_SCRIPT		= 0x000002, //   visible in current script
+	SCOPE_GLOBAL		= 0x000004, //   visible across scripts
+	SCOPE_CLASS		= 0x000008, //   visible in a class
+	DECL_GLOBAL_VAR		= 0x000010, // the kind of declaration
+	DECL_LOCAL_VAR		= 0x000020,
+	DECL_TEMP		= 0x000040, //   temp variable
+	DECL_FN			= 0x000080, //   regular function
+	DECL_CLASS_VAR		= 0x000100, //   class variable
+	DECL_CLASS_INST_VAR	= 0x000200, //   class instance variable
+	DECL_CLASS_FN		= 0x000400, //   class member fn
+	DECL_CLASS_CONST	= 0x000800, //   class constructor
+	DECL_CLASS_DESTR	= 0x001000, //   class destructor
+	DECL_REST_ARG		= 0x002000, //   ...arg formal parameter
+	DECL_EXTERN		= 0x004000, // decl has extern qualifier
+	DECL_PRIVATE		= 0x008000, // decl has private qualifier
+	DECL_PUBLIC		= 0x010000, // decl has public qualifier
+	DECL_REF		= 0x020000, // decl has & qualifier
+	DECL_UNUSED		= 0x040000, // decl has _unused qualifier
+	FN_PROTO_ONLY		= 0x080000, // compile fn proto only
+	FN_PROTO_AND_BODY	= 0x100000, // compile entire fn decl
 } Decl_f;
 
 struct VarDecl {

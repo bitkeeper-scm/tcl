@@ -33,12 +33,13 @@ struct Jmp {
 /* Semantic stack frame. */
 typedef enum {
 	OUTER		= 0x01,  // is outer-most
-	TOPLEV		= 0x02,  // is for file top-levels
-	CLS_OUTER	= 0x04,	 // is class outer-most
-	CLS_TOPLEV	= 0x08,  // is for class top-levels
-	SKIP		= 0x10,  // skip frame when searching enclosing scopes
-	SEARCH		= 0x20,  //   don't skip this frame
-	KEEPSYMS	= 0x40,  // don't free symtab when scope is closed
+	SCRIPT		= 0x02,  // is file scope
+	TOPLEV		= 0x04,  // is for file top-levels
+	CLS_OUTER	= 0x08,	 // is class outer-most
+	CLS_TOPLEV	= 0x10,  // is for class top-levels
+	SKIP		= 0x20,  // skip frame when searching enclosing scopes
+	SEARCH		= 0x40,  //   don't skip this frame
+	KEEPSYMS	= 0x80,  // don't free symtab when scope is closed
 } Frame_f;
 typedef struct Frame {
 	Tcl_Interp	*interp;
@@ -94,6 +95,7 @@ typedef struct {
 	Tcl_Interp	*interp;
 	int	idx_nesting;	// current depth of nested []'s
 	int	tmpnum;		// for creating tmp variables
+	char	*toplev;	// name of toplevel proc
 } Lglobal;
 
 /*
@@ -281,6 +283,28 @@ static inline int
 isdeepdive(Expr *expr)
 {
 	return (expr->flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
+}
+static inline int
+isClsConstructor(VarDecl *decl)
+{
+	return (decl->flags & DECL_CLASS_CONST);
+}
+static inline int
+isClsDestructor(VarDecl *decl)
+{
+	return (decl->flags & DECL_CLASS_DESTR);
+}
+static inline int
+isClsFnPublic(VarDecl *decl)
+{
+	return ((decl->flags & (DECL_CLASS_FN | DECL_PUBLIC)) ==
+		(DECL_CLASS_FN | DECL_PUBLIC));
+}
+static inline int
+isClsFnPrivate(VarDecl *decl)
+{
+	return ((decl->flags & (DECL_CLASS_FN | DECL_PRIVATE)) ==
+		(DECL_CLASS_FN | DECL_PRIVATE));
 }
 static inline void
 emit_load_scalar(int idx)
