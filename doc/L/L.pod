@@ -4,34 +4,54 @@ L
 
 =head1 SYNOPSIS
 
-tclsh [options] script.l args
+L [options] script.l args
 
 =head1 DESCRIPTION
 
-XXX Larry to write the big-picture words. XXX
+L is a little interpreted language that draws heavily from C and Perl.
+From C, L gets C syntax, types (int, float, string), complex types
+(arrays, structs).
+From Perl, L gets associative arrays and regular expressions (PCRE).
+And from neither, L gets its own simplistic form of classes.
+
+L stands for "little" as in little language.  The idea was to distill
+the useful parts of other languages and combine them into a scripting
+language, with type checking, classes (not full blown OO but useful none
+the less), and direct access to a cross platform graphical toolkit.
+
+L provides a set of builtin functions, drawn from Perl and/or the 
+standard C library.
+
+L is built on top of the Tcl/TK system.  The L compiler generates Tcl
+byte codes and uses the Tcl calling convention.  This means that L and
+Tcl code may be intermixed if needed.  More importantly, it means that
+L may use all of the TK widgets.  The net result is a type checked
+scripting language which may be used for cross platform GUIs.
+
+L is open source under the same license as the Tcl/TK license (BSD like).
 
 =head1 RUNNING L PROGRAMS
 
 You can run an L program from the command line.
 
-    tclsh [options] progname.l
+    L [options] progname.l
 
 Alternatively, put this as the first line of your script, but make
 sure your script is executable (C<chmod 755 script.l> under Unix).
 
-    #!/path/to/tclsh [options]
+    #!/path/to/L [options]
 
 Options:
 
 =over 4
 
-=item B<-nowarn>
+=item B<-n | --nowarn>
 
 Disable compiler warnings.  This is useful when you know you have
 unused variables or other warnings that you don't want to be
 bothered with.
 
-=item B<-poly>
+=item B<-P | --poly>
 
 Treat all types as C<poly>.  This effectively disables type checking.
 
@@ -269,7 +289,7 @@ You can remove an element from an array but only from the end:
 
 You also can directly assign to any array index even if the array
 hasn't yet grown up to that index.  If you assign more than one past
-the current end, the un-assigned elements are assigned undef:
+the current end, the unassigned elements are assigned undef:
 
     string colors[] = { "blue, "red" };
     colors[3] = "green";   # colors[2] gets undef and colors[3] gets "green"
@@ -400,10 +420,8 @@ the hash:
 
     int myhash{string} = { "one"=>1, "two"=>2, "three"=>3 };
 
-=item 
-
 Lists are very useful at times because you can use them to build up
-larger complex structures.  To concantenate two arrays, you could do
+larger complex structures.  To concatenate two arrays, you could do
 this:
 
     { (expand)array1, (expand)array2 };
@@ -836,7 +854,7 @@ The value of undef is the empty string ("").  Read only.
 =head1 BUILT-IN AND LIBRARY FUNCTIONS
 
 L has several built-in functions and a set of library functions
-modeled after the standard C library.
+modeled after the standard C library and/or Perl.
 
 =over 4
 
@@ -961,11 +979,6 @@ C<stdin>, C<stdout>, and C<stderr> are pre-defined.
 
 Return 0 on success, -1 on error.
 
-=item int frename(string oldpath, string newpath)
-
-Rename a file.
-Return 0 on success, -1 on error.
-
 =item string ftype(string path)
 
 Return the type of file at the given path. Type can be C<directory>, C<file>,
@@ -1035,21 +1048,21 @@ For example, both isdouble(13) and isdouble("13") return 1.
 
 Return 1 if the given path exists and is a link, else return 0.
 
-=item string join(string sep, T array[])
+=item string join(string sep, type array[])
 
 Convert an array into a string by joining all of its elements by
 inserting sep between each pair.
 
-=item Tk[] keys(Tv hash{Tk})
+=item keyType[] keys(valType hash{keyType})
 
 Return an array containing the keys of a given hash.  Note that the
 return type depends on the argument type.
 
-=item int length(T array[])
+=item int length(type array[])
 
 Return the number of elements the given array.
 
-=item int length(Tv hash{Tk})
+=item int length(valType hash{keyType})
 
 Return the number of key/value pairs the given hash.
 
@@ -1119,15 +1132,20 @@ command.  Return the FILE handle on success, or undef on error.
 Format arguments and print to stdout, as in printf(3).
 Return 0 on success, -1 on error.
 
-=item void push(T &array[], T element)
+=item void push(type &array[], type element)
 
 Push one or more elements onto the end of C<array>.  Equivalent to
 saying array[length(array)] = element.
 
-=item T pop(T &array[])
+=item type pop(type &array[])
 
 Remove an element from the end of C<array>.
 Return undef if the array is empty.
+
+=item int rename(string oldpath, string newpath)
+
+Rename a file.
+Return 0 on success, -1 on error.
 
 =item string require(string packageName)
 
@@ -1152,13 +1170,13 @@ Return the size, in bytes, of the named file path, or -1 on error.
 
 Sleep for C<seconds> seconds.
 
-=item T[] sort(T[] array)
+=item type[] sort(type[] array)
 
-=item T[] sort([decreasing: | increasing:], T[] array)
+=item type[] sort([decreasing: | increasing:], type[] array)
 
-=item T[] sort([integer: | real: | ascii:], T[] array)
+=item type[] sort([integer: | real: | ascii:], type[] array)
 
-=item T[] sort(command: compar, T[] array)
+=item type[] sort(command: compar, type[] array)
 
 Sort the array C<array> and return a new array of sorted elements.
 The first variation sorts the elements into ascending order, and does
@@ -1435,7 +1453,7 @@ order.
 
 L has a C<class> abstraction for encapsulating data and
 functions that operate on that data.  L classes are simpler than
-full-blown object-oriented programming (there is no inheritence), but
+full-blown object-oriented programming (there is no inheritance), but
 they get you most of the way there.
 
 You declare a class like this:
@@ -1446,7 +1464,7 @@ You declare a class like this:
     }
 
 The name C<myclass> becomes a global type name, allowing you to
-declare an C<object> of C<mylcass>:
+declare an C<object> of C<myclass>:
 
     myclass obj;
 
