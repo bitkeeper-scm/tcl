@@ -1917,7 +1917,7 @@ op_1_7
 test op-1.8 {compound assignment operators, simple lvalues} -body {
 #lang L
 void op_1_8() {
-  int foo;
+  int foo = 0;
 
   puts(foo += 2);
   puts(foo);
@@ -2015,7 +2015,7 @@ void op_1_11()
 	 */
 
 	int	i;
-	int	j = 2, k;  // declares j & k; is not a comma op
+	int	j = 2, k = 0;  // declares j & k; is not a comma op
 	int	l = (1,2), m = (1,2,3,4,5);
 	string	s;
 
@@ -5802,7 +5802,7 @@ test reference-1.1 {L references} -body {
 struct reference_1_1_point { int x, y; };
 
 void reference_1_1() {
-  struct reference_1_1_point a;
+  struct reference_1_1_point a = { 0, 0 };
   unless ((a.x == 0) && (a.y == 0)) puts("bad 1");
   reference_1_1_tweak(&a);
   unless ((a.x == 2) && (a.y == 0)) puts("bad 2");
@@ -6224,11 +6224,11 @@ defined_1_2()
 	float	f;
 	float	ff = 3.14159;
 
-	unless (defined(i))  puts("err 1");
+	if (defined(i))  puts("err 1");
 	unless (defined(ii)) puts("err 2");
-	unless (defined(s))  puts("err 3");
+	if (defined(s))  puts("err 3");
 	unless (defined(ss)) puts("err 4");
-	unless (defined(f))  puts("err 5");
+	if (defined(f))  puts("err 5");
 	unless (defined(ff)) puts("err 6");
 	unless (defined(0))  puts("err 7");
 	unless (defined(1))  puts("err 7");
@@ -6847,8 +6847,10 @@ typecheck_2_1()
 
 	/* Test initializers and all comparison ops that allow floats. */
 
-	int	i2, i1 = 1964;
-	float	f2, f1 = i1;
+	int	i1 = 1964;
+	int	i2 = 0;
+	float	f1 = i1;
+	float	f2 = 0.0;
 
 	unless (f1 == 1964)        puts("BAD 1.1.1");
 	unless (1964 == f1)        puts("BAD 1.1.2");
@@ -9620,11 +9622,15 @@ typedef struct initializers_2_s2 h_of_s2{int};
 
 void initializers_2()
 {
+	/*
+	 * In addition to the initializers themselves, check various
+	 * number of initializers per declaration.
+	 */
 	int	i;
 	int	i1 = 11;
-	int	i2, i3 = 33;
-	int	i4, i5 = 55, i6;
-	int	i7, i8 = 88, i9 = 99, i10 = 111;
+	int	i2 = 0, i3 = 33;
+	int	i4 = 0, i5 = 55, i6 = 0;
+	int	i7 = 0, i8 = 88, i9 = 99, i10 = 111;
 	string	s = "s";
 	float	f = 3.1, f2 = 3;
 	string	ai[] = { "a", "b", "c" };
@@ -9775,48 +9781,15 @@ void initializers_6()
 		string	s;
 		string	sa[];
 		string	hs{string};
-	} st1;
-	struct s2 {
-		int		i;
-		float		f;
-		string		s;
-		string		sa[];
-		string		hs{string};
-		struct s1	s1;
-	} st2;
+	} st;
 
-	unless (i == 0) puts("bad 1");
-	unless (f == 0.0) puts("bad 2");
-	unless (s eq "") puts("bad 3");
-	unless (p eq "") puts("bad 4");
-	unless (length(as) == 0) puts("bad 5.1");
-	unless (defined(as)) puts("bad 5.2");
-	unless (length(hs) == 0) puts("bad 6");
-	unless (defined(hs)) puts("bad 6.2");
-
-	unless ((st1.i == 0) && (st1.f == 0.0) && (st1.s eq "")) {
-		puts("bad 7.1");
-	}
-	unless (length(st1.sa) == 0) puts("bad 7.2");
-	unless (defined(st1.sa)) puts("bad 7.3");
-	unless (length(st1.hs) == 0) puts("bad 7.4");
-	unless (defined(st1.hs)) puts("bad 7.5");
-
-	unless ((st2.i == 0) && (st2.f == 0.0) && (st2.s eq "")) {
-		puts("bad 8.1");
-	}
-	unless (length(st2.sa) == 0) puts("bad 8.2");
-	unless (defined(st2.sa)) puts("bad 8.3");
-	unless (length(st2.hs) == 0) puts("bad 8.4");
-	unless (defined(st2.hs)) puts("bad 8.5");
-	unless (defined(st2.s1)) puts("bad 8.6");
-	unless ((st2.s1.i == 0) && (st2.s1.f == 0.0) && (st2.s1.s eq "")) {
-		puts("bad 8.7");
-	}
-	unless (length(st2.s1.sa) == 0) puts("bad 8.8");
-	unless (defined(st2.s1.sa)) puts("bad 8.9");
-	unless (length(st2.s1.hs) == 0) puts("bad 8.10");
-	unless (defined(st2.s1.hs)) puts("bad 8.11");
+	if (defined(i)) puts("bad 1");
+	if (defined(f)) puts("bad 2");
+	if (defined(s)) puts("bad 3");
+	if (defined(p)) puts("bad 4");
+	if (defined(as)) puts("bad 5");
+	if (defined(hs)) puts("bad 6");
+	if (defined(st)) puts("bad 7");
 }
 initializers_6();
 } -output {}

@@ -369,7 +369,7 @@ pop(poly &array[])
 FILE
 popen(_unused string cmd, _unused string mode)
 {
-	int	v;
+	int	v = 0;
 	FILE	f;
 	string	err;
 

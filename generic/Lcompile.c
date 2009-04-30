@@ -83,7 +83,6 @@ private int	L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **L_ast);
 private int	L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr,
 			       void *ast, int opts);
 private void	ast_free(Ast *ast_list);
-private Expr	*ast_mkInitializer(VarDecl *decl);
 private int	compile_assert(Expr *expr);
 private void	compile_assign(Expr *expr);
 private void	compile_assignComposite(Expr *expr);
@@ -671,7 +670,7 @@ compile_varDecl(VarDecl *decl)
 	unless (decl->initializer) {
 		decl->initializer = ast_mkBinOp(L_OP_EQUALS,
 						decl->id,
-						ast_mkInitializer(decl),
+						ast_mkId("undef",0,0),
 						decl->node.beg,
 						decl->node.end);
 	}
@@ -685,50 +684,6 @@ compile_varDecls(VarDecl *decls)
 	for (; decls; decls = decls->next) {
 		compile_varDecl(decls);
 	}
-}
-
-/*
- * Make an expression node with an initial "blank" value appropriate
- * for the given decl's type.
- */
-private Expr *
-ast_mkInitializer(VarDecl *decl)
-{
-	Expr	*e;
-	Expr	*val = NULL;
-	VarDecl	*m;
-
-	switch (decl->type->kind) {
-	    case L_ARRAY:
-	    case L_HASH:
-		val = ast_mkBinOp(L_OP_LIST, NULL, NULL, decl->node.beg,
-				  decl->node.end);
-		break;
-	    case L_STRUCT:
-		for (m = decl->type->u.struc.members; m; m = m->next) {
-			e = ast_mkBinOp(L_OP_LIST, ast_mkInitializer(m), NULL,
-					decl->node.beg, decl->node.end);
-			APPEND_OR_SET(Expr, b, val, e);
-		}
-		unless (val) {  // empty struct
-			val = ast_mkBinOp(L_OP_LIST, NULL, NULL,
-					  decl->node.beg, decl->node.end);
-		}
-		break;
-	    case L_INT:
-		val = ast_mkConst(L_int, decl->node.beg, decl->node.end);
-		val->u.integer = 0;
-		break;
-	    case L_FLOAT:
-		val = ast_mkConst(L_float, decl->node.beg, decl->node.end);
-		val->u.flote = 0.0;
-		break;
-	    default:
-		val = ast_mkConst(L_poly, decl->node.beg, decl->node.end);
-		val->u.string = ckstrdup("");
-		break;
-	}
-	return (val);
 }
 
 private void
