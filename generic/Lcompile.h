@@ -15,7 +15,7 @@
 #define FALSE 0
 #endif
 
-/* L options, stored in the options field of the Frame. */
+/* L command-line options. */
 typedef enum {
 	L_OPT_POLY	= 0x0001,
 	L_OPT_NOWARN	= 0x0002,
@@ -32,32 +32,37 @@ struct Jmp {
 
 /* Semantic stack frame. */
 typedef enum {
-	OUTER		= 0x01,  // is outer-most
-	SCRIPT		= 0x02,  // is file scope
-	TOPLEV		= 0x04,  // is for file top-levels
-	CLS_OUTER	= 0x08,	 // is class outer-most
-	CLS_TOPLEV	= 0x10,  // is for class top-levels
-	SKIP		= 0x20,  // skip frame when searching enclosing scopes
-	SEARCH		= 0x40,  //   don't skip this frame
-	KEEPSYMS	= 0x80,  // don't free symtab when scope is closed
+	OUTER		= 0x0001,  // is outer-most
+	SCRIPT		= 0x0002,  // is file scope
+	TOPLEV		= 0x0004,  // is for file top-levels
+	CLS_OUTER	= 0x0008,  // is class outer-most
+	CLS_TOPLEV	= 0x0010,  // is for class top-levels
+	PROC		= 0x0020,  // frame is at top level of a proc
+	LOOP		= 0x0040,  // frame is for a loop
+	SKIP		= 0x0080,  // skip frame when searching enclosing scopes
+	SEARCH		= 0x0100,  //   don't skip this frame
+	KEEPSYMS	= 0x0200,  // don't free symtab when scope is closed
 } Frame_f;
 typedef struct Frame {
-	Tcl_Interp	*interp;
 	CompileEnv	*envPtr;
+	CompileEnv	*bodyEnvPtr;
+	CompileEnv	*prologueEnvPtr;
+	Proc		*proc;
+	char		*name;
 	Tcl_HashTable	*symtab;
-
+	Frame_f		flags;
 	// When a compile frame corresponds to a block in the code, we
 	// store the AST node of the block here.
 	Ast		*block;
-
 	// We collect jump fix-ups for all of the jumps emitted for break and
 	// continue statements, so that we can stuff in the correct jump targets
 	// once we're done compiling the loops.
 	Jmp		*continue_jumps;
 	Jmp		*break_jumps;
-
-	Frame_f		flags;
-	Lopt_f		options;
+	// Jump fix-up for the jump to the prologue code at the end of a proc,
+	// and the bytecode offset for the jump back.
+	Jmp		*end_jmp;
+	int		proc_top;
 	struct Frame	*prevFrame;
 } Frame;
 
@@ -89,6 +94,7 @@ typedef struct {
 	int	prev_token_off;	// offset of prev token from start of input
 	Tcl_Obj	*script;	// src of script being compiled
 	int	script_len;
+	Lopt_f	options;	// command-line options
 	FnDecl	*enclosing_func;
 	Ast	*mains_ast;	// root of AST when main() last seen
 	Tcl_HashTable	*include_table;
@@ -347,23 +353,22 @@ push_str(const char *str, ...)
 		len *= 2;
 	}
 	va_end(ap);
-	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, buf, strlen(buf)),
+	/*
+	 * Subtle: register the literal in the body CompileEnv since
+	 * all the code ends up there anyway.  If we put it in the
+	 * prologue CompileEnv, we'd have to fix-up all the literal
+	 * numbers when we splice the prologue into the body.
+	 */
+	TclEmitPush(TclRegisterNewLiteral(L->frame->bodyEnvPtr, buf, strlen(buf)),
 		    L->frame->envPtr);
 	ckfree(buf);
 }
 static inline void
 push_cstr(const char *str, int len)
 {
-	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, str, len),
+	/* See comment above about registering in the body CompileEnv. */
+	TclEmitPush(TclRegisterNewLiteral(L->frame->bodyEnvPtr, str, len),
 		    L->frame->envPtr);
-}
-static inline void
-push_obj(Tcl_Obj *objPtr)
-{
-	Tcl_IncrRefCount(objPtr);
-	TclEmitPush(TclAddLiteralObj(L->frame->envPtr, objPtr, NULL),
-		    L->frame->envPtr);
-	Tcl_DecrRefCount(objPtr);
 }
 static inline void
 emit_invoke(int size)

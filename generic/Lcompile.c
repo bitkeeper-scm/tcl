@@ -126,21 +126,19 @@ private int	compile_unOp(Expr *expr);
 private int	compile_var(Expr *expr, Expr_f flags);
 private void	compile_varDecl(VarDecl *decl);
 private void	compile_varDecls(VarDecl *decls);
-private void	emit_globalUpvar(Sym *sym, Expr *id);
+private void	emit_globalUpvar(Sym *sym);
 private void	emit_instrForLOp(Expr *expr);
 private Jmp	*emit_jmp(int op);
 private void	fixup_jmps(Jmp *jumps);
 private Frame	*frame_find(Frame_f flags);
-private Frame	*frame_findEnclosingLoop();
 private void	frame_pop(void);
-private void	frame_push(Tcl_Interp *interp, CompileEnv *envPtr,
-			   void *block, Frame_f flags);
+private void	frame_push(void *node, char *name, Frame_f flags);
+private void	frame_resumeBody();
+private void	frame_resumePrologue();
 private char	*get_text(Expr *expr);
 private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private void	list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg);
-private Proc	*proc_begin(Frame_f flags);
-private void	proc_finish(Proc *procPtr, char *name);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
 private int	push_index(Expr *expr);
 private int	push_lit(Expr *expr);
@@ -283,22 +281,20 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 {
 	int	ret = TCL_OK;
 	TopLev	*toplev;
-	Proc	*top_proc;
 	static int ctr = 0;
 
 	ASSERT(((Ast *)ast)->type == L_NODE_TOPLEVEL);
 
-	L->toplev = cksprintf("%d%%l_toplevel", ctr++);
+	L->toplev  = cksprintf("%d%%l_toplevel", ctr++);
+	L->options = opts;
 
 	/*
 	 * Two frames get pushed, one for private globals that exist
 	 * at file scope, and one for the top-level code.  See the
 	 * comment in sym_store().
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, NULL, SCRIPT|SEARCH);
-	top_proc = proc_begin(TOPLEV|SKIP);
-
-	L->frame->options = opts;
+	frame_push(NULL, NULL, SCRIPT|SEARCH);
+	frame_push(NULL, L->toplev, PROC|TOPLEV|SKIP);
 
 	/*
 	 * Before compiling, enter prototypes for all functions into
@@ -335,7 +331,7 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 
 	push_str("");
 	TclEmitOpcode(INST_DONE, L->frame->envPtr);
-	proc_finish(top_proc, L->toplev);
+	frame_pop();
 	frame_pop();
 
 	if (L->errs) {
@@ -348,7 +344,7 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 		push_str(L->toplev);
 		emit_invoke(1);
 	} else {
-		ret = Tcl_Eval(L->frame->interp, L->toplev);
+		ret = Tcl_Eval(L->interp, L->toplev);
 	}
 	return (ret);
 }
@@ -368,22 +364,22 @@ compile_clsDecl(ClsDecl *clsdecl)
 	 * symtab is persisted so it can be later retrieved from the
 	 * class type to support obj->var or classname->var lookups.
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, NULL,
-		   CLS_OUTER|SEARCH|KEEPSYMS);
+	frame_push(NULL, NULL, CLS_OUTER|SEARCH|KEEPSYMS);
 	clsdecl->symtab = L->frame->symtab;
-	frame_push(L->frame->interp, L->frame->envPtr, NULL,
-		   CLS_TOPLEV|SKIP);
+	frame_push(NULL, NULL, CLS_TOPLEV|SKIP);
 
+	frame_resumePrologue();
 	push_str("::namespace");
 	push_str("eval");
 	push_str("::L::_class_%s", clsdecl->decl->id->u.string);
 	push_str("variable __num 0");
 	emit_invoke(4);
+	frame_resumeBody();
 
 	compile_varDecls(clsdecl->clsvars);
 	compile_fnDecl(clsdecl->constructor, FN_PROTO_AND_BODY);
 	compile_fnDecl(clsdecl->destructor, FN_PROTO_AND_BODY);
-	/* Process functions decls first, then compile the functions. */
+	/* Process function decls first, then compile the bodies. */
 	compile_fnDecls(clsdecl->fns, FN_PROTO_ONLY);
 	compile_fnDecls(clsdecl->fns, FN_PROTO_AND_BODY);
 
@@ -408,7 +404,6 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 	VarDecl	*decl = fun->decl;
 	char	*name = decl->id->u.string;
 	char	*clsname = NULL;
-	Proc	*procPtr;
 	ClsDecl	*clsdecl = NULL;
 	Sym	*self_sym = NULL;
 	Sym	*sym;
@@ -474,7 +469,7 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 
 	if (!fun->body || (flags & FN_PROTO_ONLY)) return;
 
-	procPtr = proc_begin(SEARCH);
+	frame_push(fun, sym->tclname, PROC|SEARCH);
 	sym->kind |= L_SYM_FNBODY;
 	L->frame->block = (Ast *)fun;
 
@@ -516,6 +511,7 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 	 *     ...user's constructor body...
 	 */
 	if (isClsConstructor(decl)) {
+		frame_resumePrologue();
 		ASSERT(clsdecl && clsname && self_sym);
 		push_str("::L::_class_%s::__num", clsname);
 		TclEmitInstInt1(INST_INCR_STK_IMM, 1, L->frame->envPtr);
@@ -528,6 +524,7 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 		emit_store_scalar(self_sym->idx);
 		push_str("");
 		emit_invoke(4);
+		frame_resumeBody();
 		compile_varDecls(clsdecl->instvars);
 	}
 
@@ -537,10 +534,12 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 	 * functions can call private member functions, and they have "self".
 	 */
 	if (isClsFnPrivate(decl)) {
+		frame_resumePrologue();
 		push_str("1");
 		push_str("self");
 		TclEmitInstInt4(INST_UPVAR, self_sym->idx, L->frame->envPtr);
 		emit_pop();
+		frame_resumeBody();
 	}
 
 	L->enclosing_func = fun;
@@ -569,52 +568,180 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 	}
 	TclEmitOpcode(INST_DONE, L->frame->envPtr);
 
-	proc_finish(procPtr, sym->tclname);
+	frame_pop();
 }
 
-private Proc *
-proc_begin(Frame_f flags)
+/*
+ * Push a semantic-stack frame.  If flags & PROC, start a new proc
+ * too.  To support the delayed generation of proc prologue code, we
+ * allocate two CompileEnv's, one for the proc body and one for its
+ * prologue.  You switch between the two with frame_resumePrologue()
+ * and frame_resumeBody().  A jump is emitted at the head of the proc
+ * that jumps to the end, and when the proc is done being compiled,
+ * the prologue code is emitted at the end along with a jump back.
+ * This provides a way to lazily output proc initialization code, such
+ * as the upvars for accessing globals and class variables.
+ */
+private void
+frame_push(void *node, char *name, Frame_f flags)
 {
-	Proc	*procPtr;
-	CompileEnv *envPtr;
+	Frame	*frame;
+	Proc	*proc;
+	CompileEnv *bodyEnvPtr, *prologueEnvPtr;
 
-	envPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
-	frame_push(L->frame->interp, envPtr, NULL, flags);
+	frame = (Frame *)ckalloc(sizeof(Frame));
+	memset(frame, 0, sizeof(*frame));
+	frame->flags  = flags;
+	frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+	Tcl_InitHashTable(frame->symtab, TCL_STRING_KEYS);
+	frame->prevFrame = L->frame;
+	L->frame = frame;
 
-	procPtr = (Proc *)ckalloc(sizeof(Proc));
-	procPtr->iPtr              = (struct Interp *)L->frame->interp;
-	procPtr->refCount          = 1;
-	procPtr->numArgs           = 0;
-	procPtr->numCompiledLocals = 0;
-	procPtr->firstLocalPtr     = NULL;
-	procPtr->lastLocalPtr      = NULL;
-	procPtr->bodyPtr           = Tcl_NewObj();
-	Tcl_IncrRefCount(procPtr->bodyPtr);
-	TclInitCompileEnv(L->frame->interp, envPtr, TclGetString(L->script),
+	unless (frame->flags & PROC) {
+		frame->block = node;
+		if (frame->prevFrame) {
+			frame->envPtr = frame->prevFrame->envPtr;
+			frame->bodyEnvPtr = frame->prevFrame->bodyEnvPtr;
+			frame->prologueEnvPtr = frame->prevFrame->prologueEnvPtr;
+		}
+		return;
+	}
+
+	bodyEnvPtr     = (CompileEnv *)ckalloc(sizeof(CompileEnv));
+	prologueEnvPtr = (CompileEnv *)ckalloc(sizeof(CompileEnv));
+	frame->bodyEnvPtr = bodyEnvPtr;
+	frame->prologueEnvPtr = prologueEnvPtr;
+	frame->envPtr = bodyEnvPtr;
+
+	proc = (Proc *)ckalloc(sizeof(Proc));
+	proc->iPtr		= (struct Interp *)L->interp;
+	proc->refCount		= 1;
+	proc->numArgs		= 0;
+	proc->numCompiledLocals = 0;
+	proc->firstLocalPtr     = NULL;
+	proc->lastLocalPtr      = NULL;
+	proc->bodyPtr		= Tcl_NewObj();
+	Tcl_IncrRefCount(proc->bodyPtr);
+	TclInitCompileEnv(L->interp, bodyEnvPtr, TclGetString(L->script),
 			  L->script_len, NULL, 0);
-	envPtr->procPtr = procPtr;
+	bodyEnvPtr->procPtr = proc;
 
-	return (procPtr);
+	TclInitCompileEnv(L->interp, prologueEnvPtr, NULL, 0, NULL, 0);
+
+	frame->proc = proc;
+	frame->name = name;
+
+	/*
+	 * Emit a jump to what will eventually be the prologue code
+	 * (output by frame_pop()).
+	 */
+	frame->end_jmp  = emit_jmp(INST_JUMP4);
+	frame->proc_top = currOffset(frame->envPtr);
 }
 
 private void
-proc_finish(Proc *procPtr, char *name)
+frame_resumePrologue()
 {
-	Tcl_Command cmd;
+	L->frame->envPtr = L->frame->prologueEnvPtr;
+}
 
-	TclInitByteCodeObj(procPtr->bodyPtr, L->frame->envPtr);
-#ifdef TCL_COMPILE_DEBUG
-	if (getenv("L_DISASSEMBLE")) {
-		printf("Bytecode for %s:\n", name);
-		TclPrintByteCodeObj(L->frame->interp, procPtr->bodyPtr);
+private void
+frame_resumeBody()
+{
+	L->frame->envPtr = L->frame->bodyEnvPtr;
+}
+
+private void
+frame_pop()
+{
+	int	off;
+	Frame	*frame = L->frame;
+	Proc	*proc  = frame->proc;
+	Sym	*sym;
+	Tcl_HashEntry *hPtr;
+	Tcl_HashSearch hSearch;
+
+	/*
+	 * Emit proc prologue code and the jump back to the head of
+	 * the proc.  Splice in any code in the frame->prologueEnvPtr
+	 * CompileEnv.  This is dependent on CompileEnv details.
+	 */
+	if (frame->flags & PROC) {
+		CompileEnv	*body = frame->bodyEnvPtr;
+		CompileEnv	*prologue = frame->prologueEnvPtr;
+		int		len = prologue->codeNext - prologue->codeStart;
+
+		ASSERT(frame->envPtr == frame->bodyEnvPtr);
+
+		fixup_jmps(frame->end_jmp);
+		while ((body->codeNext + len) >= body->codeEnd) {
+			TclExpandCodeArray(body);
+		}
+		memcpy(body->codeNext, prologue->codeStart, len);
+		body->codeNext += len;
+		if (prologue->maxStackDepth > body->maxStackDepth) {
+			body->maxStackDepth = prologue->maxStackDepth;
+		}
+		off = currOffset(frame->envPtr);
+		TclEmitInstInt4(INST_JUMP4, frame->proc_top-off, frame->envPtr);
 	}
+
+	/*
+	 * Check for unused local symbols, and free the frame's symbol table.
+	 */
+	for (hPtr = Tcl_FirstHashEntry(frame->symtab, &hSearch);
+	     hPtr != NULL;
+	     hPtr = Tcl_NextHashEntry(&hSearch)) {
+		sym = (Sym *)Tcl_GetHashValue(hPtr);
+		unless (sym->used_p || !(sym->kind & L_SYM_LVAR) ||
+			(sym->decl->flags & DECL_UNUSED)) {
+			L_warnf(sym->decl, "%s unused", sym->name);
+		}
+		unless (frame->flags & KEEPSYMS) {
+			ckfree(sym->name);
+			ckfree(sym->tclname);
+			ckfree((char *)sym);
+		}
+	}
+	unless (frame->flags & KEEPSYMS) {
+		Tcl_DeleteHashTable(frame->symtab);
+		ckfree((char *)frame->symtab);
+	}
+
+	/*
+	 * Create the Tcl command and free the old frame.
+	 */
+	if (frame->flags & PROC) {
+		TclInitByteCodeObj(proc->bodyPtr, frame->envPtr);
+#ifdef TCL_COMPILE_DEBUG
+		if (getenv("L_DISASSEMBLE")) {
+			printf("Bytecode for %s:\n", frame->name);
+			TclPrintByteCodeObj(L->interp, proc->bodyPtr);
+		}
 #endif
-	cmd = Tcl_CreateObjCommand(L->frame->interp, name, TclObjInterpProc,
-				   (ClientData) procPtr, TclProcDeleteProc);
-	procPtr->cmdPtr = (Command *)cmd;
-	TclFreeCompileEnv(L->frame->envPtr);
-	ckfree((char *)L->frame->envPtr);
-	frame_pop();
+		proc->cmdPtr = (Command *)Tcl_CreateObjCommand(L->interp,
+							frame->name,
+							TclObjInterpProc,
+							(ClientData)proc,
+							TclProcDeleteProc);
+		TclFreeCompileEnv(frame->bodyEnvPtr);
+		TclFreeCompileEnv(frame->prologueEnvPtr);
+		ckfree((char *)frame->bodyEnvPtr);
+		ckfree((char *)frame->prologueEnvPtr);
+	}
+
+	L->frame = frame->prevFrame;
+	ckfree((char *)frame);
+}
+
+private Frame *
+frame_find(Frame_f flags)
+{
+	Frame	*f = L->frame;
+
+	ASSERT(f);
+	while (!(f->flags & flags)) f = f->prevFrame;
+	return (f);
 }
 
 private void
@@ -694,7 +821,7 @@ compile_stmt(Stmt *stmt)
 	unless (stmt) return;
 	switch (stmt->kind) {
 	    case L_STMT_BLOCK:
-		frame_push(L->frame->interp, L->frame->envPtr, stmt, SEARCH);
+		frame_push(stmt, NULL, SEARCH);
 		compile_block(stmt->u.block);
 		frame_pop();
 		break;
@@ -1940,7 +2067,7 @@ re_submatchCnt(Expr *re)
 
 	re_gatherTxt(re, const_regexp);
 
-	compiled = Tcl_GetRegExpFromObj(L->frame->interp, const_regexp,
+	compiled = Tcl_GetRegExpFromObj(L->interp, const_regexp,
 					TCL_REG_ADVANCED);
 	unless (compiled) {
 		L_warnf(re, "cannot get submatch count in"
@@ -2157,13 +2284,13 @@ compile_ifUnless(Cond *cond)
 	falsejmp = emit_jmp(INST_JUMP_FALSE4);
 
 	/* Compile the "if" leg. */
-	frame_push(L->frame->interp, L->frame->envPtr, cond, SEARCH);
+	frame_push(cond, NULL, SEARCH);
 	compile_stmts(cond->if_body);
 
 	if (cond->else_body) {
 		/* "Else" leg present. */
 		frame_pop();
-		frame_push(L->frame->interp, L->frame->envPtr, cond, SEARCH);
+		frame_push(cond, NULL, SEARCH);
 		endjmp = emit_jmp(INST_JUMP4);
 		fixup_jmps(falsejmp);
 		compile_stmts(cond->else_body);
@@ -2200,7 +2327,7 @@ compile_loop(Loop *loop)
 	 * Compile loop body.  Note that we must grab the jump fix-ups
 	 * out of the frame before popping it.
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
+	frame_push(loop, NULL, LOOP|SEARCH);
 	body_off = currOffset(L->frame->envPtr);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
@@ -2302,12 +2429,9 @@ compile_foreach(ForEach *loop)
 	    case L_STRING:
 		compile_foreachString(loop);
 		break;
-	    case L_POLY:
-		L_errf(loop->expr, "Foreach over poly not yet implemented");
-		break;
 	    default:
-		L_errf(loop->expr, "Illegal foreach expression"
-		       " (must be array or hash)");
+		L_errf(loop->expr, "foreach expression must be"
+		       " array, hash, or string");
 		break;
 	}
 }
@@ -2383,7 +2507,7 @@ compile_foreachArray(ForEach *loop)
 	TclEmitForwardJump(L->frame->envPtr, TCL_FALSE_JUMP, &jumpFalseFixup);
 
 	/* Loop body. */
-	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
+	frame_push(loop, NULL, LOOP|SEARCH);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
 	continue_jumps = L->frame->continue_jumps;
@@ -2468,7 +2592,7 @@ compile_foreachHash(ForEach *loop)
 	 * Compile loop body.  Note that we must grab the jump fix-ups
 	 * out of the frame before popping it.
 	 */
-	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
+	frame_push(loop, NULL, LOOP|SEARCH);
 	compile_stmts(loop->body);
 	break_jumps    = L->frame->break_jumps;
 	continue_jumps = L->frame->continue_jumps;
@@ -2557,7 +2681,7 @@ compile_foreachString(ForEach *loop)
 		emit_pop();
 	}
 
-	frame_push(L->frame->interp, L->frame->envPtr, loop, SEARCH);
+	frame_push(loop, NULL, LOOP|SEARCH);
 	compile_stmts(loop->body);
 	break_jmps    = L->frame->break_jumps;
 	continue_jmps = L->frame->continue_jumps;
@@ -3185,7 +3309,7 @@ private void
 compile_continue(Stmt *stmt)
 {
 	Jmp	*j;
-	Frame	*loop_frame = frame_findEnclosingLoop();
+	Frame	*loop_frame = frame_find(LOOP);
 
 	unless (loop_frame) {
 		L_errf(stmt, "continue allowed only inside loops");
@@ -3200,7 +3324,7 @@ private void
 compile_break(Stmt *stmt)
 {
 	Jmp	*j;
-	Frame	*loop_frame = frame_findEnclosingLoop();
+	Frame	*loop_frame = frame_find(LOOP);
 
 	unless (loop_frame) {
 		L_errf(stmt, "break allowed only inside loops");
@@ -3211,39 +3335,11 @@ compile_break(Stmt *stmt)
 	loop_frame->break_jumps = j;
 }
 
-/*
- * Walk up the semantic stack and return the first frame that
- * corresponds to a loop.
- */
-private Frame *
-frame_findEnclosingLoop()
-{
-	Frame *f;
-
-	for (f = L->frame; f; f = f->prevFrame) {
-		Ast *node = (Ast *)f->block;
-		if (node && ((node->type == L_NODE_LOOP) ||
-			     (node->type == L_NODE_FOREACH_LOOP))) {
-			break;
-		}
-	}
-	return (f);
-}
-
-private Frame *
-frame_find(Frame_f flags)
-{
-	Frame	*f = L->frame;
-
-	ASSERT(f);
-	while (!(f->flags & flags)) f = f->prevFrame;
-	return (f);
-}
-
 private void
-emit_globalUpvar(Sym *sym, Expr *id)
+emit_globalUpvar(Sym *sym)
 {
 	VarDecl	*decl = sym->decl;
+	char	*id = sym->name;
 
 	/*
 	 * Tim comment: We attempt to detect whether L global
@@ -3253,13 +3349,15 @@ emit_globalUpvar(Sym *sym, Expr *id)
 	 * (Sharing variables with the calling proc is useful if you
 	 * want to use L as an expr replacement).
 	 */
-	if (((Interp *)L->frame->interp)->rootFramePtr !=
-	    ((Interp *)L->frame->interp)->varFramePtr) {
+	if (((Interp *)L->interp)->rootFramePtr !=
+	    ((Interp *)L->interp)->varFramePtr) {
 		ASSERT(!(decl->flags & (DECL_CLASS_VAR | DECL_CLASS_INST_VAR)));
+		frame_resumePrologue();
 		push_str("1");
-		push_str(id->u.string);
+		push_str(id);
 		TclEmitInstInt4(INST_UPVAR, sym->idx, L->frame->envPtr);
 		emit_pop();
+		frame_resumeBody();
 		return;
 	}
 
@@ -3268,31 +3366,33 @@ emit_globalUpvar(Sym *sym, Expr *id)
 	 * either ::, an L class namespace, or an L class instance namespace
 	 * where the local "self" holds the namespace name.
 	 */
+	frame_resumePrologue();
 	switch (decl->flags &
 		(DECL_GLOBAL_VAR | DECL_CLASS_VAR | DECL_CLASS_INST_VAR)) {
 	    case DECL_GLOBAL_VAR:
 		push_str("::");
 		/* Private globals get mangled to avoid clashes. */
 		if (decl->flags & DECL_PRIVATE) {
-			push_str("_%s_%s", L->toplev, id->u.string);
+			push_str("_%s_%s", L->toplev, id);
 		} else {
-			push_str(id->u.string);
+			push_str(id);
 		}
 		break;
 	    case DECL_CLASS_VAR:
 		push_str("::L::_class_%s", decl->clsdecl->decl->id->u.string);
-		push_str(id->u.string);
+		push_str(id);
 		break;
 	    case DECL_CLASS_INST_VAR: {
 		Sym *self = sym_lookup(ast_mkId("self", 0, 0), L_NOWARN);
 		ASSERT(self);
 		emit_load_scalar(self->idx);
-		push_str(id->u.string);
+		push_str(id);
 		break;
 	    }
 	}
 	TclEmitInstInt4(INST_NSUPVAR, sym->idx, L->frame->envPtr);
 	emit_pop();
+	frame_resumeBody();
 }
 
 /*
@@ -3458,27 +3558,25 @@ sym_store(VarDecl *decl)
 	sym->decl = decl;
 
 	/*
-	 * The decl also says whether variables are local or global.
-	 * Vars in the outer-most scope (which includes all externs),
-	 * are globals.  Also mangle the tcl name if necessary: for a
-	 * global "g" use "_g" (this is so we can always create a
-	 * local upvar shadow for it; locals and function names are
-	 * not allowed to begin with "_"), and for a function, prepend
-	 * the tclprefix that the parser sometimes sets (for public
-	 * class member functions, with the class namespace).
+	 * Set the name of the tcl variable, mangling it to avoid
+	 * clashes.
 	 */
 	if (isfntype(decl->type)) {
 		ASSERT(decl->flags & (DECL_FN | DECL_CLASS_FN));
-		sym->kind    = L_SYM_FN;
+		sym->kind = L_SYM_FN;
 		if (decl->tclprefix) {
 			sym->tclname = cksprintf("%s%s", decl->tclprefix, name);
 		} else {
 			sym->tclname = ckstrdup(name);
 		}
-	} else if (decl->flags &
-		   (DECL_GLOBAL_VAR | DECL_CLASS_VAR | DECL_CLASS_INST_VAR)) {
+	} else if (decl->flags & DECL_GLOBAL_VAR) {
 		sym->kind    = L_SYM_GVAR;
 		sym->tclname = cksprintf("_%s", name);
+	} else if (decl->flags & (DECL_CLASS_VAR | DECL_CLASS_INST_VAR)) {
+		sym->kind    = L_SYM_GVAR;
+		sym->tclname = cksprintf("_%s_%s",
+					 decl->clsdecl->decl->id->u.string,
+					 name);
 	} else {
 		ASSERT(decl->flags & DECL_LOCAL_VAR);
 		sym->kind    = L_SYM_LVAR;
@@ -3535,9 +3633,11 @@ sym_lookup(Expr *id, Expr_f flags)
 	if (sym) {
 		/*
 		 * If a global is being referenced for the first time
-		 * in this scope, create a local upvar to shadow it.
+		 * in this scope, create a local upvar to shadow it
+		 * in the symtab of the enclosing proc or top-level.
 		 */
 		if ((sym->kind & L_SYM_GVAR) && (sym->idx == -1)) {
+			Frame	*proc_frame;
 			// assert global => in outer-most or file frame
 			ASSERT(!(sym->decl->flags & DECL_GLOBAL_VAR) ||
 			       (frame->flags & (OUTER|SCRIPT)));
@@ -3547,7 +3647,9 @@ sym_lookup(Expr *id, Expr_f flags)
 			// assert class instance var => class outer-most frame
 			ASSERT(!(sym->decl->flags & DECL_CLASS_INST_VAR) ||
 			       (frame->flags & CLS_OUTER));
-			hPtr = Tcl_CreateHashEntry(L->frame->symtab, name,
+			proc_frame = frame_find(TOPLEV|CLS_TOPLEV|PROC);
+			ASSERT(proc_frame);
+			hPtr = Tcl_CreateHashEntry(proc_frame->symtab, name,
 						   &new);
 			ASSERT(new);
 			shw = (Sym *)ckalloc(sizeof(Sym));
@@ -3562,7 +3664,7 @@ sym_lookup(Expr *id, Expr_f flags)
 						strlen(shw->tclname),
 						1,
 						L->frame->envPtr);
-			emit_globalUpvar(shw, id);
+			emit_globalUpvar(shw);
 			Tcl_SetHashValue(hPtr, shw);
 			sym = shw;
 		}
@@ -3578,59 +3680,6 @@ sym_lookup(Expr *id, Expr_f flags)
 		id->type = L_poly;  // to minimize cascading errors
 		return (NULL);
 	}
-}
-
-private void
-frame_push(Tcl_Interp *interp, CompileEnv *envPtr, void *block, Frame_f flags)
-{
-	Frame *new_frame = (Frame *)ckalloc(sizeof(Frame));
-	memset(new_frame, 0, sizeof(*new_frame));
-
-	new_frame->interp = interp;
-	new_frame->envPtr = envPtr;
-	new_frame->block  = block;
-	new_frame->flags  = flags;
-	new_frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
-	Tcl_InitHashTable(new_frame->symtab, TCL_STRING_KEYS);
-	new_frame->prevFrame = L->frame;
-	/* Inherit options from the previous frame. */
-	if (L->frame) new_frame->options = L->frame->options;
-	L->frame = new_frame;
-}
-
-private void
-frame_pop(void)
-{
-	Frame	*prev = L->frame->prevFrame;
-	Sym	*sym;
-	Tcl_HashEntry *hPtr;
-	Tcl_HashSearch hSearch;
-
-	/*
-	 * Check for unused local symbols, and free the frame's symbol
-	 * table and the frame itself.
-	 */
-	for (hPtr = Tcl_FirstHashEntry(L->frame->symtab, &hSearch);
-	     hPtr != NULL;
-	     hPtr = Tcl_NextHashEntry(&hSearch)) {
-		sym = (Sym *)Tcl_GetHashValue(hPtr);
-		unless (sym->used_p || !(sym->kind & L_SYM_LVAR) ||
-			(sym->decl->flags & DECL_UNUSED)) {
-			L_warnf(sym->decl, "%s unused", sym->name);
-		}
-		unless (L->frame->flags & KEEPSYMS) {
-			ckfree(sym->name);
-			ckfree(sym->tclname);
-			ckfree((char *)sym);
-		}
-	}
-	unless (L->frame->flags & KEEPSYMS) {
-		Tcl_DeleteHashTable(L->frame->symtab);
-		ckfree((char *)L->frame->symtab);
-	}
-	ckfree((char *)L->frame);
-
-	L->frame = prev;
 }
 
 /*
@@ -3684,7 +3733,7 @@ L_trace(const char *format, ...)
 void
 L_warn(char *s)
 {
-	unless (L->frame && (L->frame->options & L_OPT_NOWARN)) {
+	unless (L->frame && (L->options & L_OPT_NOWARN)) {
 		fprintf(stderr, "L Warning: %s\n", s);
 	}
 }
@@ -3694,7 +3743,7 @@ L_warnf(void *node, const char *format, ...)
 {
 	va_list	ap;
 
-	unless (L->frame && (L->frame->options & L_OPT_NOWARN)) {
+	unless (L->frame && (L->options & L_OPT_NOWARN)) {
 		va_start(ap, format);
 		if (node) {
 			fprintf(stderr, "%s:%d: ",
@@ -4013,7 +4062,7 @@ TclLInitCompiler(Tcl_Interp *interp)
 	Tcl_SetAssocData(interp, "L", TclLCleanupCompiler, L);
 
 	L->interp = interp;
-	frame_push(interp, NULL, NULL, OUTER|SEARCH);
+	frame_push(NULL, NULL, OUTER|SEARCH);
 	L_scope_enter();
 }
 

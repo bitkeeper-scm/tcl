@@ -85,7 +85,7 @@ L_typeck_deny(Type_k deny, Expr *expr)
 {
 	ASSERT(expr->type);
 
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
 
 	if (expr->type->kind & deny) {
 		L_errf(expr, "type %s illegal", type_str(expr->type->kind));
@@ -98,7 +98,7 @@ L_typeck_expect(Type_k want, Expr *expr, char *msg)
 {
 	ASSERT(expr->type);
 
-	if ((L->frame->options & L_OPT_POLY) ||
+	if ((L->options & L_OPT_POLY) ||
 	    ((expr->type->kind | want) & L_POLY)) return;
 
 	unless (expr->type->kind & want) {
@@ -123,7 +123,7 @@ L_typeck_compat(Type *lhs, Type *rhs)
 void
 L_typeck_assign(Expr *lhs, Expr *rhs)
 {
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
 	unless (lhs && rhs) return;
 
 	L_typeck_deny(L_VOID, lhs);
@@ -140,7 +140,7 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 	int	i, rest_arg = 0;
 	Expr	*actuals = call->b;
 
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
 
 	for (i = 1; actuals && formals; ++i) {
 		if (isexpand(actuals)) return;
