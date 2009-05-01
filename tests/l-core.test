@@ -876,6 +876,59 @@ void var_1_2_aux()
 var_1_2
 } -output "3\n4\n5\n"
 
+test var-1.2.2 {L global variable access from inside function} -body {
+#lang L
+private int g = 123;
+void var_1_2_2()
+{
+	/*
+	 * This tests a past compiler bug where the upvars for the
+	 * global shadows were emitted at the point of variable use,
+	 * which doesn't work if the use doesn't get executed, like
+	 * the first reference to "g" below.
+	 */
+	for (; 0; g);
+	unless (g == 123) puts("bad 1");
+}
+var_1_2_2();
+} -output {}
+
+test var-1.2.3 {L global variable access from inside class} -body {
+#lang L
+/*
+ * Like the above test (var-1.2.2) but with class variables as well.
+ */
+private int g = 321;
+class class_var_1_2_3a
+{
+	public int l1 = g;    // should see the global "g"
+	public int g  = 654;  // shadows the global
+	public int l2 = g;    // should see the local "g"
+}
+class class_var_1_2_3b
+{
+	public int l1 = g;    // should see the global "g"
+	public int g  = 456;  // shadows the global
+	public int l2 = g;    // should see the local "g"
+}
+void var_1_2_3()
+{
+	unless (g == 321) puts("bad 1");
+	unless (class_var_1_2_3a->l1 == 321) puts("bad 2");
+	unless (class_var_1_2_3a->g  == 654) puts("bad 3");
+	unless (class_var_1_2_3a->l2 == 654) puts("bad 4");
+	unless (class_var_1_2_3b->l1 == 321) puts("bad 5");
+	unless (class_var_1_2_3b->g  == 456) puts("bad 6");
+	unless (class_var_1_2_3b->l2 == 456) puts("bad 7");
+	if (1) {
+		int	g = 987;
+		unless (g == 987) puts("bad 10");
+	}
+	unless (g == 321) puts("bad 20");
+}
+var_1_2_3();
+} -output {}
+
 test var-1.3 {A global array of structs} -body {
 #lang L
 
@@ -3945,50 +3998,105 @@ void loop_1_2_7()
 .*16: L Error: loop index not of string type
 }
 
+test loop-1.2.8 {test foreach type errors} -body {
+#lang L
+void loop_1_2_8()
+{
+	string	s;
+	poly	p;
+	struct { int i,j; } st;
+
+	foreach(s in p) ;
+	foreach(s in st) ;
+	foreach(s in {"a","b"}) ;
+}
+} -returnCodes error -match regexp -result {.*7: L Error: foreach expression must be array, hash, or string
+.*8: L Error: foreach expression must be array, hash, or string
+.*9: L Error: foreach expression must be array, hash, or string
+}
+
 test loop-1.3 {continue statements} -body {
 #lang L
-void loop_1_3() {
-  loop_1_3_for_continue();
-  loop_1_3_foreach_continue();
+void loop_1_3_for_continue()
+{
+	int	i;
+
+	for (i = 0; i < 5; i++) {
+		if (i == 2) continue;
+		puts(i);
+	}
 }
 
-void loop_1_3_for_continue() {
-  int i;
+void loop_1_3_foreach_continue()
+{
+	string	k, l, v;
+	string	as[] = { "1", "2", "3", "4", "5" };
+	hash	h;
 
-  for (i=0; i<5; i++) {
-    if (i == 2) {
-      continue;
-    }
-    puts(i);
-  }
+	h{"a"} = "x";
+	h{"b"} = "y";
+	h{"c"} = "z";
+
+	printf("foreach test 1\n");
+	foreach (k => v in h) {
+		if (k eq "b") continue;
+		printf("%s => %s\n", k, v);
+	}
+
+	printf("foreach test 2\n");
+	foreach (l in h) {
+		if (l eq "c") continue;
+		foreach (k => v in h) {
+			if (k eq "b") continue;
+			printf("%s: %s => %s\n", l, k, v);
+		}
+	}
+
+	printf("foreach test 3\n");
+	foreach (v in as) {
+		if ((v ge "2") && (v le "4")) continue;
+		printf("%s\n", v);
+	}
+
+	printf("foreach test 4\n");
+	foreach (l in "abcdefg") {
+		if ((l ge "d") && (l le "f")) continue;
+		printf("%s\n", l);
+	}
 }
 
-void loop_1_3_foreach_continue() {
-  hash h;
-  string k, v, l;
+void loop_1_3_do_while_continue()
+{
+	int	i;
 
-  h{"a"} = "x";
-  h{"b"} = "y";
-  h{"c"} = "z";
+	printf("do while test\n");
+	i = -1;
+	do {
+		++i;
+		if ((i == 1) || (i == 2)) continue;
+		puts(i);
+	} while (i < 5);
+}
 
-  printf("foreach test 1\n");
-  foreach (k => v in h) {
-    if (k eq "b") {
-      continue;
-    }
-    printf("%s => %s\n", k, v);
-  }
+void loop_1_3_while_continue()
+{
+	int	i;
 
-  printf("foreach test 2\n");
-  foreach (l in h) {
-    if (l eq "c") continue;
-    foreach (k => v in h) {
-      if (k eq "b") {
-        continue;
-      }
-      printf("%s: %s => %s\n", l, k, v);
-    }
-  }
+	printf("while test\n");
+	i = -1;
+	while (i < 5) {
+		++i;
+		if ((i == 1) || (i == 2)) continue;
+		puts(i);
+	};
+}
+
+void loop_1_3()
+{
+	loop_1_3_for_continue();
+	loop_1_3_foreach_continue();
+	loop_1_3_do_while_continue();
+	loop_1_3_while_continue();
 }
 #lang tcl
 loop_1_3
@@ -4004,47 +4112,106 @@ a: a => x
 a: c => z
 b: a => x
 b: c => z
+foreach test 3
+1
+5
+foreach test 4
+a
+b
+c
+g
+do while test
+0
+3
+4
+5
+while test
+0
+3
+4
+5
 }
 
 test loop-1.4 {break statements} -body {
 #lang L
-void loop_1_4() {
-  loop_1_4_foreach_break();
-  loop_1_4_for_break();
+void loop_1_4_foreach_break()
+{
+	string	k, l, v;
+	string	as[] = { "1", "2", "3", "4", "5" };
+	hash	h;
+
+	h{"a"} = "x";
+	h{"b"} = "y";
+	h{"c"} = "z";
+	foreach (l in h) {
+		foreach (k => v in h) {
+			if (k eq "b") break;
+		}
+	}
+	printf("loops over, k is %s, v is %s\n", k, v);
+
+	foreach (l in as) {
+		if (l eq "3") break;
+	}
+	printf("l is %s\n", l);
+
+	foreach (l in "abcdefg") {
+		if (l eq "c") break;
+	}
+	printf("l is %s\n", l);
 }
 
-void loop_1_4_foreach_break() {
-  hash h;
-  string k, v, l;
+void loop_1_4_for_break()
+{
+	int	i;
 
-  h{"a"} = "x";
-  h{"b"} = "y";
-  h{"c"} = "z";
-  foreach (l in h) {
-    foreach (k => v in h) {
-      if (k eq "b") {
-        break;
-      }
-    }
-  }
-  printf("loop's over, k is %s, v is %s\n", k, v);
+	for (i = 0; i < 10; i++) {
+		puts(i);
+		if (i == 5) {
+			puts("attempting to break");
+			break;
+		}
+	}
+	printf("at the end of the day, i is %d\n", i);
 }
 
-void loop_1_4_for_break() {
-  int i;
+void loop_1_4_do_while_break()
+{
+	int	i;
 
-  for (i=0; i<10; i++) {
-    puts(i);
-    if (i == 5) {
-      puts("attempting to break");
-      break;
-    }
-  }
-  printf("at the end of the day, i is %d\n", i);
+	i = 0;
+	do {
+		++i;
+		if (i == 3) break;
+	} while (i < 5);
+	printf("do while i = %d\n", i);
 }
+
+void loop_1_4_while_break()
+{
+	int	i;
+
+	i = 0;
+	while (i < 5) {
+		++i;
+		if (i == 3) break;
+	}
+	printf("while i = %d\n", i);
+}
+
+void loop_1_4()
+{
+	loop_1_4_foreach_break();
+	loop_1_4_for_break();
+	loop_1_4_do_while_break();
+	loop_1_4_while_break();
+}
+
 #lang tcl
 loop_1_4
-} -output {loop's over, k is b, v is y
+} -output {loops over, k is b, v is y
+l is 3
+l is c
 0
 1
 2
@@ -4053,6 +4220,8 @@ loop_1_4
 5
 attempting to break
 at the end of the day, i is 5
+do while i = 3
+while i = 3
 }
 
 test loop-1.5 {continues in nested foreach loops} -body {
@@ -7197,7 +7366,7 @@ typecheck_3_12()
 .*19: L Error: parameter 1 has incompatible type
 }
 
-test typehceck-3.13 {void illegal as foreach expr} -body {
+test typecheck-3.13 {void illegal as foreach expr} -body {
 #lang L -nowarn
 void t313v() { return; }
 void
@@ -7207,7 +7376,7 @@ typecheck_3_13()
 
 	foreach (k in t313v()) { }
 }
-} -returnCodes error -match regexp -result {.*Illegal foreach expression}
+} -returnCodes error -match regexp -result {.*foreach expression must be array, hash, or string}
 
 test typecheck-4.1 {type errors in foreach} -body {
 #lang L
