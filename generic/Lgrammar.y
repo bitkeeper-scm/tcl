@@ -520,6 +520,14 @@ parameter_list:
 			v->flags |= SCOPE_LOCAL | DECL_LOCAL_VAR;
 		}
 		$$ = $1;
+		/*
+		 * Special case a parameter list of "void" -- a single
+		 * formal of type void with no arg name.  This really
+		 * means there are no args.
+		 */
+		if ($1 && !$1->next && !$1->id && ($1->type == L_void)) {
+			$$ = NULL;
+		}
 	}
 	| /* epsilon */	{ $$ = NULL; }
 	;

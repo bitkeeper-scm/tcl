@@ -188,16 +188,8 @@ typeck_declType(Type *type, VarDecl *decl, int nameof_ok)
 		unless (isvoidtype(type->base_type)) {
 			ret = typeck_declType(type->base_type, decl, FALSE);
 		}
-		/*
-		 * Now look at the formals.  Special case fn(void) --
-		 * a single formal arg of type void with no arg name.
-		 * Null out the formals list since this really means
-		 * there are no args.
-		 */
+		/* Now look at the formals. */
 		v = type->u.func.formals;
-		if (v && !v->next && !v->id && (v->type == L_void)) {
-			type->u.func.formals = NULL;
-		}
 		for (v = type->u.func.formals; v; v = v->next) {
 			/* To type-check all formals, don't short-circuit. */
 			ret = typeck_declType(v->type, v, TRUE) && ret;
