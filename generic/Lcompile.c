@@ -95,6 +95,8 @@ private int	compile_clsDeref(Expr *expr, Expr_f flags);
 private int	compile_clsInstDeref(Expr *expr, Expr_f flags);
 private void	compile_condition(Expr *cond);
 private void	compile_continue(Stmt *stmt);
+private void	compile_do(Loop *loop);
+private void	compile_for_while(Loop *loop);
 private int	compile_idxOp(Expr *expr, Expr_f flags);
 private int	compile_expr(Expr *expr, Expr_f flags);
 private int	compile_exprs(Expr *expr, Expr_f flags);
@@ -128,7 +130,8 @@ private void	compile_varDecl(VarDecl *decl);
 private void	compile_varDecls(VarDecl *decls);
 private void	emit_globalUpvar(Sym *sym);
 private void	emit_instrForLOp(Expr *expr);
-private Jmp	*emit_jmp(int op);
+private void	emit_jmp_back(TclJumpType jmp_type, int offset);
+private Jmp	*emit_jmp_fwd(int op);
 private void	fixup_jmps(Jmp *jumps);
 private Frame	*frame_find(Frame_f flags);
 private void	frame_pop(void);
@@ -635,7 +638,7 @@ frame_push(void *node, char *name, Frame_f flags)
 	 * Emit a jump to what will eventually be the prologue code
 	 * (output by frame_pop()).
 	 */
-	frame->end_jmp  = emit_jmp(INST_JUMP4);
+	frame->end_jmp  = emit_jmp_fwd(INST_JUMP4);
 	frame->proc_top = currOffset(frame->envPtr);
 }
 
@@ -1274,7 +1277,7 @@ compile_assert(Expr *expr)
 		return (0);  // stack effect
 	}
 	compile_condition(expr->b);
-	jmp = emit_jmp(INST_JUMP_TRUE4);
+	jmp = emit_jmp_fwd(INST_JUMP_TRUE4);
 	cond_txt = get_text(expr->b);
 	push_str("die");
 	push_str("ASSERTION FAILED %s:%d: %s\n", expr->node.file,
@@ -2233,7 +2236,7 @@ compile_shortCircuit(Expr *expr)
 	// <a-val>
 	TclEmitOpcode(INST_DUP, L->frame->envPtr);
 	// <a-val> <a-val>
-	jmp = emit_jmp(op);
+	jmp = emit_jmp_fwd(op);
 	// <a-val>   if short-circuit and we jumped out
 	// <a-val>   if did not short-circuit and we're still going
 	emit_pop();
@@ -2281,7 +2284,7 @@ compile_ifUnless(Cond *cond)
 
 	/* Test the condition and jmp if false. */
 	compile_condition(cond->cond);
-	falsejmp = emit_jmp(INST_JUMP_FALSE4);
+	falsejmp = emit_jmp_fwd(INST_JUMP_FALSE4);
 
 	/* Compile the "if" leg. */
 	frame_push(cond, NULL, SEARCH);
@@ -2291,7 +2294,7 @@ compile_ifUnless(Cond *cond)
 		/* "Else" leg present. */
 		frame_pop();
 		frame_push(cond, NULL, SEARCH);
-		endjmp = emit_jmp(INST_JUMP4);
+		endjmp = emit_jmp_fwd(INST_JUMP4);
 		fixup_jmps(falsejmp);
 		compile_stmts(cond->else_body);
 		fixup_jmps(endjmp);
@@ -2302,51 +2305,130 @@ compile_ifUnless(Cond *cond)
 	frame_pop();
 }
 
-/*
- * Compile for, do, and while loops.
- *
- * For & while loop:    Do loop:
- *    <pre>
- *    jmp 1
- * 2: <body>            1: <body>
- *    <post>
- * 1: <cond>               <cond>
- *    jmpTrue 2            jmpTrue 1
- */
 private void
 compile_loop(Loop *loop)
 {
-	int	body_off, jmp_dist;
-	Jmp	*break_jumps, *continue_jumps;
-	Jmp	*condjmp = 0;
+	switch (loop->kind) {
+	    case L_LOOP_DO:
+		compile_do(loop);
+		break;
+	    case L_LOOP_FOR:
+	    case L_LOOP_WHILE:
+		compile_for_while(loop);
+		break;
+	    default:
+		L_bomb("bad loop type");
+		break;
+	}
+}
 
-	if (loop->kind == L_LOOP_FOR) compile_exprs(loop->pre, L_DISCARD);
-	unless (loop->kind == L_LOOP_DO) condjmp = emit_jmp(INST_JUMP4);
+/*
+ * Do loop:
+ *
+ * 1: <body>
+ *    <cond>
+ *    jmpTrue 1
+ */
+private void
+compile_do(Loop *loop)
+{
+	int	body_off;
+	Jmp	*break_jmps, *continue_jmps;
 
-	/*
-	 * Compile loop body.  Note that we must grab the jump fix-ups
-	 * out of the frame before popping it.
-	 */
-	frame_push(loop, NULL, LOOP|SEARCH);
 	body_off = currOffset(L->frame->envPtr);
+	frame_push(loop, NULL, LOOP|SEARCH);
 	compile_stmts(loop->body);
-	break_jumps    = L->frame->break_jumps;
-	continue_jumps = L->frame->continue_jumps;
+	break_jmps    = L->frame->break_jumps;
+	continue_jmps = L->frame->continue_jumps;
 	frame_pop();
-	fixup_jmps(continue_jumps);
-
-	if (loop->kind == L_LOOP_FOR) compile_exprs(loop->post, L_DISCARD);
-	unless (loop->kind == L_LOOP_DO) fixup_jmps(condjmp);
+	fixup_jmps(continue_jmps);
 
 	compile_condition(loop->cond);
+	emit_jmp_back(TCL_TRUE_JUMP, body_off);
+	fixup_jmps(break_jmps);
+}
 
-	jmp_dist = currOffset(L->frame->envPtr) - body_off;
-	if (jmp_dist > 127) {
-		TclEmitInstInt4(INST_JUMP_TRUE4, -jmp_dist, L->frame->envPtr);
+/*
+ * While loop:        For loop:
+ *
+ *                      <pre>
+ * 1: <cond>         1: <cond>
+ *    jmpFalse 2        jmpFalse 2
+ *    <body>            <body>
+ *                      <post>
+ *    jmp 1             jmp 1
+ * 2:                2:
+ */
+private void
+compile_for_while(Loop *loop)
+{
+	int	cond_off;
+	Jmp	*break_jmps, *continue_jmps, *out_jmp;
+
+	if (loop->kind == L_LOOP_FOR) compile_exprs(loop->pre, L_DISCARD);
+
+	cond_off = currOffset(L->frame->envPtr);
+	compile_condition(loop->cond);
+	out_jmp = emit_jmp_fwd(INST_JUMP_FALSE4);
+
+	frame_push(loop, NULL, LOOP|SEARCH);
+	compile_stmts(loop->body);
+	break_jmps    = L->frame->break_jumps;
+	continue_jmps = L->frame->continue_jumps;
+	frame_pop();
+	fixup_jmps(continue_jmps);
+
+	if (loop->kind == L_LOOP_FOR) compile_exprs(loop->post, L_DISCARD);
+
+	emit_jmp_back(TCL_UNCONDITIONAL_JUMP, cond_off);
+	fixup_jmps(out_jmp);
+	fixup_jmps(break_jmps);
+}
+
+/*
+ * Emit a jump instruction to a backwards target.  jmp_type is one of
+ * TCL_UNCONDITIONAL, TCL_TRUE_JUMP, or TCL_FALSE_JUMP.  The jump
+ * opcope is appropriately selected for the jump distance.
+ */
+private void
+emit_jmp_back(TclJumpType jmp_type, int offset)
+{
+	int	op = 0;
+	int	dist = currOffset(L->frame->envPtr) - offset;
+
+	if (dist > 127) {
+		switch (jmp_type) {
+		    case TCL_UNCONDITIONAL_JUMP:
+			op = INST_JUMP4;
+			break;
+		    case TCL_TRUE_JUMP:
+			op = INST_JUMP_TRUE4;
+			break;
+		    case TCL_FALSE_JUMP:
+			op = INST_JUMP_FALSE4;
+			break;
+		    default:
+			L_bomb("bad jmp type");
+			break;
+		}
+		TclEmitInstInt4(op, -dist, L->frame->envPtr);
 	} else {
-		TclEmitInstInt1(INST_JUMP_TRUE1, -jmp_dist, L->frame->envPtr);
+		switch (jmp_type) {
+		    case TCL_UNCONDITIONAL_JUMP:
+			op = INST_JUMP1;
+			break;
+		    case TCL_TRUE_JUMP:
+			op = INST_JUMP_TRUE1;
+			break;
+		    case TCL_FALSE_JUMP:
+			op = INST_JUMP_FALSE1;
+			break;
+		    default:
+			L_bomb("bad jmp type");
+			break;
+		}
+		TclEmitInstInt1(op, -dist, L->frame->envPtr);
 	}
-	fixup_jmps(break_jumps);
 }
 
 /*
@@ -2356,7 +2438,7 @@ compile_loop(Loop *loop)
  * returned structure.
  */
 private Jmp *
-emit_jmp(int op)
+emit_jmp_fwd(int op)
 {
 	Jmp	*ret = (Jmp *)ckalloc(sizeof(Jmp));
 
@@ -2575,7 +2657,7 @@ compile_foreachHash(ForEach *loop)
 	 * of the loop body.)
 	 */
 	TclEmitInstInt4(INST_DICT_FIRST, it_idx, L->frame->envPtr);
-	out_jmp = emit_jmp(INST_JUMP_TRUE4);
+	out_jmp = emit_jmp_fwd(INST_JUMP_TRUE4);
 
 	/*
 	 * Update the key and value variables. We save the offset of
@@ -2661,7 +2743,7 @@ compile_foreachString(ForEach *loop)
 	emit_store_scalar(it_idx);
 	emit_pop();
 
-	cond_jmp = emit_jmp(INST_JUMP4);
+	cond_jmp = emit_jmp_fwd(INST_JUMP4);
 	body_off = currOffset(L->frame->envPtr);
 
 	for (id = loop->key; id; id = id->next) {
@@ -3315,7 +3397,7 @@ compile_continue(Stmt *stmt)
 		L_errf(stmt, "continue allowed only inside loops");
 		return;
 	}
-	j = emit_jmp(INST_JUMP4);
+	j = emit_jmp_fwd(INST_JUMP4);
 	j->next = loop_frame->continue_jumps;
 	loop_frame->continue_jumps = j;
 }
@@ -3330,7 +3412,7 @@ compile_break(Stmt *stmt)
 		L_errf(stmt, "break allowed only inside loops");
 		return;
 	}
-	j = emit_jmp(INST_JUMP4);
+	j = emit_jmp_fwd(INST_JUMP4);
 	j->next = loop_frame->break_jumps;
 	loop_frame->break_jumps = j;
 }

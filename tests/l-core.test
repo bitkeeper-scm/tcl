@@ -4516,6 +4516,43 @@ aiii has 133
 end
 "
 
+test loop-1.7 {test loop condition with regexp captures} -body {
+#lang L
+void loop_1_7()
+{
+	/*
+	 * This checks for an earlier compiler bug where the loop
+	 * condition was sometimes compiled before the loop body,
+	 * causing any regexp capture variable references to possibly
+	 * become undeclared-variable references.
+	 */
+
+	int	it;
+
+	it = 0;
+	while ("abc" =~ /(a)(b)/) {
+		++it;
+		unless (($1 eq "a") && ($2 eq "b")) {
+			puts("bad 1.1");
+		}
+		break;
+	}
+	unless (it == 1) puts("bad 1.2");
+
+	/* Use more captures than last time. */
+	for (it = 0; "abcd" =~ /(a)(b)(c)(d)/; ) {
+		++it;
+		unless (($1 eq "a") && ($2 eq "b") && ($3 eq "c") &&
+			($4 eq "d")) {
+			puts("bad 2.1");
+		}
+		break;
+	}
+	unless (it == 1) puts("bad 2.2");
+}
+loop_1_7();
+} -output {}
+
 test struct-1.0 {structs} -body {
 #lang L
 struct struct_1_0_point {
@@ -9438,13 +9475,13 @@ src_mappings_3
 .*Command \d+: "do f\(\); while \(0\);"
 .*Command \d+: "i = 0"
 .*Command \d+: "for \(i = 0; i < 10;\) f\(\);"
-.*Command \d+: "f\(\)"
 .*Command \d+: "i < 10"
+.*Command \d+: "f\(\)"
 .*Command \d+: "i = 0"
 .*Command \d+: "for \(i = 0; i < 10; \+\+i\) f\(\);"
+.*Command \d+: "i < 10"
 .*Command \d+: "f\(\)"
 .*Command \d+: "\+\+i"
-.*Command \d+: "i < 10"
 .*Command \d+: "fh\(\)"
 .*Command \d+: "foreach \(k => v in fh\(\)\) f\(\);"
 .*Command \d+: "f\(\)"
