@@ -300,14 +300,8 @@ include_pop()
 	"<"		return T_LESSTHAN;
 	"<="		return T_LESSTHANEQ;
 	"->"		return T_POINTS;
-	{ID}:		{
-				/* Return -ID (strip the :). */
-				L_lval.s = ckalloc(yyleng+1);
-				L_lval.s[0] = '-';
-				strncpy(L_lval.s+1, yytext, yyleng-1);
-				L_lval.s[yyleng] = 0;
-				return T_KEYWORD;
-			}
+	":"		return T_COLON;
+	"?"		return T_QUESTION;
 	{ID}		{
 				Type *t = L_typedef_lookup(yytext);
 				if (t) {

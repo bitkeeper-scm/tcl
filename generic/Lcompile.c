@@ -1990,10 +1990,14 @@ compile_binOp(Expr *expr, Expr_f flags)
 private int
 compile_trinOp(Expr *expr)
 {
+	int	i = 0, n = 0, n2 = 0;
+	Jmp	*end_jmp, *false_jmp;
+
 	switch (expr->op) {
 	    case L_OP_EQTWID:
 		compile_twiddleSubst(expr);
 		expr->type = L_int;
+		n = 1;
 		break;
 	    case L_OP_INTERP_STRING:
 	    case L_OP_INTERP_RE:
@@ -2002,21 +2006,21 @@ compile_trinOp(Expr *expr)
 		compile_expr(expr->c, L_PUSH_VAL);
 		TclEmitInstInt1(INST_CONCAT1, 3, L->frame->envPtr);
 		expr->type = L_string;
+		n = 1;
 		break;
-	    case L_OP_ARRAY_SLICE: {
-		int	n = 0;
+	    case L_OP_ARRAY_SLICE:
 		compile_expr(expr->a, L_PUSH_VAL);
 		if (isstring(expr->a)) {
 			push_str("::string");
 			push_str("range");
 			TclEmitInstInt1(INST_ROT, 2, L->frame->envPtr);
 			expr->type = L_string;
-			n = 5;
+			i = 5;
 		} else if (isarray(expr->a) || islist(expr->a)) {
 			push_str("::lrange");
 			TclEmitInstInt1(INST_ROT, 1, L->frame->envPtr);
 			expr->type = expr->a->type;
-			n = 4;
+			i = 4;
 		} else {
 			L_errf(expr->a, "illegal type for slice");
 			expr->type = L_poly;
@@ -2041,13 +2045,34 @@ compile_trinOp(Expr *expr)
 		    ispoly(expr->a)) {
 			TclEmitOpcode(INST_L_POP_SIZE, L->frame->envPtr);
 		}
-		emit_invoke(n);
+		emit_invoke(i);
+		n = 1;
 		break;
-	    }
+	    case L_OP_TERNARY_COND:
+		compile_condition(expr->a);
+		false_jmp = emit_jmp_fwd(INST_JUMP_FALSE4);
+		n = compile_expr(expr->b, L_PUSH_VAL);
+		end_jmp = emit_jmp_fwd(INST_JUMP4);
+		fixup_jmps(false_jmp);
+		n2 = compile_expr(expr->c, L_PUSH_VAL);
+		fixup_jmps(end_jmp);
+		ASSERT(n == n2);
+		if (ispoly(expr->b) || ispoly(expr->c)) {
+			expr->type = L_poly;
+		} else if (L_typeck_same(expr->b->type, expr->c->type)) {
+			expr->type = expr->b->type;
+		} else if ((expr->b->type->kind & (L_INT|L_FLOAT)) &&
+			   (expr->c->type->kind & (L_INT|L_FLOAT))) {
+			expr->type = L_float;
+		} else {
+			L_errf(expr, "incompatible types in ? : expressions");
+			expr->type = L_poly;
+		}
+		break;
 	    default:
 		L_bomb("compile_trinOp: malformed AST");
 	}
-	return (1);  // stack effect
+	return (n);  // stack effect
 }
 
 /*

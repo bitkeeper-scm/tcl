@@ -93,8 +93,8 @@ poly Parse14Pattern_*(int a, ...rest)
 
 test parse-1.5 {test handling of illegal character} -body {
 #lang L
-?
-} -returnCodes error -match regexp -result {.*1: L Error: illegal character '\?'
+@
+} -returnCodes error -match regexp -result {.*1: L Error: illegal character '\@'
 }
 
 test scan-1.1 {test detection of run-away string 1} -body {
@@ -2318,6 +2318,141 @@ void op_1_15()
 } -returnCodes {error} -match regexp -result {.*6: L Error: \. illegal on call-by-reference parms; use -> instead
 .*10: L Error: -> illegal except on call-by-reference parms; use \. instead
 .*16: L Error: -> illegal except on call-by-reference parms; use \. instead
+}
+
+test op-1.16 {check ? : operator} -body {
+#lang L
+string op_1_16_f(...args) { return (join("", args)); }
+void op_1_16()
+{
+	int	i;
+	float	f;
+	string	s;
+
+	/* Check spacing variations. */
+
+	s = "bad";
+	0 ? puts("bad 1.1") : (s = "good");
+	unless (s eq "good") puts("bad 1.2");
+
+	s = "bad";
+	0? puts("bad 2.1") : (s = "good");
+	unless (s eq "good") puts("bad 2.2");
+
+	s = "bad";
+	0?puts("bad 3.1") : (s = "good");
+	unless (s eq "good") puts("bad 3.2");
+
+	s = "bad";
+	0?puts("bad 4.1"): (s = "good");
+	unless (s eq "good") puts("bad 4.2");
+
+	s = "bad";
+	0?puts("bad 5.1"):(s = "good");
+	unless (s eq "good") puts("bad 5.2");
+
+	s = "bad";
+	1 ? (s = "good") : puts("bad 6.1");
+	unless (s eq "good") puts("bad 6.2");
+
+	/* Exactly one of the expressions must ever be executed. */
+
+	i = 0;
+	0 ? ++i : ++i;
+	unless (i == 1) puts("bad 7.1");
+	i = 0;
+	1 ? ++i : ++i;
+	unless (i == 1) puts("bad 7.2");
+
+	/* Check value. */
+
+	s = 0 ? "bad" : "good";
+	unless (s eq "good") puts("bad 10.1");
+
+	s = 1 ? "good" : "bad";
+	unless (s eq "good") puts("bad 11.1");
+
+	/*
+	 * Check typing.  If either expr is a float and the other is compatible
+	 * with that, we get a float.  If either is a poly, we get a poly.
+	 */
+
+	f = 0 ? 0 : 3.14;
+	unless (f == 3.14) puts("bad 12.1");
+	f = 1 ? 6.28 : 0;
+	unless (f == 6.28) puts("bad 12.2");
+	f = 1 ? 1.11 : 0.0;
+	unless (f == 1.11) puts("bad 12.3");
+	f = 1 ? 12 : -1;
+	unless (f == 12) puts("bad 12.4");
+
+	s = "bad";
+	s = 0 ? "bad" : (poly)13;
+	unless (s eq "13") puts("bad 12.5");
+	s = "bad";
+	s = 1 ? (poly)13 : "bad";
+	unless (s eq "13") puts("bad 12.6");
+
+	/*
+	 * Check precedence -- ? : should be between = and || in the
+	 * precedence hierarchy.
+	 */
+	i = 1 ? 1 || puts("bad 20.1") : 1 || puts("bad 20.2");
+
+	/* Should have no confusion with the opt: argument syntax. */
+	s = op_1_16_f(o1: 0 ? "bad": "good", o2: "3");
+	unless (s eq "-o1good-o23") puts("bad 20.3");
+
+	/*
+	 * This checks that the run-time stack is kept balanced when
+	 * the value of the ternary expression is ignored (if it's
+	 * not, we'll probably crash).
+	 */
+	for (i = 0; i < 10000; ++i) {
+		0 ? 1 : 2;
+		(0 ? 1 : 2) , (0 ? 1 : 2);
+	}
+
+	/* Try some nested ?: */
+	i = 0 ? 1 ? 11:12 : 13;
+	unless(i == 13) puts("bad 30.1");
+	i = 1 ? 1 ? 11:12 : 13;
+	unless(i == 11) puts("bad 30.2");
+	i = 1 ? 0 ? 11:12 : 13;
+	unless(i == 12) puts("bad 30.3");
+}
+op_1_16();
+} -output {}
+
+test op-1.17 {check type errors in ? : operator} -body {
+#lang L
+void op_1_17()
+{
+	int	i;
+	float	f;
+	string	s;
+
+	s = 0 ? 1 : 2;
+	i = 0 ? "a" : "b";
+	f = 0 ? "a" : "b";
+
+	/* The type of these ?: is float. */
+	i = 0 ? f : i;
+	i = 0 ? i : f;
+	i = 0 ? f : f;
+
+	/* These have exprs with incompatible types. */
+	s = 0 ? 1 : "2";
+	s = 0 ? "1" : 2;
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: assignment of incompatible types
+.*8: L Error: assignment of incompatible types
+.*9: L Error: assignment of incompatible types
+.*12: L Error: assignment of incompatible types
+.*13: L Error: assignment of incompatible types
+.*14: L Error: assignment of incompatible types
+.*17: L Error: incompatible types in \? : expressions
+.*18: L Error: incompatible types in \? : expressions
 }
 
 test cast-1.0 { Casts to integer and float } -body {

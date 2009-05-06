@@ -215,6 +215,7 @@ typedef enum {
 	L_OP_EXPAND_ALL,
 	L_OP_CONCAT,
 	L_OP_CMDSUBST,
+	L_OP_TERNARY_COND,
 } Op_k;
 
 /*

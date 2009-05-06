@@ -782,6 +782,10 @@ work only for arrays and strings, not hashes.
     ||  or
     !   not
 
+=item Conditional
+
+    ?:  ternary conditional (as in C)
+
 =item Indexing
 
     []  array index
@@ -816,6 +820,7 @@ work only for arrays and strings, not hashes.
     | (left)
     && (left)
     || (left)
+    ?: (right)
     = += -= *= /= %= &= |= ^= <<= >>= .= (right)
     , (left)
 
