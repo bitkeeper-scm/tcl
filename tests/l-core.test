@@ -458,6 +458,35 @@ END ;
 scan_1_15();
 } -returnCodes {error} -match regexp -result ".*illegal ; after here document."
 
+test scan-1.16 {check auto string concatenation} -body {
+#lang L
+void scan_1_16()
+{
+	string	s;
+
+	s = "a"
+"b"
+"c";
+	unless (s eq "abc") puts("bad 1");
+
+	s = "d"
+	    "e"
+	    "f";
+	unless (s eq "def") puts("bad 2");
+
+	s = 'a'
+'b'
+'c';
+	unless (s eq "abc") puts("bad 3");
+
+	s = 'd'
+	    'e'
+	    'f';
+	unless (s eq "def") puts("bad 4");
+}
+scan_1_16();
+} -output {}
+
 test cmdsubst-1 {test command substitution} -body {
 #lang L
 void cmdsubst_1()

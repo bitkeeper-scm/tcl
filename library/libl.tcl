@@ -393,9 +393,15 @@ printf(string fmt, ...args)
 }
 
 string
-require(string packageName)
+require(_unused string packageName)
 {
-	package("require", packageName);
+	string	ver;
+
+	if (catch("set ver [package require $packageName]")) {
+		return (undef);
+	} else {
+		return (ver);
+	}
 }
 
 int

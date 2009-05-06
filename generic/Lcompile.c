@@ -115,6 +115,7 @@ private int	compile_length(Expr *expr);
 private void	compile_loop(Loop *loop);
 private void	compile_fnParms(VarDecl *decl);
 private int	compile_push(Expr *expr);
+private int	compile_rename(Expr *expr);
 private void	compile_return(Stmt *stmt);
 private void	compile_shortCircuit(Expr *expr);
 private int	compile_sort(Expr *expr);
@@ -178,6 +179,7 @@ static struct {
 	{ "keys",	compile_keys },
 	{ "length",	compile_length },
 	{ "push",	compile_push },
+	{ "rename",	compile_rename },
 	{ "sort",	compile_sort },
 	{ "split",	compile_split },
 };
@@ -233,6 +235,13 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	if ((ret == TCL_OK) && ast) {
 		ret = L_CompileScript(interp, NULL, ast, opts);
 	}
+
+#ifdef TCL_COMPILE_DEBUG
+	if (getenv("L_TRACE")) {
+		extern int tclTraceExec;
+		tclTraceExec = atoi(getenv("L_TRACE"));
+	}
+#endif
 
 	return (ret);
 }
@@ -1071,6 +1080,21 @@ compile_fnParms(VarDecl *decl)
 	}
 	/* Pop the 1 pushed for INST_UPVAR. */
 	if (name_parms) emit_pop();
+}
+
+private int
+compile_rename(Expr *expr)
+{
+	int	n;
+
+	push_str("frename");
+	n = compile_exprs(expr->b, L_PUSH_VAL);
+	unless (n == 2) {
+		L_errf(expr, "incorrect # args for rename");
+	}
+	emit_invoke(3);
+	expr->type = L_int;
+	return (1);  // stack effect
 }
 
 private int

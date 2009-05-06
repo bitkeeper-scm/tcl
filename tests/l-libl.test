@@ -318,47 +318,6 @@ fopen1();
 fopen(bad3, r) = couldn't open "bad3": no such file or directory
 } -output {}
 
-test frename-1 {test frename} -setup {
-	set fname1 [makeFile {test} frename_test1 .]
-	set fname2 [makeFile {test} {frename test 2} .]
-	set fname3 [makeFile {test} frenametest\{3\} .]
-	set fname4 [makeFile {test} {frename test \"\'4} .]
-} -body {
-#lang L
-void frename1(string old)
-{
-	FILE	f;
-	string	buf;
-	string	new = old . "-renamed";
-
-	unless (frename(old, new) == 0) puts("bad 1.1");
-	f = fopen(new, "r");
-	unless (defined(f)) puts("bad 2.1");
-	unless (fgetline(f, &buf) == 1) puts("bad 2.2");
-	unless (buf eq "test") puts("bad 2.3");
-	unless (fgetline(f, &buf) == 0) puts("bad 2.4");
-	unless (fclose(f) == 0) puts("bad 2.5");
-
-	unlink(new);
-}
-#lang tcl
-frename1 $fname1
-frename1 $fname2
-frename1 $fname3
-frename1 $fname4
-} -output {}
-
-test frename-2 {test frename errors} -setup {
-	file delete -force "does not exist"
-} -body {
-#lang L
-void frename2()
-{
-	unless (frename("does not exist", "bad") == -1) puts("bad 1");
-}
-frename2();
-} -output {}
-
 test ftype-1 {test ftpye} -setup {
 	set fname1 [makeFile {test} ftype_test1 .]
 	set fname2 [makeFile {test} {ftype test 2} .]
@@ -663,6 +622,56 @@ printf1();
 Test2
 Test3 - last one
 }
+
+test rename-1 {test rename} -setup {
+	set fname1 [makeFile {test} rename_test1 .]
+	set fname2 [makeFile {test} {rename test 2} .]
+	set fname3 [makeFile {test} renametest\{3\} .]
+	set fname4 [makeFile {test} {rename test \"\'4} .]
+} -body {
+#lang L
+void rename1(string old)
+{
+	FILE	f;
+	string	buf;
+	string	new = old . "-renamed";
+
+	unless (rename(old, new) == 0) puts("bad 1.1");
+	f = fopen(new, "r");
+	unless (defined(f)) puts("bad 2.1");
+	unless (fgetline(f, &buf) == 1) puts("bad 2.2");
+	unless (buf eq "test") puts("bad 2.3");
+	unless (fgetline(f, &buf) == 0) puts("bad 2.4");
+	unless (fclose(f) == 0) puts("bad 2.5");
+
+	unlink(new);
+}
+#lang tcl
+rename1 $fname1
+rename1 $fname2
+rename1 $fname3
+rename1 $fname4
+} -output {}
+
+test rename-2 {test rename errors} -setup {
+	file delete -force "does not exist"
+} -body {
+#lang L
+void rename2()
+{
+	unless (rename("does not exist", "bad") == -1) puts("bad 1");
+}
+rename2();
+} -output {}
+
+test require-1 {test require errors} -body {
+#lang L
+void require1()
+{
+	if (defined(require("non-existent package for sure"))) puts("bad");
+}
+require1();
+} -output {}
 
 test rmdir-1 {test rmdir} -setup {
 	set fdirname1 rmdir1

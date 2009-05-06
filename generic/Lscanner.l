@@ -514,6 +514,7 @@ include_pop()
 			}
 	\\.		|
 	[^\\\'\n]+	STRBUF_ADD(yytext, yyleng);
+	\'[ \t\r\n]*\'
 	\'		{
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
