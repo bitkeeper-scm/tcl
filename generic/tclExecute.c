@@ -753,7 +753,9 @@ static void L_sizes_push(int size);
 static int L_sizes_top();
 static void L_sizes_pop();
 static Tcl_Obj **L_deepDive(Tcl_Interp *interp, Tcl_Obj *obj, Tcl_Obj *idxObj,
-			    L_Expr_f flags);
+			    Expr_f flags);
+static void Incr(Tcl_Obj *objPtr, void *arg);
+static void PushObj(Tcl_Obj *objPtr, void *arg);
 
 /*
  *----------------------------------------------------------------------
@@ -2726,6 +2728,54 @@ TclExecuteByteCode(
 	for (i = 0; i < objc; i++) {
 	    PUSH_OBJECT(objv[i]);
 	}
+
+	Tcl_DecrRefCount(valuePtr);
+	NEXT_INST_F(5, 0, 0);
+    }
+
+    case INST_EXPAND_STKTOP_RECURSE: {
+	int length, tot_len = 0;
+	Tcl_Obj *valuePtr;
+	ptrdiff_t moved;
+	Tcl_Obj **myTosPtr;
+
+	valuePtr = POP_OBJECT();
+
+	/*
+	 * Make sure there is enough room in the stack to expand this list
+	 * *and* process the rest of the command (at least up to the next
+	 * argument expansion or command end). The operand is the current
+	 * stack depth, as seen by the compiler.
+	 */
+
+	TclListWalk(valuePtr, Incr, &tot_len);
+	length = tot_len + (codePtr->maxStackDepth - TclGetInt4AtPtr(pc+1));
+	DECACHE_STACK_INFO();
+	moved = GrowEvaluationStack(iPtr->execEnvPtr, length, 1)
+		- (Tcl_Obj **) bottomPtr;
+
+	if (moved) {
+	    /*
+	     * Change the global data to point to the new stack.
+	     */
+
+	    bottomPtr = (BottomData *) (((Tcl_Obj **)bottomPtr) + moved);
+	    initCatchTop += moved;
+	    catchTop += moved;
+	    initTosPtr += moved;
+	    tosPtr += moved;
+	    esPtr = iPtr->execEnvPtr->execStackPtr;
+	}
+
+	/*
+	 * Recursively expand the list at stacktop onto the stack.  We copy
+	 * tosPtr only for performance, so we can keep it declared as a
+	 * register variable (you can't get a pointer to a register var).
+	 */
+
+	myTosPtr = tosPtr;
+	TclListWalk(valuePtr, PushObj, &myTosPtr);
+	tosPtr = myTosPtr;
 
 	Tcl_DecrRefCount(valuePtr);
 	NEXT_INST_F(5, 0, 0);
@@ -7689,6 +7739,9 @@ TclExecuteByteCode(
 	int lvalue = (flags & L_LVALUE);
 	int needPtr = (flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
 
+	// needPtr => L_PUSH_VAL not set
+	ASSERT(!needPtr || !(flags & L_PUSH_VAL));
+
 	/*
 	 * Get the bytecode arguments -- the index and object being indexed in
 	 * to.  If the object is an L_deepPtrType from an earlier instance of
@@ -8018,7 +8071,7 @@ TclExecuteByteCode(
     }
 
     case INST_L_DEFINED: {
-	objResultPtr = constants[(OBJ_AT_TOS)->typePtr != &L_undefType];
+	objResultPtr = constants[(OBJ_AT_TOS)->undef == 0];
 	TRACE_WITH_OBJ(("=> "), objResultPtr);
 	NEXT_INST_F(1, 1, 1);
     }
@@ -8079,6 +8132,11 @@ TclExecuteByteCode(
     case INST_L_POP_SIZE: {
 	L_sizes_pop();
 	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_PUSH_UNDEF: {
+	objResultPtr = *L_undefObjPtrPtr();
+	NEXT_INST_F(1, 0, 1);
     }
 
     default:
@@ -9537,14 +9595,14 @@ L_deepDiveArray(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index (array subscript) into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int i, idx, len, result;
     Tcl_Obj **elemPtrs, **pad;
     Tcl_Obj *subObj;
     int lvalue = (flags & L_LVALUE);
 
-    if (idxObj->typePtr == &L_undefType) {
+    if (L_isUndef(idxObj)) {
 	if (lvalue) {
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "cannot write to undefined array index",
@@ -9555,10 +9613,14 @@ L_deepDiveArray(
 	}
     }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert index to integer", NULL);
+	return (NULL);
     }
     if (TclListObjGetElements(NULL, obj, &len, &elemPtrs) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert object to list", NULL);
+	return (NULL);
     }
 
     if (lvalue) {
@@ -9572,15 +9634,19 @@ L_deepDiveArray(
 	    int n = idx - len + 1;
 	    pad = (Tcl_Obj **)ckalloc(n * sizeof(Tcl_Obj *));
 	    for (i = 0; i < n; ++i) {
-		    pad[i] = Tcl_DuplicateObj(*L_undefObjPtrPtr());
+		pad[i] = *L_undefObjPtrPtr();
 	    }
 	    result = Tcl_ListObjReplace(interp, obj, len, 0, n, pad);
 	    ckfree((char *)pad);
 	    if (result != TCL_OK) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 		return (NULL);
 	    }
 	}
 	if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 	    return (NULL);
 	}
 	if (Tcl_IsShared(elemPtrs[idx])) {
@@ -9591,6 +9657,8 @@ L_deepDiveArray(
 		subObj = Tcl_DuplicateObj(subObj);
 	    }
 	    if (TclListObjGetElements(interp, obj, &len, &elemPtrs) != TCL_OK) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "cannot convert object to list", NULL);
 		return (NULL);
 	    }
 	}
@@ -9640,7 +9708,7 @@ L_deepDiveHash(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index (key) into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int result, tmp;
     Tcl_Obj *objPtr;
@@ -9649,8 +9717,17 @@ L_deepDiveHash(
     Tcl_HashEntry *hPtr;
     int lvalue = (flags & L_LVALUE);
 
+    ASSERT(!lvalue || !Tcl_IsShared(obj));  // lvalue => obj is unshared
+
     unless (Tcl_DictObjSize(NULL, obj, &tmp) == TCL_OK) {
-	return (L_undefObjPtrPtr());  // obj not a dict
+	/* Obj is not a dict and can't be converted to one. */
+	if (lvalue) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "not a hash", NULL);
+	    return (NULL);
+	} else {
+	    return (L_undefObjPtrPtr());
+	}
     }
     dict = (Dict *)obj->internalRep.otherValuePtr;
     hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
@@ -9666,6 +9743,7 @@ L_deepDiveHash(
 	hPtr = Tcl_FindHashEntry(&dict->table, (char *)idxObj);
     }
     elt = (Tcl_Obj **)(void *)&Tcl_GetHashValue(hPtr);
+    ASSERT(elt);
     if (lvalue && Tcl_IsShared(*elt)) {
 	Tcl_DecrRefCount(*elt);
 	*elt = Tcl_DuplicateObj(*elt);
@@ -9705,13 +9783,13 @@ L_deepDiveString(
     Tcl_Interp *interp,
     Tcl_Obj *obj,		/* object being indexed */
     Tcl_Obj *idxObj,		/* index into obj */
-    L_Expr_f flags)
+    Expr_f flags)
 {
     int idx, len;
     const unsigned char *s;
     Tcl_Obj *newObj;
 
-    if (idxObj->typePtr == &L_undefType) {
+    if (L_isUndef(idxObj)) {
 	if (flags & L_LVALUE) {
 	    Tcl_ResetResult(interp);
 	    Tcl_AppendResult(interp, "cannot write to undefined string index",
@@ -9722,7 +9800,9 @@ L_deepDiveString(
 	}
     }
     if (TclGetIntFromObj(NULL, idxObj, &idx) != TCL_OK) {
-	return NULL;
+	Tcl_ResetResult(interp);
+	Tcl_AppendResult(interp, "cannot convert index to integer", NULL);
+	return (NULL);
     }
 
     s = Tcl_GetByteArrayFromObj(obj, &len);
@@ -9775,7 +9855,7 @@ L_deepDive(
     Tcl_Interp *interp,
     Tcl_Obj *obj,
     Tcl_Obj *idxObj,
-    L_Expr_f flags)
+    Expr_f flags)
 {
     switch (flags & (L_IDX_ARRAY | L_IDX_HASH | L_IDX_STRING)) {
 	case L_IDX_ARRAY:
@@ -9847,6 +9927,18 @@ static void L_sizes_pop()
 
     L_sizes_stktop = s->prev;
     ckfree((char *)s);
+}
+
+static void Incr(Tcl_Obj *objPtr, void *arg)
+{
+    ++*((int *)arg);
+}
+
+static void PushObj(Tcl_Obj *objPtr, void *arg)
+{
+    Tcl_Obj ***tosPtr = (Tcl_Obj ***)arg;
+    *(++(*tosPtr)) = objPtr;
+    Tcl_IncrRefCount(objPtr);
 }
 
 /*

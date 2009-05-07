@@ -8,8 +8,11 @@
 %x comment
 %x str_double
 %x str_single
+%x str_backtick
 %x interpol
 %x include
+%x here_doc_interp
+%x here_doc_nointerp
 ID	([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 %{
 /*
@@ -24,7 +27,7 @@ ID	([a-zA-Z_]|::)([0-9a-zA-Z_]|::)*
 private int	include_pop();
 private int	include_push(FILE *f, char *name);
 private FILE *	include_search(char *file);
-private void	tally_newlines(char *s, int len);
+private void	tally_newlines(char *s, int len, int tally);
 
 // Stack for tracking include() statements.
 #define INCLUDE_STACK_SZ	10
@@ -38,6 +41,7 @@ typedef struct {
 private char	re_quote_char;	// delim char that began the current regexp
 private Tcl_Obj	*str;		// string collection buffer
 private int	str_beg;	// source offset of string
+private char	*here_delim = NULL;
 private int	include_top;
 private Include	include_stk[INCLUDE_STACK_SZ];
 
@@ -66,13 +70,49 @@ private Include	include_stk[INCLUDE_STACK_SZ];
  * YY_USER_ACTION is run before each action.  Note that some actions
  * further modify L_lloc.
  */
-#define YY_USER_ACTION					\
-	do {						\
-		L->token_offset += L->prev_token_len;	\
-		L->prev_token_len = yyleng;		\
-		L_lloc.beg = L->token_offset;		\
-		L_lloc.end = L->token_offset + yyleng;	\
-	} while (0);
+
+#define YY_USER_ACTION	yy_user_action();
+
+private void
+yy_user_action()
+{
+	L->prev_token_off = L->token_off;
+	L->token_off     += L->prev_token_len;
+	L->prev_token_len = yyleng;
+
+	L_lloc.beg = L->token_off;
+	L_lloc.end = L->token_off + yyleng;
+
+	tally_newlines(yytext, yyleng, 1);
+
+	/*
+	 * Build up in L->script the text that the scanner scans.
+	 * The compiler later passes this on to tcl as the script
+	 * source.  This allows include() stmts to be handled properly.
+	 */
+	Tcl_AppendToObj(L->script, yytext, yyleng);
+	L->script_len += yyleng;
+}
+
+/*
+ * Un-do the effects of the YY_USER_ACTION on the token offset
+ * tracking.  This is useful in include() processing where the
+ * characters in the 'include("file");' must be ignored.
+ */
+private void
+undo_yy_user_action()
+{
+	L->prev_token_len = L->token_off - L->prev_token_off;
+	L->token_off      = L->prev_token_off;
+
+	L_lloc.beg = L->prev_token_off;
+	L_lloc.end = L->prev_token_off + L->prev_token_len;
+
+	tally_newlines(yytext, yyleng, -1);
+
+	L->script_len -= yyleng;
+	Tcl_SetObjLength(L->script, L->script_len);
+}
 
 /*
  * In case of errors, the start condition stack will be left in an
@@ -85,19 +125,20 @@ void L_lex_start()
 }
 
 /*
- * Count the newlines in a string and add the number to L->line.
+ * Count the newlines in a string and add the number to L->line.  Pass
+ * in tally == 1 to count them and tally == -1 to undo it.
  */
 private void
-tally_newlines(char *s, int len)
+tally_newlines(char *s, int len, int tally)
 {
 	char	*end, *p;
 
 	for (p = s, end = p + len; p < end; p++) {
 		if (*p == '\n') {
-			L->line++;
+			L->line += tally;
 		} else if ((*p == '\r') && ((p+1) < end) && (*(p+1) != '\n')) {
 			/* Mac line endings. */
-			L->line++;
+			L->line += tally;
 		}
 	}
 }
@@ -198,6 +239,7 @@ include_pop()
 	"^="		return T_EQBITXOR;
 	"<<="		return T_EQLSHIFT;
 	">>="		return T_EQRSHIFT;
+	".="		return T_EQDOT;
 	"++"		return T_PLUSPLUS;
 	"--"		return T_MINUSMINUS;
 	"&&"		return T_ANDAND;
@@ -211,6 +253,7 @@ include_pop()
 	"="		return T_EQUALS;
 	";"		return T_SEMI;
 	"."		return T_DOT;
+	[ \t\n\r]+"."[ \t\n\r]+		return T_STRCAT;
 	".."		return T_DOTDOT;
 	"..."		return T_ELLIPSIS;
 	"class"		return T_CLASS;
@@ -237,9 +280,13 @@ include_pop()
 	"continue"	return T_CONTINUE;
 	"instance"	return T_INSTANCE;
 	"private"	return T_PRIVATE;
+	"public"	return T_PUBLIC;
 	"constructor"	return T_CONSTRUCTOR;
 	"destructor"	return T_DESTRUCTOR;
+	"expand"	return T_EXPAND;
 	"in"		return T_IN;
+	"_unused"	return T_UNUSED;
+	"goto"		return T_GOTO;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;
 	"ne"		return T_NE;
@@ -253,26 +300,9 @@ include_pop()
 	">="		return T_GREATEREQ;
 	"<"		return T_LESSTHAN;
 	"<="		return T_LESSTHANEQ;
-	{ID}:		{
-				int i, j;
-				tally_newlines(yytext, yyleng);
-				L_lval.s = ckalloc(yyleng+1);
-				L_lval.s[0] = '-';
-				/* Strip the whitespace. */
-				for (i=0, j=1; i<yyleng-1; i++) {
-					switch (yytext[i]) {
-					case ' ':
-					case '\t':
-					case '\n':
-					case '\r':
-						break;
-					default:
-						L_lval.s[j++] = yytext[i];
-					}
-				}
-				L_lval.s[j] = '\0';
-				return T_KEYWORD;
-			}
+	"->"		return T_POINTS;
+	":"		return T_COLON;
+	"?"		return T_QUESTION;
 	{ID}		{
 				Type *t = L_typedef_lookup(yytext);
 				if (t) {
@@ -312,15 +342,16 @@ include_pop()
 				return T_FLOAT_LITERAL;
 			}
 	^include[ \t]*\([ \t]*\" {
+				undo_yy_user_action();
 				BEGIN(include);
 			}
-	"//".*("\r"|"\n"|"\r\n") tally_newlines(yytext, yyleng);
-	[ \t\n\r\f]+	tally_newlines(yytext, yyleng);
-	\"		yy_push_state(str_double); STRBUF_START(L->token_offset);
-	\'		yy_push_state(str_single); STRBUF_START(L->token_offset);
+	("//"|#).*("\r"|"\n"|"\r\n")
+	[ \t\n\r\f]+
+	\"		yy_push_state(str_double); STRBUF_START(L->token_off);
+	\'		yy_push_state(str_single); STRBUF_START(L->token_off);
+	\`		yy_push_state(str_backtick); STRBUF_START(L->token_off);
 	"/*"		yy_push_state(comment);
 	"=~"[ \t\r\n]*"m".	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 2);	// next token starts at the "m"
@@ -330,7 +361,6 @@ include_pop()
 	}
 	/* if / is used to delimit the regexp, the m can be omitted */
 	"=~"[ \t\r\n]*"/"	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
@@ -340,7 +370,6 @@ include_pop()
 	}
 	/* a substitution pattern */
 	"=~"[ \t\r\n]*"s".	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
 		yy_push_state(glob_re);
@@ -348,6 +377,46 @@ include_pop()
 		re_quote_char = *(yytext + yyleng - 1);
 		L_lloc.end = L_lloc.beg + 2;	// this token spans the "=~"
 		return T_EQTWID;
+	}
+	/* here document (interpolated), valid only on rhs of an assignment */
+	"="[ \t\r\n]*"<<"[a-zA-Z_][a-zA-Z_0-9]*"\n"		{
+		int	len;
+		char	*p;
+		if (here_delim) {
+			L_err("%s:%d: nested here documents illegal",
+			      L->file, L->line);
+		}
+		/* point p at the here-document delimeter */
+		for (p = yytext+1; *p != '<'; ++p) ;
+		p += 2;  // now points one past the end of the <<
+		len = yyleng - (p - yytext) - 1;
+		here_delim = ckalloc(len+1);
+		strncpy(here_delim, p, len);
+		here_delim[len] = 0;
+		STRBUF_START(L->token_off);
+		L_lloc.end = L_lloc.beg + 1;
+		yy_push_state(here_doc_interp);
+		return T_EQUALS;
+	}
+	/* here document (uninterpolated), valid only on rhs of an assignment */
+	"="[ \t\r\n]*"<<\'"[a-zA-Z_][a-zA-Z_0-9]*"\'\n"		{
+		int	len;
+		char	*p;
+		if (here_delim) {
+			L_err("%s:%d: nested here documents illegal",
+			      L->file, L->line);
+		}
+		/* point p at the here-document delimeter */
+		for (p = yytext+1; *p != '<'; ++p) ;
+		p += 3;  // now points one past the end of the <<'
+		len = yyleng - (p - yytext) - 2;
+		here_delim = ckalloc(len+1);
+		strncpy(here_delim, p, len);
+		here_delim[len] = 0;
+		STRBUF_START(L->token_off);
+		L_lloc.end = L_lloc.beg + 1;
+		yy_push_state(here_doc_nointerp);
+		return T_EQUALS;
 	}
 }
 
@@ -357,6 +426,7 @@ include_pop()
 		char	*name = ckstrndup(yytext, len);
 		FILE	*f = include_search(name);
 
+		undo_yy_user_action();
 		unless (f) {
 			L_err("cannot find include file %s", name);
 		} else {
@@ -377,13 +447,11 @@ include_pop()
 	 * built-in).
 	 */
 	[ \t\r\n]*"/"	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = '/';
 	}
 	[ \t\r\n]*"m"[^a-zA-Z \t\r\n]	{
-		tally_newlines(yytext, yyleng);
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = *(yytext + yyleng - 1);
@@ -409,17 +477,19 @@ include_pop()
 	\\t		STRBUF_ADD("\t", 1);
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
 	"$"		STRBUF_ADD("$", 1);
-	[^\\\"$]+	{
-				tally_newlines(yytext, yyleng);
-				STRBUF_ADD(yytext, yyleng);
+	\n		{
+				L_err("%s:%d: missing string terminator \"",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
 			}
+	[^\\\"$\n]+	STRBUF_ADD(yytext, yyleng);
 	"${"		{
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
 				STRBUF_STOP(L_lloc.beg);
 				return T_LEFT_INTERPOL;
 			}
-	\"[ \t\r\n]*\"	tally_newlines(yytext, yyleng);
+	\"[ \t\r\n]*\"
 	\"		{
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -429,13 +499,17 @@ include_pop()
 }
 
 <str_single>{
-	\\n		STRBUF_ADD("\n", 1);
-	\\t		STRBUF_ADD("\t", 1);
-	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
-	[^\\\']+	{
-				tally_newlines(yytext, yyleng);
-				STRBUF_ADD(yytext, yyleng);
+	\\\\		STRBUF_ADD("\\", 1);
+	\\\'		STRBUF_ADD("'", 1);
+	\\\n		STRBUF_ADD("\n", 1);
+	\n		{
+				L_err("%s:%d: missing string terminator \'",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
 			}
+	\\.		|
+	[^\\\'\n]+	STRBUF_ADD(yytext, yyleng);
+	\'[ \t\r\n]*\'
 	\'		{
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -444,8 +518,135 @@ include_pop()
 			}
 }
 
+<str_backtick>{
+	\\r		STRBUF_ADD("\r", 1);
+	\\n		STRBUF_ADD("\n", 1);
+	\\t		STRBUF_ADD("\t", 1);
+	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
+	"$"		STRBUF_ADD("$", 1);
+	\n		{
+				L_err("%s:%d: missing string terminator `",
+				      L->file, L->line);
+				STRBUF_ADD("\n", 1);
+			}
+	[^\\`$\n]+	STRBUF_ADD(yytext, yyleng);
+	"${"		{
+				yy_push_state(interpol);
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.beg);
+				return T_LEFT_INTERPOL;
+			}
+	`		{
+				yy_pop_state();
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.end);
+				return T_STR_BACKTICK;
+			}
+}
+
+<here_doc_nointerp>{
+	\\\\		STRBUF_ADD("\\", 1);
+	\\\'		STRBUF_ADD("'", 1);
+	^[a-zA-Z_][a-zA-Z_0-9]*$	{
+				if (strcmp(yytext, here_delim)) {
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					yy_pop_state();
+					unput(';');
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*[ \t\n]*;[ \t]*$	{
+				/*
+				 * This is an error check -- look for a
+				 * trailing ; after end delimeter.
+				 */
+				int	len;
+				char	*p = &yytext[yyleng-1];
+				/* walk back over the ; to the delim end */
+				while (*p == ' ') --p;
+				--p;
+				while (*p == ' ') --p;
+				len = p - yytext;
+				if (strncmp(yytext, here_delim, len)) {
+					/* not the delim -- add to here doc */
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					/* delim w/trailing ; found -- error */
+					L_err("%s:%d: ; illegal ; after "
+					      "here document\n",
+					      L->file, L->line);
+					yy_pop_state();
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	.|\n		STRBUF_ADD(yytext, 1);
+}
+
+<here_doc_interp>{
+	\\n		STRBUF_ADD("\n", 1);
+	\\t		STRBUF_ADD("\t", 1);
+	\\.		STRBUF_ADD(yytext+1, 1);
+	"${"		{
+				yy_push_state(interpol);
+				L_lval.s = ckstrdup(STRBUF_STRING());
+				STRBUF_STOP(L_lloc.beg);
+				return T_LEFT_INTERPOL;
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*$	{
+				if (strcmp(yytext, here_delim)) {
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					yy_pop_state();
+					unput(';');
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	^[a-zA-Z_][a-zA-Z_0-9]*[ \t\n]*;[ \t]*$	{
+				/*
+				 * This is an error check -- look for a
+				 * trailing ; after ending delimeter.
+				 */
+				int	len;
+				char	*p = &yytext[yyleng-1];
+				/* walk back over the ; to the delim end */
+				while (*p == ' ') --p;
+				--p;
+				while (*p == ' ') --p;
+				len = p - yytext;
+				if (strncmp(yytext, here_delim, len)) {
+					/* not the delim -- add to here doc */
+					STRBUF_ADD(yytext, yyleng);
+				} else {
+					/* delim w/trailing ; found -- error */
+					L_err("%s:%d: ; illegal ; after "
+					      "here document\n",
+					      L->file, L->line);
+					yy_pop_state();
+					L_lval.s = ckstrdup(STRBUF_STRING());
+					STRBUF_STOP(L_lloc.end);
+					ckfree(here_delim);
+					here_delim = NULL;
+					return T_STR_LITERAL;
+				}
+			}
+	.|\n		STRBUF_ADD(yytext, 1);
+}
+
 <comment>{
-	[^*]+		tally_newlines(yytext, yyleng);
+	[^*]+
 	"*"
 	"*/"		yy_pop_state();
 }
@@ -479,7 +680,6 @@ include_pop()
 						return T_RE;
 					}
 				} else {
-					tally_newlines(yytext, yyleng);
 					STRBUF_ADD(yytext, yyleng);
 				}
 			}
@@ -493,19 +693,7 @@ include_pop()
 			}
 	.		{
 				unput(yytext[0]);
-				/*
-				 * This is ugly, but since we just
-				 * unput a character, we have to undo
-				 * the effects of the YY_USER_ACTION
-				 * rule to keep the source-file
-				 * offsets correct.  We rely on the
-				 * fact that the previous token must
-				 * have been a single character,
-				 * matched by the "." rule in
-				 * <glob_re,subst_re> above.
-				 */
-				--L->token_offset;
-				--L_lloc.end;  // now, L_lloc.beg == L_lloc.end
+				undo_yy_user_action();
 				yy_pop_state();
 				L_lval.s = ckstrdup("");
 				return T_RE_MODIFIER;

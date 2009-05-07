@@ -85,7 +85,7 @@ L_typeck_deny(Type_k deny, Expr *expr)
 {
 	ASSERT(expr->type);
 
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
 
 	if (expr->type->kind & deny) {
 		L_errf(expr, "type %s illegal", type_str(expr->type->kind));
@@ -98,7 +98,7 @@ L_typeck_expect(Type_k want, Expr *expr, char *msg)
 {
 	ASSERT(expr->type);
 
-	if ((L->frame->options & L_OPT_POLY) ||
+	if ((L->options & L_OPT_POLY) ||
 	    ((expr->type->kind | want) & L_POLY)) return;
 
 	unless (expr->type->kind & want) {
@@ -123,7 +123,8 @@ L_typeck_compat(Type *lhs, Type *rhs)
 void
 L_typeck_assign(Expr *lhs, Expr *rhs)
 {
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
+	unless (lhs && rhs) return;
 
 	L_typeck_deny(L_VOID, lhs);
 	L_typeck_deny(L_VOID, rhs);
@@ -139,9 +140,10 @@ L_typeck_fncall(VarDecl *formals, Expr *call)
 	int	i, rest_arg = 0;
 	Expr	*actuals = call->b;
 
-	if (L->frame->options & L_OPT_POLY) return;
+	if (L->options & L_OPT_POLY) return;
 
 	for (i = 1; actuals && formals; ++i) {
+		if (isexpand(actuals)) return;
 		rest_arg = formals->flags & DECL_REST_ARG;  // is it "...id"?
 		unless (L_typeck_compat(formals->type, actuals->type) ||
 			rest_arg) {
@@ -186,16 +188,8 @@ typeck_declType(Type *type, VarDecl *decl, int nameof_ok)
 		unless (isvoidtype(type->base_type)) {
 			ret = typeck_declType(type->base_type, decl, FALSE);
 		}
-		/*
-		 * Now look at the formals.  Special case fn(void) --
-		 * a single formal arg of type void with no arg name.
-		 * Null out the formals list since this really means
-		 * there are no args.
-		 */
+		/* Now look at the formals. */
 		v = type->u.func.formals;
-		if (v && !v->next && !v->id && (v->type == L_void)) {
-			type->u.func.formals = NULL;
-		}
 		for (v = type->u.func.formals; v; v = v->next) {
 			/* To type-check all formals, don't short-circuit. */
 			ret = typeck_declType(v->type, v, TRUE) && ret;

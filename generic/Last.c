@@ -147,7 +147,6 @@ ast_mkConstructor(ClsDecl *class)
 	Type	*type;
 	Expr	*id;
 	VarDecl	*decl;
-	Stmt	*code;
 	Block	*block;
 	FnDecl	*fn;
 
@@ -155,11 +154,10 @@ ast_mkConstructor(ClsDecl *class)
 	name  = cksprintf("%s_new", class->decl->id->u.string);
 	id    = ast_mkId(name, 0, 0);
 	decl  = ast_mkVarDecl(type, id, 0, 0);
-	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_CONSTRUCTOR;
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+		DECL_CLASS_CONST;
 	decl->clsdecl = class;
-	code  = ast_mkStmt(L_STMT_RETURN, NULL, 0, 0);
-	code->u.expr = ast_mkId("self", 0, 0);
-	block = ast_mkBlock(NULL, code, 0, 0);
+	block = ast_mkBlock(NULL, NULL, 0, 0);
 	fn    = ast_mkFnDecl(decl, block, 0, 0);
 
 	return (fn);
@@ -183,7 +181,8 @@ ast_mkDestructor(ClsDecl *class)
 	name = cksprintf("%s_delete", class->decl->id->u.string);
 	id   = ast_mkId(name, 0, 0);
 	decl = ast_mkVarDecl(type, id, 0, 0);
-	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN | DECL_CLASS_DESTRUCTOR;
+	decl->flags |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+		DECL_CLASS_DESTR;
 	decl->clsdecl = class;
 	block = ast_mkBlock(NULL, NULL, 0, 0);
 	fn    = ast_mkFnDecl(decl, block, 0, 0);

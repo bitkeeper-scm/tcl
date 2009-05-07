@@ -46,6 +46,8 @@ typedef enum {
 	L_STMT_FOREACH,
 	L_STMT_LOOP,
 	L_STMT_RETURN,
+	L_STMT_GOTO,
+	L_STMT_LABEL,
 } Stmt_k;
 
 typedef enum {
@@ -102,7 +104,7 @@ typedef enum {
 
 struct Type {
 	Type_k	kind;
-	Type	*base_type;	// for array, hash, list, nameof, & fn ret type
+	Type	*base_type;	// for array, hash, list, nameof, fn ret type
 	Type	*next;		// for linking list types
 	union {
 		struct {
@@ -118,6 +120,9 @@ struct Type {
 		struct {
 			VarDecl	*formals;
 		} func;
+		struct {
+			ClsDecl	*clsdecl;
+		} class;
 	} u;
 	Type	*list;  // links all type structures ever allocated
 };
@@ -172,6 +177,7 @@ typedef enum {
 	L_OP_EQLSHIFT,
 	L_OP_EQRSHIFT,
 	L_OP_EQTWID,
+	L_OP_EQDOT,
 	L_OP_STAR,
 	L_OP_SLASH,
 	L_OP_PERC,
@@ -198,19 +204,45 @@ typedef enum {
 	L_OP_DEFINED,
 	L_OP_ARRAY_INDEX,
 	L_OP_HASH_INDEX,
-	L_OP_STRUCT_INDEX,
+	L_OP_DOT,
+	L_OP_POINTS,
+	L_OP_CLASS_INDEX,
 	L_OP_INTERP_STRING,
 	L_OP_INTERP_RE,
 	L_OP_LIST,
-	L_OP_CONS,
 	L_OP_KV,
 	L_OP_COMMA,
 	L_OP_ARRAY_SLICE,
+	L_OP_EXPAND,
+	L_OP_EXPAND_ALL,
+	L_OP_CONCAT,
+	L_OP_CMDSUBST,
+	L_OP_TERNARY_COND,
 } Op_k;
 
+/*
+ * Flags for L expression compilation.  Bits are used for simplicity
+ * even though some of these are mutually exclusive.  These are used
+ * in calls to compile_expr() and subordinates and also put in
+ * the Expr AST node.
+ */
 typedef enum {
-	L_EXPR_RE_I	= 0x01,  // expr is an re with "i" qualifier
-	L_EXPR_RE_G	= 0x02,  // expr is an re with "g" qualifier
+	L_EXPR_RE_I   = 0x0001, // expr is an re with "i" qualifier
+	L_EXPR_RE_G   = 0x0002, // expr is an re with "g" qualifier
+	L_EXPR_DEEP   = 0x0004, // expr is the result of a deep dive
+	L_IDX_ARRAY   = 0x0008,	// what kind of thing we're indexing
+	L_IDX_HASH    = 0x0010,
+	L_IDX_STRING  = 0x0020,
+	L_LVALUE      = 0x0040, // if we will be writing the obj
+	L_PUSH_VAL    = 0x0080,	// what we want INST_L_INDEX to leave on
+	L_PUSH_PTR    = 0x0100,	//   the stack
+	L_PUSH_VALPTR = 0x0200,
+	L_PUSH_PTRVAL = 0x0400,
+	L_DISCARD     = 0x0800,	// have compile_expr discard the val, not push
+	L_PUSH_NEW    = 0x1000,	// whether INST_L_DEEP_WRITE should push the
+	L_PUSH_OLD    = 0x2000,	//   new or old value
+	L_NOTUSED     = 0x4000,	// do not update used_p boolean in symtab entry
+	L_NOWARN      = 0x8000,	// issue no err if symbol undefined
 } Expr_f;
 
 struct Expr {
@@ -254,6 +286,7 @@ struct ClsDecl {
 	FnDecl	*fns;
 	FnDecl	*constructor;
 	FnDecl	*destructor;
+	Tcl_HashTable *symtab;
 };
 
 struct Cond {
@@ -283,6 +316,7 @@ struct Stmt {
 		Cond	*cond;
 		Loop	*loop;
 		VarDecl	*decl;
+		char	*label;
 	} u;
 };
 
@@ -303,20 +337,27 @@ struct TopLev {
  * Some flags are redundant but were chosen for clarity.
  */
 typedef enum {
-	SCOPE_LOCAL		= 0x0001, // the scope the symbol should go in
-	SCOPE_GLOBAL		= 0x0002,
-	SCOPE_CLASS		= 0x0004,
-	DECL_GLOBAL_VAR		= 0x0008, // the kind of declaration
-	DECL_LOCAL_VAR		= 0x0010,
-	DECL_FN			= 0x0020, //   function
-	DECL_CLASS_VAR		= 0x0040, //   class variable
-	DECL_CLASS_INST_VAR	= 0x0080, //   class instance variable
-	DECL_CLASS_PRIV_FN	= 0x0100, //   class private member fn
-	DECL_CLASS_PUB_FN	= 0x0200, //   class public member fn
-	DECL_CLASS_CONSTRUCTOR	= 0x0400,
-	DECL_CLASS_DESTRUCTOR	= 0x0800,
-	DECL_EXTERN		= 0x1000, //   extern fn or variable
-	DECL_REST_ARG		= 0x2000, //   ...arg formal parameter
+	SCOPE_LOCAL		= 0x000001, // scope the symbol should go in
+	SCOPE_SCRIPT		= 0x000002, //   visible in current script
+	SCOPE_GLOBAL		= 0x000004, //   visible across scripts
+	SCOPE_CLASS		= 0x000008, //   visible in a class
+	DECL_GLOBAL_VAR		= 0x000010, // the kind of declaration
+	DECL_LOCAL_VAR		= 0x000020,
+	DECL_TEMP		= 0x000040, //   temp variable
+	DECL_FN			= 0x000080, //   regular function
+	DECL_CLASS_VAR		= 0x000100, //   class variable
+	DECL_CLASS_INST_VAR	= 0x000200, //   class instance variable
+	DECL_CLASS_FN		= 0x000400, //   class member fn
+	DECL_CLASS_CONST	= 0x000800, //   class constructor
+	DECL_CLASS_DESTR	= 0x001000, //   class destructor
+	DECL_REST_ARG		= 0x002000, //   ...arg formal parameter
+	DECL_EXTERN		= 0x004000, // decl has extern qualifier
+	DECL_PRIVATE		= 0x008000, // decl has private qualifier
+	DECL_PUBLIC		= 0x010000, // decl has public qualifier
+	DECL_REF		= 0x020000, // decl has & qualifier
+	DECL_UNUSED		= 0x040000, // decl has _unused qualifier
+	FN_PROTO_ONLY		= 0x080000, // compile fn proto only
+	FN_PROTO_AND_BODY	= 0x100000, // compile entire fn decl
 } Decl_f;
 
 struct VarDecl {

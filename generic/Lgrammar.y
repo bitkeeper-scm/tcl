@@ -20,7 +20,7 @@ extern int	L_lex (void);
  *
  * This introduced a shift/reduce conflict on "{" due to "{" being in
  * the FOLLOW set of scalar_type_specifier because "{" can follow
- * type_specifier in function_declaration.  For example, after you
+ * type_specifier in function_decl.  For example, after you
  * have seen
  *
  *    struct s
@@ -87,27 +87,39 @@ extern int	L_lex (void);
 %token T_RETURN
 %token T_COMMA ","
 %token T_DOT "."
+%token T_STRCAT
+%token T_POINTS "->"
 %token T_ARROW "=>"
+%token T_COLON ":"
+%token T_QUESTION "?"
 %token T_RIGHT_INTERPOL T_PLUSPLUS T_MINUSMINUS
 %token <s> T_ID T_STR_LITERAL T_LEFT_INTERPOL T_RE T_SUBST T_RE_MODIFIER
-%token <s> T_PATTERN T_KEYWORD
+%token <s> T_STR_BACKTICK T_PATTERN
 %token <i> T_INT_LITERAL
 %token <f> T_FLOAT_LITERAL
 %token <Typename> T_TYPE
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
-%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_CONSTRUCTOR T_DESTRUCTOR
+%token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
+%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND T_UNUSED T_GOTO
 
 /*
  * This follows the C operator-precedence rules, from lowest to
  * highest precedence.
  */
 %left LOWEST
+// The next four %nonassoc lines are defined to resolve a conflict with
+// labeled statements (see the stmt nonterm).
+%nonassoc T_IF T_UNLESS T_RETURN T_ID T_STR_LITERAL T_LEFT_INTERPOL
+%nonassoc T_STR_BACKTICK T_INT_LITERAL T_FLOAT_LITERAL T_TYPE T_WHILE
+%nonassoc T_FOR T_DO T_DEFINED T_STRING T_FOREACH T_BREAK T_CONTINUE
+%nonassoc T_SPLIT T_GOTO
 %left T_COMMA
 %nonassoc T_ELSE T_SEMI
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
-       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT
+       T_EQBITAND T_EQBITOR T_EQBITXOR T_EQLSHIFT T_EQRSHIFT T_EQDOT
+%right T_QUESTION
 %left T_OROR
 %left T_ANDAND
 %left T_BITOR
@@ -116,21 +128,22 @@ extern int	L_lex (void);
 %left T_EQ T_NE T_EQUALEQUAL T_NOTEQUAL T_EQTWID
 %left T_GT T_GE T_LT T_LE T_GREATER T_GREATEREQ T_LESSTHAN T_LESSTHANEQ
 %left T_LSHIFT T_RSHIFT
-%left T_PLUS T_MINUS
+%left T_PLUS T_MINUS T_STRCAT
 %left T_STAR T_SLASH T_PERC
 %right PREFIX_INCDEC UPLUS UMINUS T_BANG T_BITNOT ADDRESS
-%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_PLUSPLUS T_MINUSMINUS
+%left T_LBRACKET T_LBRACE T_RBRACE T_DOT T_POINTS T_PLUSPLUS T_MINUSMINUS
 %left HIGHEST
 
 %type <TopLev> toplevel_code
 %type <ClsDecl> class_decl
 %type <FnDecl> function_decl fundecl_tail fundecl_tail1
 %type <Stmt> stmt single_stmt compound_stmt stmt_list optional_else
+%type <Stmt> unlabeled_stmt
 %type <Cond> selection_stmt
 %type <Loop> iteration_stmt
 %type <ForEach> foreach_stmt
 %type <Expr> expr expression_stmt argument_expr_list opt_arg re_or_string
-%type <Expr> id id_list constant_expr string_literal dotted_id
+%type <Expr> id id_list string_literal cmdsubst_literal dotted_id
 %type <Expr> regexp_literal subst_literal interpolated_expr
 %type <Expr> list list_element
 %type <VarDecl> parameter_list parameter_decl_list parameter_decl
@@ -141,6 +154,7 @@ extern int	L_lex (void);
 %type <Type> array_or_hash_type type_specifier scalar_type_specifier
 %type <Type> struct_specifier
 %type <obj> dotted_id_1
+%type <i> decl_qualifier
 
 %%
 
@@ -160,14 +174,13 @@ toplevel_code:
 	| toplevel_code function_decl
 	{
 		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @2.end);
-		$2->decl->flags |= SCOPE_GLOBAL | DECL_FN;
+		$2->decl->flags |= DECL_FN;
+		if ($2->decl->flags & DECL_PRIVATE) {
+			$2->decl->flags |= SCOPE_SCRIPT;
+		} else {
+			$2->decl->flags |= SCOPE_GLOBAL;
+		}
 		$$->u.fun = $2;
-	}
-	| toplevel_code T_EXTERN function_decl
-	{
-		$$ = ast_mkTopLevel(L_TOPLEVEL_FUN, $1, @1.beg, @3.end);
-		$3->decl->flags |= SCOPE_GLOBAL | DECL_FN | DECL_EXTERN;
-		$$->u.fun = $3;
 	}
 	| toplevel_code struct_specifier ";"
 	{
@@ -185,7 +198,12 @@ toplevel_code:
 		VarDecl *v;
 		$$ = ast_mkTopLevel(L_TOPLEVEL_GLOBAL, $1, @1.beg, @2.end);
 		for (v = $2; v; v = v->next) {
-			v->flags |= SCOPE_GLOBAL | DECL_GLOBAL_VAR;
+			v->flags |= DECL_GLOBAL_VAR;
+			if ($2->flags & DECL_PRIVATE) {
+				v->flags |= SCOPE_SCRIPT;
+			} else {
+				v->flags |= SCOPE_GLOBAL;
+			}
 		}
 		$$->u.global = $2;
 	}
@@ -236,6 +254,12 @@ class_code:
 		for (v = $4; v; v = v->next) {
 			v->clsdecl = clsdecl;
 			v->flags  |= SCOPE_CLASS | DECL_CLASS_INST_VAR;
+			unless (v->flags & (DECL_PUBLIC | DECL_PRIVATE)) {
+				L_errf(v, "class instance variable %s not "
+				       "declared public or private",
+				       v->id->u.string);
+				v->flags |= DECL_PUBLIC;
+			}
 		}
 		APPEND_OR_SET(VarDecl, next, clsdecl->instvars, $4);
 	}
@@ -244,9 +268,16 @@ class_code:
 	{
 		VarDecl	*v;
 		ClsDecl	*clsdecl = $<ClsDecl>0;
+		REVERSE(VarDecl, next, $2);
 		for (v = $2; v; v = v->next) {
 			v->clsdecl = clsdecl;
 			v->flags  |= SCOPE_CLASS | DECL_CLASS_VAR;
+			unless (v->flags & (DECL_PUBLIC | DECL_PRIVATE)) {
+				L_errf(v, "class variable %s not "
+				       "declared public or private",
+				       v->id->u.string);
+				v->flags |= DECL_PUBLIC;
+			}
 		}
 		APPEND_OR_SET(VarDecl, next, clsdecl->clsvars, $2);
 	}
@@ -260,25 +291,23 @@ class_code:
 	{
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$2->decl->clsdecl = clsdecl;
-		$2->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN;
-		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $2);
-	}
-	| class_code T_PRIVATE function_decl
-	{
-		ClsDecl	*clsdecl = $<ClsDecl>0;
-		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_CLASS | DECL_CLASS_PRIV_FN;
-		$3->decl->tclprefix = cksprintf("_L_class_%s_",
+		$2->decl->flags  |= DECL_CLASS_FN;
+		unless ($2->decl->flags & DECL_PRIVATE) {
+			$2->decl->flags |= SCOPE_GLOBAL | DECL_PUBLIC;
+		} else {
+			$2->decl->flags |= SCOPE_CLASS;
+			$2->decl->tclprefix = cksprintf("_L_class_%s_",
 						clsdecl->decl->id->u.string);
-		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $3);
+		}
+		APPEND_OR_SET(FnDecl, next, clsdecl->fns, $2);
 	}
 	| class_code T_CONSTRUCTOR fundecl_tail
 	{
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$3->decl->type->base_type = clsdecl->decl->type;
 		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
-			DECL_CLASS_CONSTRUCTOR;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+			DECL_CLASS_CONST;
 		if (clsdecl->constructor) {
 			L_errf($3, "class constructor already declared");
 		} else {
@@ -290,8 +319,8 @@ class_code:
 		ClsDecl	*clsdecl = $<ClsDecl>0;
 		$3->decl->type->base_type = L_void;
 		$3->decl->clsdecl = clsdecl;
-		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_PUB_FN |
-			DECL_CLASS_DESTRUCTOR;
+		$3->decl->flags  |= SCOPE_GLOBAL | DECL_CLASS_FN | DECL_PUBLIC |
+			DECL_CLASS_DESTR;
 		if (clsdecl->destructor) {
 			L_errf($3, "class destructor already declared");
 		} else {
@@ -311,6 +340,13 @@ function_decl:
 	{
 		$2->decl->type->base_type = $1;
 		$$ = $2;
+		$$->node.beg = @1.beg;
+	}
+	| decl_qualifier type_specifier fundecl_tail
+	{
+		$3->decl->type->base_type = $2;
+		$3->decl->flags |= $1;
+		$$ = $3;
 		$$->node.beg = @1.beg;
 	}
 	;
@@ -355,8 +391,23 @@ fundecl_tail1:
 	;
 
 stmt:
-	  single_stmt	{ $$ = $1; if (L->interactive) YYACCEPT; }
-	| compound_stmt	{ $$ = $1; if (L->interactive) YYACCEPT; }
+	  T_ID ":" stmt
+	{
+		$$ = ast_mkStmt(L_STMT_LABEL, NULL, @1.beg, @2.end);
+		$$->u.label = $1;
+		$$->next = $3;
+	}
+	| T_ID ":" %prec LOWEST
+	{
+		$$ = ast_mkStmt(L_STMT_LABEL, NULL, @1.beg, @2.end);
+		$$->u.label = $1;
+	}
+	| unlabeled_stmt
+	;
+
+unlabeled_stmt:
+	  single_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
+	| compound_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
 	;
 
 single_stmt:
@@ -396,6 +447,11 @@ single_stmt:
 	{
 		$$ = ast_mkStmt(L_STMT_RETURN, NULL, @1.beg, @2.end);
 		$$->u.expr = $2;
+	}
+	| T_GOTO T_ID ";"
+	{
+		$$ = ast_mkStmt(L_STMT_GOTO, NULL, @1.beg, @3.end);
+		$$->u.label = $2;
 	}
 	| ";"	{ $$ = NULL; }
 	;
@@ -466,8 +522,8 @@ foreach_stmt:
 	}
 	;
 
-expression_stmt
-	: ";"		{ $$ = NULL; }
+expression_stmt:
+	  ";"		{ $$ = NULL; }
 	| expr ";"
 	;
 
@@ -476,7 +532,8 @@ stmt_list:
 	| stmt_list stmt
 	{
 		if ($2) {
-			$2->next = $1;
+			REVERSE(Stmt, next, $2);
+			APPEND(Stmt, next, $2, $1);
 			$$ = $2;
 		} else {
 			// Empty stmt.
@@ -494,6 +551,14 @@ parameter_list:
 			v->flags |= SCOPE_LOCAL | DECL_LOCAL_VAR;
 		}
 		$$ = $1;
+		/*
+		 * Special case a parameter list of "void" -- a single
+		 * formal of type void with no arg name.  This really
+		 * means there are no args.
+		 */
+		if ($1 && !$1->next && !$1->id && ($1->type == L_void)) {
+			$$ = NULL;
+		}
 	}
 	| /* epsilon */	{ $$ = NULL; }
 	;
@@ -512,11 +577,19 @@ parameter_decl:
 	  type_specifier
 	{
 		$$ = ast_mkVarDecl($1, NULL, @1.beg, @1.end);
+		if (isnameoftype($1)) $$->flags |= DECL_REF;
 	}
 	| type_specifier declarator
 	{
 		L_set_declBaseType($2, $1);
 		$$ = $2;
+		$$->node.beg = @1.beg;
+	}
+	| T_UNUSED type_specifier declarator
+	{
+		L_set_declBaseType($3, $2);
+		$$ = $3;
+		$$->flags |= DECL_UNUSED;
 		$$->node.beg = @1.beg;
 	}
 	| T_ELLIPSIS id
@@ -525,21 +598,27 @@ parameter_decl:
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @2.end);
 		$$->flags |= DECL_REST_ARG;
 	}
+	| T_UNUSED T_ELLIPSIS id
+	{
+		Type *t = type_mkArray(NULL, L_poly, PER_INTERP);
+		$$ = ast_mkVarDecl(t, $3, @1.beg, @3.end);
+		$$->flags |= DECL_REST_ARG | DECL_UNUSED;
+	}
 	;
 
 argument_expr_list:
 	  expr %prec T_COMMA
-	| T_KEYWORD
+	| T_ID ":"
 	{
-		$$ = ast_mkConst(L_string, @1.beg, @1.end);
-		$$->u.string = $1;
+		$$ = ast_mkConst(L_string, @1.beg, @2.end);
+		$$->u.string = cksprintf("-%s", $1);
 	}
-	| T_KEYWORD expr %prec T_COMMA
+	| T_ID ":" expr %prec T_COMMA
 	{
-		Expr *e = ast_mkConst(L_string, @1.beg, @1.end);
-		e->u.string = $1;
-		$2->next = e;
-		$$ = $2;
+		Expr *e = ast_mkConst(L_string, @1.beg, @2.end);
+		e->u.string = cksprintf("-%s", $1);
+		$3->next = e;
+		$$ = $3;
 		$$->node.beg = @1.beg;
 	}
 	| argument_expr_list "," expr
@@ -548,22 +627,22 @@ argument_expr_list:
 		$$ = $3;
 		$$->node.end = @3.end;
 	}
-	| argument_expr_list "," T_KEYWORD
+	| argument_expr_list "," T_ID ":"
 	{
-		Expr *e = ast_mkConst(L_string, @3.beg, @3.end);
-		e->u.string = $3;
+		Expr *e = ast_mkConst(L_string, @3.beg, @4.end);
+		e->u.string = cksprintf("-%s", $3);
 		e->next = $1;
 		$$ = e;
-		$$->node.end = @3.end;
-	}
-	| argument_expr_list "," T_KEYWORD expr %prec T_COMMA
-	{
-		Expr *e = ast_mkConst(L_string, @3.beg, @3.end);
-		e->u.string = $3;
-		$4->next = e;
-		e->next = $1;
-		$$ = $4;
 		$$->node.end = @4.end;
+	}
+	| argument_expr_list "," T_ID ":" expr %prec T_COMMA
+	{
+		Expr *e = ast_mkConst(L_string, @3.beg, @4.end);
+		e->u.string = cksprintf("-%s", $3);
+		$5->next = e;
+		e->next = $1;
+		$$ = $5;
+		$$->node.end = @5.end;
 	}
 	;
 
@@ -576,8 +655,23 @@ expr:
 	}
 	| "(" type_specifier ")" expr %prec PREFIX_INCDEC
 	{
-		// This is the only binop where an arg is a Type*.
+		// This is a binop where an arg is a Type*.
 		$$ = ast_mkBinOp(L_OP_CAST, (Expr *)$2, $4, @1.beg, @4.end);
+	}
+	| "(" T_EXPAND ")" expr %prec PREFIX_INCDEC
+	{
+		$$ = ast_mkUnOp(L_OP_EXPAND, $4, @1.beg, @4.end);
+	}
+	| "(" T_EXPAND id ")" expr %prec PREFIX_INCDEC
+	{
+		/*
+		 * This rule is for (expand all).  It's an error if id
+		 * is not "all".
+		 */
+		unless (!strcmp($3->u.string, "all")) {
+			L_errf($3, "only (expand) and (expand all) are legal");
+		}
+		$$ = ast_mkUnOp(L_OP_EXPAND_ALL, $5, @1.beg, @5.end);
 	}
 	| T_BANG expr
 	{
@@ -727,6 +821,7 @@ expr:
 	}
 	| id
 	| string_literal
+	| cmdsubst_literal
 	| T_INT_LITERAL
 	{
 		$$ = ast_mkConst(L_int, @1.beg, @1.end);
@@ -824,6 +919,10 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_EQRSHIFT, $1, $3, @1.beg, @3.end);
 	}
+	| expr T_EQDOT expr
+	{
+		$$ = ast_mkBinOp(L_OP_EQDOT, $1, $3, @1.beg, @3.end);
+	}
 	| T_DEFINED "(" expr ")"
 	{
 		$$ = ast_mkUnOp(L_OP_DEFINED, $3, @1.beg, @4.end);
@@ -836,9 +935,32 @@ expr:
 	{
 		$$ = ast_mkBinOp(L_OP_HASH_INDEX, $1, $3, @1.beg, @4.end);
 	}
+	| expr T_STRCAT expr
+	{
+		$$ = ast_mkBinOp(L_OP_CONCAT, $1, $3, @1.beg, @3.end);
+	}
 	| expr "." T_ID
 	{
-		$$ = ast_mkBinOp(L_OP_STRUCT_INDEX, $1, NULL, @1.beg, @3.end);
+		$$ = ast_mkBinOp(L_OP_DOT, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
+	}
+	| expr "->" T_ID
+	{
+		$$ = ast_mkBinOp(L_OP_POINTS, $1, NULL, @1.beg, @3.end);
+		$$->u.string = $3;
+	}
+	| T_TYPE "." T_ID
+	{
+		// This is a binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CLASS_INDEX, (Expr *)$1.t, NULL, @1.beg,
+				 @3.end);
+		$$->u.string = $3;
+	}
+	| T_TYPE "->" T_ID
+	{
+		// This is a binop where an arg is a Type*.
+		$$ = ast_mkBinOp(L_OP_CLASS_INDEX, (Expr *)$1.t, NULL, @1.beg,
+				 @3.end);
 		$$->u.string = $3;
 	}
 	| expr "," expr
@@ -862,7 +984,12 @@ expr:
 	}
 	| "{" "}"
 	{
-		$$ = ast_mkUnOp(L_OP_LIST, NULL, 0, 0);
+		$$ = ast_mkBinOp(L_OP_LIST, NULL, NULL, 0, 0);
+	}
+	| expr "?" expr ":" expr %prec T_QUESTION
+	{
+		$$ = ast_mkTrinOp(L_OP_TERNARY_COND, $1, $3, $5, @1.beg,
+				  @5.end);
 	}
 	;
 
@@ -959,15 +1086,21 @@ declaration_list:
 
 declaration:
 	  declaration2 ";"
-	| T_EXTERN declaration2 ";"
+	| decl_qualifier declaration2 ";"
 	{
 		VarDecl *v;
 		for (v = $2; v; v = v->next) {
-			v->flags |= DECL_EXTERN;
+			v->flags |= $1;
 		}
 		$$ = $2;
 		$$->node.beg = @1.beg;
 	}
+	;
+
+decl_qualifier:
+	  T_PRIVATE	{ $$ = DECL_PRIVATE; }
+	| T_PUBLIC	{ $$ = DECL_PUBLIC; }
+	| T_EXTERN	{ $$ = DECL_EXTERN; }
 	;
 
 declaration2:
@@ -1020,18 +1153,21 @@ declarator:
 	{
 		Expr *id = ast_mkId($1.s, @1.beg, @1.end);
 		$$ = ast_mkVarDecl($2, id, @1.beg, @2.end);
+		if (isnameoftype($1.t)) $$->flags |= DECL_REF;
 		ckfree($1.s);
 	}
 	| T_BITAND id array_or_hash_type
 	{
 		Type *t = type_mkNameOf($3, PER_INTERP);
 		$$ = ast_mkVarDecl(t, $2, @1.beg, @3.end);
+		$$->flags |= DECL_REF;
 	}
 	| T_BITAND id "(" parameter_list ")"
 	{
 		Type *tf = type_mkFunc(NULL, $4, PER_INTERP);
 		Type *tn = type_mkNameOf(tf, PER_INTERP);
 		$$ = ast_mkVarDecl(tn, $2, @1.beg, @5.end);
+		$$->flags |= DECL_REF;
 	}
 	;
 
@@ -1041,7 +1177,7 @@ array_or_hash_type:
 	{
 		$$ = NULL;
 	}
-	| "[" constant_expr "]" array_or_hash_type
+	| "[" expr "]" array_or_hash_type
 	{
 		$$ = type_mkArray($2, $4, PER_INTERP);
 	}
@@ -1132,17 +1268,12 @@ struct_declarator_list:
 	}
 	;
 
-/*
- * XXX at some point this tree should be built right-heavy (by
- * appending) instead of the left-heavy tree that left recursion gives
- * you, so that the compiler won't get caught in deep recursion when
- * the initializer lists are very long.
- */
 list:
 	  list_element
 	| list "," list_element
 	{
-		$$ = ast_mkBinOp(L_OP_CONS, $1, $3, @1.beg, @3.end);
+		APPEND(Expr, b, $1, $3);
+		$$ = $1;
 	}
 	| list ","
 	;
@@ -1150,16 +1281,13 @@ list:
 list_element:
 	  expr %prec HIGHEST
 	{
-		$$ = ast_mkUnOp(L_OP_LIST, $1, @1.beg, @1.end);
+		$$ = ast_mkBinOp(L_OP_LIST, $1, NULL, @1.beg, @1.end);
 	}
 	| expr "=>" expr %prec HIGHEST
 	{
-		$$ = ast_mkBinOp(L_OP_KV, $1, $3, @1.beg, @3.end);
+		Expr *kv = ast_mkBinOp(L_OP_KV, $1, $3, @1.beg, @3.end);
+		$$ = ast_mkBinOp(L_OP_LIST, kv, NULL, @1.beg, @3.end);
 	}
-	;
-
-constant_expr:
-	  expr
 	;
 
 string_literal:
@@ -1174,6 +1302,19 @@ string_literal:
 		right->u.string = $2;
 		$$ = ast_mkBinOp(L_OP_INTERP_STRING, $1, right,
 				 @1.beg, @2.end);
+	}
+	;
+
+cmdsubst_literal:
+	  T_STR_BACKTICK
+	{
+		$$ = ast_mkUnOp(L_OP_CMDSUBST, NULL, @1.beg, @1.end);
+		$$->u.string = $1;
+	}
+	| interpolated_expr T_STR_BACKTICK
+	{
+		$$ = ast_mkUnOp(L_OP_CMDSUBST, $1, @1.beg, @2.end);
+		$$->u.string = $2;
 	}
 	;
 

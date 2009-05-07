@@ -1,5 +1,5 @@
 # Test the L language.
-# Copyright (c) 2007 BitMover, Inc.
+# Copyright (c) 2007-2009 BitMover, Inc.
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest 2
@@ -101,9 +101,450 @@ poly Parse14Pattern_*(int a, ...rest)
 
 test parse-1.5 {test handling of illegal character} -body {
 #lang L
-?
-} -returnCodes error -match regexp -result {.*1: L Error: illegal character '\?'
+@
+} -returnCodes error -match regexp -result {.*1: L Error: illegal character '\@'
 }
+
+test scan-1.1 {test detection of run-away string 1} -body {
+#lang L
+void scan_1_1()
+{
+	string	s = "This is bad
+	and should be an error";
+	puts(s);
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator \"\n}
+
+test scan-1.2 {test detection of run-away string 2} -body {
+#lang L
+void scan_1_2()
+{
+	string	s = "This is bad
+}
+#"
+} -returnCodes {error} -match regexp -result {.*missing string terminator \"\n}
+
+test scan-1.3 {test detection of run-away string 3} -body {
+#lang L
+void scan_1_3()
+{
+	string	s = 'This is bad
+	and should be an error';
+	puts(s);
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator \'\n}
+
+test scan-1.4 {test detection of run-away string 4} -body {
+#lang L
+void scan_1_4()
+{
+	string	s = 'This is bad
+}
+#'
+} -returnCodes {error} -match regexp -result {.*missing string terminator \'\n}
+
+test scan-1.4.2 {test detection of run-away string 5} -body {
+#lang L
+void scan_1_4_2()
+{
+	string	s = `echo this is bad
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator `\n}
+
+test scan-1.4.3 {test detection of run-away string 5} -body {
+#lang L
+void scan_1_4_3()
+{
+	string	s = `echo this is bad
+>foo`;
+}
+} -returnCodes {error} -match regexp -result {.*missing string terminator `\n}
+
+test scan-1.5 {check escapes in single-quoted strings} -body {
+#lang L
+void scan_1_5()
+{
+	string	s;
+
+	s = '\a\t\n\001';
+	unless (length(s) == 10) puts("bad 1.0");
+	unless ((s[0] eq "\\") && (s[1] eq "a")) puts("bad 1.1");
+	unless ((s[2] eq "\\") && (s[3] eq "t")) puts("bad 1.2");
+	unless ((s[4] eq "\\") && (s[5] eq "n")) puts("bad 1.3");
+	unless ((s[6] eq "\\") && (s[7] eq "0")) puts("bad 1.4");
+	unless ((s[8] eq "0")  && (s[9] eq "1")) puts("bad 1.5");
+
+	s = '\\\'';
+	unless (length(s) == 2) puts("bad 2.0");
+	unless ((s[0] eq "\\") && (s[1] eq "'")) puts("bad 2.1");
+
+	/*
+	 * The following test doesn't work unless run from the
+	 * command line.  Perhaps tcltest is munging the string.  ?
+	s = 'line\
+break';
+	unless (s eq "line\nbreak") puts("bad 3.1");
+	*/
+}
+scan_1_5();
+} -output {}
+
+test scan-1.6 {check escapes in double-quoted strings} -body {
+#lang L
+void scan_1_6()
+{
+	string	s;
+
+	s = "\a\t\n\r\\\"";
+	unless (length(s) == 6) puts("bad 1.0");
+	unless ((s[0] eq "a")  && (s[1] eq "\t")) puts("bad 1.1");
+	unless ((s[2] eq "\n") && (s[3] eq "\r")) puts("bad 1.2");
+	unless ((s[4] eq "\\") && (s[5] eq "\"")) puts("bad 1.3");
+
+	/*
+	 * The following test doesn't work unless run from the
+	 * command line.  Perhaps tcltest is munging the string.  ?
+	s = "line\
+break";
+	unless (s eq "line\nbreak") puts("bad 2.1");
+	*/
+}
+scan_1_6();
+} -output {}
+
+test scan-1.7 {test here documents 1} -body {
+#lang L
+void scan_1_7()
+{
+	/* Vary the whitespace. */
+
+	string	s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11;
+
+	s1 = <<'E'
+str1
+E
+	unless (s1 eq "str1\n") puts("bad 1");
+
+	s2 = <<'EN'
+str2
+EN
+	unless (s2 eq "str2\n") puts("bad 2");
+
+	s3 = <<'END'
+str3
+END
+	unless (s3 eq "str3\n") puts("bad 3");
+
+	s4 =<<'END'
+str4
+END
+	unless (s4 eq "str4\n") puts("bad 4");
+
+	s5 =  <<'END'
+str5
+END
+	unless (s5 eq "str5\n") puts("bad 5");
+
+	s6 =	<<'END'
+str6
+END
+	unless (s6 eq "str6\n") puts("bad 6");
+
+	s7 =	 <<'END'
+str7
+END
+	unless (s7 eq "str7\n") puts("bad 7");
+
+	s8 =
+<<'END'
+str8
+END
+	unless (s8 eq "str8\n") puts("bad 8");
+
+	s9 =
+ <<'END'
+str9
+END
+	unless (s9 eq "str9\n") puts("bad 9");
+
+	/*
+	 * These test the patterns in the scanner that check for a ;
+	 * after the end delim.  Note that there are spaces after
+	 * some of the ; below.
+	 */
+
+	s10 = <<'END'
+NOTEND;
+NOTEND ;
+NOTEND; 
+NOTEND ; 
+END
+	unless (s10 eq "NOTEND;\nNOTEND ;\nNOTEND; \nNOTEND ; \n") {
+		puts("bad 10");
+	}
+
+	s11 = <<END
+NOTEND;
+NOTEND ;
+NOTEND; 
+NOTEND ; 
+END
+	unless (s11 eq "NOTEND;\nNOTEND ;\nNOTEND; \nNOTEND ; \n") {
+		puts("bad 11");
+	}
+}
+scan_1_7();
+} -output {}
+
+test scan-1.8 {test here documents 2} -body {
+#lang L
+void scan_1_8()
+{
+	string	s;
+	string	foo = "foo";
+
+	/* Check string interpolation. */
+
+	s = <<END
+interpolated string ${foo}
+END
+	unless (s eq "interpolated string foo\n") puts("bad 1");
+
+	s = <<'END'
+uninterpolated string ${foo}
+END
+	unless (s eq "uninterpolated string \${foo}\n") puts("bad 2");
+
+	/*
+	 * The scanner handles an ID inside a here document
+	 * differently than a non-ID, so try both.
+	 */
+
+	s = <<END
+${foo}
+aword
+two words
+END
+	unless (s eq "foo\naword\ntwo words\n") puts("bad 3");
+
+	s = <<'END'
+${foo}
+aword
+two words
+END
+	unless (s eq "\${foo}\naword\ntwo words\n") puts("bad 4");
+
+	/*
+	 * Ensure delimeter isn't found mistakenly.  It isn't
+	 * allowed to have leading or trailing whitespace or
+	 * anything else.
+	 */
+
+	s = <<END
+EN
+EN D
+END 
+ END
+ENDEND
+END
+	unless (s eq "EN\nEN D\nEND \n END\nENDEND\n") puts("bad 5");
+
+	s = <<'END'
+EN
+EN D
+END 
+ END
+ENDEND
+END
+	unless (s eq "EN\nEN D\nEND \n END\nENDEND\n") puts("bad 6");
+
+	/* Check escapes. */
+
+	s = <<END
+a\tb\nc\\d\x
+END
+	unless (s eq "a\tb\nc\\dx\n") puts("bad 9");
+
+	s = <<'END'
+a\tb\nc\\d\x\\\'
+END
+	unless (s eq "a\\tb\\nc\\d\\x\\'\n") puts("bad 10");
+}
+scan_1_8();
+} -output {}
+
+test scan-1.9 {test here document error 1} -body {
+#lang L
+void
+scan_1_9()
+{
+	/*
+	 * Error, since nothing is allowed after the END except
+	 * a newline.
+	 */
+	string s1 = <<'END'err
+END
+}
+scan_1_9();
+} -returnCodes {error} -match regexp -result ".*syntax error.*"
+
+test scan-1.10 {test here document error 2} -body {
+#lang L
+void
+scan_1_10()
+{
+	/*
+	 * Error, since nothing is allowed after the END except
+	 * a newline.
+	 */
+	string s1 = <<END err
+END
+}
+scan_1_10();
+} -returnCodes {error} -match regexp -result ".*syntax error.*"
+
+test scan-1.11 {test nested here documents error} -body {
+#lang L
+void
+scan_1_11()
+{
+	string s1, s2 = <<END
+${s1=<<BAD
+should be error
+BAD
+}
+END
+}
+scan_1_11();
+} -returnCodes {error} -match regexp -result ".*nested here documents illegal.*"
+
+test scan-1.12 {test here documents semicolon error 1} -body {
+#lang L
+void
+scan_1_12()
+{
+	string s = <<END
+should be error
+END;
+}
+scan_1_12();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.13 {test here documents semicolon error 2} -body {
+#lang L
+void
+scan_1_13()
+{
+	string s = <<'END'
+should be error
+END;
+}
+scan_1_13();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.14 {test here documents semicolon error 3} -body {
+#lang L
+void
+scan_1_14()
+{
+	string s = <<END
+should be error
+END ;
+}
+scan_1_14();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.15 {test here documents semicolon error 4} -body {
+#lang L
+void
+scan_1_15()
+{
+	string s = <<'END'
+should be error
+END ;
+}
+scan_1_15();
+} -returnCodes {error} -match regexp -result ".*illegal ; after here document."
+
+test scan-1.16 {check auto string concatenation} -body {
+#lang L
+void scan_1_16()
+{
+	string	s;
+
+	s = "a"
+"b"
+"c";
+	unless (s eq "abc") puts("bad 1");
+
+	s = "d"
+	    "e"
+	    "f";
+	unless (s eq "def") puts("bad 2");
+
+	s = 'a'
+'b'
+'c';
+	unless (s eq "abc") puts("bad 3");
+
+	s = 'd'
+	    'e'
+	    'f';
+	unless (s eq "def") puts("bad 4");
+}
+scan_1_16();
+} -output {}
+
+test cmdsubst-1 {test command substitution} -body {
+#lang L
+void cmdsubst_1()
+{
+	string	s1, s2;
+
+	`echo testing1 >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing1") puts("bad 1.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing2";
+	`echo ${s1} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing2") puts("bad 2.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing3";
+	s2 = "xyz";
+	`echo ${s1}${s2} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing3xyz") puts("bad 3.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing4";
+	s2 = "pdq";
+	`echo ${s1}-${s2} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing4-pdq") puts("bad 4.1");
+	`rm -f foo.txt`;
+
+	s1 = "testing";
+	s2 = "xyz";
+	`echo ${s1}${5}${s2} ${"zyx"} >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "testing5xyz zyx") puts("bad 5.1");
+	`rm -f foo.txt`;
+
+	/*
+	 * Check escapes.  The \r\n\t should get expanded but then
+	 * ignored when the compiler splits the command string.
+	 */
+
+	`echo \r\n\t\a$x >foo.txt`;
+	s1 = `cat foo.txt`;
+	unless (s1 eq "a$x") puts("bad 10.1");
+	`rm -f foo.txt`;
+}
+cmdsubst_1();
+} -output {}
 
 test proc-1.0 {Test L function definition.} -body {
 #lang L
@@ -188,6 +629,246 @@ void proc_1_5_2(int a, int a, int a) {}
 .*2: L Error: multiple declaration of local a
 }
 
+test proc-1.6 {check ignored function return value} -body {
+#lang L
+int proc_1_6_foo() { return (1); }
+void proc_1_6()
+{
+	/*
+	 * This test checks that an ignored function's return value is
+	 * properly popped off the run-time stack.  If it's not, the
+	 * unbalanced stack will cause a Tcl panic in a debug build.
+	 */
+
+	int	i;
+	int	n = 100;
+
+	for (i = 0; i < 100; ++i) {
+		proc_1_6_foo();
+	}
+}
+proc_1_6();
+} -output {}
+
+test proc-1.7 {check extern functions} -setup {
+	proc proc_1_7 {} { puts "good" }
+} -body {
+#lang L
+	extern void proc_1_7();
+	proc_1_7();
+} -output {good
+}
+
+test proc-1.8 {test (expand)} -body {
+#lang L
+string proc_1_8_concat(...args)
+{
+	poly	p;
+	string	s;
+
+	foreach (p in args) s = sprintf("%s%s", s, p);
+	return (s);
+}
+int proc_1_8_sum(int a, int b, int c)
+{
+	return (a + b + c);
+}
+/* Return a string array of n elements, starting at "1" and counting up. */
+string[] proc_1_8_arr(int n)
+{
+	int	i;
+	string	s[];
+
+	for (i = 1; i <= n; ++i) push(&s, (string)i);
+	return (s);
+}
+void proc_1_8()
+{
+	int	i1[] = { 10 };
+	int	i2[] = { 20, 30 };
+	int	i3[] = { 40, 50, 60 };
+	string	sa[] = { "a", "b", "c" };
+	string	sb[] = { "d", "e" };
+	poly	p = { "a", "b", "c" };
+
+	unless (proc_1_8_concat((expand){}) eq "") puts("bad 0.1");
+
+	unless (proc_1_8_concat((expand)sa) eq "abc") puts("bad 1.1");
+	unless (proc_1_8_concat((expand all)sa) eq "abc") puts("bad 1.2");
+	unless (proc_1_8_concat("x", (expand)sa) eq "xabc") puts("bad 2.1");
+	unless (proc_1_8_concat("x", (expand all)sa) eq "xabc") puts("bad 2.2");
+	unless (proc_1_8_concat((expand)sa, "y") eq "abcy") puts("bad 3.1");
+	unless (proc_1_8_concat((expand all)sa, "y") eq "abcy") puts("bad 3.2");
+	unless (proc_1_8_concat("x", (expand)sa, "y") eq "xabcy") {
+		puts("bad 4.1");
+	}
+	unless (proc_1_8_concat("x", (expand all)sa, "y") eq "xabcy") {
+		puts("bad 4.2");
+	}
+	unless (proc_1_8_concat("x", (expand)sa, (expand)sb, "y") eq "xabcdey") {
+		puts("bad 5.1");
+	}
+	unless (proc_1_8_concat("x", (expand all)sa, (expand all)sb, "y")
+			eq "xabcdey") {
+		puts("bad 5.2");
+	}
+	unless (proc_1_8_concat((expand)sa, (expand)sa, (expand)sa)
+			eq "abcabcabc") {
+		puts("bad 6.1");
+	}
+	unless (proc_1_8_concat((expand all)sa, (expand all)sa, (expand all)sa)
+			eq "abcabcabc") {
+		puts("bad 6.2");
+	}
+
+	unless (proc_1_8_sum((expand)i1, 2, 3) == 15) puts("bad 10.1");
+	unless (proc_1_8_sum((expand all)i1, 2, 3) == 15) puts("bad 10.2");
+	unless (proc_1_8_sum((expand)i2, 2) == 52) puts("bad 11.1");
+	unless (proc_1_8_sum((expand all)i2, 2) == 52) puts("bad 11.2");
+	unless (proc_1_8_sum((expand)i3) == 150) puts("bad 12.1");
+	unless (proc_1_8_sum((expand all)i3) == 150) puts("bad 12.2");
+
+	unless (proc_1_8_concat((expand)p) eq "abc") puts("bad 20.1");
+	unless (proc_1_8_concat((expand all)p) eq "abc") puts("bad 20.2");
+
+	unless (proc_1_8_concat((expand)proc_1_8_arr(1)) eq "1") {
+		puts("bad 30.1");
+	}
+	unless (proc_1_8_concat((expand all)proc_1_8_arr(1)) eq "1") {
+		puts("bad 30.2");
+	}
+	unless (proc_1_8_concat((expand)proc_1_8_arr(2)) eq "12") {
+		puts("bad 31.1");
+	}
+	unless (proc_1_8_concat((expand all)proc_1_8_arr(2)) eq "12") {
+		puts("bad 31.2");
+	}
+	unless (proc_1_8_concat((expand)proc_1_8_arr(3)) eq "123") {
+		puts("bad 32.1");
+	}
+	unless (proc_1_8_concat((expand all)proc_1_8_arr(3)) eq "123") {
+		puts("bad 32.2");
+	}
+
+	/* These test expand inside of a list {}. */
+
+	unless (proc_1_8_concat((expand){(expand){1}}) eq "1") {
+		puts("bad 40.1");
+	}
+	unless (proc_1_8_concat((expand all){(expand all){1}}) eq "1") {
+		puts("bad 40.2");
+	}
+	unless (proc_1_8_concat((expand){(expand){1,2}}) eq "12") {
+		puts("bad 40.3");
+	}
+	unless (proc_1_8_concat((expand all){(expand all){1,2}}) eq "12") {
+		puts("bad 40.4");
+	}
+	unless (proc_1_8_concat((expand){(expand){1,2,3}}) eq "123") {
+		puts("bad 40.5");
+	}
+	unless (proc_1_8_concat((expand all){(expand all){1,2,3}}) eq "123") {
+		puts("bad 40.6");
+	}
+
+	sa = { (expand){"1","2"}, "3", (expand){"4"}, "5", (expand){"6","7","8"} };
+	unless (length(sa) == 8) puts("bad 41.1");
+	unless (proc_1_8_concat((expand)sa) eq "12345678") puts("bad 41.2");
+
+	sa = { (expand)"1" };
+	unless ((length(sa) == 1) && (sa[0] eq "1")) puts("bad 42.1");
+	sa = { (expand)"1", (expand)"2" };
+	unless ((length(sa) == 2) && (sa[0] eq "1") && (sa[1] eq "2")) {
+		puts("bad 42.2");
+	}
+}
+proc_1_8();
+} -output {}
+
+test proc-1.9 {test (expand all)} -body {
+#lang L
+string proc_1_9_concat(...args)
+{
+	poly	p;
+	string	s;
+
+	foreach (p in args) s = sprintf("%s%s", s, p);
+	return (s);
+}
+int proc_1_9_sum(int a, int b, int c, int d, int e, int f, int g, int h)
+{
+	return (a + b + c + d + e + f + g + h);
+}
+/* Return a string array of n elements, starting at "1" and counting up. */
+string[] proc_1_9_arr(int n)
+{
+	int	i;
+	string	s[];
+
+	for (i = 1; i <= n; ++i) push(&s, (string)i);
+	return (s);
+}
+void proc_1_9()
+{
+	int	ia0[] = {1};
+	int	ia1[][] = { {1}, {1}, {1,1} };
+	int	ia2[][][] = { { {1}, {1} }, {{1}}, { {1,1,1}, {1,1} } };
+	string	sa[];
+	string	saa[][] = { {"00","01"}, {"10"}, {"20"}, {"30","31","32"} };
+	string	sh{string} = { "k1"=>"v1", "k2"=>"v2" };
+	struct {
+		int	i, j;
+		string	sa[];
+		string	s;
+	} st = { 11, 22, { "s1","s2" }, "str" };
+
+	unless (proc_1_9_concat((expand all){}) eq "") puts("bad 0.1");
+
+	unless (proc_1_9_sum((expand all)ia0,1,1,1,1,1,1,1) == 8) {
+		puts("bad 0.2");
+	}
+	unless (proc_1_9_sum((expand all)ia1,3,3,3,3) == 16) {
+		puts("bad 0.3");
+	}
+	unless (proc_1_9_sum((expand all)ia2) == 8) {
+		puts("bad 0.4");
+	}
+
+	unless (proc_1_9_concat((expand all)saa) eq "00011020303132") {
+		puts("bad 1.1");
+	}
+
+	unless (proc_1_9_concat((expand all){1,2,{3,{4,5},6}}) eq "123456") {
+		puts("bad 2");
+	}
+
+	unless (proc_1_9_concat((expand all){{{{{{{{1}}}}}}}}) eq "1") {
+		puts("bad 3");
+	}
+
+	unless (proc_1_9_concat((expand all)sh) eq "k1v1k2v2") puts("bad 4");
+	unless (proc_1_9_concat((expand all)st) eq "1122s1s2str") puts("bad 5");
+
+	/* Try some nested lists with expands. */
+	sa = { (expand){"1","2","3"}, (expand all){"4", (expand){"5","6"}} };
+	unless (length(sa) == 6) puts("bad 10.1");
+	unless (proc_1_9_concat((expand)sa) eq "123456") puts("bad 10.2");
+	sa = { (expand){"1","2","3"}, (expand){"4", (expand){"5","6"}} };
+	unless (length(sa) == 6) puts("bad 10.3");
+	unless (proc_1_9_concat((expand)sa) eq "123456") puts("bad 10.4");
+}
+proc_1_9();
+} -output {}
+
+test proc-1.10 {check expand errors} -body {
+#lang L
+void proc_1_10()
+{
+	(expand bad){1,2,3};
+}
+} -returnCodes error -match regexp -result {.*3: L Error: only \(expand\) and \(expand all\) are legal
+}
+
 test var-1.0 {Test L variable assignment and reference} -body {
 #lang L
 void var_1_0(void)
@@ -231,6 +912,59 @@ void var_1_2_aux()
 #lang tcl
 var_1_2
 } -output "3\n4\n5\n"
+
+test var-1.2.2 {L global variable access from inside function} -body {
+#lang L
+private int g = 123;
+void var_1_2_2()
+{
+	/*
+	 * This tests a past compiler bug where the upvars for the
+	 * global shadows were emitted at the point of variable use,
+	 * which doesn't work if the use doesn't get executed, like
+	 * the first reference to "g" below.
+	 */
+	for (; 0; g);
+	unless (g == 123) puts("bad 1");
+}
+var_1_2_2();
+} -output {}
+
+test var-1.2.3 {L global variable access from inside class} -body {
+#lang L
+/*
+ * Like the above test (var-1.2.2) but with class variables as well.
+ */
+private int g = 321;
+class class_var_1_2_3a
+{
+	public int l1 = g;    // should see the global "g"
+	public int g  = 654;  // shadows the global
+	public int l2 = g;    // should see the local "g"
+}
+class class_var_1_2_3b
+{
+	public int l1 = g;    // should see the global "g"
+	public int g  = 456;  // shadows the global
+	public int l2 = g;    // should see the local "g"
+}
+void var_1_2_3()
+{
+	unless (g == 321) puts("bad 1");
+	unless (class_var_1_2_3a->l1 == 321) puts("bad 2");
+	unless (class_var_1_2_3a->g  == 654) puts("bad 3");
+	unless (class_var_1_2_3a->l2 == 654) puts("bad 4");
+	unless (class_var_1_2_3b->l1 == 321) puts("bad 5");
+	unless (class_var_1_2_3b->g  == 456) puts("bad 6");
+	unless (class_var_1_2_3b->l2 == 456) puts("bad 7");
+	if (1) {
+		int	g = 987;
+		unless (g == 987) puts("bad 10");
+	}
+	unless (g == 321) puts("bad 20");
+}
+var_1_2_3();
+} -output {}
 
 test var-1.3 {A global array of structs} -body {
 #lang L
@@ -458,7 +1192,7 @@ void decl_1_6_bad()
 .*35: L Error: multiple declaration of local l2
 .*40: L Error: multiple declaration of global decl_1_6_extern
 .*41: L Error: multiple declaration of global decl_1_6_g2
-.*44: L Error: externs illegal in local scopes
+.*44: L Error: externs legal only at global scope
 }
 
 test decl-1.7 {Check scoping rules for globals and externs} -body {
@@ -545,6 +1279,93 @@ void main()
 } -returnCodes error -match regexp -result {.*4: L Error: redeclaration of main
 .*7: L Error: redeclaration of main
 }
+
+test decl-1.11.1 {private globals 1} -body {
+#lang L
+private string priv_global = "test 1";
+private void priv_global_test_fn()
+{
+	puts(priv_global);
+}
+void decl_1_11_1()
+{
+	unless (priv_global eq "test 1") puts("bad decl_1_11_1");
+}
+priv_global_test_fn();
+decl_1_11_1();
+} -output "test 1\n"
+
+test decl-1.11.2 {private globals 2} -body {
+#lang L
+/*
+ * This test declares the same (private) names as the previous test.
+ * They should not clash.
+ */
+private string priv_global = "test 2";
+private void priv_global_test_fn()
+{
+	puts(priv_global);
+}
+priv_global_test_fn();
+/*
+ * Call the previous test's function.  It should see the value of its
+ * own private global, not ours.
+ */
+decl_1_11_1();
+} -output "test 2\n"
+
+test decl-1.11.3 {test public/private global declaration errors} -body {
+#lang L
+private int decl_1_11_3_priv_first;
+int decl_1_11_3_priv_first;
+
+int decl_1_11_3_publ_first;
+private int decl_1_11_3_publ_first;
+
+private int two_privates;
+private int two_privates;
+
+private void decl_1_11_1() {}  // already declared in earlier test
+
+private string stdin;  // already declared in libl
+
+void decl_1_11_3()
+{
+	public	string bad1;
+	private	string bad2;
+}
+} -returnCodes {error} -match regexp -result {.*2: L Error: multiple declaration of global decl_1_11_3_priv_first
+.*5: L Error: multiple declaration of global decl_1_11_3_publ_first
+.*8: L Error: multiple declaration of global two_privates
+.*10: L Error: function decl_1_11_1 already declared
+.*12: L Error: multiple declaration of global stdin
+.*16: L Error: public/private qualifiers illegal for locals
+.*17: L Error: public/private qualifiers illegal for locals
+}
+
+test decl-1.12.1 {public globals 1} -body {
+#lang L
+/*
+ * This simply tests that the "public" qualifier on a global
+ * declaration acts like a no-op.
+ */
+public string decl_1_12_s = "public decl test";
+public void decl_1_12_1()
+{
+	puts(decl_1_12_s);
+}
+decl_1_12_1();
+} -output "public decl test\n"
+
+test decl-1.12.1 {public globals 2} -body {
+#lang L
+/* This is the second half of the test above. */
+public void decl_1_12_2()
+{
+	puts(decl_1_12_s);  // print global defined in the previous test
+}
+decl_1_12_2();
+} -output "public decl test\n"
 
 test if-1.0 {If statements} -body {
 #lang L
@@ -735,10 +1556,20 @@ void return_1_8() {
 }
 } -returnCodes error -match regexp -result ".*void function cannot return value"
 
-test return-1.9 {return from global scope illegal} -body {
+test return-1.9.1 {return from global scope 1} -body {
 #lang L
 return;
-} -returnCodes error -match regexp -result ".*return from global scope illegal"
+} -output {}
+
+test return-1.9.2 {return from global scope 2} -body {
+#lang L
+return(1);
+} -result {1} -output {}
+
+test return-1.9.3 {return from global scope 3} -body {
+#lang L
+return("ret");
+} -result {ret} -output {}
 
 test return-2.1 {int return value from int function allowed} -body {
 #lang L
@@ -882,7 +1713,11 @@ void syntax_1_0() {
         // single-line comments are 
         puts("working"); //see?
         //////cruftilioucious 
+	# this too
+# and this
 }
+# and this
+
 #lang tcl
 syntax_1_0
 } -output "working\n" 
@@ -972,6 +1807,50 @@ void op_1_0() {
 #lang tcl
 op_1_0
 } -output "pre:\n1\n2\n3\n2\n1\npost:\n1\n2\n2\n3\n2\n2\n1\n"
+
+test op-1.0.1 {increment and decrement operator side effects} -body {
+#lang L
+class op_1_0_1_cls
+{
+	instance { public int n; }
+}
+void op_1_0_1()
+{
+	/*
+	 * This test checks that the argument to ++ or -- is evaluated
+	 * exactly once.
+	 */
+
+	int	i;
+	int	a[];
+	op_1_0_1_cls o[] = { op_1_0_1_cls_new(), op_1_0_1_cls_new() };
+
+	i = 0;
+	a[0] = 13;
+	++(a[i++]);
+	unless ((i == 1) && (a[0] == 14)) puts("bad 1");
+
+	i = 0;
+	a[0] = 13;
+	(a[i++])++;
+	unless ((i == 1) && (a[0] == 14)) puts("bad 2");
+
+	i = 0;
+	o[0]->n = 13;
+	o[1]->n = 13;
+	++(o[i++]->n);
+	unless ((i == 1) && (o[0]->n == 14)) puts("bad 3");
+	unless (o[1]->n == 13) puts("bad 3.1");
+
+	i = 0;
+	o[0]->n = 13;
+	o[1]->n = 13;
+	(o[i++]->n)++;
+	unless ((i == 1) && (o[0]->n == 14)) puts("bad 4");
+	unless (o[1]->n == 13) puts("bad 4.1");
+}
+op_1_0_1();
+} -output {}
 
 test op-1.1 {plus, minus, multiply, divide, and modulus operators} -body {
 #lang L
@@ -1128,7 +2007,7 @@ op_1_7
 test op-1.8 {compound assignment operators, simple lvalues} -body {
 #lang L
 void op_1_8() {
-  int foo;
+  int foo = 0;
 
   puts(foo += 2);
   puts(foo);
@@ -1226,7 +2105,7 @@ void op_1_11()
 	 */
 
 	int	i;
-	int	j = 2, k;  // declares j & k; is not a comma op
+	int	j = 2, k = 0;  // declares j & k; is not a comma op
 	int	l = (1,2), m = (1,2,3,4,5);
 	string	s;
 
@@ -1284,6 +2163,305 @@ void op_1_11()
 #lang tcl
 op_1_11
 } -output {}
+
+test op-1.12 {test string concat operator} -body {
+#lang L
+void op_1_12()
+{
+	string	a, b, c;
+	string	as[];
+	string	hs{string};
+	poly	p;
+	struct {
+		string	a, b, c;
+	} st;
+
+	unless ("a" . "b" eq "ab") puts("bad 1.1");
+	unless ("ab" . "cd" eq "abcd") puts("bad 1.2");
+	unless ("ab" . "cd" . "ef" eq "abcdef") puts("bad 1.3");
+	unless ("ab" . "cd" . "ef" . "gh" eq "abcdefgh") puts("bad 1.4");
+	unless ("" . "a" eq "a") puts("bad 1.5");
+	unless ("a" . "" eq "a") puts("bad 1.6");
+	unless ("" . "a" . "" eq "a") puts("bad 1.7");
+	unless ("" . "" . """" . "a" . "" eq "a") puts("bad 1.8");
+	unless ("" . "" eq "") puts("bad 1.9");
+	unless ("" . "" . "" eq "") puts("bad 1.10");
+
+	a = "a";
+	b = "b";
+	c = "c";
+	unless (a . b . c eq "abc") puts("bad 2.1");
+
+	p = "a";
+	unless (p . "b" eq "ab") puts("bad 3.1");
+
+	/* Test precedence. "." should be lower than [], {}, and -> */
+
+	as[0] = "a";
+	as[1] = "b";
+	as[2] = "c";
+	unless (as[0] . as[1] . as[2] eq "abc") puts("bad 10.1");
+	hs{"a"} = "a";
+	hs{"b"} = "b";
+	hs{"c"} = "c";
+	unless (hs{"a"} . hs{"b"} . hs{"c"} eq "abc") puts("bad 10.2");
+	st.a = "a";
+	st.b = "b";
+	st.c = "c";
+	unless (st.a . st.b . st.c eq "abc") puts("bad 10.3");
+
+	/* Check varying whitespace around the "." */
+
+	unless ("a"  . "b" eq "ab") puts("bad 20.1");
+	unless ("a" .  "b" eq "ab") puts("bad 20.2");
+	unless ("a"  .  "b" eq "ab") puts("bad 20.3");
+	unless ("a"	. "b" eq "ab") puts("bad 20.4");  // tab
+	unless ("a" .	"b" eq "ab") puts("bad 20.5");  // tab
+	unless ("a" .
+		"b" eq "ab") puts("bad 20.6");
+	unless ("a"
+		. "b" eq "ab") puts("bad 20.7");
+	unless ("a" .
+		"b" .
+		"c" eq "abc") puts("bad 20.8");
+
+	/* Check .= */
+
+	a = "a";
+	a .= "bcd";
+	unless (a eq "abcd") puts("bad 30.1");
+	b = "e";
+	unless ((a.=b) eq "abcde") puts("bad 30.2");
+
+	as[0] = "0";
+	as[0] .= "123";
+	unless (as[0] eq "0123") puts("bad 31.1");
+
+	a = "0234";
+	a[0] .= "1";
+	unless (a eq "01234") puts("bad 32.1");
+}
+op_1_12();
+} -output {}
+
+test op-1.13 {test string concat type errors} -body {
+#lang L
+void op_1_13()
+{
+	int	i, j;
+	string	s;
+	float	f;
+	int	h{string};
+
+	i . j;
+	i . f;
+	h{"bad"} . i;
+	i . "s";
+	"s" . f;
+	h{"bad"} . "s";
+
+	i .= "s";
+	i .= j;
+	s .= i;
+}
+} -returnCodes {error} -match regexp -result {.*8: L Error: expected type string.*
+.*9: L Error: expected type string.*
+.*10: L Error: expected type string.*
+.*11: L Error: expected type string.*
+.*12: L Error: expected type string.*
+.*13: L Error: expected type string.*
+.*15: L Error: expected type string.*
+.*16: L Error: expected type string.*
+.*17: L Error: assignment of incompatible types
+}
+
+test op-1.14 {test "." and "->" as struct selection operators} -body {
+#lang L
+struct op14 {
+       int	i, j;
+};
+void op_1_14_ref(struct op14 &st)
+{
+	st->i = 7;
+}
+void op_1_14_val(struct op14 st)
+{
+	st.i = 8;
+}
+void op_1_14()
+{
+	struct op14 st = { 5, 6 };
+
+	unless (st.i  == 5) puts("bad 1.1");
+	unless (st.j  == 6) puts("bad 1.2");
+
+	op_1_14_ref(&st);
+	unless (st.i == 7) puts("bad 2.1");
+
+	op_1_14_val(st);
+	unless (st.i == 7) puts("bad 3.1");
+}
+op_1_14();
+} -output {}
+
+test op-1.15 {check "." and "->" usage errors} -body {
+#lang L
+struct op15 {
+       int	i, j;
+};
+void op_1_15_ref(struct op14 &st)
+{
+	st.i = 7;  // err
+}
+void op_1_15_val(struct op14 st)
+{
+	st->i = 8; // err
+}
+void op_1_15()
+{
+	struct op14 st;
+
+	st->i = st.j;  // st->i is an err
+}
+} -returnCodes {error} -match regexp -result {.*6: L Error: \. illegal on call-by-reference parms; use -> instead
+.*10: L Error: -> illegal except on call-by-reference parms; use \. instead
+.*16: L Error: -> illegal except on call-by-reference parms; use \. instead
+}
+
+test op-1.16 {check ? : operator} -body {
+#lang L
+string op_1_16_f(...args) { return (join("", args)); }
+void op_1_16()
+{
+	int	i;
+	float	f;
+	string	s;
+
+	/* Check spacing variations. */
+
+	s = "bad";
+	0 ? puts("bad 1.1") : (s = "good");
+	unless (s eq "good") puts("bad 1.2");
+
+	s = "bad";
+	0? puts("bad 2.1") : (s = "good");
+	unless (s eq "good") puts("bad 2.2");
+
+	s = "bad";
+	0?puts("bad 3.1") : (s = "good");
+	unless (s eq "good") puts("bad 3.2");
+
+	s = "bad";
+	0?puts("bad 4.1"): (s = "good");
+	unless (s eq "good") puts("bad 4.2");
+
+	s = "bad";
+	0?puts("bad 5.1"):(s = "good");
+	unless (s eq "good") puts("bad 5.2");
+
+	s = "bad";
+	1 ? (s = "good") : puts("bad 6.1");
+	unless (s eq "good") puts("bad 6.2");
+
+	/* Exactly one of the expressions must ever be executed. */
+
+	i = 0;
+	0 ? ++i : ++i;
+	unless (i == 1) puts("bad 7.1");
+	i = 0;
+	1 ? ++i : ++i;
+	unless (i == 1) puts("bad 7.2");
+
+	/* Check value. */
+
+	s = 0 ? "bad" : "good";
+	unless (s eq "good") puts("bad 10.1");
+
+	s = 1 ? "good" : "bad";
+	unless (s eq "good") puts("bad 11.1");
+
+	/*
+	 * Check typing.  If either expr is a float and the other is compatible
+	 * with that, we get a float.  If either is a poly, we get a poly.
+	 */
+
+	f = 0 ? 0 : 3.14;
+	unless (f == 3.14) puts("bad 12.1");
+	f = 1 ? 6.28 : 0;
+	unless (f == 6.28) puts("bad 12.2");
+	f = 1 ? 1.11 : 0.0;
+	unless (f == 1.11) puts("bad 12.3");
+	f = 1 ? 12 : -1;
+	unless (f == 12) puts("bad 12.4");
+
+	s = "bad";
+	s = 0 ? "bad" : (poly)13;
+	unless (s eq "13") puts("bad 12.5");
+	s = "bad";
+	s = 1 ? (poly)13 : "bad";
+	unless (s eq "13") puts("bad 12.6");
+
+	/*
+	 * Check precedence -- ? : should be between = and || in the
+	 * precedence hierarchy.
+	 */
+	i = 1 ? 1 || puts("bad 20.1") : 1 || puts("bad 20.2");
+
+	/* Should have no confusion with the opt: argument syntax. */
+	s = op_1_16_f(o1: 0 ? "bad": "good", o2: "3");
+	unless (s eq "-o1good-o23") puts("bad 20.3");
+
+	/*
+	 * This checks that the run-time stack is kept balanced when
+	 * the value of the ternary expression is ignored (if it's
+	 * not, we'll probably crash).
+	 */
+	for (i = 0; i < 10000; ++i) {
+		0 ? 1 : 2;
+		(0 ? 1 : 2) , (0 ? 1 : 2);
+	}
+
+	/* Try some nested ?: */
+	i = 0 ? 1 ? 11:12 : 13;
+	unless(i == 13) puts("bad 30.1");
+	i = 1 ? 1 ? 11:12 : 13;
+	unless(i == 11) puts("bad 30.2");
+	i = 1 ? 0 ? 11:12 : 13;
+	unless(i == 12) puts("bad 30.3");
+}
+op_1_16();
+} -output {}
+
+test op-1.17 {check type errors in ? : operator} -body {
+#lang L
+void op_1_17()
+{
+	int	i;
+	float	f;
+	string	s;
+
+	s = 0 ? 1 : 2;
+	i = 0 ? "a" : "b";
+	f = 0 ? "a" : "b";
+
+	/* The type of these ?: is float. */
+	i = 0 ? f : i;
+	i = 0 ? i : f;
+	i = 0 ? f : f;
+
+	/* These have exprs with incompatible types. */
+	s = 0 ? 1 : "2";
+	s = 0 ? "1" : 2;
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: assignment of incompatible types
+.*8: L Error: assignment of incompatible types
+.*9: L Error: assignment of incompatible types
+.*12: L Error: assignment of incompatible types
+.*13: L Error: assignment of incompatible types
+.*14: L Error: assignment of incompatible types
+.*17: L Error: incompatible types in \? : expressions
+.*18: L Error: incompatible types in \? : expressions
+}
 
 test cast-1.0 { Casts to integer and float } -body {
 #lang L
@@ -2194,13 +3372,13 @@ void end_8()
 	string	a[];
 
 	a = { "1", "2", "3", "4", "5", "6" };
-	unless (join(a[0..END]) eq "1 2 3 4 5 6") puts("bad 1.1");
-	unless (join(a[1..END]) eq "2 3 4 5 6") puts("bad 1.2");
-	unless (join(a[2..END]) eq "3 4 5 6") puts("bad 1.3");
-	unless (join(a[2..END-1]) eq "3 4 5") puts("bad 1.4");
-	unless (join(a[2..END-2]) eq "3 4") puts("bad 1.5");
-	unless (join(a[END-1..END]) eq "5 6") puts("bad 1.6");
-	unless (join(a[END-1..END-1]) eq "5") puts("bad 1.7");
+	unless (join(" ", a[0..END]) eq "1 2 3 4 5 6") puts("bad 1.1");
+	unless (join(" ", a[1..END]) eq "2 3 4 5 6") puts("bad 1.2");
+	unless (join(" ", a[2..END]) eq "3 4 5 6") puts("bad 1.3");
+	unless (join(" ", a[2..END-1]) eq "3 4 5") puts("bad 1.4");
+	unless (join(" ", a[2..END-2]) eq "3 4") puts("bad 1.5");
+	unless (join(" ", a[END-1..END]) eq "5 6") puts("bad 1.6");
+	unless (join(" ", a[END-1..END-1]) eq "5") puts("bad 1.7");
 }
 end_8();
 } -output {}
@@ -2222,6 +3400,22 @@ void end_9()
 	if (defined(e)) puts("bad 2");
 }
 end_9();
+} -output {}
+
+test end-10 {check END ignored in comma expression} -body {
+#lang L
+void end_10()
+{
+	int	i;
+	int	a[] = {1,2,3};
+
+	/*
+	 * This tests that an ignored END does not leave anything on
+	 * the run-time stack (which would case a crash).
+	 */
+	for (i = 0; i < 100; ++i) a[END,0];
+}
+end_10();
 } -output {}
 
 test loop-1.0 {while loops} -body {
@@ -2890,50 +4084,191 @@ void loop_1_2_5()
 .*9: L Error: loop index value type incompatible.*
 }
 
+test loop-1.2.6 {test foreach over string} -body {
+#lang L
+void loop_1_2_6()
+{
+	int	i;
+	string	a, b, c, d, s;
+	string	as[];
+	poly	p;
+
+	a = "x";
+	foreach (a in "") puts("bad 1.1");
+	unless (a eq "x") puts("bad 1.2");
+
+	/* as[0] has the value undef */
+	a = "x";
+	if (defined(as[0])) puts("bad 2.0");
+	foreach(a in as[0]) puts("bad 2.1");
+	unless (a eq "x") puts("bad 2.2");
+
+	i = 0;
+	foreach(a in "0123456789") {
+		unless (a eq (string)i++) printf("bad 2.1 i=%d\n", i);
+	}
+	i = 0;
+	foreach(p in "0123456789") {
+		unless (p eq (string)i++) printf("bad 2.2 i=%d\n", i);
+	}
+	i = 0;
+	foreach(a,b in "0123456789") {
+		unless (a eq (string)i++) printf("bad 3.1 i=%d\n", i);
+		unless (b eq (string)i++) printf("bad 3.2 i=%d\n", i);
+	}
+	i = 0;
+	foreach(a,b,c in "0123456789") {
+		unless (a eq (string)i++) printf("bad 4.1 i=%d\n", i);
+		if (i == 10) {
+			if (defined(b)) puts("bad 4.2 b undef");
+			if (defined(c)) puts("bad 4.2 c undef");
+		} else {
+			unless (b eq (string)i++) printf("bad 4.3 i=%d\n", i);
+			unless (c eq (string)i++) printf("bad 4.4 i=%d\n", i);
+		}
+	}
+	i = 0;
+	foreach(a,b,c,d in "0123456789") {
+		unless (a eq (string)i++) printf("bad 5.1 i=%d\n", i);
+		unless (b eq (string)i++) printf("bad 5.2 i=%d\n", i);
+		if (i == 10) {
+			if (defined(c)) puts("bad 5.2 b undef");
+			if (defined(d)) puts("bad 5.2 c undef");
+		} else {
+			unless (c eq (string)i++) printf("bad 5.3 i=%d\n", i);
+			unless (d eq (string)i++) printf("bad 5.4 i=%d\n", i);
+		}
+	}
+}
+loop_1_2_6();
+} -output {}
+
+test loop-1.2.7 {test foreach over string type errors} -body {
+#lang L
+class loop_1_2_7_class {}
+void loop_1_2_7()
+{
+	int	i;
+	float	f;
+	int	a[];
+	int	h{int};
+	loop_1_2_7_class o;
+	struct { int i,j; } st;
+
+	foreach(i in "string") {}
+	foreach(f in "string") {}
+	foreach(h in "string") {}
+	foreach(a in "string") {}
+	foreach(o in "string") {}
+	foreach(st in "string") {}
+}
+} -returnCodes error -match regexp -result {.*11: L Error: loop index not of string type
+.*12: L Error: loop index not of string type
+.*13: L Error: loop index not of string type
+.*14: L Error: loop index not of string type
+.*15: L Error: loop index not of string type
+.*16: L Error: loop index not of string type
+}
+
+test loop-1.2.8 {test foreach type errors} -body {
+#lang L
+void loop_1_2_8()
+{
+	string	s;
+	poly	p;
+	struct { int i,j; } st;
+
+	foreach(s in p) ;
+	foreach(s in st) ;
+	foreach(s in {"a","b"}) ;
+}
+} -returnCodes error -match regexp -result {.*7: L Error: foreach expression must be array, hash, or string
+.*8: L Error: foreach expression must be array, hash, or string
+.*9: L Error: foreach expression must be array, hash, or string
+}
+
 test loop-1.3 {continue statements} -body {
 #lang L
-void loop_1_3() {
-  loop_1_3_for_continue();
-  loop_1_3_foreach_continue();
+void loop_1_3_for_continue()
+{
+	int	i;
+
+	for (i = 0; i < 5; i++) {
+		if (i == 2) continue;
+		puts(i);
+	}
 }
 
-void loop_1_3_for_continue() {
-  int i;
+void loop_1_3_foreach_continue()
+{
+	string	k, l, v;
+	string	as[] = { "1", "2", "3", "4", "5" };
+	hash	h;
 
-  for (i=0; i<5; i++) {
-    if (i == 2) {
-      continue;
-    }
-    puts(i);
-  }
+	h{"a"} = "x";
+	h{"b"} = "y";
+	h{"c"} = "z";
+
+	printf("foreach test 1\n");
+	foreach (k => v in h) {
+		if (k eq "b") continue;
+		printf("%s => %s\n", k, v);
+	}
+
+	printf("foreach test 2\n");
+	foreach (l in h) {
+		if (l eq "c") continue;
+		foreach (k => v in h) {
+			if (k eq "b") continue;
+			printf("%s: %s => %s\n", l, k, v);
+		}
+	}
+
+	printf("foreach test 3\n");
+	foreach (v in as) {
+		if ((v ge "2") && (v le "4")) continue;
+		printf("%s\n", v);
+	}
+
+	printf("foreach test 4\n");
+	foreach (l in "abcdefg") {
+		if ((l ge "d") && (l le "f")) continue;
+		printf("%s\n", l);
+	}
 }
 
-void loop_1_3_foreach_continue() {
-  hash h;
-  string k, v, l;
+void loop_1_3_do_while_continue()
+{
+	int	i;
 
-  h{"a"} = "x";
-  h{"b"} = "y";
-  h{"c"} = "z";
+	printf("do while test\n");
+	i = -1;
+	do {
+		++i;
+		if ((i == 1) || (i == 2)) continue;
+		puts(i);
+	} while (i < 5);
+}
 
-  printf("foreach test 1\n");
-  foreach (k => v in h) {
-    if (k eq "b") {
-      continue;
-    }
-    printf("%s => %s\n", k, v);
-  }
+void loop_1_3_while_continue()
+{
+	int	i;
 
-  printf("foreach test 2\n");
-  foreach (l in h) {
-    if (l eq "c") continue;
-    foreach (k => v in h) {
-      if (k eq "b") {
-        continue;
-      }
-      printf("%s: %s => %s\n", l, k, v);
-    }
-  }
+	printf("while test\n");
+	i = -1;
+	while (i < 5) {
+		++i;
+		if ((i == 1) || (i == 2)) continue;
+		puts(i);
+	};
+}
+
+void loop_1_3()
+{
+	loop_1_3_for_continue();
+	loop_1_3_foreach_continue();
+	loop_1_3_do_while_continue();
+	loop_1_3_while_continue();
 }
 #lang tcl
 loop_1_3
@@ -2949,47 +4284,106 @@ a: a => x
 a: c => z
 b: a => x
 b: c => z
+foreach test 3
+1
+5
+foreach test 4
+a
+b
+c
+g
+do while test
+0
+3
+4
+5
+while test
+0
+3
+4
+5
 }
 
 test loop-1.4 {break statements} -body {
 #lang L
-void loop_1_4() {
-  loop_1_4_foreach_break();
-  loop_1_4_for_break();
+void loop_1_4_foreach_break()
+{
+	string	k, l, v;
+	string	as[] = { "1", "2", "3", "4", "5" };
+	hash	h;
+
+	h{"a"} = "x";
+	h{"b"} = "y";
+	h{"c"} = "z";
+	foreach (l in h) {
+		foreach (k => v in h) {
+			if (k eq "b") break;
+		}
+	}
+	printf("loops over, k is %s, v is %s\n", k, v);
+
+	foreach (l in as) {
+		if (l eq "3") break;
+	}
+	printf("l is %s\n", l);
+
+	foreach (l in "abcdefg") {
+		if (l eq "c") break;
+	}
+	printf("l is %s\n", l);
 }
 
-void loop_1_4_foreach_break() {
-  hash h;
-  string k, v, l;
+void loop_1_4_for_break()
+{
+	int	i;
 
-  h{"a"} = "x";
-  h{"b"} = "y";
-  h{"c"} = "z";
-  foreach (l in h) {
-    foreach (k => v in h) {
-      if (k eq "b") {
-        break;
-      }
-    }
-  }
-  printf("loop's over, k is %s, v is %s\n", k, v);
+	for (i = 0; i < 10; i++) {
+		puts(i);
+		if (i == 5) {
+			puts("attempting to break");
+			break;
+		}
+	}
+	printf("at the end of the day, i is %d\n", i);
 }
 
-void loop_1_4_for_break() {
-  int i;
+void loop_1_4_do_while_break()
+{
+	int	i;
 
-  for (i=0; i<10; i++) {
-    puts(i);
-    if (i == 5) {
-      puts("attempting to break");
-      break;
-    }
-  }
-  printf("at the end of the day, i is %d\n", i);
+	i = 0;
+	do {
+		++i;
+		if (i == 3) break;
+	} while (i < 5);
+	printf("do while i = %d\n", i);
 }
+
+void loop_1_4_while_break()
+{
+	int	i;
+
+	i = 0;
+	while (i < 5) {
+		++i;
+		if (i == 3) break;
+	}
+	printf("while i = %d\n", i);
+}
+
+void loop_1_4()
+{
+	loop_1_4_foreach_break();
+	loop_1_4_for_break();
+	loop_1_4_do_while_break();
+	loop_1_4_while_break();
+}
+
 #lang tcl
 loop_1_4
-} -output {loop's over, k is b, v is y
+} -output {loops over, k is b, v is y
+l is 3
+l is c
 0
 1
 2
@@ -2998,6 +4392,8 @@ loop_1_4
 5
 attempting to break
 at the end of the day, i is 5
+do while i = 3
+while i = 3
 }
 
 test loop-1.5 {continues in nested foreach loops} -body {
@@ -3291,6 +4687,43 @@ aiii has 132
 aiii has 133
 end
 "
+
+test loop-1.7 {test loop condition with regexp captures} -body {
+#lang L
+void loop_1_7()
+{
+	/*
+	 * This checks for an earlier compiler bug where the loop
+	 * condition was sometimes compiled before the loop body,
+	 * causing any regexp capture variable references to possibly
+	 * become undeclared-variable references.
+	 */
+
+	int	it;
+
+	it = 0;
+	while ("abc" =~ /(a)(b)/) {
+		++it;
+		unless (($1 eq "a") && ($2 eq "b")) {
+			puts("bad 1.1");
+		}
+		break;
+	}
+	unless (it == 1) puts("bad 1.2");
+
+	/* Use more captures than last time. */
+	for (it = 0; "abcd" =~ /(a)(b)(c)(d)/; ) {
+		++it;
+		unless (($1 eq "a") && ($2 eq "b") && ($3 eq "c") &&
+			($4 eq "d")) {
+			puts("bad 2.1");
+		}
+		break;
+	}
+	unless (it == 1) puts("bad 2.2");
+}
+loop_1_7();
+} -output {}
 
 test struct-1.0 {structs} -body {
 #lang L
@@ -3822,26 +5255,6 @@ end
 
 test hash-1.5 {hashes of hashes and arrays} -body {
 #lang L
-// "keys" eventually will be a built-in, but do an integer one
-// here for fun.
-int[]
-ikeys(poly h{int})
-{
-	int	k, thekeys[];
-
-	foreach (k in h) push(&thekeys, k);
-	return (thekeys);
-}
-
-// This is basically a cast since "sort" isn't yet a built-in so
-// the compiler doesn't see it as having the proper return type.
-int[]
-isort(int a[])
-{
-	int	sorted[] = sort(a);
-	return (sorted);
-}
-
 void
 hash_1_5()
 {
@@ -3865,7 +5278,7 @@ hash_1_5()
 	hai[2]{1} = "21";
 	hai[2]{2} = "22";
 	foreach (hi in hai) {
-		foreach (k1 in isort(ikeys(hi))) {
+		foreach (k1 in sort(keys(hi))) {
 			printf("hai has %d=>%s\n", k1, hi{k1});
 		}
 	}
@@ -3880,7 +5293,7 @@ hash_1_5()
 	hia{2}[0] = "20";
 	hia{2}[1] = "21";
 	hia{2}[2] = "22";
-	foreach (k1 in isort(ikeys(hia))) {
+	foreach (k1 in sort(keys(hia))) {
 		foreach (vs in hia{k1}) {
 			printf("hia{%d} has %s\n", k1, vs);
 		}
@@ -3896,8 +5309,8 @@ hash_1_5()
 	hii{0}{1} = "01";
 	hii{2}{0} = "20";
 	hii{2}{2} = "22";
-	foreach (k1 in isort(ikeys(hii))) {
-		foreach (k2 in isort(ikeys(hii{k1}))) {
+	foreach (k1 in sort(keys(hii))) {
+		foreach (k2 in sort(keys(hii{k1}))) {
 			printf("hii{%d}{%d} has %s\n", k1, k2, hii{k1}{k2});
 		}
 	}
@@ -4440,6 +5853,18 @@ deep_2_1()
 	if (defined(a2[9])) puts("a2 bad 8");
 	if (defined(a2[11])) puts("a2 bad 9");
 
+	/* Now check that the pad elements can be written and used. */
+	a2[0] = 0;
+	a2[2] = 2;
+	a2[4] = 4;
+	a2[5] = 5;
+	unless ((a2[0] == 0) && (a2[2] == 2)) puts("a2 bad 10");
+	unless ((a2[4] == 4) && (a2[5] == 5)) puts("a2 bad 11");
+	if (defined(a2[7])) puts("a2 bad 12");
+	if (defined(a2[8])) puts("a2 bad 13");
+	if (defined(a2[9])) puts("a2 bad 14");
+	if (defined(a2[11])) puts("a2 bad 15");
+
 	aa1[0][0] = 100;
 	aa1[0][1] = 101;
 	aa1[0][2] = 102;
@@ -4755,20 +6180,18 @@ test reference-1.1 {L references} -body {
 struct reference_1_1_point { int x, y; };
 
 void reference_1_1() {
-  struct reference_1_1_point a;
-  puts(a);
+  struct reference_1_1_point a = { 0, 0 };
+  unless ((a.x == 0) && (a.y == 0)) puts("bad 1");
   reference_1_1_tweak(&a);
-  puts(a);
+  unless ((a.x == 2) && (a.y == 0)) puts("bad 2");
 }
 
 void reference_1_1_tweak(struct reference_1_1_point &foo) {
-  foo.x = 2;
+  foo->x = 2;
 }
-#lang tcl
-reference_1_1
-} -output "
-2
-"
+reference_1_1();
+} -output {}
+
 test reference-1.2 {widget pointer thingys} -body {
 #lang L
 int
@@ -4796,6 +6219,112 @@ void reference_1_3()
 #lang tcl
 reference_1_3
 } -output "-variable, ::Lptr::1 reference_1_3_foo\n93\n"
+
+test reference-1.4 {test multiple reference arguments} -body {
+#lang L
+void reference_1_4_foo1(string &s1, string &s2)
+{
+	s1 = s2;
+}
+void reference_1_4_foo2(string &s1, string s2)
+{
+	s1 = s2;
+	s2 = "bad";
+}
+void reference_1_4_foo3(string &s1, string s2, string &s3)
+{
+	s1 = sprintf("%s%s", s2, s3);
+	s2 = "bad";
+}
+void reference_1_4_foo4(string &s1, string s2, string &s3)
+{
+	s1 = sprintf("%s%s", s2, s3);
+	s3 = s2;
+	s2 = "bad";
+}
+void reference_1_4_foo5(string &s1, string &s2, string &s3)
+{
+	s1 = sprintf("%s%s", s2, s3);
+	s2 = s3;
+	s3 = "x";
+}
+void reference_1_4_foo6(string &s1, string s2, string &s3, string s4)
+{
+	s1 = sprintf("%s%s", s2, s3);
+	s3 = sprintf("%s%s", s3, s4);
+	s2 = s4 = "bad";
+}
+void reference_1_4_foo7(string s1, string &s2, string s3, string s4, string &s5)
+{
+	s2 = sprintf("%s%s%s", s1, s2, s3);
+	s5 = sprintf("%s%s%s", s3, s4, s5);
+	s1 = s3 = s4 = "bad";
+}
+void reference_1_4()
+{
+	string	s1, s2, s3;
+
+	s1 = "";
+	s2 = "foo1";
+	reference_1_4_foo1(&s1, &s2);
+	unless (s1 eq "foo1") puts("bad 1.1");
+	unless (s2 eq "foo1") puts("bad 1.2");
+
+	s1 = "";
+	reference_1_4_foo2(&s1, "foo2");
+	unless (s1 eq "foo2") puts("bad 2.1");
+
+	s1 = "";
+	s2 = "xxx";
+	reference_1_4_foo3(&s1, "foo3", &s2);
+	unless (s1 eq "foo3xxx") puts("bad 3.1");
+	unless (s2 eq "xxx") puts("bad 3.2");
+
+	s1 = "xx";
+	s2 = "yy";
+	reference_1_4_foo4(&s1, "foo4", &s2);
+	unless (s1 eq "foo4yy") puts("bad 4.1");
+	unless (s2 eq "foo4") puts("bad 4.2");
+
+	s1 = "zz";
+	s2 = "xx";
+	s3 = "yy";
+	reference_1_4_foo5(&s1, &s2, &s3);
+	unless (s1 eq "xxyy") puts("bad 4.1");
+	unless (s2 eq "yy") puts("bad 4.2");
+	unless (s3 eq "x") puts("bad 4.3");
+
+	s1 = "x";
+	s2 = "y";
+	reference_1_4_foo6(&s1, "foo61", &s2, "foo62");
+	unless (s1 eq "foo61y") puts("bad 5.1");
+	unless (s2 eq "yfoo62") puts("bad 5.2");
+
+	s1 = "a";
+	s2 = "b";
+	reference_1_4_foo7("foo71", &s1, "foo72", "foo73", &s2);
+	unless (s1 eq "foo71afoo72") puts("bad 6.1");
+	unless (s2 eq "foo72foo73b") puts("bad 6.2");
+}
+reference_1_4();
+} -output {}
+
+test reference-1.5 {test parameter multiple declaration errs with references} -body {
+#lang L -nowarn
+void reference_1_5_1(string &arg1, string arg1)  {}
+void reference_1_5_2(string &arg2, string &arg2) {}
+void reference_1_5_3(string arg3,  string &arg3) {}
+void reference_1_5_4(string &arg4, string &arg4, string arg4)  {}
+void reference_1_5_5(string &arg5, string arg5,  string &arg5) {}
+} -returnCodes error -match regexp -result {.*1: L Error: multiple declaration of local arg1
+.*2: L Error: multiple declaration of local &arg2
+.*3: L Error: multiple declaration of local arg3
+.*4: L Error: multiple declaration of local &arg4
+.*4: L Error: multiple declaration of local arg4
+.*5: L Error: multiple declaration of local &arg5
+.*5: L Error: multiple declaration of local arg5
+.*5: L Error: multiple declaration of local arg5
+}
 
 test typedef-1.0 {basic typedef support} -body {
 #lang L
@@ -5073,11 +6602,11 @@ defined_1_2()
 	float	f;
 	float	ff = 3.14159;
 
-	unless (defined(i))  puts("err 1");
+	if (defined(i))  puts("err 1");
 	unless (defined(ii)) puts("err 2");
-	unless (defined(s))  puts("err 3");
+	if (defined(s))  puts("err 3");
 	unless (defined(ss)) puts("err 4");
-	unless (defined(f))  puts("err 5");
+	if (defined(f))  puts("err 5");
 	unless (defined(ff)) puts("err 6");
 	unless (defined(0))  puts("err 7");
 	unless (defined(1))  puts("err 7");
@@ -5220,34 +6749,154 @@ defined_1_4()
 defined_1_4
 } -output ""
 
-
-test lib-1.0 {L library functions -- setenv, getenv, and unsetenv} -body {
+test defined-1.5 {check that tcl shimmering does not make undef defined} -body {
 #lang L
-void lib_1_0() {
-	puts("don't overwrite");
-	setenv("PATH", "nil", 0);
-	if (getenv("PATH") ne "nil") {
-		puts("worked");
-	}
-	puts("overwrite");
-	setenv("PATH", "nil");
-	if (getenv("PATH") eq "nil") {
-		puts("worked");
-	}
-	puts("unset");
-	unsetenv("PATH");
-	if (getenv("PATH") eq "") {
-		puts("worked");
+void defined_1_5()
+{
+	/*
+	 * This tests that the use of the undefined "s" in the printf,
+	 * or the undefined ah[0] in the foreach, does not shimmer the
+	 * shared undef object to something that is defined.  This was
+	 * a bug in an earlier implementation of undef.
+	 */
+
+	string	a[], s;
+	int	ah[]{int}, k, v;
+
+	s = a[0];  // s is now undef
+
+	if (defined(s)) puts("bad 1.1");
+	printf("s = '%s'\n", s);
+	if (defined(s)) puts("bad 1.2");
+	printf("s = '%s'\n", s);
+
+	if (defined(ah[0])) puts("bad 2.1");
+	foreach (k=>v in ah[0]) {}
+	if (defined(ah[0])) puts("bad 2.2");
+	if (defined(s)) puts("bad 1.3");
+}
+defined_1_5();
+} -output {s = ''
+s = ''
+}
+
+test defined-1.6 {check undef constant} -body {
+#lang L
+string defined_1_6_foo(string arg)
+{
+	if (arg) {
+		return (arg);
+	} else {
+		return (undef);
 	}
 }
-#lang tcl
-lib_1_0
-} -output {don't overwrite
-worked
-overwrite
-worked
-unset
-worked
+void defined_1_6()
+{
+	int	a[], i;
+
+	if (defined(undef)) puts("bad 0.1");
+
+	i = undef;
+	if (defined(i)) puts("bad 1.1");
+	printf("i = '%s'\n", i);
+	if (defined(i)) puts("bad 1.2");
+
+	i = 0;
+	unless (defined(i)) puts("bad 2.1");
+	printf("i = '%s'\n", i);
+	unless (defined(i)) puts("bad 2.2");
+
+	i = undef;
+	if (defined(i)) puts("bad 3.1");
+	printf("i = '%s'\n", i);
+	if (defined(i)) puts("bad 3.2");
+
+	unless (defined(defined_1_6_foo("1"))) puts("bad 4.1");
+	if (defined(defined_1_6_foo("0"))) puts("bad 4.2");
+	if (defined(defined_1_6_foo(undef))) puts("bad 4.3");
+}
+defined_1_6();
+} -output {i = ''
+i = '0'
+i = ''
+}
+
+test defined-1.7 {check attempted assignment to undef} -body {
+#lang L
+void defined_1_7()
+{
+	undef = 1;
+	undef += 1;
+	++undef;
+	undef--;
+	undef =~ s/a/b/;
+}
+} -returnCodes error -match regexp -result {.*3: L Error: invalid l-value in assignment
+.*4: L Error: invalid l-value in assignment
+.*5: L Error: invalid l-value in inc/dec
+.*6: L Error: invalid l-value in inc/dec
+.*7: L Error: invalid l-value in =~
+}
+
+test defined-1.8 {check attempted declaration of undef} -body {
+#lang L
+void undef() {}
+int undef;
+void defined_1_8()
+{
+	int	undef;
+}
+} -returnCodes error -match regexp -result {.*1: L Error: cannot use undef for function name
+.*2: L Error: cannot use undef for variable name
+.*5: L Error: cannot use undef for variable name
+}
+
+test defined-1.9 {check that undef has type poly} -body {
+#lang L
+class defined_1_9_cls {}
+void defined_1_9()
+{
+	int	i;
+	float	f;
+	string	s;
+	int	a[], aa[][];
+	int	h{int}, hh{int}{int};
+	struct { int i,j; } st;
+	defined_1_9_cls o;
+
+	/* None of these should be type errors. */
+
+	i = undef;
+	if (defined(i)) puts("bad 1");
+	f = undef;
+	if (defined(f)) puts("bad 2");
+	s = undef;
+	if (defined(s)) puts("bad 3");
+	a = undef;
+	if (defined(a)) puts("bad 4");
+	aa = undef;
+	if (defined(aa)) puts("bad 5");
+	h = undef;
+	if (defined(h)) puts("bad 6");
+	hh = undef;
+	if (defined(hh)) puts("bad 7");
+	st = undef;
+	if (defined(st)) puts("bad 8");
+	o = undef;
+	if (defined(o)) puts("bad 9");
+}
+defined_1_9();
+} -output {}
+
+test defined-1.10 {check undef as a reference parameter} -body {
+#lang L
+void defined_1_10_foo(int &arg) { arg = 0; }
+void defined_1_10()
+{
+	defined_1_10_foo(&undef);  // err
+}
+defined_1_10();
+} -returnCodes error -match regexp -result {.*4: L Error: cannot take reference of argument
 }
 
 test toplevel-1.0 {Toplevel code in L} -body {
@@ -5576,8 +7225,10 @@ typecheck_2_1()
 
 	/* Test initializers and all comparison ops that allow floats. */
 
-	int	i2, i1 = 1964;
-	float	f2, f1 = i1;
+	int	i1 = 1964;
+	int	i2 = 0;
+	float	f1 = i1;
+	float	f2 = 0.0;
 
 	unless (f1 == 1964)        puts("BAD 1.1.1");
 	unless (1964 == f1)        puts("BAD 1.1.2");
@@ -5926,7 +7577,7 @@ typecheck_3_12()
 .*19: L Error: parameter 1 has incompatible type
 }
 
-test typehceck-3.13 {void illegal as foreach expr} -body {
+test typecheck-3.13 {void illegal as foreach expr} -body {
 #lang L -nowarn
 void t313v() { return; }
 void
@@ -5936,7 +7587,7 @@ typecheck_3_13()
 
 	foreach (k in t313v()) { }
 }
-} -returnCodes error -match regexp -result {.*Illegal foreach expression}
+} -returnCodes error -match regexp -result {.*foreach expression must be array, hash, or string}
 
 test typecheck-4.1 {type errors in foreach} -body {
 #lang L
@@ -6050,7 +7701,7 @@ typecheck_4_4()
 
 	if (p) puts("bad 6");
 }
-#lang tcl
+typecheck_4_4();
 } -output {}
 
 test typecheck-5.1 {type errors in hash elements} -body {
@@ -6315,15 +7966,17 @@ typecheck_5_1
 
 test typecheck-6.1 {type check errors with push built-in} -body {
 #lang L
+class typecheck_6_1_cls {}
 void
 typecheck_6_1()
 {
-	int	a[], i, j;
+	int	a[], aa[][], i, j;
 	int	h{int};
 	float	f;
 	string	s;
 	struct { int i,j; } st;
 	poly	p;
+	typecheck_6_1_cls o;
 
 	/* Errors -- first arg not a reference (&). */
 	push(a, i);
@@ -6348,25 +8001,31 @@ typecheck_6_1()
 	push(&f, i);
 	push(&s, i);
 	push(&st, i);
+	push(&1, i);
+	push(&3.14159, i);
+	push(&o, i);
 }
 #lang tcl
 typecheck_6_1
-} -returnCodes {error} -match regexp -result {.*:12: L Error: first arg to push not an array reference.*
-.*:13: L Error: first arg to push not an array reference.*
-.*:14: L Error: first arg to push not an array reference.*
+} -returnCodes {error} -match regexp -result {.*:14: L Error: first arg to push not an array reference.*
 .*:15: L Error: first arg to push not an array reference.*
 .*:16: L Error: first arg to push not an array reference.*
 .*:17: L Error: first arg to push not an array reference.*
 .*:18: L Error: first arg to push not an array reference.*
-.*:21: L Error: incorrect # arguments to push
-.*:22: L Error: incorrect # arguments to push
-.*:25: L Error: incorrect # arguments to push
-.*:26: L Error: incorrect # arguments to push
-.*:29: L Error: first arg to push not an array reference.*
-.*:30: L Error: first arg to push not an array reference.*
+.*:19: L Error: first arg to push not an array reference.*
+.*:20: L Error: first arg to push not an array reference.*
+.*:23: L Error: incorrect # arguments to push
+.*:24: L Error: incorrect # arguments to push
+.*:27: L Error: incorrect # arguments to push
+.*:28: L Error: incorrect # arguments to push
 .*:31: L Error: first arg to push not an array reference.*
 .*:32: L Error: first arg to push not an array reference.*
 .*:33: L Error: first arg to push not an array reference.*
+.*:34: L Error: first arg to push not an array reference.*
+.*:35: L Error: first arg to push not an array reference.*
+.*:36: L Error: first arg to push not an array reference.*
+.*:37: L Error: first arg to push not an array reference.*
+.*:38: L Error: first arg to push not an array reference.*
 }
 
 test typecheck-6.2 {type check errors with push built-in 2} -body {
@@ -6463,19 +8122,18 @@ typecheck_6_3()
 typecheck_6_3
 } -output {}
 
-test typecheck-7.1 {type check reference parameters} -body {
+test typecheck-7.1 {test type checking of reference parameters} -body {
 #lang L -nowarn
 void typecheck_7_1_foo(int &a) {}
-void
-typecheck_7_1()
+void typecheck_7_1()
 {
 	int	a;
 
 	typecheck_7_1_foo(a);  // incorrect arg type
 }
-#lang tcl
-typecheck_7_1
-} -returnCodes {error} -match regexp -result {.*:7: L Error: parameter 1 has incompatible type}
+typecheck_7_1();
+} -returnCodes error -match regexp -result {.*6: L Error: parameter 1 has incompatible type
+}
 
 test typecheck-9.1 {illegal types in function prototype declarations} -body {
 #lang L
@@ -6770,18 +8428,69 @@ void typecheck_9_4_3()
 	t943(&i, &s, &f, &a, &h,  st);
 	t943( i,  s,  f,  a,  h,  st);
 }
-} -returnCodes error -match regexp -result {.*15: L Error:.*incompatible type.*
-.*16: L Error:.*incompatible type.*
-.*17: L Error:.*incompatible type.*
-.*18: L Error:.*incompatible type.*
-.*19: L Error:.*incompatible type.*
-.*20: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
-.*21: L Error:.*incompatible type.*
+} -returnCodes error -match regexp -result {.*15: L Error: parameter 1 has incompatible type
+.*16: L Error: parameter 2 has incompatible type
+.*17: L Error: parameter 3 has incompatible type
+.*18: L Error: parameter 4 has incompatible type
+.*19: L Error: parameter 5 has incompatible type
+.*20: L Error: parameter 6 has incompatible type
+.*21: L Error: parameter 1 has incompatible type
+.*21: L Error: parameter 2 has incompatible type
+.*21: L Error: parameter 3 has incompatible type
+.*21: L Error: parameter 4 has incompatible type
+.*21: L Error: parameter 5 has incompatible type
+.*21: L Error: parameter 6 has incompatible type
+}
+
+test typecheck-10.1 {check type errors in op=} -body {
+#lang L
+void typecheck_10_1()
+{
+	int	i1, i2;
+	string	s1, s2;
+	float	f1, f2;
+
+	i1 += s1;
+	i1 -= s1;
+	i1 *= s1;
+	i1 /= s1;
+
+	i1 %= s1;
+	s1 %= i1;
+	i1 &= s1;
+	s1 &= i1;
+	i1 |= s1;
+	s1 |= i1;
+	i1 ^= s1;
+	s1 ^= i1;
+	i1 <<= s1;
+	s1 <<= i1;
+	i1 >>= s1;
+	s1 >>= i1;
+
+	i1 .= i2;
+	i1 .= s1;
+	s1 .= i1;
+}
+} -returnCodes error -match regexp -result {.*7: L Error: assignment of incompatible types
+.*8: L Error: assignment of incompatible types
+.*9: L Error: assignment of incompatible types
+.*10: L Error: assignment of incompatible types
+.*12: L Error: assignment of incompatible types
+.*13: L Error: assignment of incompatible types
+.*14: L Error: assignment of incompatible types
+.*15: L Error: assignment of incompatible types
+.*16: L Error: assignment of incompatible types
+.*17: L Error: assignment of incompatible types
+.*18: L Error: assignment of incompatible types
+.*19: L Error: assignment of incompatible types
+.*20: L Error: assignment of incompatible types
+.*21: L Error: assignment of incompatible types
+.*22: L Error: assignment of incompatible types
+.*23: L Error: assignment of incompatible types
+.*25: L Error: expected type string but got int in .=
+.*26: L Error: assignment of incompatible types
+.*27: L Error: assignment of incompatible types
 }
 
 test fnptr-1 {function pointers 1} -body {
@@ -6933,36 +8642,31 @@ void fnptr_3()
 	fp3f_vis(&fp3_i_v);
 	fp3f_vis(&fp3_i_i);
 }
-} -returnCodes error -match regexp -result {.*21: L Error:.*incompatible type.*
-.*22: L Error:.*incompatible type.*
-.*23: L Error:.*incompatible type.*
-.*24: L Error:.*incompatible type.*
-.*25: L Error:.*incompatible type.*
-.*29: L Error:.*incompatible type.*
-.*30: L Error:.*incompatible type.*
-.*31: L Error:.*incompatible type.*
-.*32: L Error:.*incompatible type.*
-.*33: L Error:.*incompatible type.*
-.*35: L Error:.*incompatible type.*
-.*36: L Error:.*incompatible type.*
-.*37: L Error:.*incompatible type.*
-.*38: L Error:.*incompatible type.*
-.*39: L Error:.*incompatible type.*
-.*41: L Error:.*incompatible type.*
-.*42: L Error:.*incompatible type.*
-.*43: L Error:.*incompatible type.*
-.*44: L Error:.*incompatible type.*
-.*45: L Error:.*incompatible type.*
-.*47: L Error:.*incompatible type.*
-.*48: L Error:.*incompatible type.*
-.*49: L Error:.*incompatible type.*
-.*50: L Error:.*incompatible type.*
-.*51: L Error:.*incompatible type.*
-.*53: L Error:.*incompatible type.*
-.*54: L Error:.*incompatible type.*
-.*55: L Error:.*incompatible type.*
-.*56: L Error:.*incompatible type.*
-.*57: L Error:.*incompatible type.*
+} -returnCodes error -match regexp -result {.*21: L Error: parameter 1.*
+.*22: L Error: parameter 1.*
+.*23: L Error: parameter 1.*
+.*24: L Error: parameter 1.*
+.*25: L Error: parameter 1.*
+.*30: L Error: parameter 1.*
+.*31: L Error: parameter 1.*
+.*32: L Error: parameter 1.*
+.*33: L Error: parameter 1.*
+.*36: L Error: parameter 1.*
+.*37: L Error: parameter 1.*
+.*38: L Error: parameter 1.*
+.*39: L Error: parameter 1.*
+.*42: L Error: parameter 1.*
+.*43: L Error: parameter 1.*
+.*44: L Error: parameter 1.*
+.*45: L Error: parameter 1.*
+.*48: L Error: parameter 1.*
+.*49: L Error: parameter 1.*
+.*50: L Error: parameter 1.*
+.*51: L Error: parameter 1.*
+.*54: L Error: parameter 1.*
+.*55: L Error: parameter 1.*
+.*56: L Error: parameter 1.*
+.*57: L Error: parameter 1.*
 }
 
 test assign-1 {check assignment statement value and type} -body {
@@ -7141,8 +8845,35 @@ void pattern_1_1()
 .*17: L Error: first arg to pattern function is not string
 }
 
+test pattern-1.2 {check pattern function argument type checking} -body {
+#lang L -nowarn
+void Pattern120_*() {}
+void Pattern121_*(int a) {}
+void Pattern122_*(int a, int b) {}
+void pattern_1_2()
+{
+	Pattern120_foo(1);
+	Pattern121_foo();
+	Pattern121_foo(1,2);
+	Pattern122_foo();
+	Pattern122_foo(1);
+	Pattern122_foo(1,2,3);
+}
+pattern_1_2();
+} -returnCodes {error} -match regexp -result {.*6: L Error: too many arguments for function Pattern120_foo
+.*7: L Error: not enough arguments for function Pattern121_foo
+.*8: L Error: too many arguments for function Pattern121_foo
+.*9: L Error: not enough arguments for function Pattern122_foo
+.*10: L Error: not enough arguments for function Pattern122_foo
+.*11: L Error: too many arguments for function Pattern122_foo
+}
+
 test include-1.0 {include files} -setup {
-	set fname [makeFile {++include_1_0;} foo.l ../tests]
+	set fname [makeFile {
+			++include_1_0;
+			unless (basename(__FILE__) eq "foo.l") puts("bad 1");
+			unless (__LINE__ == 4) puts("bad 2");
+		   } foo.l ../tests]
 } -body {
 #lang L
 int include_1_0 = 0;
@@ -7165,22 +8896,38 @@ puts(include_1_0);
 }
 
 test include-1.1 {nested include files} -setup {
-	set fname1 [makeFile {include("foo2.l");} foo1.l ../tests]
-	set fname2 [makeFile {int include_1_1a = 3;
-include("foo3.l");} foo2.l ../tests]
-	set fname3 [makeFile {int include_1_1b = 4;} foo3.l ../tests]
+#
+# The code for these files isn't indented because L recognizes
+# include() only when it starts at the beginning of the line.
+#
+	set fname1 [makeFile {
+include("foo2.l");
+unless (basename(__FILE__) eq "foo1.l") puts("bad 1");
+unless (__LINE__ == 4) puts("bad 2");
+} foo1.l ../tests]
+	set fname2 [makeFile {
+int include_1_1a = 3;
+unless (basename(__FILE__) eq "foo2.l") puts("bad 3");
+unless (__LINE__ == 4) puts("bad 4");
+include("foo3.l");
+unless (basename(__FILE__) eq "foo2.l") puts("bad 5");
+unless (__LINE__ == 7) puts("bad 6");
+} foo2.l ../tests]
+	set fname3 [makeFile {
+int include_1_1b = 4;
+unless (basename(__FILE__) eq "foo3.l") puts("bad 7");
+unless (__LINE__ == 4) puts("bad 8");
+} foo3.l ../tests]
 } -body {
 #lang L
 include("foo1.l");
-puts(include_1_1a);
-puts(include_1_1b);
+unless (include_1_1a == 3) puts("bad 10.1");
+unless (include_1_1b == 4) puts("bad 10.2");
 } -cleanup {
 	removeFile $fname1
 	removeFile $fname2
 	removeFile $fname3
-} -output {3
-4
-}
+} -output {}
 
 test include-1.2 {malformed includes} -body {
 #lang L
@@ -7275,19 +9022,19 @@ split_1_0()
 
 	s = "This is not a test. This is really not a test.";
 	r = split(s);
-	unless (s eq join(r, " ")) puts("bad 2.1");
+	unless (s eq join(" ", r)) puts("bad 2.1");
 
 	s = " This is not a test. This is really not a test.";
 	r = split(s);
-	unless (s eq join(r, " ")) puts("bad 2.2");
+	unless (s eq join(" ", r)) puts("bad 2.2");
 
 	s = "This:is:not:a:test.:This:is:really:not:a:test.";
 	r = split(s, ":");
-	unless (s eq join(r, ":")) puts("bad 2.3");
+	unless (s eq join(":", r)) puts("bad 2.3");
 
 	s = ":This:is:not:a:test.:This:is:really:not:a:test.";
 	r = split(s, ":");
-	unless (s eq join(r, ":")) puts("bad 2.4");
+	unless (s eq join(":", r)) puts("bad 2.4");
 
 	/*
 	 * A split on ' ' should split on white space but return
@@ -7890,6 +9637,8 @@ src_mappings_3()
 		break;
 		continue;
 	} while (0);
+	goto L1;
+ L1:
 }
 #lang tcl
 src_mappings_3
@@ -7900,13 +9649,13 @@ src_mappings_3
 .*Command \d+: "do f\(\); while \(0\);"
 .*Command \d+: "i = 0"
 .*Command \d+: "for \(i = 0; i < 10;\) f\(\);"
-.*Command \d+: "f\(\)"
 .*Command \d+: "i < 10"
+.*Command \d+: "f\(\)"
 .*Command \d+: "i = 0"
 .*Command \d+: "for \(i = 0; i < 10; \+\+i\) f\(\);"
+.*Command \d+: "i < 10"
 .*Command \d+: "f\(\)"
 .*Command \d+: "\+\+i"
-.*Command \d+: "i < 10"
 .*Command \d+: "fh\(\)"
 .*Command \d+: "foreach \(k => v in fh\(\)\) f\(\);"
 .*Command \d+: "f\(\)"
@@ -7914,9 +9663,78 @@ src_mappings_3
 .*Command \d+: "foreach \(i,j in fa\(\)\) f\(\);"
 .*Command \d+: "f\(\)"
 .*Command \d+: "push \(&a, f\(\)\)"
-.*Command \d+: "f\(\)"
 .*Command \d+: "break"
 .*Command \d+: "continue"
+.*Command \d+: "goto L1;"
+}
+
+test src-mappings-4 {test bytecode <-> source-file-offset mappings with includes} -setup {
+	set fname1 [makeFile {
+void src_mappings_4_foo1()
+{
+	int v1 = 123;
+	while (0) {
+		puts(v1);
+	}
+}
+include ("foo2.l");
+} foo1.l ../tests]
+	set fname2 [makeFile {
+void src_mappings_4_foo2()
+{
+	int	i, j;
+	i = j+1;
+}
+} foo2.l ../tests]
+} -body {
+#lang L
+include ("foo1.l");
+void src_mappings_4()
+{
+	/*
+	 * We don't need much for this test.  If the source offsets are
+	 * mis-aligned, it can be seen with even just one command.
+	 */
+
+	int	k, l;
+
+	puts("--foo1--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4_foo1"));
+	puts("--foo2--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4_foo2"));
+	puts("--main--");
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_4"));
+	return;
+
+	k = l+2;
+}
+src_mappings_4();
+} -match regexp -output {--foo1--
+.*Command \d+: "v1 = 123"
+.*Command \d+: "puts\(v1\)"
+.*--foo2--
+.*Command \d+: "i = j\+1"
+.*--main--
+.*Command \d+: "return"
+.*Command \d+: "k = l\+2"
+}
+
+test src-mappings-5 {test bytecode <-> source-file-offset mappings w/here docs} -body {
+#lang L
+void src_mappings_5()
+{
+	string s1 = <<END
+str1
+END
+	string s2 = <<'END'
+str2
+END
+
+	puts(::tcl::unsupported::disassemble("proc", "src_mappings_5"));
+}
+src_mappings_5();
+} -match regexp -output {.*Command \d+: "s1 = <<END\\nstr1\\nEND"
+.*Command \d+: "s2 = <<'END'\\nstr2\\nEND"
 }
 
 test function-1.0 {check function call rules} -body {
@@ -7974,7 +9792,7 @@ function_1_1()
 }
 #lang tcl
 function_1_1
-} -returnCodes {error} -match regexp -result {.*2: L Error: function_1_1_f1 already declared as a variable
+} -returnCodes {error} -match regexp -result {.*1: L Error: multiple declaration of global function_1_1_f1
 .*4: L Error: multiple declaration of global function_1_1_f2
 .*6: L Error: function function_1_1_f3 already declared
 .*:17: L Error: 'i' is declared but not as a function
@@ -8018,9 +9836,49 @@ function_1_2()
 
 	s = function_1_2_f5(a, "f5", c, d, e);
 	unless (s eq "f5") puts("bad 2");
+
+	unless (function_1_2_f10(12) == 12) puts("bad 3");
+	unless (function_1_2_f11(13) == 13) puts("bad 4");
+	unless (function_1_2_f12(14) == 14) puts("bad 5");
+
+	/*
+	 * These check that the right parameter-passing mode is
+	 * in the calls to the functions declared later.
+	 */
+
+	d = {1,2,3,4};
+	unless (function_1_2_sum_ref(&d) == 10) puts("bad 6.1");
+	unless (length(d) == 3) puts("bad 6.2");
+	unless ((d[0] == 9) && (d[1] == 10) && (d[2] == 11)) puts("bad 6.3");
+
+	d = {1,2,3,4};
+	unless (function_1_2_sum_cow(d) == 10) puts("bad 7.1");
+	unless (length(d) == 4) puts("bad 7.2");
+	unless ((d[0] == 1) && (d[1] == 2)) puts("bad 7.3");
+	unless ((d[2] == 3) && (d[3] == 4)) puts("bad 7.4");
 }
-#lang tcl
-function_1_2
+function_1_2();
+int function_1_2_f10(int a) { return (a); }
+int function_1_2_f11(int a) { return (a); }
+int function_1_2_f11(int a);
+int function_1_2_f12(int a);
+int function_1_2_f12(int a) { return (a); }
+int function_1_2_sum_ref(int &a[])
+{
+	int	i, sum = 0;
+
+	foreach (i in a) sum += i;
+	a = {9,10,11};
+	return (sum);
+}
+int function_1_2_sum_cow(int a[])
+{
+	int	i, sum = 0;
+
+	foreach (i in a) sum += i;
+	a = {9,10,11};
+	return (sum);
+}
 } -output {}
 
 test function-1.3 {check function prototypes 2} -body {
@@ -8037,6 +9895,35 @@ function_1_3()
 #lang tcl
 function_1_3
 } -output {}
+
+test function-1.3.2 {check function prototypes 3} -body {
+#lang L
+/*
+ * Check that a void formal-parameter list is treated exactly like no
+ * parameters.
+ */
+string function_1_3_2_f1();
+string function_1_3_2_f2();
+string function_1_3_2_f3(void);
+string function_1_3_2_f4(void);
+void
+function_1_3_2()
+{
+	function_1_3_2_f1();
+	function_1_3_2_f2();
+	function_1_3_2_f3();
+	function_1_3_2_f4();
+}
+function_1_3_2();
+string function_1_3_2_f1()     { puts("f1"); }
+string function_1_3_2_f2(void) { puts("f2"); }
+string function_1_3_2_f3()     { puts("f3"); }
+string function_1_3_2_f4(void) { puts("f4"); }
+} -output {f1
+f2
+f3
+f4
+}
 
 test function-1.4 {check function prototype errors} -body {
 #lang L
@@ -8084,15 +9971,35 @@ string function_1_5_f8(int a, string b, float c, int d[], hash e){ return (b); }
 
 string function_1_5_f9(string b, float c, int d[], hash e);
 string function_1_5_f9(string b, ...rest){ return (b); }
-} -returnCodes {error} -match regexp -result {.*2: L Error: does not match prior declaration of function_1_5_f1
-.*5: L Error: does not match prior declaration of function_1_5_f2
-.*8: L Error: does not match prior declaration of function_1_5_f3
-.*11: L Error: does not match prior declaration of function_1_5_f4
-.*14: L Error: does not match prior declaration of function_1_5_f5
-.*17: L Error: does not match prior declaration of function_1_5_f6
-.*20: L Error: does not match prior declaration of function_1_5_f7
-.*23: L Error: does not match prior declaration of function_1_5_f8
-.*26: L Error: does not match prior declaration of function_1_5_f9
+} -returnCodes {error} -match regexp -result {.*2: L Error: does not match other declaration of function_1_5_f1
+.*5: L Error: does not match other declaration of function_1_5_f2
+.*8: L Error: does not match other declaration of function_1_5_f3
+.*11: L Error: does not match other declaration of function_1_5_f4
+.*14: L Error: does not match other declaration of function_1_5_f5
+.*17: L Error: does not match other declaration of function_1_5_f6
+.*20: L Error: does not match other declaration of function_1_5_f7
+.*23: L Error: does not match other declaration of function_1_5_f8
+.*26: L Error: does not match other declaration of function_1_5_f9
+}
+
+test function-1.6 {check function prototype errors 3} -body {
+#lang L
+void function_1_6()
+{
+	/*
+	 * Check that type checking is done to calls of functions
+	 * declared later.
+	 */
+
+	function_1_6_v(1);
+	function_1_6_i();
+	function_1_6_i("bad");
+}
+void function_1_6_v() {}
+void function_1_6_i(int i) { i = 0; }
+} -returnCodes {error} -match regexp -result {.*8: L Error: too many arguments for function function_1_6_v
+.*9: L Error: not enough arguments for function function_1_6_i
+.*10: L Error: parameter 1 has incompatible type
 }
 
 test initializers-1 {check variable initializer error cases} -body {
@@ -8125,11 +10032,15 @@ typedef struct initializers_2_s2 h_of_s2{int};
 
 void initializers_2()
 {
+	/*
+	 * In addition to the initializers themselves, check various
+	 * number of initializers per declaration.
+	 */
 	int	i;
 	int	i1 = 11;
-	int	i2, i3 = 33;
-	int	i4, i5 = 55, i6;
-	int	i7, i8 = 88, i9 = 99, i10 = 111;
+	int	i2 = 0, i3 = 33;
+	int	i4 = 0, i5 = 55, i6 = 0;
+	int	i7 = 0, i8 = 88, i9 = 99, i10 = 111;
 	string	s = "s";
 	float	f = 3.1, f2 = 3;
 	string	ai[] = { "a", "b", "c" };
@@ -8243,6 +10154,54 @@ void initializers_4()
 }
 #lang tcl
 initializers_4
+} -output {}
+
+test initializers-5 {check order of variable initializers} -body {
+#lang L
+void initializers_5()
+{
+	/*
+	 * This checks the variable initializers are compiled
+	 * top-to-bottom and left-to-right.
+	 */
+	int	i1 = 2, i2 = i1 * 7, i3 = i1 + i2;
+	int	i4 = i3 * 10;
+
+	unless (i1 == 2) puts("bad 1");
+	unless (i2 == 14) puts("bad 2");
+	unless (i3 == 16) puts("bad 3");
+	unless (i4 == 160) puts("bad 4");
+}
+initializers_5();
+} -output {}
+
+test initializers-6 {check blank initial values} -body {
+#lang L
+void initializers_6()
+{
+	int	i;
+	float	f;
+	string	s;
+	poly	p;
+	string	as[];
+	string	hs{string};
+	struct s1 {
+		int	i;
+		float	f;
+		string	s;
+		string	sa[];
+		string	hs{string};
+	} st;
+
+	if (defined(i)) puts("bad 1");
+	if (defined(f)) puts("bad 2");
+	if (defined(s)) puts("bad 3");
+	if (defined(p)) puts("bad 4");
+	if (defined(as)) puts("bad 5");
+	if (defined(hs)) puts("bad 6");
+	if (defined(st)) puts("bad 7");
+}
+initializers_6();
 } -output {}
 
 test composite-1 {check composite values in expressions 1} -body {
@@ -8388,6 +10347,169 @@ void composite_3()
 .*14: L Error:.*incompatible type.*
 .*15: L Error:.*incompatible type.*
 .*16: L Error:.*incompatible type.*
+}
+
+test composite-4 {check composite l-values} -body {
+#lang L
+class composite_4
+{
+	public	string c;
+	instance {
+		public	string i;
+	}
+}
+void composite_4_main()
+{
+	string	a, b, c;
+	string	sa[];
+	composite_4 o1, o2, o3;
+
+	a = "bad";
+	{ a } = { "one" };
+	unless (a eq "one") puts("bad 1.1");
+
+	a = b = "bad";
+	{ a, b } = { "one", "two" };
+	unless ((a eq "one") && (b eq "two")) puts("bad 2.1");
+
+	a = b = c = "bad";
+	{ a, b, c } = { "one", "two", "three" };
+	unless ((a eq "one") && (b eq "two") && (c eq "three")) puts("bad 3.1");
+
+	a = "bad";
+	{ a } = {};
+	if (defined(a)) puts("bad 4.1");
+
+	a = b = "bad";
+	{ a, b } = {};
+	if (defined(a) || defined(b)) puts("bad 5.1");
+
+	a = b = c = "bad";
+	{ a, b, c } = {};
+	if (defined(a) || defined(b) || defined(c)) puts("bad 6.1");
+
+	a = b = c = "bad";
+	{ a, b, c } = { "one" };
+	unless (a eq "one") puts("bad 7.1");
+	if (defined(b) || defined(c)) puts("bad 7.2");
+
+	a = b = c = "bad";
+	{ a, b, c } = { "one", "two" };
+	unless ((a eq "one") && (b eq "two")) puts("bad 8.1");
+	if (defined(c)) puts("bad 8.2");
+
+	a = "bad";
+	{ a } = { "one", "two" };
+	unless (a eq "one") puts("bad 9.1");
+
+	a = "bad";
+	{ a } = { "one", "two", "three" };
+	unless (a eq "one") puts("bad 10.1");
+
+	a = b = "bad";
+	{ a, b } = { "one", "two", "three" };
+	unless ((a eq "one") && (b eq "two")) puts("bad 11.1");
+
+	a = "bad";
+	{ a, undef } = { "one", "two" };
+	unless (a eq "one") puts("bad 12.1");
+
+	a = "bad";
+	{ a, undef } = { "one" };
+	unless (a eq "one") puts("bad 13.1");
+
+	a = "bad";
+	{ a, undef, undef } = { "one" };
+	unless (a eq "one") puts("bad 14.1");
+
+	a = "bad";
+	{ undef, a } = { "one", "two" };
+	unless (a eq "two") puts("bad 15.1");
+
+	a = "bad";
+	{ undef, a } = { "one", "two", "three" };
+	unless (a eq "two") puts("bad 16.1");
+
+	a = "bad";
+	{ undef, a, undef } = { "one", "two", "three" };
+	unless (a eq "two") puts("bad 17.1");
+
+	{ undef } = {};
+	{ undef, undef } = {};
+	{ undef, undef, undef } = {};
+	{ undef } = { undef };
+
+	{ sa[0] } = { "one" };
+	unless (sa[0] eq "one") puts("bad 18.1");
+
+	{ sa[0], sa[1] } = { "one", "two" };
+	unless ((sa[0] eq "one") && (sa[1] eq "two")) puts("bad 19.1");
+
+	{ sa[0], sa[1], sa[3] } = { "one", "two", "four" };
+	unless ((sa[0] eq "one") && (sa[1] eq "two") && (sa[3] eq "four")) {
+		puts("bad 20.1");
+	}
+	if (defined(sa[2])) puts("bad 20.2");
+
+	o1 = composite_4_new();
+	o2 = composite_4_new();
+	o3 = composite_4_new();
+	{ o1->i, o2->i, o3->i } = { "one", "two", "three" };
+	unless (o1->i eq "one") puts("bad 21.1");
+	unless (o2->i eq "two") puts("bad 21.2");
+	unless (o3->i eq "three") puts("bad 21.3");
+	{ composite_4->c } = { "cvar" };
+	unless (composite_4->c eq "cvar") puts("bad 21.4");
+	composite_4_delete(o1);
+	composite_4_delete(o2);
+	composite_4_delete(o3);
+}
+composite_4_main();
+} -output {}
+
+test composite-5 {check composite l-value errors} -body {
+#lang L
+int composite_5_f() { return (0); }
+void composite_5()
+{
+	int	a, b, ai[];
+	string	s;
+
+	{ a, b } += 1;
+	{ a, b } -= 1;
+	{ a, b } *= 1;
+	{ a, b } /= 1;
+	{ a, b } %= 1;
+	{ a, b } &= 1;
+	{ a, b } |= 1;
+	{ a, b } ^= 1;
+	{ a, b } >>= 1;
+	{ a, b } <<= 1;
+	{ a, b } =~ /bad/;
+	{ s } =~ s/bad/bad/;
+
+	{ a, b } = 0;
+	{ a, b } = ai;
+
+	{ 1 } = { 1 };
+	{ composite_5_f() } = { 1 };
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: arithmetic assignment illegal
+.*8: L Error: arithmetic assignment illegal
+.*9: L Error: arithmetic assignment illegal
+.*10: L Error: arithmetic assignment illegal
+.*11: L Error: arithmetic assignment illegal
+.*12: L Error: arithmetic assignment illegal
+.*13: L Error: arithmetic assignment illegal
+.*14: L Error: arithmetic assignment illegal
+.*15: L Error: arithmetic assignment illegal
+.*16: L Error: arithmetic assignment illegal
+.*17: L Error: expected type string but got list in =~
+.*18: L Error: invalid l-value in =~
+.*20: L Error: right-hand side must be list {}
+.*21: L Error: right-hand side must be list {}
+.*23: L Error: invalid l-value in assignment
+.*24: L Error: invalid l-value in assignment
 }
 
 test lvalue-1 {check indexing hash/struct/array expressions} -body {
@@ -8551,13 +10673,33 @@ int lvalue_5_foo() { return (1); }
 void lvalue_5_bar(int &i) {}
 void lvalue_5()
 {
-	lvalue_5_bar(&lvalue_4_foo());
+	int	a[], aa[][];
+
+	lvalue_5_bar(&lvalue_5_foo());
 	lvalue_5_bar(&1);
+	&1;
+	&1.1;
+	&"s";
+	&{1,2,3};
+	&{1=>1};
+	&(1+2);
+	&a[0];
+	&aa[0];
+	&aa[0][0];
 }
 #lang tcl
 lvalue_5
-} -returnCodes {error} -match regexp -result {.*5: L Error: invalid argument to &
-.*6: L Error: invalid argument to &
+} -returnCodes {error} -match regexp -result {.*7: L Error: cannot take reference of argument
+.*8: L Error: cannot take reference of argument
+.*9: L Error: cannot take reference of argument
+.*10: L Error: cannot take reference of argument
+.*11: L Error: cannot take reference of argument
+.*12: L Error: cannot take reference of argument
+.*13: L Error: cannot take reference of argument
+.*14: L Error: cannot take reference of argument
+.*15: L Error: cannot take reference of argument
+.*16: L Error: cannot take reference of argument
+.*17: L Error: cannot take reference of argument
 }
 
 test builtin-1 {check keys built-in} -body {
@@ -8743,12 +10885,12 @@ void builtin_7()
 	string	s = "x";
 	poly	p = "p";
 
-	unless (join(as) eq "a b c") puts("bad 1");
-	unless (join(as,s) eq "axbxc") puts("bad 2");
-	unless (join(as,"xyz") eq "axyzbxyzc") puts("bad 3");
-	unless (join(as,p) eq "apbpc") puts("bad 4");
+	unless (join(" ", as) eq "a b c") puts("bad 1");
+	unless (join(s, as) eq "axbxc") puts("bad 2");
+	unless (join("xyz", as) eq "axyzbxyzc") puts("bad 3");
+	unless (join(p, as) eq "apbpc") puts("bad 4");
 	unless (join(p,p) eq "p") puts("bad 5");
-	unless (join(ai) eq "1 2 3") puts("bad 6");
+	unless (join(" ", ai) eq "1 2 3") puts("bad 6");
 }
 builtin_7();
 } -output {}
@@ -8761,19 +10903,19 @@ void builtin_8()
 
 	join();
 	join(ai,"s1","s2");
-	join("s", ai);
+	join(ai, "s");
 	join(1);
 	join(1.1);
 	join("s");
-	join(ai, ai);
+	join("s", 1);
 }
 } -returnCodes {error} -match regexp -result {.*5: L Error: incorrect # args to join
 .*6: L Error: incorrect # args to join
-.*7: L Error: first arg to join not an array or list
-.*8: L Error: first arg to join not an array or list
-.*9: L Error: first arg to join not an array or list
-.*10: L Error: first arg to join not an array or list
-.*11: L Error: second arg to join not a string
+.*7: L Error: first arg to join not a string
+.*8: L Error: incorrect # args to join
+.*9: L Error: incorrect # args to join
+.*10: L Error: incorrect # args to join
+.*11: L Error: second arg to join not an array or list
 }
 
 test builtin-9 {check re-declaration of built-ins} -body {
@@ -8783,11 +10925,120 @@ void keys() {}
 void length() {}
 void push() {}
 void sort() {}
+void assert() {}
 } -returnCodes {error} -match regexp -result {.*1: L Error: function 'join' conflicts with built-in
 .*2: L Error: function 'keys' conflicts with built-in
 .*3: L Error: function 'length' conflicts with built-in
 .*4: L Error: function 'push' conflicts with built-in
 .*5: L Error: function 'sort' conflicts with built-in
+.*6: L Error: function 'assert' conflicts with built-in
+}
+
+test builtin-10 {check built-ins stack integrity} -body {
+#lang L
+void builtin_10()
+{
+	/*
+	 * This checks that an ignored return value doesn't leave the
+	 * stack unbalanced (which would cause a crash).
+	 */
+
+	int	a[], i;
+	int	n = 100;
+	int	h{int} = { 1=>1, 2=>2 };
+
+	for (i = 0; i < n; ++i) {
+		push(&a, i);
+		keys(h);
+		length(h);
+		split("x y z");
+		sort({3,2,1});
+		join(" ", {"a","b"});
+	}
+	unless (length(a) == n) puts("bad 1");
+}
+builtin_10();
+} -output {}
+
+test builtin-11 {check push onto class and instance variables} -body {
+#lang L
+class builtin_11
+{
+	public	int apubl[];
+	instance {
+		public	int ainst[];
+	}
+}
+void builtin_11_main()
+{
+	builtin_11 o = builtin_11_new();
+
+	push(&builtin_11->apubl, 1);
+	push(&builtin_11->apubl, 2);
+	push(&builtin_11->apubl, 3);
+	unless (length(builtin_11->apubl) == 3) puts("bad 1.1");
+	unless (builtin_11->apubl[0] == 1) puts("bad 1.2");
+	unless (builtin_11->apubl[1] == 2) puts("bad 1.3");
+	unless (builtin_11->apubl[2] == 3) puts("bad 1.4");
+
+	push(&o->ainst, 1);
+	push(&o->ainst, 2);
+	push(&o->ainst, 3);
+	unless (length(o->ainst) == 3) puts("bad 2.1");
+	unless (o->ainst[0] == 1) puts("bad 2.2");
+	unless (o->ainst[1] == 2) puts("bad 2.3");
+	unless (o->ainst[2] == 3) puts("bad 2.4");
+
+	builtin_11_delete(o);
+}
+builtin_11_main();
+} -output {}
+
+test builtin-12 {check assert built-in errors} -body {
+#lang L
+void builtin_12_foo();
+void builtin_12()
+{
+	string	s;
+
+	assert();
+	assert(1,2);
+	assert(builtin_12_foo());
+	s = assert(0);
+}
+} -returnCodes {error} -match regexp -result {.*6: L Error: incorrect # args to assert
+.*7: L Error: incorrect # args to assert
+.*8: L Error: void type illegal in predicate
+.*9: L Error: type void illegal
+}
+
+test line-file-1 {test __LINE__ and __FILE__} -body {
+#lang L
+void line_file_1()
+{
+	unless(basename(__FILE__) eq "l-core.test") puts("bad 1.1");
+	unless(__LINE__ == 4) puts("bad 1.2");
+	unless(__LINE__ == 5) puts("bad 1.3");
+	unless(__LINE__ == 6) puts("bad 1.4");
+}
+line_file_1();
+} -output {}
+
+test line-file-2 {test __LINE__ and __FILE__ errors} -body {
+#lang L
+void line_file_2_s(string &s) { s = "bad"; }
+void line_file_2_i(int &i) { i = 1; }
+void line_file_2()
+{
+	__FILE__ = "bad";
+	__LINE__ = 1;
+	line_file_2_s(&__FILE__);
+	line_file_2_i(&__LINE__);
+}
+} -returnCodes {error} -match regexp -result {.*5: L Error: invalid l-value in assignment
+.*6: L Error: invalid l-value in assignment
+.*7: L Error: cannot take reference of argument
+.*8: L Error: cannot take reference of argument
 }
 
 test lregex-1 {test a trivial regex} -body {
@@ -8807,10 +11058,10 @@ int	class_1_1_foos  = 0;
 int	class_1_1_privs = 0;
 class class_1_1
 {
-	int	cvar1 = 123;
-	int	cvar2 = cvar1 * 2;
+	public	int cvar1 = 123;
+	public	int cvar2 = cvar1 * 2;
 	instance {
-		string	inst = "initial";
+		public	string inst = "initial";
 	}
 	private void priv();
 	constructor class_1_1_init(string s)
@@ -8889,7 +11140,7 @@ test class-1.2 {test multiple object instances} -body {
 class class_1_2
 {
 	instance {
-		int	n;
+		public	int n;
 	}
 	constructor class_1_2_init(int i) { n = i; }
 	destructor class_1_2_free(class_1_2 self) {}
@@ -8923,7 +11174,7 @@ test class-1.3 {test class variables} -body {
 #lang L
 class class_1_3
 {
-	string	cls_var = "first";
+	public	string cls_var = "first";
 	constructor class_1_3_init() {}
 	destructor class_1_3_free(class_1_3 self) {}
 	void class_1_3_set(class_1_3 self, string s)
@@ -8972,7 +11223,7 @@ test class-1.4 {test no class instance variables} -body {
 #lang L
 class class_1_4
 {
-	int	cvar = 123;
+	public	int cvar = 123;
 	constructor class_1_4_new()
 	{
 		unless (cvar == 123) puts ("bad c1");
@@ -8995,7 +11246,7 @@ test class-1.5 {test no class variables} -body {
 class class_1_5
 {
 	instance {
-		int	inst = 123;
+		public	int inst = 123;
 	}
 	constructor class_1_5_new()
 	{
@@ -9014,12 +11265,55 @@ void class_1_5_main()
 class_1_5_main();
 } -output {}
 
+test class-1.6 {test "->" as member variable selection} -body {
+#lang L
+class class_1_6
+{
+	public	string cvar = "cvar";
+	instance {
+		public	string ivar = "ivar";
+	}
+}
+void class_1_6_main()
+{
+	/* Check that -> works ("." is not allowed). */
+
+	class_1_6 o = class_1_6_new();
+
+	unless (class_1_6->cvar eq "cvar") puts("bad 1.1");
+	unless (o->ivar eq "ivar") puts("bad 2.1");
+
+	class_1_6_delete(o);
+}
+class_1_6_main();
+} -output {}
+
+test class-1.7 {test "." error as member variable selection} -body {
+#lang L
+class class_1_7
+{
+	public	string cvar = "cvar";
+	instance {
+		public	string ivar = "ivar";
+	}
+}
+void class_1_7_main()
+{
+	/* Check that . is caught as an error. */
+
+	class_1_7 o = class_1_7_new();
+
+	unless (o.ivar eq "ivar") puts("bad 2.1");
+}
+} -returnCodes {error} -match regexp -result {.*14: L Error: . illegal on objects; use -> instead
+}
+
 test class-2.1 {check missing class constructor} -body {
 #lang L
 class class_2_1
 {
 	instance {
-		int inst = 123;
+		public	int inst = 123;
 	}
 	destructor class_2_1_delete(class_2_1 self)
 	{
@@ -9039,7 +11333,7 @@ test class-2.2 {check class missing destructor} -body {
 class class_2_2
 {
 	instance {
-		int inst = 123;
+		public	int inst = 123;
 	}
 	constructor class_2_2_new()
 	{
@@ -9059,7 +11353,7 @@ test class-2.2.1 {check class missing constructor and destructor} -body {
 class class_2_2_1
 {
 	instance {
-		int inst = 123;
+		public	int inst = 123;
 	}
 	int class_2_2_1_get(class_2_2_1 self) { return inst; }
 }
@@ -9206,7 +11500,7 @@ test class-2.12.1 {check return stmt in class constructor 1} -body {
 #lang L
 class class_2_12_1
 {
-	instance { int inst = 123; }
+	instance { public int inst = 123; }
 	constructor class_2_12_1_new()
 	{
 		return (self);
@@ -9261,7 +11555,7 @@ test class-2.15 {check name clash with class destructor 1} -body {
 #lang L
 class class_2_15
 {
-	destructor class_2_15_delete() {}
+	destructor class_2_15_delete(class_2_15 self) {}
 	void class_2_15_delete(class_2_15 self) {}  // err
 	private void class_2_15_delete(class_2_15 self) {}  // err
 }
@@ -9316,22 +11610,68 @@ class class_2_19
 } -returnCodes {error} -match regexp -result {.*11: L Error: class constructor must return 'self'
 }
 
+test class-2.20 {check class public member fn with arg without name} -body {
+#lang L -nowarn
+class class_2_20
+{
+	/*
+	 * This is syntactically legal and the compiler should check
+	 * for this error.
+	 */
+	public void class_2_20_foo(class_2_20) {}
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: class public member function lacks 'self' as first arg
+}
+
+test class-2.21 {check class member function use before declare} -body {
+#lang L
+class class_2_21
+{
+	public int class_2_21_foo(class_2_21 self, int arg)
+	{
+		return (priv(arg) + class_2_21_pub(self, arg));
+	}
+	private int priv(int arg)
+	{
+		return (arg);
+	}
+	public int class_2_21_pub(class_2_21 self, int arg)
+	{
+		return (-arg);
+	}
+}
+void class_2_21_main()
+{
+	class_2_21 o;
+
+	o = class_2_21_new();
+	unless (class_2_21_foo(o, 13) == 0) puts("bad 1");
+}
+class_2_21_main();
+} -output {}
+
 test class-3.1 {check scoping of class vars and class instance vars 1} -body {
 #lang L
 class class_3_1
 {
 	/*
 	 * Class variables and instance variables should both be at
-	 * class scope, so a name clash should be an error.
+	 * class scope, so a name clash should be an error.  Note that
+	 * because the instance var always get compiled first, we
+	 * don't check for line #'s in the error messages.
 	 */
 	instance {
-		int	x;
+		public	int x;
 	}
-	int	x;  // err -- multiply declared
+	public	int x;
+	private	int x;
+	public	int x;
 	constructor class_3_1_init() {}
 	destructor class_3_1_free(class_3_1 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
+.*: L Error: multiple declaration of x
+.*: L Error: multiple declaration of x
 }
 
 test class-3.2 {check scoping of class vars and class instance vars 2} -body {
@@ -9339,42 +11679,42 @@ test class-3.2 {check scoping of class vars and class instance vars 2} -body {
 class class_3_2
 {
 	/*
-	 * Like the class_3_1 test but multiple instance declarations.
+	 * Like the class_3_1 test but with multiple instance declarations.
+	 * Note that because the instance var always get compiled
+	 * first, we don't check for line #'s in the error messages.
 	 */
 	instance {
-		int	x;
-		int	x;  // err -- multiply declared
+		public	int x;
+		private	int x;
+		public	int x;
 	}
-	int	x;  // err -- multiply declared
+	public	int x;
 	constructor class_3_2_init() {}
 	destructor class_3_2_free(class_3_2 self) {}
 }
 } -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
 .*: L Error: multiple declaration of x
+.*: L Error: multiple declaration of x
 }
 
-test class-3.3 {check scoping of class vars and class instance vars 3} -body {
+test class-3.3 {check empty class instance variable section} -body {
 #lang L
 class class_3_3
 {
-	/*
-	 * Like the class_3_2 test but multiple class var declarations.
-	 * Note that because the instance var always get compiled first,
-	 * we don't check for line #'s in the error messages.
-	 */
-	instance {
-		int	x;
-		int	x;  // err -- multiply declared
-	}
-	int	x;  // err -- multiply declared
-	int	x;  // err -- multiply declared
-	constructor class_3_3_init() {}
-	destructor class_3_3_free(class_3_3 self) {}
+	instance {}
 }
-} -returnCodes {error} -match regexp -result {.*: L Error: multiple declaration of x
-.*: L Error: multiple declaration of x
-.*: L Error: multiple declaration of x
+} -result {}
+
+test class-3.3.1 {check completely empty class declaration} -body {
+#lang L
+class class_3_3_1 {}
+void class_3_3_1_main()
+{
+	class_3_3_1 o = class_3_3_1_new();
+	class_3_3_1_delete(o);
 }
+class_3_3_1_main();
+} -output {}
 
 test class-3.4 {check scoping of class vars and class instance vars 4} -body {
 #lang L
@@ -9385,11 +11725,11 @@ class class_3_4
 	 * Note that because the instance var always get compiled first,
 	 * we don't check for line #'s in the error messages.
 	 */
-	int	x;
-	int	x;  // err -- multiply declared
+	public	int x;
+	private	int x;
 	instance {
-		int	x;  // err -- multiply declared
-		int	x;  // err -- multiply declared
+		public	int x;
+		private	int x;
 	}
 	constructor class_3_4_init() {}
 	destructor class_3_4_free(class_3_4 self) {}
@@ -9410,13 +11750,14 @@ class class_3_5
 	 * don't check for all line #'s in the error messages.
 	 */
 	instance {
-		int	class_3_5_x;
-		int	class_3_5_x;  // err -- multiply declared
+		public	int class_3_5_x;
+		public	int class_3_5_x;  // err -- multiply declared
 	}
-	int	class_3_5_x;  // err -- multiply declared
-	int	class_3_5_x;  // err -- multiply declared
+	public	int class_3_5_x;  // err -- multiply declared
+	public	int class_3_5_x;  // err -- multiply declared
 	private void class_3_5_x() {}  // err -- already declared as a variable
 	void class_3_5_x() {}  // err -- already declared as a variable
+	public void class_3_5_x() {}  // err -- already declared as a variable
 	constructor class_3_5_init() {}
 	destructor class_3_5_free(class_3_5 self) {}
 }
@@ -9425,6 +11766,7 @@ class class_3_5
 .*: L Error: multiple declaration of class_3_5_x
 .*15: L Error: class_3_5_x already declared as a variable
 .*16: L Error: class_3_5_x already declared as a variable
+.*17: L Error: class_3_5_x already declared as a variable
 }
 
 test class-3.6 {check scoping of class vars and class instance vars 6} -body {
@@ -9438,11 +11780,11 @@ class class_3_6
 	 * don't check for all line #'s in the error messages.
 	 */
 	instance {
-		int	class_3_6_x;
-		int	class_3_6_x;  // err -- multiply declared
+		public	int class_3_6_x;
+		public	int class_3_6_x;  // err -- multiply declared
 	}
-	int	class_3_6_x;  // err -- multiply declared
-	int	class_3_6_x;  // err -- multiply declared
+	public	int class_3_6_x;  // err -- multiply declared
+	public	int class_3_6_x;  // err -- multiply declared
 	void class_3_6_x() {}  // err -- already declared as a variable
 	constructor class_3_6_init() {}
 	destructor class_3_6_free(class_3_6 self) {}
@@ -9461,29 +11803,39 @@ test class-3.7 {check variable visibility in class member functions} -body {
  */
 class class_3_7
 {
-	string	cvar = "cvar";
+	public	string publ_cvar = "publ_cvar";
+	private	string priv_cvar = "priv_cvar";
 	instance {
-		string	ivar = "ivar";
+		public	string publ_ivar = "publ_ivar";
+		private	string priv_ivar = "priv_ivar";
 	}
 	constructor class_3_7_init()
 	{
-		unless (cvar eq "cvar") puts("bad c1");
-		unless (ivar eq "ivar") puts("bad c2");
+		unless (publ_cvar eq "publ_cvar") puts("bad c1");
+		unless (priv_cvar eq "priv_cvar") puts("bad c2");
+		unless (publ_cvar eq "publ_cvar") puts("bad c3");
+		unless (priv_ivar eq "priv_ivar") puts("bad c4");
 	}
 	destructor class_3_7_free(class_3_7 self)
 	{
-		unless (cvar eq "cvar") puts("bad d1");
-		unless (ivar eq "ivar") puts("bad d2");
+		unless (publ_cvar eq "publ_cvar") puts("bad d1");
+		unless (priv_cvar eq "priv_cvar") puts("bad d2");
+		unless (publ_ivar eq "publ_ivar") puts("bad d3");
+		unless (priv_ivar eq "priv_ivar") puts("bad d4");
 	}
 	private void priv()
 	{
-		unless (cvar eq "cvar") puts("bad p1");
-		unless (ivar eq "ivar") puts("bad p2");
+		unless (publ_cvar eq "publ_cvar") puts("bad p1");
+		unless (priv_cvar eq "priv_cvar") puts("bad p2");
+		unless (publ_ivar eq "publ_ivar") puts("bad p3");
+		unless (priv_ivar eq "priv_ivar") puts("bad p4");
 	}
 	void class_3_7_foo(class_3_7 self)
 	{
-		unless (cvar eq "cvar") puts("bad f1");
-		unless (ivar eq "ivar") puts("bad f2");
+		unless (publ_cvar eq "publ_cvar") puts("bad f1");
+		unless (priv_cvar eq "priv_cvar") puts("bad f2");
+		unless (publ_ivar eq "publ_ivar") puts("bad f3");
+		unless (priv_ivar eq "priv_ivar") puts("bad f4");
 		priv();
 	}
 }
@@ -9494,6 +11846,58 @@ void class_3_7_main()
 	class_3_7_free(o);
 }
 class_3_7_main();
+} -output {}
+
+test class-3.8 {check missing public/private qualifiers on class vars} -body {
+#lang L
+class class_3_8
+{
+	int	bad1, bad2;
+	int	bad3;
+	instance {
+		int	ibad1, ibad2;
+		int	ibad3;
+	}
+}
+} -returnCodes {error} -match regexp -result {.*3: L Error: class variable bad1 not declared public or private
+.*3: L Error: class variable bad2 not declared public or private
+.*4: L Error: class variable bad3 not declared public or private
+.*6: L Error: class instance variable ibad1 not declared public or private
+.*6: L Error: class instance variable ibad2 not declared public or private
+.*7: L Error: class instance variable ibad3 not declared public or private
+}
+
+test class-3.9 {check expressions in class and instance variable intializers} -body {
+#lang L
+class class_3_9
+{
+	/*
+	 * These initializers check that the declarations get compiled
+	 * top-to-bottom and left-to-right.
+	 */
+	private	int c1 = 1;
+	private	int c2 = c1 * 2, c3 = c2 + 3;
+	instance {
+		/* These get evaluated when the constructor runs. */
+		private	int i1 = c1;
+		private	int i2 = c2 * 2, i3 = i2 + 3;
+	}
+	constructor class_3_9_new()
+	{
+		unless (c1 == 1) puts("bad c1");
+		unless (c2 == (c1 * 2)) puts("bad c2");
+		unless (c3 == (c2 + 3)) puts("bad c3");
+		unless (i1 == c1) puts("bad c4");
+		unless (i2 == (c2 * 2)) puts("bad c5");
+		unless (i3 == (i2 + 3)) puts("bad c6");
+	}
+}
+void class_3_9_main()
+{
+	class_3_9 o = class_3_9_new();
+	class_3_9_delete(o);
+}
+class_3_9_main();
 } -output {}
 
 test class-4.1 {check scoping of private names in classes} -body {
@@ -9508,9 +11912,9 @@ int class_4_1_global_var2 = 101;
 void class_4_1_global_func() {}
 class class_4_1_1
 {
-	int	class_4_1_global_var = 411;  // OK -- shadows the global
+	public	int class_4_1_global_var = 411;  // OK -- shadows the global
 	instance {
-		int	class_4_1_global_var2 = 811;  // also OK
+		public	int class_4_1_global_var2 = 811;  // also OK
 	}
 
 	constructor class_4_1_1_init() {}
@@ -9524,9 +11928,9 @@ class class_4_1_1
 }
 class class_4_1_2
 {
-	int	class_4_1_global_var = 412;  // OK -- shadows the global
+	public	int class_4_1_global_var = 412;  // OK -- shadows the global
 	instance {
-		int	class_4_1_global_var2 = 812;  // also OK
+		public	int class_4_1_global_var2 = 812;  // also OK
 	}
 
 	constructor class_4_1_2_init() {}
@@ -9566,8 +11970,8 @@ struct class_4_2_struct {
 };
 class class_4_2
 {
-	class_4_2_type		i;
-	struct class_4_2_struct	st;
+	public	class_4_2_type 	i;
+	public	struct class_4_2_struct st;
 
 	typedef string class_4_2_type;	// err -- already defined
 	struct class_4_2_struct {	// err -- already defined
@@ -9596,8 +12000,8 @@ class class_4_3_1
 		string	s;
 	};
 
-	class_4_3_type		s = "431";
-	struct class_4_3_struct	st = { "431" };
+	public	class_4_3_type s = "431";
+	public	struct class_4_3_struct st = { "431" };
 
 	constructor class_4_3_1_init()
 	{
@@ -9612,8 +12016,8 @@ struct class_4_3_struct	gst = { "g43" };
 
 class class_4_3_2
 {
-	class_4_3_type		s = "432";
-	struct class_4_3_struct	st = { "432" };
+	public	class_4_3_type s = "432";
+	public	struct class_4_3_struct st = { "432" };
 
 	constructor class_4_3_2_init()
 	{
@@ -9746,6 +12150,984 @@ class_5_4_main();
 .*22: L Error: parameter 2 has incompatible type
 .*22: L Error: parameter 3 has incompatible type
 .*22: L Error: assignment of incompatible types
+}
+
+test class-6.1 {check class variable access from outside class} -body {
+#lang L
+void class_6_1_str(string &s, string new)
+{
+	s = new;
+}
+void class_6_1_hash(string &h{int}, int k, string v)
+{
+	h{k} = v;
+}
+void class_6_1_arr(int &a[][], int i, int j, int v)
+{
+	a[i][j] = v;
+}
+class class_6_1
+{
+	public	string s = "cvar";
+	public	string h{int} = { 1=>"one", 2=>"two" };
+	public	string a[] = { "zero", "one", "two" };
+	public	int aa[][] = { {1,2}, {3,4} };
+}
+void class_6_1_main()
+{
+	/*
+	 * This test also checks the use of complex class variables
+	 * as well as class variables as reference parameters.
+	 */
+
+	unless (class_6_1->s eq "cvar") puts("bad 1.1");
+	unless (class_6_1->h{1} eq "one") puts("bad 1.2");
+	unless (class_6_1->h{2} eq "two") puts("bad 1.3");
+	unless (class_6_1->a[0] eq "zero") puts("bad 1.4");
+	unless (class_6_1->a[1] eq "one") puts("bad 1.5");
+	unless (class_6_1->a[2] eq "two") puts("bad 1.6");
+	unless (class_6_1->aa[0][0] == 1) puts("bad 1.10");
+	unless (class_6_1->aa[0][1] == 2) puts("bad 1.11");
+	unless (class_6_1->aa[1][0] == 3) puts("bad 1.12");
+	unless (class_6_1->aa[1][1] == 4) puts("bad 1.13");
+
+	class_6_1->s = "new";
+	unless (class_6_1->s eq "new") puts("bad 2.1");
+
+	class_6_1->h = { 3=>"three" };
+	unless (class_6_1->h{3} eq "three") puts("bad 3.1");
+	unless (length(class_6_1->h) == 1) puts("bad 3.2");
+
+	class_6_1->a = { "just-one" };
+	unless (class_6_1->a[0] eq "just-one") puts("bad 4.1");
+	unless (length(class_6_1->a) == 1) puts("bad 4.2");
+
+	class_6_1->aa = { {5} };
+	unless (class_6_1->aa[0][0] == 5) puts("bad 5.1");
+	unless (length(class_6_1->aa) == 1) puts("bad 5.2");
+	unless (length(class_6_1->aa[0]) == 1) puts("bad 5.3");
+
+	class_6_1_str(&class_6_1->s, "new-s");
+	unless (class_6_1->s eq "new-s") puts("bad 6.1");
+
+	class_6_1->h = {};
+	class_6_1_hash(&class_6_1->h, 4, "four");
+	unless (class_6_1->h{4} eq "four") puts("bad 7.1");
+	unless (length(class_6_1->h) == 1) puts("bad 7.2");
+	if (defined(class_6_1->h{5})) puts("bad 7.3");
+
+	class_6_1->aa = {};
+	class_6_1_arr(&class_6_1->aa, 0, 0, 11);
+	class_6_1_arr(&class_6_1->aa, 0, 1, 12);
+	class_6_1_arr(&class_6_1->aa, 1, 0, 13);
+	class_6_1_arr(&class_6_1->aa, 1, 1, 14);
+	unless (class_6_1->aa[0][0] == 11) puts("bad 8.1");
+	unless (class_6_1->aa[0][1] == 12) puts("bad 8.2");
+	unless (class_6_1->aa[1][0] == 13) puts("bad 8.3");
+	unless (class_6_1->aa[1][1] == 14) puts("bad 8.4");
+	unless (length(class_6_1->aa) == 2) puts("bad 8.5");
+	unless (length(class_6_1->aa[0]) == 2) puts("bad 8.6");
+	unless (length(class_6_1->aa[1]) == 2) puts("bad 8.7");
+	if (defined(class_6_1->aa[2])) puts("bad 8.8");
+}
+class_6_1_main();
+} -output {}
+
+test class-6.2 {check class variable access errors from outside class} -body {
+#lang L
+class class_6_2
+{
+	private	string s = "cvar";
+}
+void class_6_2_main()
+{
+	string	bad = class_6_2->s;  // error
+}
+} -returnCodes {error} -match regexp -result {.*7: L Error: s is not a public variable of class class_6_2
+}
+
+test class-6.3 {check class variable access from inside class} -body {
+#lang L
+class class_6_3
+{
+	public	string cpubl = "publ-cvar";
+	private	string cpriv = "priv-cvar";
+	constructor class_6_3_new()
+	{
+		unless (cpubl eq "publ-cvar") puts("bad c1");
+		unless (cpriv eq "priv-cvar") puts("bad c2");
+		unless (class_6_3->cpubl eq "publ-cvar") puts("bad c3");
+		unless (class_6_3->cpriv eq "priv-cvar") puts("bad c4");
+	}
+	public void class_6_3_foo(class_6_3 self)
+	{
+		unless (cpubl eq "publ-cvar") puts("bad foo.1");
+		unless (cpriv eq "priv-cvar") puts("bad foo.2");
+		unless (class_6_3->cpubl eq "publ-cvar") puts("bad foo.3");
+		unless (class_6_3->cpriv eq "priv-cvar") puts("bad foo.4");
+	}
+	destructor class_6_3_delete(class_6_3 self)
+	{
+		unless (cpubl eq "publ-cvar") puts("bad d1");
+		unless (cpriv eq "priv-cvar") puts("bad d2");
+		unless (class_6_3->cpubl eq "publ-cvar") puts("bad d3");
+		unless (class_6_3->cpriv eq "priv-cvar") puts("bad d4");
+	}
+}
+void class_6_3_main()
+{
+	class_6_3 o = class_6_3_new();
+	class_6_3_foo(o);
+	class_6_3_delete(o);
+}
+class_6_3_main();
+} -output {}
+
+test class-6.4 {check erroneous class instance var access via class name} -body {
+#lang L
+class class_6_4
+{
+	instance {
+		public	string ipubl;
+		private	string ipriv;
+	}
+	constructor class_6_4_new()
+	{
+		string	s;
+		s = class_6_4->ipubl;  // err
+		s = class_6_4->ipriv;  // err
+	}
+}
+void class_6_4_main()
+{
+	string	s;
+	class_6_4 o = class_6_4_new();
+
+	s = class_6_4->ipubl;  // err
+	s = class_6_4->ipriv;  // err
+
+	class_6_4_delete(o);
+}
+class_6_4_main();
+} -returnCodes {error} -match regexp -result {.*10: L Error: ipubl is not a class variable of class class_6_4
+.*11: L Error: ipriv is not a class variable of class class_6_4
+.*19: L Error: ipubl is not a class variable of class class_6_4
+.*20: L Error: ipriv is not a class variable of class class_6_4
+}
+
+test class-6.5 {check class instance var access from outside class} -body {
+#lang L
+class class_6_5
+{
+	instance {
+		public	string	ivar1;
+		public	string	ivar2;
+	}
+	constructor class_6_5_new(string s1, string s2)
+	{
+		ivar1 = s1;
+		ivar2 = s2;
+	}
+}
+void class_6_5_main()
+{
+	class_6_5 o1 = class_6_5_new("a", "b");
+	class_6_5 o2 = class_6_5_new("c", "d");
+	class_6_5 o3 = class_6_5_new("e", "f");
+
+	unless (o1->ivar1 eq "a") puts("bad 1");
+	unless (o1->ivar2 eq "b") puts("bad 2");
+	unless (o2->ivar1 eq "c") puts("bad 3");
+	unless (o2->ivar2 eq "d") puts("bad 4");
+	unless (o3->ivar1 eq "e") puts("bad 5");
+	unless (o3->ivar2 eq "f") puts("bad 6");
+
+	class_6_5_delete(o1);
+	class_6_5_delete(o2);
+	class_6_5_delete(o3);
+}
+class_6_5_main();
+} -output {}
+
+test class-6.6 {check class instance var access errs from outside class} -body {
+#lang L
+class class_6_6
+{
+	instance {
+		private	string	ivar1;
+		public	string	ivar2;
+	}
+}
+void class_6_6_main()
+{
+	string	s;
+	class_6_6 o = class_6_6_new();
+
+	s = o->ivar1;  // err
+}
+} -returnCodes {error} -match regexp -result {.*13: L Error: ivar1 is not a public variable of class class_6_6
+}
+
+test class-6.7 {check class instance var access from inside class} -body {
+#lang L
+class class_6_7
+{
+	instance {
+		public	string	ivar1;
+		public	string	ivar2;
+	}
+	constructor class_6_7_new(string s1, string s2)
+	{
+		ivar1 = s1;
+		ivar2 = s2;
+	}
+	public void class_6_7_chk(class_6_7 self, string s1, string s2)
+	{
+		unless (ivar1 eq s1) puts("bad chk.1");
+		unless (ivar2 eq s2) puts("bad chk.2");
+		unless (self->ivar1 eq s1) puts("bad chk.3");
+		unless (self->ivar2 eq s2) puts("bad chk.4");
+	}
+	private void chkother(class_6_7 other, string s1, string s2)
+	{
+		unless (other->ivar1 eq s1) puts("bad priv.chkother.1");
+		unless (other->ivar2 eq s2) puts("bad priv.chkother.2");
+	}
+	public void class_6_7_chkother(class_6_7 self, class_6_7 other,
+				       string s1, string s2)
+	{
+		unless (other->ivar1 eq s1) puts("bad chkother.1");
+		unless (other->ivar2 eq s2) puts("bad chkother.2");
+		chkother(other, s1, s2);
+	}
+}
+void class_6_7_main()
+{
+	class_6_7 o1 = class_6_7_new("a", "b");
+	class_6_7 o2 = class_6_7_new("c", "d");
+	class_6_7 o3 = class_6_7_new("e", "f");
+
+	class_6_7_chk(o1, "a", "b");
+	class_6_7_chk(o2, "c", "d");
+	class_6_7_chk(o3, "e", "f");
+
+	class_6_7_chkother(o2, o1, "a", "b");
+	class_6_7_chkother(o1, o2, "c", "d");
+	class_6_7_chkother(o1, o3, "e", "f");
+
+	class_6_7_delete(o1);
+	class_6_7_delete(o2);
+	class_6_7_delete(o3);
+}
+class_6_7_main();
+} -output {}
+
+test class-6.8 {check class variable access errors} -body {
+#lang L
+class class_6_8
+{
+	public	string cpubl;
+	private	string cpriv;
+}
+void class_6_8_main()
+{
+	string	s;
+	class_6_8 o = class_6_8_new();
+
+	s = o->cpubl;  // err
+	s = o->cpriv;  // err
+}
+} -returnCodes {error} -match regexp -result {.*11: L Error: cpubl is not an instance variable of class class_6_8
+.*12: L Error: cpriv is not an instance variable of class class_6_8
+}
+
+test class-7.1 {check object erroneously declared with same name as class} -body {
+#lang L
+class class_7_1 {}
+void class_7_1_main()
+{
+	class_7_1 class_7_1;  // err
+}
+} -returnCodes {error} -match regexp -result {.*4: L Error: cannot declare object with same name as class
+}
+
+test class-8.1 {check class variables as l-values} -body {
+#lang L
+class class_8_1
+{
+	public	string	s;
+	public	int	i;
+
+	public void class_8_1_chk(class_8_1 self)
+	{
+		class_8_1->s = "abcd";
+		unless (class_8_1->s eq "abcd") puts("bad c1.1");
+
+		class_8_1->s[0] = "xyz";
+		unless (class_8_1->s eq "xyzbcd") puts("bad c1.2");
+
+		class_8_1->s[END+1] = "pdq";
+		unless (class_8_1->s eq "xyzbcdpdq") puts("bad c1.3");
+
+		unless (class_8_1->s =~ /bcd/) puts("bad c1.4");
+
+		class_8_1->s =~ s/bcd/dcb/;
+		unless (class_8_1->s eq "xyzdcbpdq") puts("bad c1.5");
+
+		class_8_1->s[0] =~ s/x/0/;
+		unless (class_8_1->s eq "0yzdcbpdq") puts("bad c1.6");
+
+		class_8_1->i = 2;
+		unless (class_8_1->i == 2) puts("bad c2.1");
+
+		class_8_1->i += 2;
+		unless (class_8_1->i == 4) puts("bad c2.2");
+
+		class_8_1->i += class_8_1->i;
+		unless (class_8_1->i == 8) puts("bad c2.3");
+	}
+}
+void class_8_1_main()
+{
+	class_8_1 o = class_8_1_new();
+
+	class_8_1_chk(o);
+
+	class_8_1->s = "abcd";
+	unless (class_8_1->s eq "abcd") puts("bad 1.1");
+
+	class_8_1->s[0] = "xyz";
+	unless (class_8_1->s eq "xyzbcd") puts("bad 1.2");
+
+	class_8_1->s[END+1] = "pdq";
+	unless (class_8_1->s eq "xyzbcdpdq") puts("bad 1.3");
+
+	unless (class_8_1->s =~ /bcd/) puts("bad 1.4");
+
+	class_8_1->s =~ s/bcd/dcb/;
+	unless (class_8_1->s eq "xyzdcbpdq") puts("bad 1.5");
+
+	class_8_1->s[0] =~ s/x/0/;
+	unless (class_8_1->s eq "0yzdcbpdq") puts("bad 1.6");
+
+	class_8_1->i = 2;
+	unless (class_8_1->i == 2) puts("bad 2.1");
+
+	class_8_1->i += 2;
+	unless (class_8_1->i == 4) puts("bad 2.2");
+
+	class_8_1->i += class_8_1->i;
+	unless (class_8_1->i == 8) puts("bad 2.3");
+
+	class_8_1_chk(o);
+}
+class_8_1_main();
+} -output {}
+
+test class-8.1.5 {check class and class instance variables used in nested scopes} -body {
+#lang L
+class class_8_1_5
+{
+	private	int n = 0;
+	public	int cnum = -1;
+	instance { public int num = n++; }
+	constructor class_8_1_5_new() { ++cnum; }
+}
+void class_8_1_5_main()
+{
+	/*
+	 * This test checks that the compiler-generated temps used for
+	 * accessing class and instance variables are allocated
+	 * properly in the presence of nested scopes.  There was a
+	 * prior compiler bug where duplicate temps could be created.
+	 */
+
+	int	i, j;
+	int	n = 10;
+	class_8_1_5 o1, o2, o3, o4, o[];
+
+	o1 = class_8_1_5_new();
+	unless ((o1->num == 0) && (class_8_1_5->cnum == 0)) puts("bad 1");
+	o2 = class_8_1_5_new();
+	unless ((o2->num == 1) && (class_8_1_5->cnum == 1)) puts("bad 2");
+
+	for (i = 0; i < n; ++i) {
+		o[i] = class_8_1_5_new();
+		unless (o[i]->num == (i+2)) puts("bad 3.1");
+		unless (class_8_1_5->cnum == (i+2)) puts("bad 3.2");
+		for (j = 0; j < i; ++j) {
+			unless (o[j]->num == (j+2)) puts("bad 4.1");
+		}
+	}
+	for (i = 0; i < n; ++i) {
+		unless (o[i]->num == (i+2)) puts("bad 5.1");
+	}
+	o3 = class_8_1_5_new();
+	unless (o3->num == (n+2)) puts("bad 6.1");
+	unless (class_8_1_5->cnum == (n+2)) puts("bad 6.2");
+	o4 = class_8_1_5_new();
+	unless (o4->num == (n+3)) puts("bad 7.1");
+	unless (class_8_1_5->cnum == (n+3)) puts("bad 7.2");
+}
+class_8_1_5_main();
+} -output {}
+
+test class-8.2 {check class instance variables as l-values} -body {
+#lang L
+class class_8_2
+{
+	instance {
+		public	string	s;
+		public	int	i;
+	}
+	constructor class_8_2_new()
+	{
+		self->s = "abcd";
+		unless (self->s eq "abcd") puts("bad 1.1");
+
+		self->s[0] = "xyz";
+		unless (self->s eq "xyzbcd") puts("bad 1.2");
+
+		self->s[END+1] = "pdq";
+		unless (self->s eq "xyzbcdpdq") puts("bad 1.3");
+
+		unless (self->s =~ /bcd/) puts("bad 1.4");
+
+		self->s =~ s/bcd/dcb/;
+		unless (self->s eq "xyzdcbpdq") puts("bad 1.5");
+
+		self->s[0] =~ s/x/0/;
+		unless (self->s eq "0yzdcbpdq") puts("bad 1.6");
+
+		self->i = 2;
+		unless (self->i == 2) puts("bad 2.1");
+
+		self->i += 2;
+		unless (self->i == 4) puts("bad 2.2");
+
+		self->i += self->i;
+		unless (self->i == 8) puts("bad 2.3");
+	}
+	public void class_8_2_chk(class_8_2 self, class_8_2 other)
+	{
+		other->s = "abcd";
+		unless (other->s eq "abcd") puts("bad 1.1");
+
+		other->s[0] = "xyz";
+		unless (other->s eq "xyzbcd") puts("bad 1.2");
+
+		other->s[END+1] = "pdq";
+		unless (other->s eq "xyzbcdpdq") puts("bad 1.3");
+
+		unless (other->s =~ /bcd/) puts("bad 1.4");
+
+		other->s =~ s/bcd/dcb/;
+		unless (other->s eq "xyzdcbpdq") puts("bad 1.5");
+
+		other->s[0] =~ s/x/0/;
+		unless (other->s eq "0yzdcbpdq") puts("bad 1.6");
+
+		other->i = 2;
+		unless (other->i == 2) puts("bad 2.1");
+
+		other->i += 2;
+		unless (other->i == 4) puts("bad 2.2");
+
+		other->i += other->i;
+		unless (other->i == 8) puts("bad 2.3");
+	}
+}
+void class_8_2_main()
+{
+	class_8_2 o = class_8_2_new();
+
+	class_8_2_chk(o, o);
+
+	o->s = "abcd";
+	unless (o->s eq "abcd") puts("bad 1.1");
+
+	o->s[0] = "xyz";
+	unless (o->s eq "xyzbcd") puts("bad 1.2");
+
+	o->s[END+1] = "pdq";
+	unless (o->s eq "xyzbcdpdq") puts("bad 1.3");
+
+	unless (o->s =~ /bcd/) puts("bad 1.4");
+
+	o->s =~ s/bcd/dcb/;
+	unless (o->s eq "xyzdcbpdq") puts("bad 1.5");
+
+	o->s[0] =~ s/x/0/;
+	unless (o->s eq "0yzdcbpdq") puts("bad 1.6");
+
+	o->i = 2;
+	unless (o->i == 2) puts("bad 2.1");
+
+	o->i += 2;
+	unless (o->i == 4) puts("bad 2.2");
+
+	o->i += o->i;
+	unless (o->i == 8) puts("bad 2.3");
+}
+class_8_2_main();
+} -output {}
+
+test class-8.3 {check class instance variables as reference parameters} -body {
+#lang L
+void class_8_3_str(string &s, string new)
+{
+	s = new;
+}
+void class_8_3_hash(string &h{int}, int k, string v)
+{
+	h{k} = v;
+}
+void class_8_3_arr(int &a[][], int i, int j, int v)
+{
+	a[i][j] = v;
+}
+class class_8_3
+{
+	instance {
+		public	string s = "cvar";
+		public	string h{int} = { 1=>"one", 2=>"two" };
+		public	string a[] = { "zero", "one", "two" };
+		public	int aa[][] = { {1,2}, {3,4} };
+	}
+}
+void class_8_3_main()
+{
+	/*
+	 * Note that test class-6.1 checked class variables as
+	 * reference parameters.  This test is basically that test but
+	 * it checks instance variables instead.
+	 */
+
+	class_8_3 o = class_8_3_new();
+
+	unless (o->s eq "cvar") puts("bad 1.1");
+	unless (o->h{1} eq "one") puts("bad 1.2");
+	unless (o->h{2} eq "two") puts("bad 1.3");
+	unless (o->a[0] eq "zero") puts("bad 1.4");
+	unless (o->a[1] eq "one") puts("bad 1.5");
+	unless (o->a[2] eq "two") puts("bad 1.6");
+	unless (o->aa[0][0] == 1) puts("bad 1.10");
+	unless (o->aa[0][1] == 2) puts("bad 1.11");
+	unless (o->aa[1][0] == 3) puts("bad 1.12");
+	unless (o->aa[1][1] == 4) puts("bad 1.13");
+
+	o->s = "new";
+	unless (o->s eq "new") puts("bad 2.1");
+
+	o->h = { 3=>"three" };
+	unless (o->h{3} eq "three") puts("bad 3.1");
+	unless (length(o->h) == 1) puts("bad 3.2");
+
+	o->a = { "just-one" };
+	unless (o->a[0] eq "just-one") puts("bad 4.1");
+	unless (length(o->a) == 1) puts("bad 4.2");
+
+	o->aa = { {5} };
+	unless (o->aa[0][0] == 5) puts("bad 5.1");
+	unless (length(o->aa) == 1) puts("bad 5.2");
+	unless (length(o->aa[0]) == 1) puts("bad 5.3");
+
+	class_8_3_str(&o->s, "new-s");
+	unless (o->s eq "new-s") puts("bad 6.1");
+
+	o->h = {};
+	class_8_3_hash(&o->h, 4, "four");
+	unless (o->h{4} eq "four") puts("bad 7.1");
+	unless (length(o->h) == 1) puts("bad 7.2");
+	if (defined(o->h{5})) puts("bad 7.3");
+
+	o->aa = {};
+	class_8_3_arr(&o->aa, 0, 0, 11);
+	class_8_3_arr(&o->aa, 0, 1, 12);
+	class_8_3_arr(&o->aa, 1, 0, 13);
+	class_8_3_arr(&o->aa, 1, 1, 14);
+	unless (o->aa[0][0] == 11) puts("bad 8.1");
+	unless (o->aa[0][1] == 12) puts("bad 8.2");
+	unless (o->aa[1][0] == 13) puts("bad 8.3");
+	unless (o->aa[1][1] == 14) puts("bad 8.4");
+	unless (length(o->aa) == 2) puts("bad 8.5");
+	unless (length(o->aa[0]) == 2) puts("bad 8.6");
+	unless (length(o->aa[1]) == 2) puts("bad 8.7");
+	if (defined(o->aa[2])) puts("bad 8.8");
+}
+class_8_3_main();
+} -output {}
+
+test class-8.4 {check objects in complex variables} -body {
+#lang L
+class class_8_4_1
+{
+	instance {
+		public	class_8_4_1 o;
+		public	string s;
+	}
+}
+class class_8_4_2
+{
+	instance {
+		public	class_8_4_1 o;
+		public	string s;
+	}
+}
+void class_8_4_foo(class_8_4_1 &o, string s)
+{
+	o->s = s;
+}
+void class_8_4_str(string &s1, string s2)
+{
+	s1 = s2;
+}
+void class_8_4_main()
+{
+	class_8_4_1 a[] = { class_8_4_1_new(), class_8_4_1_new() };
+	class_8_4_1 o841 = class_8_4_1_new();
+	class_8_4_2 o842 = class_8_4_2_new();
+
+	o841->s = "841";
+	o842->s = "842";
+	unless ((o841->s eq "841") && (o842->s eq "842")) puts("bad 1.1");
+
+	o841->o = class_8_4_1_new();
+	o841->o->s = "841 in 841";
+	unless (o841->o->s eq "841 in 841") puts("bad 2.1");
+
+	o842->o = class_8_4_1_new();
+	o842->o->s = "841 in 842";
+	unless (o842->o->s eq "841 in 842") puts("bad 3.1");
+
+	o842->o->o = class_8_4_1_new();
+	o842->o->o->s = "841 in 841 in 842";
+	unless (o842->o->o->s eq "841 in 841 in 842") puts("bad 4.1");
+
+	class_8_4_foo(&o842->o->o, "new");
+	unless (o842->o->o->s eq "new") puts("bad 5.1");
+
+	class_8_4_1_delete(o841->o);
+	class_8_4_1_delete(o841);
+	class_8_4_1_delete(o842->o->o);
+	class_8_4_1_delete(o842->o);
+	class_8_4_2_delete(o842);
+
+	unless (length(a) == 2) puts("bad 10.0");
+	a[0]->s = "0-841";
+	a[1]->s = "1-841";
+	unless (a[0]->s eq "0-841") puts("bad 10.1");
+	unless (a[1]->s eq "1-841") puts("bad 10.2");
+	a[0]->o = class_8_4_1_new();
+	a[0]->o->s = "0-841 in 841";
+	unless (a[0]->o->s eq "0-841 in 841") puts("bad 10.3");
+	class_8_4_foo(&a[0]->o, "new");
+	unless (a[0]->o->s eq "new") puts("bad 10.4");
+	class_8_4_str(&a[0]->o->s, "new2");
+	unless (a[0]->o->s eq "new2") puts("bad 10.5");
+}
+class_8_4_main();
+} -output {}
+
+test class-8.5 {check objects as reference parameters} -body {
+#lang L
+class class_8_5
+{
+	private int n = 0;
+	instance { public int num = n++; }
+}
+void class_8_5_create_1(class_8_5 &o)
+{
+	o = class_8_5_new();
+}
+void class_8_5_create_n(class_8_5 &o[], int n)
+{
+	int	i;
+
+	for (i = 0; i < n; ++i) o[i] = class_8_5_new();
+}
+void class_8_5_check_n(class_8_5 o[], class_8_5 &oref[], int n)
+{
+	int	i;
+
+	for (i = 0; i < n; ++i) {
+		unless (o[i]->num    == (i+2)) puts("bad chk.1");
+		unless (oref[i]->num == (i+2)) puts("bad chk.2");
+	}
+}
+void class_8_5_main()
+{
+	int	i;
+	int	n = 10;
+	class_8_5 o1, o2;
+	class_8_5 o[];
+
+	class_8_5_create_1(&o1);
+	class_8_5_create_1(&o2);
+	unless (o1->num == 0) puts("bad 1");
+	unless (o2->num == 1) puts("bad 2");
+	class_8_5_delete(o1);
+	class_8_5_delete(o2);
+
+	class_8_5_create_n(&o, n);
+	class_8_5_check_n( o, &o, n);
+}
+class_8_5_main();
+} -output {}
+
+test class-9.1 {check class and instance variables in comma expression} -body {
+#lang L
+class class_9_1
+{
+	public	string cvar = "cvar";
+	instance {
+		public	string ivar = "ivar";
+	}
+}
+void class_9_1_main()
+{
+	/*
+	 * This checks an obscure case to ensure that a class or
+	 * instance variable whose value is discarded -- the first
+	 * expression in a comma expression -- is compiled properly.
+	 * These are run in a loop as a way to check that the
+	 * run-time stack remains balanced.
+	 */
+
+	int	i;
+	int	n = 100;
+	class_9_1 o = class_9_1_new();
+
+	for (i = 0; i < n; ++i) {
+		unless (class_9_1->cvar,"val" eq "val") puts("bad 1.1");
+		unless (o->ivar,"val" eq "val") puts("bad 1.2");
+	}
+}
+class_9_1_main();
+} -output {}
+
+test goto-1 {check goto statement} -body {
+#lang L
+/*
+ * Test gotos at global scope.  None of these labels should clash with
+ * those in goto_1a() or goto_1b() below.
+ */
+	goto L1;
+	puts("bad");
+ L1:	puts("L1");
+	goto L2;
+
+/* Now test at proc scope. */
+void goto_1a()
+{
+	int	i;
+	string	k, v;
+
+	/* Use before define. */
+	goto L1;
+	puts("bad 1");
+ L1:	puts("L1");
+
+	/* Use after define. */
+	i = 0;
+ L2:	if (++i == 2) goto L3;
+	puts("L2");
+	goto L2;
+ L3:	puts("L3");
+
+	/* Multiple uses before define. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L4;
+		if (i == 1) goto L4;
+		if (i == 2) goto L4;
+		if (i == 3) goto L4;
+		continue;
+	L4:	puts("L4");
+	}
+
+	/* Multiple uses after define. */
+	for (i = 0; i < 4; ++i) {
+		goto L6;
+		puts("bad");
+	L5:	puts("L5");
+		continue;
+	L6:	if (i == 0) goto L5;
+		if (i == 1) goto L5;
+		if (i == 2) goto L5;
+		if (i == 3) goto L5;
+	}
+
+	/* Multiple labels per statement. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L7;
+		if (i == 1) goto L8;
+		if (i == 2) goto L9;
+		if (i == 3) goto L10;
+		continue;
+	L7:
+	L8:
+	L9:
+	L10:
+		puts("L7-10");
+	}
+
+	/* Label without statement. */
+	do {
+		goto L11;
+		puts("bad");
+	L11:
+	} while(0);
+
+	/* Multiple labels without statement. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L12;
+		if (i == 1) goto L13;
+		if (i == 2) goto L14;
+		puts("i == 3");
+	L12:
+	L13:
+	L14:
+	} while(0);
+
+	/*
+	 * Label on a single statement (bizarre perhaps, but allowed
+	 * by the grammar).
+	 */
+
+	goto L15;
+	puts("bad");
+	while (0) L15: puts("L15");
+
+	goto L16;
+	puts("bad");
+	do L16: puts("L16"); while(0);
+
+	goto L17;
+	puts("bad");
+	for (; 0; ) L17: puts("L17");
+
+	goto L18;
+	puts("bad");
+	for (; 0; 0) L18: puts("L18");
+
+	/* Labels in nested scopes. */
+
+	i = 0;
+	goto L19;
+	puts("bad");
+	do {
+		puts("bad");
+	L19:	puts("L19");
+	} while (0);
+	if (i++ == 0) goto L19;
+
+	i = 0;
+	goto L20;
+	puts("bad");
+	do {
+		puts("bad");
+		do {
+			puts("bad");
+		L20:	puts("L20");
+		}
+		while (0);
+	} while (0);
+	if (i++ == 0) goto L20;
+
+	do {
+		goto L21;  // jump out of the scope
+		puts("bad");
+	} while (0);
+ L21:	puts("L21");
+}
+void goto_1b()
+{
+	/*
+	 * Goto labels should be per proc scope, so none of these labels
+	 * should clash with those in goto_1a().
+	 */
+
+	goto L1;
+	puts("bad");
+ L1:	puts("L1");
+}
+L2:
+goto_1a();
+goto_1b();
+} -output {L1
+L1
+L2
+L3
+L4
+L4
+L4
+L4
+L5
+L5
+L5
+L5
+L7-10
+L7-10
+L7-10
+L7-10
+i == 3
+L15
+L16
+L17
+L18
+L19
+L19
+L20
+L20
+L21
+L1
+}
+
+test goto-2 {check gotos with labels in enclosing scopes} -body {
+#lang L
+goto L1;
+L2: puts("global L2");
+return;
+void goto_2()
+{
+	goto L2;  // should go to goto_2()'s L2, NOT the L2 at global scope
+	puts("bad");
+ L2:	puts("L2");
+}
+L1:
+goto_2();
+goto L2;  // should go to the L2 at global scope, NOT goto_2()'s L2
+} -output {L2
+global L2
+}
+
+test goto-3 {check goto statement errors} -body {
+#lang L
+void goto_3()
+{
+	goto L1;
+ L1:
+ L1:
+ L2:
+ L2:
+ L2:
+
+ L3:
+	do {
+	L3:
+	} while (0);
+
+	goto L4;
+	goto L6;  // error even though an L6 is defined at global scope
+}
+goto L5;
+L6:
+} -returnCodes error -match regexp -result {.*: L Error: label L1 already defined
+.*: L Error: label L2 already defined
+.*: L Error: label L3 already defined
+.*: L Error: label L4 referenced but not defined
+.*: L Error: label L6 referenced but not defined
+.*: L Error: label L5 referenced but not defined
 }
 
 ::tcltest::cleanupTests

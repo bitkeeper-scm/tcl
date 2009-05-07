@@ -15,7 +15,7 @@
 #define FALSE 0
 #endif
 
-/* L options, stored in the options field of the Frame. */
+/* L command-line options. */
 typedef enum {
 	L_OPT_POLY	= 0x0001,
 	L_OPT_NOWARN	= 0x0002,
@@ -32,30 +32,47 @@ struct Jmp {
 
 /* Semantic stack frame. */
 typedef enum {
-	OUTER		= 0x01,  // is outer-most
-	TOPLEV		= 0x02,  // is for file top-levels
-	CLS_OUTER	= 0x04,	 // is class outer-most
-	CLS_TOPLEV	= 0x08,  // is for class top-levels
-	SKIP		= 0x10,  // skip frame when searching enclosing scopes
-	SEARCH		= 0x20,  //   don't skip this frame
+	OUTER		= 0x0001,  // is outer-most
+	SCRIPT		= 0x0002,  // is file scope
+	TOPLEV		= 0x0004,  // is for file top-levels
+	CLS_OUTER	= 0x0008,  // is class outer-most
+	CLS_TOPLEV	= 0x0010,  // is for class top-levels
+	PROC		= 0x0020,  // frame is at top level of a proc
+	LOOP		= 0x0040,  // frame is for a loop
+	SKIP		= 0x0080,  // skip frame when searching enclosing scopes
+	SEARCH		= 0x0100,  //   don't skip this frame
+	KEEPSYMS	= 0x0200,  // don't free symtab when scope is closed
 } Frame_f;
+typedef enum {
+	LABEL_USE	= 0x01,    // label is being referenced
+	LABEL_DEF	= 0x02,    // label is being defined
+} Label_f;
+typedef struct Label {
+	char	*name;
+	int	offset;
+	Jmp	*fixups;
+} Label;
 typedef struct Frame {
-	Tcl_Interp	*interp;
 	CompileEnv	*envPtr;
+	CompileEnv	*bodyEnvPtr;
+	CompileEnv	*prologueEnvPtr;
+	Proc		*proc;
+	char		*name;
 	Tcl_HashTable	*symtab;
-
+	Tcl_HashTable	*labeltab;
+	Frame_f		flags;
 	// When a compile frame corresponds to a block in the code, we
 	// store the AST node of the block here.
 	Ast		*block;
-
 	// We collect jump fix-ups for all of the jumps emitted for break and
 	// continue statements, so that we can stuff in the correct jump targets
 	// once we're done compiling the loops.
 	Jmp		*continue_jumps;
 	Jmp		*break_jumps;
-
-	Frame_f		flags;
-	Lopt_f		options;
+	// Jump fix-up for the jump to the prologue code at the end of a proc,
+	// and the bytecode offset for the jump back.
+	Jmp		*end_jmp;
+	int		proc_top;
 	struct Frame	*prevFrame;
 } Frame;
 
@@ -83,14 +100,18 @@ typedef struct {
 	char	*file;
 	int	line;
 	int	prev_token_len;
-	int	token_offset;	// offset of curr token from start of input
-	char	*script;	// src of script being compiled
+	int	token_off;	// offset of curr token from start of input
+	int	prev_token_off;	// offset of prev token from start of input
+	Tcl_Obj	*script;	// src of script being compiled
 	int	script_len;
+	Lopt_f	options;	// command-line options
 	FnDecl	*enclosing_func;
 	Ast	*mains_ast;	// root of AST when main() last seen
 	Tcl_HashTable	*include_table;
 	Tcl_Interp	*interp;
 	int	idx_nesting;	// current depth of nested []'s
+	int	tmpnum;		// for creating tmp variables
+	char	*toplev;	// name of toplevel proc
 } Lglobal;
 
 /*
@@ -117,24 +138,6 @@ struct Sym {
 	VarDecl	*decl;
 };
 
-/*
- * Flags for L expression compilation.  Bits are used for simplicity
- * even though some of these are mutually exclusive.
- */
-typedef enum {
-	L_IDX_ARRAY   = 0x0001,	// what kind of thing we're indexing
-	L_IDX_HASH    = 0x0002,
-	L_IDX_STRING  = 0x0004,
-	L_LVALUE      = 0x0010, // if we will be writing the obj
-	L_PUSH_VAL    = 0x0020,	// what we want INST_L_INDEX to leave on
-	L_PUSH_PTR    = 0x0040,	//   the stack
-	L_PUSH_VALPTR = 0x0080,
-	L_PUSH_PTRVAL = 0x0100,
-	L_DISCARD     = 0x0200,	// have compile_expr discard the val, not push
-	L_PUSH_NEW    = 0x0400,	// whether INST_L_DEEP_WRITE should push the
-	L_PUSH_OLD    = 0x0800,	//   new or old value
-} L_Expr_f;
-
 extern char	*cksprintf(const char *fmt, ...);
 extern char	*ckstrdup(const char *str);
 extern char	*ckstrndup(const char *str, int len);
@@ -142,6 +145,7 @@ extern char	*ckvsprintf(const char *fmt, va_list ap, int len);
 extern void	L_bomb(const char *format, ...);
 extern void	L_err(const char *s, ...);	// yyerror
 extern void	L_errf(void *node, const char *format, ...);
+extern int	L_isUndef(Tcl_Obj *o);
 extern void	L_lex_begReArg();
 extern void	L_lex_endReArg();
 extern void	L_lex_start(void);
@@ -219,14 +223,6 @@ ispoly(Expr *expr)
 	return (expr->type && (expr->type->kind == L_POLY));
 }
 static inline int
-isindexop(Expr *expr)
-{
-	return ((expr->kind == L_EXPR_BINOP) &&
-		((expr->op == L_OP_ARRAY_INDEX) ||
-		 (expr->op == L_OP_HASH_INDEX)  ||
-		 (expr->op == L_OP_STRUCT_INDEX)));
-}
-static inline int
 isscalar(Expr *expr)
 {
 	return (expr->type && (expr->type->kind & (L_INT |
@@ -240,14 +236,24 @@ islist(Expr *expr)
 	return (expr->type && (expr->type->kind == L_LIST));
 }
 static inline int
-isnameof(Expr *expr)
-{
-	return (expr->type && (expr->type->kind == L_NAMEOF));
-}
-static inline int
 isclass(Expr *expr)
 {
 	return (expr->type && (expr->type->kind == L_CLASS));
+}
+static inline int
+ispolytype(Type *type)
+{
+	return (type->kind == L_POLY);
+}
+static inline int
+islisttype(Type *type)
+{
+	return (type->kind == L_LIST);
+}
+static inline int
+ishashtype(Type *type)
+{
+	return (type->kind == L_HASH);
 }
 static inline int
 isfntype(Type *type)
@@ -258,6 +264,63 @@ static inline int
 isvoidtype(Type *type)
 {
 	return (type->kind == L_VOID);
+}
+static inline int
+isnameoftype(Type *type)
+{
+	return (type->kind == L_NAMEOF);
+}
+static inline int
+isaddrof(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_UNOP) && (expr->op == L_OP_ADDROF));
+}
+static inline int
+isexpand(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_UNOP) && ((expr->op == L_OP_EXPAND) ||
+						(expr->op == L_OP_EXPAND_ALL)));
+}
+static inline int
+iskv(Expr *expr)
+{
+	return ((expr->kind == L_EXPR_BINOP) && (expr->op == L_OP_KV));
+}
+static inline int
+isid(Expr *expr, char *s)
+{
+	return ((expr->kind == L_EXPR_ID) && !strcmp(expr->u.string, s));
+}
+/*
+ * This checks whether the Expr node is a deep-dive operation that has
+ * left a deep-ptr on the run-time stack.
+ */
+static inline int
+isdeepdive(Expr *expr)
+{
+	return (expr->flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
+}
+static inline int
+isClsConstructor(VarDecl *decl)
+{
+	return (decl->flags & DECL_CLASS_CONST);
+}
+static inline int
+isClsDestructor(VarDecl *decl)
+{
+	return (decl->flags & DECL_CLASS_DESTR);
+}
+static inline int
+isClsFnPublic(VarDecl *decl)
+{
+	return ((decl->flags & (DECL_CLASS_FN | DECL_PUBLIC)) ==
+		(DECL_CLASS_FN | DECL_PUBLIC));
+}
+static inline int
+isClsFnPrivate(VarDecl *decl)
+{
+	return ((decl->flags & (DECL_CLASS_FN | DECL_PRIVATE)) ==
+		(DECL_CLASS_FN | DECL_PRIVATE));
 }
 static inline void
 emit_load_scalar(int idx)
@@ -300,23 +363,22 @@ push_str(const char *str, ...)
 		len *= 2;
 	}
 	va_end(ap);
-	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, buf, strlen(buf)),
+	/*
+	 * Subtle: register the literal in the body CompileEnv since
+	 * all the code ends up there anyway.  If we put it in the
+	 * prologue CompileEnv, we'd have to fix-up all the literal
+	 * numbers when we splice the prologue into the body.
+	 */
+	TclEmitPush(TclRegisterNewLiteral(L->frame->bodyEnvPtr, buf, strlen(buf)),
 		    L->frame->envPtr);
 	ckfree(buf);
 }
 static inline void
 push_cstr(const char *str, int len)
 {
-	TclEmitPush(TclRegisterNewLiteral(L->frame->envPtr, str, len),
+	/* See comment above about registering in the body CompileEnv. */
+	TclEmitPush(TclRegisterNewLiteral(L->frame->bodyEnvPtr, str, len),
 		    L->frame->envPtr);
-}
-static inline void
-push_obj(Tcl_Obj *objPtr)
-{
-	Tcl_IncrRefCount(objPtr);
-	TclEmitPush(TclAddLiteralObj(L->frame->envPtr, objPtr, NULL),
-		    L->frame->envPtr);
-	Tcl_DecrRefCount(objPtr);
 }
 static inline void
 emit_invoke(int size)
@@ -328,17 +390,14 @@ emit_invoke(int size)
 	}
 }
 static inline void
+emit_invoke_expanded()
+{
+	TclEmitOpcode(INST_INVOKE_EXPANDED, L->frame->envPtr);
+}
+static inline void
 emit_pop()
 {
 	TclEmitOpcode(INST_POP, L->frame->envPtr);
-}
-static inline int
-mk_singleTemp(char **p)
-{
-	static char *nm = "%% L: single tempvar for non-conflicting usage";
-	*p = nm;
-	return (TclFindCompiledLocal(nm, strlen(nm), 1,
-				     L->frame->envPtr));
 }
 static inline int
 currOffset(CompileEnv *envPtr)

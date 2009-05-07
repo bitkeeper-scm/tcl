@@ -2735,6 +2735,8 @@ MODULE_SCOPE Tcl_Obj *	TclLindexFlat(Tcl_Interp *interp, Tcl_Obj *listPtr,
 MODULE_SCOPE void	TclListLines(const char *listStr, int line, int n,
 			    int *lines);
 MODULE_SCOPE Tcl_Obj *	TclListObjCopy(Tcl_Interp *interp, Tcl_Obj *listPtr);
+MODULE_SCOPE void	TclListWalk(Tcl_Obj *objPtr, void (*fn)(Tcl_Obj *, void *),
+				    void *arg);
 MODULE_SCOPE int	TclLoadFile(Tcl_Interp *interp, Tcl_Obj *pathPtr,
 			    int symc, const char *symbols[],
 			    Tcl_PackageInitProc **procPtrs[],
@@ -3586,7 +3588,8 @@ typedef const char* TclDTraceStr;
  */
 
 #  define TclAllocObjStorageEx(interp, objPtr) \
-	(objPtr) = (Tcl_Obj *) Tcl_Alloc(sizeof(Tcl_Obj))
+	(objPtr) = (Tcl_Obj *) Tcl_Alloc(sizeof(Tcl_Obj)); \
+	(objPtr)->undef = 0
 
 #  define TclFreeObjStorageEx(interp, objPtr) \
 	ckfree((char *) (objPtr))
@@ -3630,6 +3633,7 @@ MODULE_SCOPE void	TclpFreeAllocCache(void *);
 	    cachePtr->firstObjPtr = (objPtr)->internalRep.otherValuePtr; \
 	    --cachePtr->numObjects;					\
 	}								\
+	(objPtr)->undef = 0;						\
     } while (0)
 
 #  define TclFreeObjStorageEx(interp, objPtr)				\
@@ -3661,7 +3665,8 @@ MODULE_SCOPE Tcl_Mutex	tclObjMutex;
 	(objPtr) = tclFreeObjList; \
 	tclFreeObjList = (Tcl_Obj *) \
 		tclFreeObjList->internalRep.otherValuePtr; \
-	Tcl_MutexUnlock(&tclObjMutex)
+	Tcl_MutexUnlock(&tclObjMutex); \
+	(objPtr)->undef = 0
 
 #  define TclFreeObjStorageEx(interp, objPtr)	\
 	Tcl_MutexLock(&tclObjMutex); \
