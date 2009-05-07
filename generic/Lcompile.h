@@ -43,6 +43,15 @@ typedef enum {
 	SEARCH		= 0x0100,  //   don't skip this frame
 	KEEPSYMS	= 0x0200,  // don't free symtab when scope is closed
 } Frame_f;
+typedef enum {
+	LABEL_USE	= 0x01,    // label is being referenced
+	LABEL_DEF	= 0x02,    // label is being defined
+} Label_f;
+typedef struct Label {
+	char	*name;
+	int	offset;
+	Jmp	*fixups;
+} Label;
 typedef struct Frame {
 	CompileEnv	*envPtr;
 	CompileEnv	*bodyEnvPtr;
@@ -50,6 +59,7 @@ typedef struct Frame {
 	Proc		*proc;
 	char		*name;
 	Tcl_HashTable	*symtab;
+	Tcl_HashTable	*labeltab;
 	Frame_f		flags;
 	// When a compile frame corresponds to a block in the code, we
 	// store the AST node of the block here.

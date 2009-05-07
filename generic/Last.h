@@ -46,6 +46,8 @@ typedef enum {
 	L_STMT_FOREACH,
 	L_STMT_LOOP,
 	L_STMT_RETURN,
+	L_STMT_GOTO,
+	L_STMT_LABEL,
 } Stmt_k;
 
 typedef enum {
@@ -314,6 +316,7 @@ struct Stmt {
 		Cond	*cond;
 		Loop	*loop;
 		VarDecl	*decl;
+		char	*label;
 	} u;
 };
 

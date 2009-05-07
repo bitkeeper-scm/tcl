@@ -9629,6 +9629,8 @@ src_mappings_3()
 		break;
 		continue;
 	} while (0);
+	goto L1;
+ L1:
 }
 #lang tcl
 src_mappings_3
@@ -9655,6 +9657,7 @@ src_mappings_3
 .*Command \d+: "push \(&a, f\(\)\)"
 .*Command \d+: "break"
 .*Command \d+: "continue"
+.*Command \d+: "goto L1;"
 }
 
 test src-mappings-4 {test bytecode <-> source-file-offset mappings with includes} -setup {
@@ -12894,6 +12897,230 @@ void class_9_1_main()
 }
 class_9_1_main();
 } -output {}
+
+test goto-1 {check goto statement} -body {
+#lang L
+/*
+ * Test gotos at global scope.  None of these labels should clash with
+ * those in goto_1a() or goto_1b() below.
+ */
+	goto L1;
+	puts("bad");
+ L1:	puts("L1");
+	goto L2;
+
+/* Now test at proc scope. */
+void goto_1a()
+{
+	int	i;
+	string	k, v;
+
+	/* Use before define. */
+	goto L1;
+	puts("bad 1");
+ L1:	puts("L1");
+
+	/* Use after define. */
+	i = 0;
+ L2:	if (++i == 2) goto L3;
+	puts("L2");
+	goto L2;
+ L3:	puts("L3");
+
+	/* Multiple uses before define. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L4;
+		if (i == 1) goto L4;
+		if (i == 2) goto L4;
+		if (i == 3) goto L4;
+		continue;
+	L4:	puts("L4");
+	}
+
+	/* Multiple uses after define. */
+	for (i = 0; i < 4; ++i) {
+		goto L6;
+		puts("bad");
+	L5:	puts("L5");
+		continue;
+	L6:	if (i == 0) goto L5;
+		if (i == 1) goto L5;
+		if (i == 2) goto L5;
+		if (i == 3) goto L5;
+	}
+
+	/* Multiple labels per statement. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L7;
+		if (i == 1) goto L8;
+		if (i == 2) goto L9;
+		if (i == 3) goto L10;
+		continue;
+	L7:
+	L8:
+	L9:
+	L10:
+		puts("L7-10");
+	}
+
+	/* Label without statement. */
+	do {
+		goto L11;
+		puts("bad");
+	L11:
+	} while(0);
+
+	/* Multiple labels without statement. */
+	for (i = 0; i < 4; ++i) {
+		if (i == 0) goto L12;
+		if (i == 1) goto L13;
+		if (i == 2) goto L14;
+		puts("i == 3");
+	L12:
+	L13:
+	L14:
+	} while(0);
+
+	/*
+	 * Label on a single statement (bizarre perhaps, but allowed
+	 * by the grammar).
+	 */
+
+	goto L15;
+	puts("bad");
+	while (0) L15: puts("L15");
+
+	goto L16;
+	puts("bad");
+	do L16: puts("L16"); while(0);
+
+	goto L17;
+	puts("bad");
+	for (; 0; ) L17: puts("L17");
+
+	goto L18;
+	puts("bad");
+	for (; 0; 0) L18: puts("L18");
+
+	/* Labels in nested scopes. */
+
+	i = 0;
+	goto L19;
+	puts("bad");
+	do {
+		puts("bad");
+	L19:	puts("L19");
+	} while (0);
+	if (i++ == 0) goto L19;
+
+	i = 0;
+	goto L20;
+	puts("bad");
+	do {
+		puts("bad");
+		do {
+			puts("bad");
+		L20:	puts("L20");
+		}
+		while (0);
+	} while (0);
+	if (i++ == 0) goto L20;
+
+	do {
+		goto L21;  // jump out of the scope
+		puts("bad");
+	} while (0);
+ L21:	puts("L21");
+}
+void goto_1b()
+{
+	/*
+	 * Goto labels should be per proc scope, so none of these labels
+	 * should clash with those in goto_1a().
+	 */
+
+	goto L1;
+	puts("bad");
+ L1:	puts("L1");
+}
+L2:
+goto_1a();
+goto_1b();
+} -output {L1
+L1
+L2
+L3
+L4
+L4
+L4
+L4
+L5
+L5
+L5
+L5
+L7-10
+L7-10
+L7-10
+L7-10
+i == 3
+L15
+L16
+L17
+L18
+L19
+L19
+L20
+L20
+L21
+L1
+}
+
+test goto-2 {check gotos with labels in enclosing scopes} -body {
+#lang L
+goto L1;
+L2: puts("global L2");
+return;
+void goto_2()
+{
+	goto L2;  // should go to goto_2()'s L2, NOT the L2 at global scope
+	puts("bad");
+ L2:	puts("L2");
+}
+L1:
+goto_2();
+goto L2;  // should go to the L2 at global scope, NOT goto_2()'s L2
+} -output {L2
+global L2
+}
+
+test goto-3 {check goto statement errors} -body {
+#lang L
+void goto_3()
+{
+	goto L1;
+ L1:
+ L1:
+ L2:
+ L2:
+ L2:
+
+ L3:
+	do {
+	L3:
+	} while (0);
+
+	goto L4;
+	goto L6;  // error even though an L6 is defined at global scope
+}
+goto L5;
+L6:
+} -returnCodes error -match regexp -result {.*: L Error: label L1 already defined
+.*: L Error: label L2 already defined
+.*: L Error: label L3 already defined
+.*: L Error: label L4 referenced but not defined
+.*: L Error: label L6 referenced but not defined
+.*: L Error: label L5 referenced but not defined
+}
 
 ::tcltest::cleanupTests
 return

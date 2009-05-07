@@ -107,10 +107,12 @@ private void	compile_foreach(ForEach *loop);
 private void	compile_foreachArray(ForEach *loop);
 private void	compile_foreachHash(ForEach *loop);
 private void	compile_foreachString(ForEach *loop);
+private void	compile_goto(Stmt *stmt);
 private void	compile_ifUnless(Cond *cond);
 private void	compile_incdec(Expr *expr);
 private int	compile_join(Expr *expr);
 private int	compile_keys(Expr *expr);
+private void	compile_label(Stmt *stmt);
 private int	compile_length(Expr *expr);
 private void	compile_loop(Loop *loop);
 private void	compile_fnParms(VarDecl *decl);
@@ -142,6 +144,7 @@ private void	frame_resumePrologue();
 private char	*get_text(Expr *expr);
 private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
+private Label	*label_lookup(Stmt *stmt, Label_f flags);
 private void	list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
 private int	push_index(Expr *expr);
@@ -606,6 +609,8 @@ frame_push(void *node, char *name, Frame_f flags)
 	frame->flags  = flags;
 	frame->symtab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
 	Tcl_InitHashTable(frame->symtab, TCL_STRING_KEYS);
+	frame->labeltab = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+	Tcl_InitHashTable(frame->labeltab, TCL_STRING_KEYS);
 	frame->prevFrame = L->frame;
 	L->frame = frame;
 
@@ -670,6 +675,7 @@ frame_pop()
 	Frame	*frame = L->frame;
 	Proc	*proc  = frame->proc;
 	Sym	*sym;
+	Label	*label;
 	Tcl_HashEntry *hPtr;
 	Tcl_HashSearch hSearch;
 
@@ -719,6 +725,23 @@ frame_pop()
 		Tcl_DeleteHashTable(frame->symtab);
 		ckfree((char *)frame->symtab);
 	}
+
+	/*
+	 * Check for unresolved labels, and free the frame's label table.
+	 */
+	for (hPtr = Tcl_FirstHashEntry(frame->labeltab, &hSearch);
+	     hPtr != NULL;
+	     hPtr = Tcl_NextHashEntry(&hSearch)) {
+		label = (Label *)Tcl_GetHashValue(hPtr);
+		unless (label->offset >= 0) {
+			L_err("label %s referenced but not defined",
+			      label->name);
+		}
+		ckfree(label->name);
+		ckfree((char *)label);
+	}
+	Tcl_DeleteHashTable(frame->labeltab);
+	ckfree((char *)frame->labeltab);
 
 	/*
 	 * Create the Tcl command and free the old frame.
@@ -857,6 +880,12 @@ compile_stmt(Stmt *stmt)
 		break;
 	    case L_STMT_CONTINUE:
 		compile_continue(stmt);
+		break;
+	    case L_STMT_LABEL:
+		compile_label(stmt);
+		break;
+	    case L_STMT_GOTO:
+		compile_goto(stmt);
 		break;
 	    default:
 		L_bomb("Malformed AST in compile_stmt");
@@ -3464,6 +3493,64 @@ compile_break(Stmt *stmt)
 	j = emit_jmp_fwd(INST_JUMP4);
 	j->next = loop_frame->break_jumps;
 	loop_frame->break_jumps = j;
+}
+
+private void
+compile_label(Stmt *stmt)
+{
+	Label	*label;
+
+	label = label_lookup(stmt, LABEL_DEF);
+	fixup_jmps(label->fixups);
+	label->fixups = NULL;
+	label->offset = currOffset(L->frame->envPtr);
+}
+
+private void
+compile_goto(Stmt *stmt)
+{
+	Label	*label;
+	Jmp	*jmp;
+
+	label = label_lookup(stmt, LABEL_USE);
+	if (label->offset >= 0) {
+		emit_jmp_back(TCL_UNCONDITIONAL_JUMP, label->offset);
+	} else {
+		jmp = emit_jmp_fwd(INST_JUMP4);
+		jmp->next = label->fixups;
+		label->fixups = jmp;
+	}
+}
+
+private Label *
+label_lookup(Stmt *stmt, Label_f flags)
+{
+	int		new;
+	char		*name = stmt->u.label;
+	Label		*label = NULL;
+	Frame		*frame;
+	Tcl_HashEntry	*hPtr = NULL;
+
+	/* Labels are restricted to the enclosing proc's labeltab. */
+	frame = frame_find(PROC);
+	ASSERT(frame);
+
+	hPtr = Tcl_FindHashEntry(frame->labeltab, name);
+	if (hPtr) {
+		label = (Label *)Tcl_GetHashValue(hPtr);
+	} else {
+		label = (Label *)ckalloc(sizeof(Label));
+		memset(label, 0, sizeof(Label));
+		label->name   = name;
+		label->offset = -1;
+		hPtr = Tcl_CreateHashEntry(frame->labeltab, name, &new);
+		ASSERT(new);
+		Tcl_SetHashValue(hPtr, label);
+	}
+	if ((flags & LABEL_DEF) && (label->offset >= 0)) {
+		L_errf(stmt, "label %s already defined", name);
+	}
+	return (label);
 }
 
 private void

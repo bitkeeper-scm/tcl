@@ -286,6 +286,7 @@ include_pop()
 	"expand"	return T_EXPAND;
 	"in"		return T_IN;
 	"_unused"	return T_UNUSED;
+	"goto"		return T_GOTO;
 	"=>"		return T_ARROW;
 	"eq"		return T_EQ;
 	"ne"		return T_NE;

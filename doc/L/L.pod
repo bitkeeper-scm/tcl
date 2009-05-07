@@ -639,7 +639,7 @@ And the compare function looks like this:
 	}
 }
 
-=head1 CONDITIONAL AND LOOP STATEMENTS
+=head1 CONTROL TRANSFER STATEMENTS
 
 L has most of the usual conditional and looping constructs except for
 case/switch.
@@ -733,6 +733,30 @@ each iteration, just use a list of value variables instead of one:
 If the array or string length isn't a multiple of three, the
 stragglers get the value undef on the last iteration.  Strides
 work only for arrays and strings, not hashes.
+
+=item goto
+
+The C<goto> statement unconditionally transfers control to a label in
+the same function, or to a label at the global scope if the goto is at
+the global scope.  You cannot use a goto to transfer in to or out of
+a function.  Labels have their own name space so they will not clash
+with variable, function, or type names.
+
+    /* A goto at the global scope. */
+    goto L1;
+    puts("this is not executed");
+L1: puts("but this is");
+
+    void foo()
+    {
+        goto L2;
+        puts("this is not executed");
+L2:     puts("but this is");
+    }
+
+Some caveats: do not jump into a foreach loop or a run-time error may
+result due to bypassing the loop set-up.  Do not bypass a variable
+declaration or else the variable will be inaccessible.
 
 =back
 

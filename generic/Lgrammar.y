@@ -102,13 +102,19 @@ extern int	L_lex (void);
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
 %token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
-%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND T_UNUSED
+%token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND T_UNUSED T_GOTO
 
 /*
  * This follows the C operator-precedence rules, from lowest to
  * highest precedence.
  */
 %left LOWEST
+// The next four %nonassoc lines are defined to resolve a conflict with
+// labeled statements (see the stmt nonterm).
+%nonassoc T_IF T_UNLESS T_RETURN T_ID T_STR_LITERAL T_LEFT_INTERPOL
+%nonassoc T_STR_BACKTICK T_INT_LITERAL T_FLOAT_LITERAL T_TYPE T_WHILE
+%nonassoc T_FOR T_DO T_DEFINED T_STRING T_FOREACH T_BREAK T_CONTINUE
+%nonassoc T_SPLIT T_GOTO
 %left T_COMMA
 %nonassoc T_ELSE T_SEMI
 %right T_EQUALS T_EQPLUS T_EQMINUS T_EQSTAR T_EQSLASH T_EQPERC
@@ -132,6 +138,7 @@ extern int	L_lex (void);
 %type <ClsDecl> class_decl
 %type <FnDecl> function_decl fundecl_tail fundecl_tail1
 %type <Stmt> stmt single_stmt compound_stmt stmt_list optional_else
+%type <Stmt> unlabeled_stmt
 %type <Cond> selection_stmt
 %type <Loop> iteration_stmt
 %type <ForEach> foreach_stmt
@@ -384,8 +391,23 @@ fundecl_tail1:
 	;
 
 stmt:
-	  single_stmt	{ $$ = $1; if (L->interactive) YYACCEPT; }
-	| compound_stmt	{ $$ = $1; if (L->interactive) YYACCEPT; }
+	  T_ID ":" stmt
+	{
+		$$ = ast_mkStmt(L_STMT_LABEL, NULL, @1.beg, @2.end);
+		$$->u.label = $1;
+		$$->next = $3;
+	}
+	| T_ID ":" %prec LOWEST
+	{
+		$$ = ast_mkStmt(L_STMT_LABEL, NULL, @1.beg, @2.end);
+		$$->u.label = $1;
+	}
+	| unlabeled_stmt
+	;
+
+unlabeled_stmt:
+	  single_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
+	| compound_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
 	;
 
 single_stmt:
@@ -425,6 +447,11 @@ single_stmt:
 	{
 		$$ = ast_mkStmt(L_STMT_RETURN, NULL, @1.beg, @2.end);
 		$$->u.expr = $2;
+	}
+	| T_GOTO T_ID ";"
+	{
+		$$ = ast_mkStmt(L_STMT_GOTO, NULL, @1.beg, @3.end);
+		$$->u.label = $2;
 	}
 	| ";"	{ $$ = NULL; }
 	;
@@ -505,7 +532,8 @@ stmt_list:
 	| stmt_list stmt
 	{
 		if ($2) {
-			$2->next = $1;
+			REVERSE(Stmt, next, $2);
+			APPEND(Stmt, next, $2, $1);
 			$$ = $2;
 		} else {
 			// Empty stmt.
