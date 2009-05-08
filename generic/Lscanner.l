@@ -44,6 +44,7 @@ private int	str_beg;	// source offset of string
 private char	*here_delim = NULL;
 private int	include_top;
 private Include	include_stk[INCLUDE_STACK_SZ];
+private Tcl_HashTable *include_table = NULL;
 
 #define STRBUF_START(beg)			\
 	do {					\
@@ -151,26 +152,49 @@ tally_newlines(char *s, int len, int tally)
 private FILE *
 include_search(char *file)
 {
+	int	new;
 	FILE	*f;
-	char	*resolvedFile;
+	char	*path, *resolvedFile;
 	Interp	*iPtr = (Interp *)L->interp;
-	Tcl_Obj	*dir;
-	Tcl_Obj *fileObj = Tcl_NewStringObj(file, -1);
+	Tcl_Obj *fileObj, *pathObj;
+	Tcl_HashEntry *hPtr;
+
+	unless (include_table) {
+		include_table = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+		Tcl_InitHashTable(include_table, TCL_STRING_KEYS);
+	}
 
 	/* If the path is relative, make it absolute. */
+	fileObj = Tcl_NewStringObj(file, -1);
 	Tcl_IncrRefCount(fileObj);
 	if ((Tcl_FSGetPathType(fileObj) == TCL_PATH_ABSOLUTE) ||
 	    !iPtr->scriptFile) {
 		resolvedFile = ckstrdup(file);
 	} else {
-		dir = TclPathPart(L->interp, iPtr->scriptFile,
-				  TCL_PATH_DIRNAME);
-		Tcl_AppendPrintfToObj(dir, "/%s", file);
-		resolvedFile = ckstrdup(Tcl_GetString(dir));
-		Tcl_DecrRefCount(dir);
+		Tcl_DecrRefCount(fileObj);
+		fileObj = TclPathPart(L->interp, iPtr->scriptFile,
+				      TCL_PATH_DIRNAME);
+		Tcl_AppendPrintfToObj(fileObj, "/%s", file);
+		resolvedFile = ckstrdup(Tcl_GetString(fileObj));
+	}
+
+	/* See if the normalized path has been included before. */
+	if ((pathObj = Tcl_FSGetNormalizedPath(NULL, fileObj)) == NULL) {
+		L_err("unable to normalize include file %s\n", file);
+		return (NULL);
+	}
+	path = Tcl_GetString(pathObj);
+	hPtr = Tcl_CreateHashEntry(include_table, path, &new);
+
+	if (new) {
+		f = fopen(resolvedFile, "r");
+		unless (f) {
+			L_err("cannot find include file %s", file);
+		}
+	} else {
+		f = NULL;
 	}
 	Tcl_DecrRefCount(fileObj);
-	f = fopen(resolvedFile, "r");
 	ckfree(resolvedFile);
 	return (f);
 }
@@ -427,9 +451,7 @@ include_pop()
 		FILE	*f = include_search(name);
 
 		undo_yy_user_action();
-		unless (f) {
-			L_err("cannot find include file %s", name);
-		} else {
+		if (f) {
 			/* This bails if includes nest too deeply. */
 			unless (include_push(f, name)) yyterminate();
 		}

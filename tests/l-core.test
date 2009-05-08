@@ -8871,28 +8871,29 @@ pattern_1_2();
 test include-1.0 {include files} -setup {
 	set fname [makeFile {
 			++include_1_0;
-			unless (basename(__FILE__) eq "foo.l") puts("bad 1");
+			unless (basename(__FILE__) eq "foo-1.0.l") puts("bad 1");
 			unless (__LINE__ == 4) puts("bad 2");
-		   } foo.l ../tests]
+		   } foo-1.0.l ../tests]
 } -body {
 #lang L
 int include_1_0 = 0;
 puts(include_1_0);
-include("foo.l");
+include("foo-1.0.l");
 puts(include_1_0);
 // Check variations in spacing and punctation.
-include("foo.l") ;
-include ("foo.l");
-include ("foo.l") ;
-include ( "foo.l") ;
-include ( "foo.l" ) ;
-include("foo.l");;
+// The compiler should include foo-1.0.l only once.
+include("foo-1.0.l") ;
+include ("foo-1.0.l");
+include ("foo-1.0.l") ;
+include ( "foo-1.0.l") ;
+include ( "foo-1.0.l" ) ;
+include("foo-1.0.l");;
 puts(include_1_0);
 } -cleanup {
 	removeFile $fname
 } -output {0
 1
-7
+1
 }
 
 test include-1.1 {nested include files} -setup {
@@ -8901,26 +8902,26 @@ test include-1.1 {nested include files} -setup {
 # include() only when it starts at the beginning of the line.
 #
 	set fname1 [makeFile {
-include("foo2.l");
-unless (basename(__FILE__) eq "foo1.l") puts("bad 1");
+include("foo-1.1-2.l");
+unless (basename(__FILE__) eq "foo-1.1-1.l") puts("bad 1");
 unless (__LINE__ == 4) puts("bad 2");
-} foo1.l ../tests]
+} foo-1.1-1.l ../tests]
 	set fname2 [makeFile {
 int include_1_1a = 3;
-unless (basename(__FILE__) eq "foo2.l") puts("bad 3");
+unless (basename(__FILE__) eq "foo-1.1-2.l") puts("bad 3");
 unless (__LINE__ == 4) puts("bad 4");
-include("foo3.l");
-unless (basename(__FILE__) eq "foo2.l") puts("bad 5");
+include("foo-1.1-3.l");
+unless (basename(__FILE__) eq "foo-1.1-2.l") puts("bad 5");
 unless (__LINE__ == 7) puts("bad 6");
-} foo2.l ../tests]
+} foo-1.1-2.l ../tests]
 	set fname3 [makeFile {
 int include_1_1b = 4;
-unless (basename(__FILE__) eq "foo3.l") puts("bad 7");
+unless (basename(__FILE__) eq "foo-1.1-3.l") puts("bad 7");
 unless (__LINE__ == 4) puts("bad 8");
-} foo3.l ../tests]
+} foo-1.1-3.l ../tests]
 } -body {
 #lang L
-include("foo1.l");
+include("foo-1.1-1.l");
 unless (include_1_1a == 3) puts("bad 10.1");
 unless (include_1_1b == 4) puts("bad 10.2");
 } -cleanup {
@@ -8933,7 +8934,7 @@ test include-1.2 {malformed includes} -body {
 #lang L
 include("   // bad
 include(""  // bad
-include("") // bad
+include("") // bad "
 } -returnCodes {error} -match regexp -result {.*1: L Error: malformed include
 .*2: L Error: malformed include
 .*3: L Error: malformed include
@@ -8941,26 +8942,32 @@ include("") // bad
 
 test include-1.3 {test line number tracking with include files} -setup {
 	set fname1 [makeFile {int include_1_3a = "bad1";
-include("foo2.l");} foo1.l ../tests]
+include("foo-1.3-2.l");} foo-1.3-1.l ../tests]
 	set fname2 [makeFile {int include_1_3b = "bad2";
-include("foo3.l");
-int include_1_3c = "bad3";} foo2.l ../tests]
-	set fname3 [makeFile {int include_1_3d = "bad4";} foo3.l ../tests]
+include("foo-1.3-3.l");
+int include_1_3c = "bad3";} foo-1.3-2.l ../tests]
+	set fname3 [makeFile {int include_1_3d = "bad4";} foo-1.3-3.l ../tests]
 } -body {
 #lang L
 int include_1_3 = "bad0";
-include("foo1.l");
+include("foo-1.3-1.l");
 int include_1_3last = "badn";
 } -cleanup {
 	removeFile $fname1
 	removeFile $fname2
 	removeFile $fname3
 } -returnCodes {error} -match regexp -result {.*1: L Error: assignment of incompatible types
-.*foo1.l:1: L Error: assignment of incompatible types
-.*foo2.l:1: L Error: assignment of incompatible types
-.*foo3.l:1: L Error: assignment of incompatible types
-.*foo2.l:3: L Error: assignment of incompatible types
+.*foo-1.3-1.l:1: L Error: assignment of incompatible types
+.*foo-1.3-2.l:1: L Error: assignment of incompatible types
+.*foo-1.3-3.l:1: L Error: assignment of incompatible types
+.*foo-1.3-2.l:3: L Error: assignment of incompatible types
 .*3: L Error: assignment of incompatible types
+}
+
+test include-1.4 {test missing include file} -body {
+#lang L
+include("does-not-exist.l");
+} -returnCodes {error} -match regexp -result {.*1: L Error: cannot find include file does-not-exist.l
 }
 
 # This test creates two slave interps that declare global symbols
@@ -9677,18 +9684,18 @@ void src_mappings_4_foo1()
 		puts(v1);
 	}
 }
-include ("foo2.l");
-} foo1.l ../tests]
+include ("foo-sm4-2.l");
+} foo-sm4-1.l ../tests]
 	set fname2 [makeFile {
 void src_mappings_4_foo2()
 {
 	int	i, j;
 	i = j+1;
 }
-} foo2.l ../tests]
+} foo-sm4-2.l ../tests]
 } -body {
 #lang L
-include ("foo1.l");
+include ("foo-sm4-1.l");
 void src_mappings_4()
 {
 	/*
