@@ -2020,10 +2020,11 @@ TclNREvalFile(
      */
 
     iPtr->evalFlags |= TCL_EVAL_FILE;
-    TclNRAddCallback(interp, EvalFileCallback, oldScriptFile, pathPtr, objPtr,
 #ifdef BK
+    TclNRAddCallback(interp, EvalFileCallback, oldScriptFile, pathPtr, objPtr,
 	    (void*)oldbk);
 #else
+    TclNRAddCallback(interp, EvalFileCallback, oldScriptFile, pathPtr, objPtr,
 	    NULL);
 #endif
     return TclNREvalObjEx(interp, objPtr, 0, NULL, INT_MIN);

@@ -284,8 +284,8 @@ be changed.  This is discussed more later.
 
 You can remove an element from an array but only from the end:
 
-    birds = { "robin", "dove", "cardinal" };
-    next = pop(&birds);   // next gets "cardinal"
+    string birds[] = { "robin", "dove", "cardinal" };
+    string next = pop(&birds);   // next gets "cardinal"
 
 You also can directly assign to any array index even if the array
 hasn't yet grown up to that index.  If you assign more than one past
@@ -395,13 +395,13 @@ function, variable, or type names.
 In the examples above, we have been initializing arrays, hashes, and
 structs by putting values inside of {}:
 
-    string nums = { "one", "two", "three" };
+    string nums[] = { "one", "two", "three" };
 
 In L, the C<{}> is an operator that creates a C<list> and can be used
 anywhere an expression is valid.  The array could instead be
 initialized like this:
 
-    string nums;
+    string nums[];
     nums = { "one", "two", "three" };
 
 We said before that you can assign a value to something only if it has
@@ -637,7 +637,7 @@ And the compare function looks like this:
 	} else {
 		return 0;
 	}
-}
+    }
 
 =head1 CONTROL TRANSFER STATEMENTS
 
@@ -894,27 +894,31 @@ substitute its output as the value of the expression.  The command is
 executed using the Tcl C<exec> command which understands I/O
 re-direction and pipes.
 
-=item void assert(int condition)
+=proto int abs(int val)
+
+Return the absolute value of the argument.
+
+=proto void assert(int condition)
 
 Print an error and exit with status 1 if C<condition> is false.
 The filename, line number, and text of the condition are printed.
 
-=item string basename(string path)
+=proto string basename(string path)
 
 Return the file portion of a path name.
 
-=item string caller(int frame)
+=proto string caller(int frame)
 
 Return the name of a calling function, or the caller's caller, etc.
 To get the caller, use a frame of 0, to get the caller's caller, use
 1, etc.
 
-=item int chdir(string dir)
+=proto int chdir(string dir)
 
 Change directory to dir.
 Return 0 on success, -1 on error.
 
-=item int chmod(string path, string permissions)
+=proto int chmod(string path, string permissions)
 
 Change the mode of the file or directory named by path.  Permissions
 can be the octal code that chmod(1) uses, or symbolic attributes that
@@ -926,37 +930,37 @@ characters), is also supported (example: rwxr-xr-t is equivalent to
 01755).
 Return 0 on success, -1 on error.
 
-=item int chown(string owner, string group, string path)
+=proto int chown(string owner, string group, string path)
 
 Change the file ownership of the file or directory names by path.  If
 either owner or group is an empty string, the attribute will not be
 modified.
 Return 0 on success, -1 on error.
 
-=item void die(string message)
+=proto void die(string message)
 
 Output the message to stderr and exit 1. If message does not have a
 trailing newline, append " in <filename> at line <linenum>\n".
 
-=item string dirname(string path)
+=proto string dirname(string path)
 
 Return the directory portion of a pathname.
 
-=item int exists(string path)
+=proto int exists(string path)
 
 Return 1 if the given path exists or 0 if it does not exist.
 
-=item int fclose(FILE f)
+=proto int fclose(FILE f)
 
 Close an open FILE handle.
 Return 0 on success, -1 on error.
 
-=item int fgetline(FILE f, string &buf)
+=proto string fgetline(FILE f)
 
-Get the next line from a FILE handle and store it in &buf.  Return 1
-if a line was read or 0 if not.
+Get the next line from a FILE handle and return it, or return undef
+for EOF/errors.
 
-=item FILE fopen(string path, string mode)
+=proto FILE fopen(string path, string mode)
 
 Open a file.  The C<mode> string indicates how the file will be accessed.
 
@@ -976,7 +980,7 @@ Open the file for both reading and writing; the file must already exist.
 Open the file for writing only. Truncate it if it exists. If it
 doesn't exist, create a new file.
 
--item "w+"
+=item "w+"
 
 Open the file for reading and writing. Truncate it if it exists. If it
 doesn't exist, create a new file.
@@ -1001,20 +1005,20 @@ be written to stderr.
 
 Return a FILE handle on success and undef on error.
 
-=item int fprintf(FILE f, string fmt, ...args)
+=proto int fprintf(FILE f, string fmt, ...args)
 
 Format and print a string to the given FILE handle.  The FILE handles
 C<stdin>, C<stdout>, and C<stderr> are pre-defined.
 
 Return 0 on success, -1 on error.
 
-=item string ftype(string path)
+=proto string ftype(string path)
 
 Return the type of file at the given path. Type can be C<directory>, C<file>,
 C<character>, C<block>, C<fifo>, C<symlink> or C<socket>.
 Return undef on error.
 
-=item string[] getdir(string dir, string pattern)
+=proto string[] getdir(string dir, string pattern)
 
 Return the files in the given directory, as a string array.  Filter
 the list by C<pattern> which is a glob and may contain the following
@@ -1050,57 +1054,61 @@ home directory for the user whose name follows the ``~''. If the ``~''
 is followed immediately by ``/'' then the value of the HOME
 environment variable is used.
 
-=item string getenv(string varname)
+=proto string getenv(string varname)
 
 Return the value of an environment variable if it exists, or return ""
 if the it does not exist.
 
-=item int isdir(string path)
+=proto int isdir(string path)
 
 Return 1 if the given path exists and is a directory, else return 0.
 
-=item int isdouble(poly n)
+=proto int isdouble(poly n)
 
 Return 1 if n is a double or can be converted to one, else return 0.
 For example, both isdouble(3.14159) and isdouble("3.14159") return 1.
 
-=item int isfile(string path)
-
-Return 1 if the given path exists and is a regular file, else return 0.
-
-=item int isinteger(poly n)
+=proto int isinteger(poly n)
 
 Return 1 if n is an integer or can be converted to one, else return 0.
 For example, both isdouble(13) and isdouble("13") return 1.
 
-=item int islink(string path)
+=proto int islink(string path)
 
 Return 1 if the given path exists and is a link, else return 0.
 
-=item string join(string sep, type array[])
+=proto int isreg(string path)
+
+Return 1 if the given path exists and is a regular file, else return 0.
+
+=proto int isspace(string buf)
+
+Return 1 if all characters in the argument are space characters.
+
+=proto string join(string sep, type array[])
 
 Convert an array into a string by joining all of its elements by
 inserting sep between each pair.
 
-=item keyType[] keys(valType hash{keyType})
+=proto keyType[] keys(valType hash{keyType})
 
 Return an array containing the keys of a given hash.  Note that the
 return type depends on the argument type.
 
-=item int length(type array[])
+=proto int length(type array[])
 
 Return the number of elements the given array.
 
-=item int length(valType hash{keyType})
+=proto int length(valType hash{keyType})
 
 Return the number of key/value pairs the given hash.
 
-=item int link(string sourcePath, string targetPath)
+=proto int link(string sourcePath, string targetPath)
 
 Create a hard link from sourcePath to targetPath.
 Return 0 on success, -1 on error.
 
-=item int lstat(string path, struct stat &buf)
+=proto int lstat(string path, struct stat &buf)
 
 Call lstat(2) on C<path> and place the information in C<buf>.
 Return 0 on success, -1 on error.
@@ -1124,28 +1132,28 @@ The C<struct stat> type is defined as follows:
 
 =back
 
-=item int mkdir(string path)
+=proto int mkdir(string path)
 
 Create a directory at the given path.  This creates all non-existing
 parent directories.  The directories are created with mode 0775
 (rwxrwxr-x).
 Return 0 on success, -1 on error.
 
-=item int mtime(string path)
+=proto int mtime(string path)
 
 Return the modified time of path, or 0 to indicate error.
 
-=item string normalize(string path)
+=proto string normalize(string path)
 
 Return a normalized version of path. The pathname will be an absolute
 path with all "../" and "./" removed.
 
-=item int pclose(FILE f)
+=proto int pclose(FILE f)
 
 Close an open pipe created by popen().
 Return 0 on success, -1 on error.
 
-=item FILE popen(string cmd, string mode)
+=proto FILE popen(string cmd, string mode)
 
 Open a pipe to the command C<cmd>.  The returned FILE handle may be
 used to write to the command's input pipe or read from its output
@@ -1156,56 +1164,56 @@ read-only access is used ("r"), standard input for the pipeline is
 taken from the current standard input unless overridden by the
 command.  Return the FILE handle on success, or undef on error.
 
-=item void printf(string fmt, ...args)
+=proto void printf(string fmt, ...args)
 
 Format arguments and print to stdout, as in printf(3).
 Return 0 on success, -1 on error.
 
-=item void push(type &array[], type element)
+=proto void push(type &array[], type element)
 
 Push one or more elements onto the end of C<array>.  Equivalent to
 saying array[length(array)] = element.
 
-=item type pop(type &array[])
+=proto type pop(type &array[])
 
 Remove an element from the end of C<array>.
 Return undef if the array is empty.
 
-=item int rename(string oldpath, string newpath)
+=proto int rename(string oldpath, string newpath)
 
 Rename a file.
 Return 0 on success, -1 on error.
 
-=item string require(string packageName)
+=proto string require(string packageName)
 
 Find and load the given package packageName.  Return the version
 string of the package loaded on success, and undef on error.
 
-=item int rmdir(string dir)
+=proto int rmdir(string dir)
 
 Delete the given directory.
 Return 0 on success, -1 on error.
 
-=item string setenv(string varname, string val)
+=proto string setenv(string varname, string val)
 
 Set an environment variable, overwriting any pre-existing value.
 Return the new value.
 
-=item int size(string path)
+=proto int size(string path)
 
 Return the size, in bytes, of the named file path, or -1 on error.
 
-=item void sleep(int seconds)
+=proto void sleep(int seconds)
 
 Sleep for C<seconds> seconds.
 
-=item type[] sort(type[] array)
+=proto type[] sort(type[] array)
 
-=item type[] sort([decreasing: | increasing:], type[] array)
+=proto type[] sort([decreasing: | increasing:], type[] array)
 
-=item type[] sort([integer: | real: | ascii:], type[] array)
+=proto type[] sort([integer: | real: | ascii:], type[] array)
 
-=item type[] sort(command: compar, type[] array)
+=proto type[] sort(command: compar, type[] array)
 
 Sort the array C<array> and return a new array of sorted elements.
 The first variation sorts the elements into ascending order, and does
@@ -1217,38 +1225,38 @@ of type T as arguments and return -1 if the first comes before the
 second in the sort order, +1 if the first comes after the second, and
 0 if the two are equal.
 
-=item string sprintf(string fmt, ...args)
+=proto string sprintf(string fmt, ...args)
 
 Format arguments and return a formatted string like sprintf(3).
 Return undef on error.
 
-=item int stat(string path, struct stat &buf)
+=proto int stat(string path, struct stat &buf)
 
 Call stat(2) on C<path> and place the information in C<buf>.
 Return 0 on success, -1 on error.
 See the lstat() command for the definition of C<struct stat>.
 
-=item string stdio_getLastError(void)
+=proto string stdio_getLastError(void)
 
 Return the last error from an fclose(), fopen(), popen(), or system() call.
 
-=item int strchr(string s, string c)
+=proto int strchr(string s, string c)
 
 Return the first index of c into s, or -1 if c is not found.
 
-=item int streq(string a, string b)
+=proto int streq(string a, string b)
 
 Return 1 if the two strings are equal, else return 0.
 
-=item string[] split(string s)
+=proto string[] split(string s)
 
-=item string[] split(string s, /regexp/)
+=proto string[] split(string s, /regexp/)
 
-=item string[] split(string s, /regexp/, int limit)
+=proto string[] split(string s, /regexp/, int limit)
 
-=item string[] split(string s, string sep)
+=proto string[] split(string s, string sep)
 
-=item string[] split(string s, sep, int limit)
+=proto string[] split(string s, sep, int limit)
 
 Split a string into substrings.
 In the first variation, the string is split on whitespace.
@@ -1258,53 +1266,53 @@ expression, with at most C<limit> fields being split off (a limit less than
 The last two variations split, where no regexp or separator is specified, split
 on white space but any leading white space does not produce a null first field.
 
-=item int strlen(string s)
+=proto int strlen(string s)
 
 Return the string length.
 
-=item int strneq(string a, string b, int n)
+=proto int strneq(string a, string b, int n)
 
 Return 1 if the two strings are equal up to n characters, else return
 0.
 
-=item int strrchr(string s, string c)
+=proto int strrchr(string s, string c)
 
 Return the last index of c into s, or -1 if c is not found.
 
-=item int symlink(string sourcePath, string targetPath)
+=proto int symlink(string sourcePath, string targetPath)
 
 Create a symbolic link from sourcePath to targetPath.
 Return 0 on success, -1 on failure.
 
-=item string system(string cmd)
+=proto string system(string cmd)
 
 Execute the given command.  This is the same as the `` operator (see above)
 but in a function-call form.
 
-=item string tolower(string s)
+=proto string tolower(string s)
 
 Return a copy of the string that is in all lower case.
 
-=item string toupper(string s)
+=proto string toupper(string s)
 
 Return a copy of the string that is in all upper case.
 
-=item string trim(string s)
+=proto string trim(string s)
 
 Return a copy of the string that has been trimmed of any leading and
 trailing whitespace.
 
-=item int unlink(string path)
+=proto int unlink(string path)
 
 Delete the named file.
 Return 0 on success, -1 on failure.
 
-=item void unsetenv(string varname)
+=proto void unsetenv(string varname)
 
 Unset an environment variable.
 Return 0 on success, -1 on failure.
 
-=item void warn(string message)
+=proto void warn(string message)
 
 Output the message to stderr.  If message does not have a trailing
 newline, append " in <filename> at line <linenum>\n".
@@ -1389,7 +1397,10 @@ Another example:
 
 =head1 REGULAR EXPRESSIONS
 
-L's regular expression support is reminiscent of Perl's.
+L's regular expression support is based on the PCRE (Perl Compatible
+Regular Expressions) library L<http://www.pcre.org>.  The basics are
+documented here but for more extensive documentation please see
+L<http://www.pcre.org/pcre.txt>.
 
 =over 4
 
@@ -1453,7 +1464,9 @@ Some brief examples:
 
 As well as grouping, parentheses serve a second purpose.  They can be
 used to capture the results of parts of the regexp match for later use.
-The results end up in C<$1>, C<$2> and so on.
+The results end up in C<$1>, C<$2> and so on (but note that if you want
+to interpolate those in a string the syntax is a little convoluted: 
+C<"matched ${$1} and ${$2}">).  
 
     // A cheap and nasty way to break an e-mail address into parts.
     if (email =~ /([^@]+)@(.+)/) {
@@ -1592,3 +1605,269 @@ Once you free an object
 
 you must be careful to not use C<obj> again unless you assign a
 new object to it, or else a run-time error will result.
+
+=head1 EXAMPLE CODE
+
+=head2 pod2html.l
+
+This is an L implementation of pod2html.  Pretty stripped down but slightly
+prettier than the Perl pod2html.
+
+	#!../../unix/tclsh
+
+	int
+	main(int ac, string av[])
+	{
+		FILE	f;
+		int	i, ul;
+		int	space = 0, dd = 0, p = 0, pre = 0, table = 0;
+		string	head, buf, tmp, title, trim, all[];
+
+		// lint
+		if (0) ac++;
+
+		/*
+		 * -t&lt;title&gt; or --title=&lt;title&gt;
+		 */
+		for (i = 1; defined(av[i]) && (av[i] =~ /^-/); i++) {
+			if (av[i] eq "--") {
+				i++;
+				break;
+			}
+			if ((av[i] =~ /--title=(.*)/) || (av[i] =~ /-t(.*)/)) {
+				title = $1;
+			} else {
+				die("usage: ${av[0]} [--title=whatever]");
+			}
+		}
+		if (!defined(av[i]) ||
+		    defined(av[i+1]) || !defined(f = fopen(av[i], "r"))) {
+			die("usage: ${av[0]} filename");
+		}
+		unless (defined(title)) title = av[i];
+
+		header(title);
+		
+		/*
+		 * Load up the whole file in all[] and spit out the index.
+		 */
+		puts("&lt;ul&gt;");
+		ul = 1;
+		while (defined(buf = fgetline(f))) {
+			push(&all, buf);
+			if (buf =~ /^=head(\d+)\s+(.*)/) {
+				i = (int)$1;
+				while (ul &gt; i) {
+					puts("&lt;/ul&gt;");
+					ul--;
+				}
+				while (i &gt; ul) {
+					puts("&lt;ul&gt;");
+					ul++;
+				}
+				tmp = $2;
+				tmp =~ s/\s+/_/g;
+				buf =~ s/^=head(\d+)\s+//;
+				puts("&lt;li&gt;&lt;a href=\"#${tmp}\"&gt;${buf}&lt;/a&gt;&lt;/li&gt;");
+			}
+		}
+		while (ul--) puts("&lt;/ul&gt;");
+		fclose(f);
+
+		/*
+		 * Now walk all[] and process the markup.  We currently handle:
+		 * =head%d title
+		 * =over 
+		 * =item name
+		 * =proto return_type func(args)
+		 * =back
+		 * &lt;blank line&gt;
+		 * B&lt;bold this&gt;
+		 * C&lt;some code&gt;
+		 * I&lt;italics&gt;
+		 */
+		for (i = 0; i &lt;= length(all); i++) {
+			buf = inline(all[i]);
+			if (buf =~ /^=head(\d+)\s+(.*)/) {
+				if ((int)$1 == 1) puts("&lt;HR&gt;");
+				tmp = $2;
+				tmp =~ s/\s+/_/g;
+				printf("&lt;H%d&gt;&lt;a name=\"%s\"&gt;%s&lt;/a&gt;&lt;/H%d&gt;\n",
+				    $1, tmp, $2, $1);
+			} else if (buf =~ /^=over/) {
+				puts("&lt;dl&gt;");
+			} else if (buf =~ /^=item\s+(.*)/) {
+				if (dd) {
+					puts("&lt;/dd&gt;");
+					dd--;
+				}
+				puts("&lt;dt&gt;&lt;strong&gt;${$1}&lt;/strong&gt;&lt;/dt&gt;&lt;dd&gt;");
+				dd++;
+			} else if (buf =~ /^=proto\s+([^ \t]+)\s+(.*)/) {
+				if (dd) {
+					puts("&lt;/dd&gt;");
+					dd--;
+				}
+				puts("&lt;dt&gt;&lt;b&gt;${$1}&lt;br&gt;${$2}&lt;/b&gt;&lt;/dt&gt;&lt;dd&gt;");
+				dd++;
+			} else if (buf =~ /=table/) {
+				
+			} else if (buf =~ /^=back/) {
+				if (dd) {
+					puts("&lt;/dd&gt;");
+					dd--;
+				}
+				puts("&lt;/dl&gt;");
+			} else if (buf =~ /^\s*$/) {
+				if (p) {
+					puts("&lt;/p&gt;");
+					p = 0;
+				}
+				if (pre) {
+					/*
+					 * If we see a blank line in a preformatted
+					 * block, we don't want to stop the pre
+					 * unless the next line is not indented.
+					 * So peek ahead.
+					 */
+					if (defined(buf = all[i+1]) && (buf =~ /^\s/)) {
+						puts("");
+						continue;
+					}
+					puts("&lt;/pre&gt;");
+					pre = 0;
+					trim = undef;
+				}
+				space = 1;
+			} else {
+				if (space) {
+					if (buf =~ /^(\s+)[^ \t]+/) {
+						trim = $1;
+						puts("&lt;pre&gt;");
+						pre = 1;
+					} else {
+						puts("&lt;p&gt;");
+						p = 1;
+					}
+					space = 0;
+				}
+				if (defined(trim)) buf =~ s/^${trim}//;
+				puts(buf);
+			}
+		}
+		puts("&lt;/body&gt;&lt;/html&gt;");
+		return (0);
+	}
+
+	/*
+	 * header and style sheet
+	 */
+	void
+	header(string title)
+	{
+		string	head = &lt;&lt;EOF
+	&lt;html&gt;
+	&lt;head&gt;
+	&lt;title&gt;${title}&lt;/title&gt;
+	&lt;style&gt;
+	pre {
+		background: #eeeedd;
+		border-width: 1px;
+		border-style: solid solid solid solid;
+		border-color: #ccc;
+		padding: 5px 5px 5px 5px;
+		font-family: monospace;
+		font-weight: bolder;
+	}
+	body {
+		padding-left: 10px;
+	}
+	dt {
+		font-size: large;
+	}
+	&lt;/style&gt;
+	&lt;/head&gt;
+	&lt;body&gt;
+	EOF
+		puts(head);
+		puts("&lt;h1&gt;${title}&lt;/h1&gt;");
+	}
+
+	/*
+	 * Process B&lt;bold&gt;, C&lt;code&gt;, I&lt;italic&gt;, F&lt;italic&gt;, L&lt;link&gt;, S&lt;non-breaking&gt;.
+	 * This will handle nested stuff like C&lt;if (!I&lt;condition&gt;)&gt;
+	 * but dies if there are nested ones of the same type, i.e.,
+	 * C&lt;whatever C&lt;some more&gt;&gt;
+	 */
+	string
+	inline(string buf)
+	{
+		string	c, prev, result, link, stack[];
+		int	B = 0, C = 0, I = 0, L = 0, S = 0;
+
+		unless (buf =~ /[BCFILS]&lt;.+&gt;/) {
+			return (buf);
+		}
+		foreach (c in buf) {
+			if ((c eq "&lt;") && defined(prev)) {
+				if (prev eq "B") {
+					if (B++) die("Nested B&lt;&gt; unsupported: ${buf}");
+					result[END] = "";
+					result .= "&lt;B&gt;";
+					push(&stack, "B");
+				} else if (prev eq "C") {
+					if (C++) die("Nested C&lt;&gt; unsupported: ${buf}");
+					result[END] = "";
+					result .= "&lt;CODE&gt;";
+					push(&stack, "CODE");
+				} else if (prev eq "I" || prev eq "F") {
+					if (I++) die("Nested I&lt;&gt; unsupported: ${buf}");
+					result[END] = "";
+					result .= "&lt;I&gt;";
+					push(&stack, "I");
+				} else if (prev eq "L") {
+					if (L++) die("Nested L&lt;&gt; unsupported: ${buf}");
+					result[END] = "";
+					result .= "&lt;a href=\"";
+					link = "";
+					push(&stack, "L");
+				} else if (prev eq "S") {
+					if (S++) die("Nested S&lt;&gt; unsupported: ${buf}");
+					result[END] = "";
+					push(&stack, "S");
+				} else {
+					result .= c;
+					prev = c;
+				}
+			} else if ((c eq "&gt;") && length(stack)) {
+				c = pop(&stack);
+				if (c eq "B") {
+					B--;
+				} else if (c eq "CODE") {
+					C--;
+				} else if (c eq "I") {
+					I--;
+				} else if (c eq "L") {
+					L--;
+					result .= "\"&gt;${link}&lt;/a&gt;";
+					c = undef;
+				} else {
+					S--;
+					c = undef;
+				}
+				if (defined(c)) {
+					result .= "&lt;/" . c . "&gt;";
+				}
+				prev = undef;
+			} else {
+				if (S && isspace(c)) {
+					result .= "&nbsp;";
+				} else {
+					result .= c;
+				}
+				if (L) link .= c;
+				prev = c;
+			}
+		}
+		return (result);
+	}
