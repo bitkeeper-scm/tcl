@@ -244,7 +244,7 @@ void fgetline1()
 	unless (defined(f)) puts("bad 1");
 
 	i = 1;
-	while (fgetline(f, &buf)) {
+	while (defined(buf = fgetline(f))) {
 		unless (buf eq "line${i}") printf("bad 2 i=%d\n", i);
 		++i;
 	}
@@ -271,7 +271,7 @@ void file1(string nm)
 
 	f = fopen(nm, "r");
 	unless (defined(f)) puts("bad 2.1");
-	unless (fgetline(f, &buf) == 1) puts("bad 2.2");
+	unless (defined(buf = fgetline(f))) puts("bad 2.2");
 	unless (buf eq "file-1 test") puts("bad 2.3");
 	unless (fclose(f) == 0) puts("bad 2.4");
 
@@ -292,11 +292,10 @@ void file2()
 	FILE	f;
 	string	buf;
 
-	f = fopen("does not exist", "rw");
-	if (defined(f)) puts("bad 1");
+	if (defined(f = fopen("does not exist", "rw"))) puts("bad 1");
 
 	unless (fclose(f) == -1) puts("bad 2");
-	unless (fgetline(f, &buf) == 0) puts("bad 3");
+	if (defined(buf = fgetline(f))) puts("bad 3");
 	unless (fprintf(f, "bad") == -1) puts("bad 4");
 }
 file2();
@@ -332,11 +331,10 @@ void frename1(string old)
 	string	new = old . "-renamed";
 
 	unless (frename(old, new) == 0) puts("bad 1.1");
-	f = fopen(new, "r");
-	unless (defined(f)) puts("bad 2.1");
-	unless (fgetline(f, &buf) == 1) puts("bad 2.2");
+	unless (defined(f = fopen(new, "r"))) puts("bad 2.1");
+	unless (defined(buf = fgetline(f))) puts("bad 2.2");
 	unless (buf eq "test") puts("bad 2.3");
-	unless (fgetline(f, &buf) == 0) puts("bad 2.4");
+	if (defined(buf = fgetline(f))) puts("bad 2.4");
 	unless (fclose(f) == 0) puts("bad 2.5");
 
 	unlink(new);
@@ -447,7 +445,7 @@ getdir1();
 	file delete -force getdirtest
 } -output {}
 
-test is-1 {test isdouble/isdir/isinteger/isfile/islink} -setup {
+test is-1 {test isdouble/isdir/isinteger/isreg/islink} -setup {
 	set fdirname1 istestdir1
 	set fdirname2 {is test dir2}
 	set fdirname3 istestdir\{3\}
@@ -483,11 +481,11 @@ void is1(string dirnm, string filenm, string linknm)
 	if (isinteger("not")) puts("bad 2.3");
 
 	unless (isdir(dirnm)) puts("bad 3.1");
-	unless (isfile(filenm)) puts("bad 4.1");
+	unless (isreg(filenm)) puts("bad 4.1");
 	unless (islink(linknm)) puts("bad 5.1");
 
 	if (isdir("does not exist")) puts("bad 10.1");
-	if (isfile("does not exist")) puts("bad 10.2");
+	if (isreg("does not exist")) puts("bad 10.2");
 	if (islink("does not exist")) puts("bad 10.3");
 }
 #lang tcl
@@ -618,7 +616,7 @@ void popen1()
 	unless (defined(f)) puts("bad 1");
 
 	i = 1;
-	while (fgetline(f, &buf)) {
+	while (defined(buf = fgetline(f))) {
 		unless (buf eq "line${i}") printf("bad i=%d\n", i);
 		++i;
 	}
