@@ -72,6 +72,13 @@ struct	stat {
 	string	st_type;
 };
 
+int
+abs(int i)
+{
+	if (i < 0) i = -i;
+	return (i);
+}
+
 string
 basename(string path)
 {
@@ -148,9 +155,11 @@ exists(string path)
 }
 
 int
-fclose(_unused FILE f)
+fclose(FILE f)
 {
 	string	err;
+
+	unless (defined(f)) return (-1);
 
 	if (catch("close $f", &err)) {
 		stdio_lasterr = err;
@@ -160,15 +169,16 @@ fclose(_unused FILE f)
 	}
 }
 
-int
-fgetline(_unused FILE f, _unused string &buf)
+string
+fgetline(_unused FILE f)
 {
+	string	buf;
 	int	ret;
 
-	if (catch("set ret [gets $f buf]")) {
-		return (0);
+	if (catch("set ret [gets $f buf]") || (ret < 0)) {
+		return (undef);
 	} else {
-		return (ret > -1);
+		return (buf);
 	}
 }
 
@@ -178,6 +188,15 @@ fopen(string path, string mode)
 	int	v = 0;
 	FILE	f;
 	string	err;
+
+	unless (defined(path)) {
+		warn("fopen: pathname is not defined");
+		return (undef);
+	}
+	unless (defined(mode)) {
+		warn("fopen: mode is not defined");
+		return (undef);
+	}
 
 	/* new mode, v, means be verbose w/ errors */
 	if (mode =~ /v/) {
@@ -266,7 +285,7 @@ isinteger(poly n)
 }
 
 int
-isfile(string path)
+isreg(string path)
 {
 	return (file("isfile", path));
 }
@@ -275,6 +294,12 @@ int
 islink(string path)
 {
 	return (ftype(path) eq "link");
+}
+
+int
+isspace(string buf)
+{
+	return (string("is", "space", buf));
 }
 
 int
