@@ -381,6 +381,19 @@ if test $tcl_cv_type_socklen_t = no; then
     AC_DEFINE(socklen_t, int, [Define as int if socklen_t is not available])
 fi
 
+# check for SHUT_RD and SHUT_WR being enums vs defines
+AC_CACHE_CHECK([for SHUT_RD/SHUT_WR], tcl_cv_type_shutrd, [
+    AC_TRY_COMPILE([
+        #include <sys/socket.h>
+    ],[
+        int foo = SHUT_RD;
+	int bar = SHUT_WR;
+    ],[tcl_cv_type_shutrd=yes],[tcl_cv_type_shutrd=no])])
+if test $tcl_cv_type_shutrd = no; then
+    AC_DEFINE(SHUT_RD, 0, [SHUT_RD not found, define as 0])
+    AC_DEFINE(SHUT_WR, 1, [SHUT_WR not found, define as 1])
+fi
+
 AC_CHECK_TYPE([intptr_t], [
     AC_DEFINE([HAVE_INTPTR_T], 1, [Do we have the intptr_t type?])], [
     AC_CACHE_CHECK([for pointer-size signed integer type], tcl_cv_intptr_t, [
