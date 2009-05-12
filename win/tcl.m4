@@ -1115,12 +1115,5 @@ AC_DEFUN([AC_PROG_BISON],[
 	then
 		AC_MSG_ERROR([Unable to find bison]);
 	fi
-	ver=`${BISON} --version | grep ^bison | awk '{print $NF}'`
-	case $ver in
-	     1.*) AC_MSG_ERROR([Your bison is too old, at least version 2 is required]);
-	     	  ;;
-	     2.4) AC_MSG_ERROR([Your bison is buggy, go back to 2.3]);
-	     	  ;;
-	esac
 	AC_SUBST(BISON)
 ])
