@@ -88,12 +88,6 @@
 #endif	/* !USE_TERMIO */
 #endif	/* !USE_TERMIOS */
 
-/* SCO is retarded */
-#ifdef	_SCO_ELF
-#define	SHUT_RD	0
-#define	SHUT_WR	1
-#endif
-
 /*
  * Helper macros to make parts of this file clearer. The macros do exactly
  * what they say on the tin. :-) They also only ever refer to their arguments
