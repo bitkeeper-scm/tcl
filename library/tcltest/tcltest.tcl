@@ -2735,6 +2735,7 @@ proc tcltest::runAllTests { {shell ""} } {
 
     set timeCmd {clock format [clock seconds]}
     puts [outputChannel] "Tests began at [eval $timeCmd]"
+    set exit_status 0
 
     # Run each of the specified tests
     foreach file [lsort [GetMatchingFiles]] {
@@ -2772,6 +2773,7 @@ proc tcltest::runAllTests { {shell ""} } {
 			}
 			if {$Failed > 0} {
 			    lappend failFiles $testFile
+			    set exit_status 1
 			}
 		    } elseif {[regexp [join {
 			    {^Number of tests skipped }
@@ -2799,6 +2801,7 @@ proc tcltest::runAllTests { {shell ""} } {
     puts [outputChannel] "\nTests ended at [eval $timeCmd]"
     cleanupTests 1
     if {[info exists testFileFailures]} {
+	set exit_status 1
 	puts [outputChannel] "\nTest files exiting with errors:  \n"
 	foreach file $testFileFailures {
 	    puts [outputChannel] "  [file tail $file]\n"
@@ -2818,7 +2821,7 @@ proc tcltest::runAllTests { {shell ""} } {
 	puts [outputChannel] ""
 	puts [outputChannel] [string repeat ~ 44]
     }
-    return
+    return $exit_status
 }
 
 #####################################################################

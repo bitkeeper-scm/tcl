@@ -823,7 +823,7 @@ test: binaries $(TCLTEST) test-packages
 	-load "set ::ddelib [file normalize ${DDE_DLL_FILE}]; \
 	set ::reglib [file normalize ${REG_DLL_FILE}]" | ./$(CAT32)
 
-l-test l-tests:
+l-test l-tests test-l test-L:
 	$(MAKE) test TESTFLAGS="-file l-*"
 
 # Useful target to launch a built tcltest with the proper path,...
@@ -856,7 +856,6 @@ clean: cleanhelp clean-packages
 	$(RM) *.lib *.a *.exp *.dll *.$(RES) *.${OBJEXT} *~ \#* TAGS a.out
 	$(RM) $(TCLSH) $(TCLTEST) $(CAT32)
 	$(RM) *.pch *.ilk *.pdb
-	$(RM) Lscanner.c Lgrammar.[ch]
 
 distclean: distclean-packages clean
 	$(RM) Makefile config.status config.cache config.log tclConfig.sh \

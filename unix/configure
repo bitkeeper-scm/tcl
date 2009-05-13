@@ -2657,17 +2657,6 @@ test -n "$BISON" || BISON="no"
 echo "$as_me: error: Unable to find bison" >&2;}
    { (exit 1); exit 1; }; };
 	fi
-	ver=`${BISON} --version | grep ^bison | awk '{print $NF}'`
-	case $ver in
-	     1.*) { { echo "$as_me:$LINENO: error: Your bison is too old, at least version 2 is required" >&5
-echo "$as_me: error: Your bison is too old, at least version 2 is required" >&2;}
-   { (exit 1); exit 1; }; };
-	     	  ;;
-	     2.4) { { echo "$as_me:$LINENO: error: Your bison is buggy, go back to 2.3" >&5
-echo "$as_me: error: Your bison is buggy, go back to 2.3" >&2;}
-   { (exit 1); exit 1; }; };
-	     	  ;;
-	esac
 
 
 #--------------------------------------------------------------------
@@ -15872,6 +15861,79 @@ if test $tcl_cv_type_socklen_t = no; then
 
 cat >>confdefs.h <<\_ACEOF
 #define socklen_t int
+_ACEOF
+
+fi
+
+# check for SHUT_RD and SHUT_WR being enums vs defines
+echo "$as_me:$LINENO: checking for SHUT_RD/SHUT_WR" >&5
+echo $ECHO_N "checking for SHUT_RD/SHUT_WR... $ECHO_C" >&6
+if test "${tcl_cv_type_shutrd+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+        #include <sys/socket.h>
+
+int
+main ()
+{
+
+        int foo = SHUT_RD;
+	int bar = SHUT_WR;
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  tcl_cv_type_shutrd=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+tcl_cv_type_shutrd=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $tcl_cv_type_shutrd" >&5
+echo "${ECHO_T}$tcl_cv_type_shutrd" >&6
+if test $tcl_cv_type_shutrd = no; then
+
+cat >>confdefs.h <<\_ACEOF
+#define SHUT_RD 0
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define SHUT_WR 1
 _ACEOF
 
 fi
