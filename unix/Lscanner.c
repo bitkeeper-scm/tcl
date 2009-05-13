@@ -336,7 +336,7 @@ void L_free (void *  );
 
 /* Begin user sect3 */
 
-#define L_wrap() 1
+#define L_wrap(n) 1
 #define YY_SKIP_YYWRAP
 
 typedef unsigned char YY_CHAR;
@@ -924,7 +924,7 @@ int L__flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *L_text;
-#line 1 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 1 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 
 
@@ -937,7 +937,7 @@ char *L_text;
 
 
 
-#line 18 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 18 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 /*
  * Copyright (c) 2006-2008 BitMover, Inc.
  */
@@ -967,6 +967,7 @@ private int	str_beg;	// source offset of string
 private char	*here_delim = NULL;
 private int	include_top;
 private Include	include_stk[INCLUDE_STACK_SZ];
+private Tcl_HashTable *include_table = NULL;
 
 #define STRBUF_START(beg)			\
 	do {					\
@@ -1074,26 +1075,49 @@ tally_newlines(char *s, int len, int tally)
 private FILE *
 include_search(char *file)
 {
+	int	new;
 	FILE	*f;
-	char	*resolvedFile;
+	char	*path, *resolvedFile;
 	Interp	*iPtr = (Interp *)L->interp;
-	Tcl_Obj	*dir;
-	Tcl_Obj *fileObj = Tcl_NewStringObj(file, -1);
+	Tcl_Obj *fileObj, *pathObj;
+	Tcl_HashEntry *hPtr;
+
+	unless (include_table) {
+		include_table = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
+		Tcl_InitHashTable(include_table, TCL_STRING_KEYS);
+	}
 
 	/* If the path is relative, make it absolute. */
+	fileObj = Tcl_NewStringObj(file, -1);
 	Tcl_IncrRefCount(fileObj);
 	if ((Tcl_FSGetPathType(fileObj) == TCL_PATH_ABSOLUTE) ||
 	    !iPtr->scriptFile) {
 		resolvedFile = ckstrdup(file);
 	} else {
-		dir = TclPathPart(L->interp, iPtr->scriptFile,
-				  TCL_PATH_DIRNAME);
-		Tcl_AppendPrintfToObj(dir, "/%s", file);
-		resolvedFile = ckstrdup(Tcl_GetString(dir));
-		Tcl_DecrRefCount(dir);
+		Tcl_DecrRefCount(fileObj);
+		fileObj = TclPathPart(L->interp, iPtr->scriptFile,
+				      TCL_PATH_DIRNAME);
+		Tcl_AppendPrintfToObj(fileObj, "/%s", file);
+		resolvedFile = ckstrdup(Tcl_GetString(fileObj));
+	}
+
+	/* See if the normalized path has been included before. */
+	if ((pathObj = Tcl_FSGetNormalizedPath(NULL, fileObj)) == NULL) {
+		L_err("unable to normalize include file %s\n", file);
+		return (NULL);
+	}
+	path = Tcl_GetString(pathObj);
+	hPtr = Tcl_CreateHashEntry(include_table, path, &new);
+
+	if (new) {
+		f = fopen(resolvedFile, "r");
+		unless (f) {
+			L_err("cannot find include file %s", file);
+		}
+	} else {
+		f = NULL;
 	}
 	Tcl_DecrRefCount(fileObj);
-	f = fopen(resolvedFile, "r");
 	ckfree(resolvedFile);
 	return (f);
 }
@@ -1137,7 +1161,7 @@ include_pop()
 	}
 }
 
-#line 1141 "Lscanner.c"
+#line 1165 "Lscanner.c"
 
 #define INITIAL 0
 #define re_modifier 1
@@ -1313,9 +1337,9 @@ YY_DECL
 	register char *yy_cp, *yy_bp;
 	register int yy_act;
     
-#line 218 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 242 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
-#line 1319 "Lscanner.c"
+#line 1343 "Lscanner.c"
 
 	if ( !(yy_init) )
 		{
@@ -1401,438 +1425,438 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 220 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 244 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LPAREN;
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 221 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 245 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RPAREN;
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 222 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 246 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LBRACE;
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 223 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 247 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LBRACKET;
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 224 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 248 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RBRACKET;
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 225 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 249 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_COMMA;
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 226 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 250 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BANG;
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 227 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 251 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_PLUS;
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 228 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 252 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_MINUS;
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 229 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 253 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_STAR;
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 230 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 254 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_SLASH;
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 231 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 255 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_PERC;
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 232 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 256 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQPLUS;
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 233 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 257 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQMINUS;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 234 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 258 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQSTAR;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 235 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 259 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQSLASH;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 236 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 260 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQPERC;
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 237 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 261 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQBITAND;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 238 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 262 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQBITOR;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 239 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 263 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQBITXOR;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 240 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 264 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQLSHIFT;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 241 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 265 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQRSHIFT;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 242 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 266 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQDOT;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 243 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 267 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_PLUSPLUS;
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 244 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 268 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_MINUSMINUS;
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 245 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 269 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_ANDAND;
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 246 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 270 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_OROR;
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 247 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 271 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BITAND;
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 248 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 272 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BITOR;
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 249 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 273 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BITXOR;
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 250 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 274 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BITNOT;
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 251 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 275 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LSHIFT;
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 252 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 276 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RSHIFT;
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 253 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 277 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQUALS;
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 254 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 278 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_SEMI;
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-#line 255 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 279 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_DOT;
 	YY_BREAK
 case 37:
 /* rule 37 can match eol */
 YY_RULE_SETUP
-#line 256 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 280 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_STRCAT;
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 257 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 281 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_DOTDOT;
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 258 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 282 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_ELLIPSIS;
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 259 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 283 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_CLASS;
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 260 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 284 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EXTERN;
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-#line 261 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 285 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RETURN;
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-#line 262 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 286 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_VOID;
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-#line 263 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 287 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_STRING;
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-#line 264 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 288 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_INT;
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-#line 265 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 289 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_FLOAT;
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-#line 266 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 290 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_POLY;
 	YY_BREAK
 case 48:
 YY_RULE_SETUP
-#line 267 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 291 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_VAR;
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-#line 268 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 292 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_SPLIT;
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-#line 269 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 293 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_IF;
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 270 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 294 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_ELSE;
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 271 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 295 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_UNLESS;
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 272 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 296 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_WHILE;
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 273 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 297 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_DO;
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-#line 274 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 298 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_FOR;
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 275 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 299 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_STRUCT;
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-#line 276 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 300 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_TYPEDEF;
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-#line 277 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 301 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_DEFINED;
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
-#line 278 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 302 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_FOREACH;
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 279 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 303 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_BREAK;
 	YY_BREAK
 case 61:
 YY_RULE_SETUP
-#line 280 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 304 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_CONTINUE;
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-#line 281 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 305 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_INSTANCE;
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-#line 282 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 306 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_PRIVATE;
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
-#line 283 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 307 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_PUBLIC;
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-#line 284 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 308 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_CONSTRUCTOR;
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
-#line 285 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 309 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_DESTRUCTOR;
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 286 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 310 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EXPAND;
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-#line 287 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 311 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_IN;
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
-#line 288 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 312 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_UNUSED;
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
-#line 289 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 313 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_GOTO;
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
-#line 290 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 314 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_ARROW;
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
-#line 291 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 315 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQ;
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
-#line 292 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 316 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_NE;
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
-#line 293 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 317 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LT;
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
-#line 294 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 318 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LE;
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
-#line 295 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 319 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_GT;
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 296 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 320 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_GE;
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
-#line 297 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 321 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_EQUALEQUAL;
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
-#line 298 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 322 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_NOTEQUAL;
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
-#line 299 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 323 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_GREATER;
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
-#line 300 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 324 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_GREATEREQ;
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
-#line 301 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 325 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LESSTHAN;
 	YY_BREAK
 case 83:
 YY_RULE_SETUP
-#line 302 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 326 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_LESSTHANEQ;
 	YY_BREAK
 case 84:
 YY_RULE_SETUP
-#line 303 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 327 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_POINTS;
 	YY_BREAK
 case 85:
 YY_RULE_SETUP
-#line 304 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 328 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_COLON;
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
-#line 305 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 329 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_QUESTION;
 	YY_BREAK
 case 87:
 YY_RULE_SETUP
-#line 306 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 330 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				Type *t = L_typedef_lookup(L_text);
 				if (t) {
@@ -1847,7 +1871,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 88:
 YY_RULE_SETUP
-#line 317 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 341 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.s = ckstrdup(L_text);
 				return T_PATTERN;
@@ -1855,7 +1879,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 89:
 YY_RULE_SETUP
-#line 321 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 345 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/* Regular expression submatches */
 				L_lval.s = ckstrdup(L_text);
@@ -1864,7 +1888,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 90:
 YY_RULE_SETUP
-#line 326 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 350 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				// XXX - we don't handle constants > 32 bits
 				L_lval.i = atoi(L_text);
@@ -1873,7 +1897,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 91:
 YY_RULE_SETUP
-#line 331 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 355 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.i = strtoul(L_text+2, 0, 8);
 				return T_INT_LITERAL;
@@ -1881,7 +1905,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 92:
 YY_RULE_SETUP
-#line 335 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 359 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				// XXX - we don't handle constants > 32 bits
 				L_lval.i = strtoul(L_text+2, 0, 16);
@@ -1890,7 +1914,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 93:
 YY_RULE_SETUP
-#line 340 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 364 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.f = atof(L_text);
 				return T_FLOAT_LITERAL;
@@ -1898,7 +1922,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 94:
 YY_RULE_SETUP
-#line 344 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 368 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				undo_yy_user_action();
 				BEGIN(include);
@@ -1907,39 +1931,39 @@ YY_RULE_SETUP
 case 95:
 /* rule 95 can match eol */
 YY_RULE_SETUP
-#line 348 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 372 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 96:
 /* rule 96 can match eol */
 YY_RULE_SETUP
-#line 349 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 373 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 97:
 YY_RULE_SETUP
-#line 350 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 374 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_push_state(str_double); STRBUF_START(L->token_off);
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
-#line 351 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 375 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_push_state(str_single); STRBUF_START(L->token_off);
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
-#line 352 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 376 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_push_state(str_backtick); STRBUF_START(L->token_off);
 	YY_BREAK
 case 100:
 YY_RULE_SETUP
-#line 353 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 377 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_push_state(comment);
 	YY_BREAK
 case 101:
 /* rule 101 can match eol */
 YY_RULE_SETUP
-#line 354 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 378 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
@@ -1953,7 +1977,7 @@ YY_RULE_SETUP
 case 102:
 /* rule 102 can match eol */
 YY_RULE_SETUP
-#line 363 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 387 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
@@ -1967,7 +1991,7 @@ YY_RULE_SETUP
 case 103:
 /* rule 103 can match eol */
 YY_RULE_SETUP
-#line 372 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 396 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
@@ -1982,7 +2006,7 @@ YY_RULE_SETUP
 case 104:
 /* rule 104 can match eol */
 YY_RULE_SETUP
-#line 382 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 406 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len;
 		char	*p;
@@ -2007,7 +2031,7 @@ YY_RULE_SETUP
 case 105:
 /* rule 105 can match eol */
 YY_RULE_SETUP
-#line 402 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 426 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len;
 		char	*p;
@@ -2033,16 +2057,14 @@ YY_RULE_SETUP
 case 106:
 /* rule 106 can match eol */
 YY_RULE_SETUP
-#line 424 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 448 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len = strrchr(L_text, '"') - L_text;
 		char	*name = ckstrndup(L_text, len);
 		FILE	*f = include_search(name);
 
 		undo_yy_user_action();
-		unless (f) {
-			L_err("cannot find include file %s", name);
-		} else {
+		if (f) {
 			/* This bails if includes nest too deeply. */
 			unless (include_push(f, name)) yyterminate();
 		}
@@ -2051,7 +2073,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 107:
 YY_RULE_SETUP
-#line 438 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 460 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		L_err("malformed include");
 		BEGIN(INITIAL);
@@ -2066,7 +2088,7 @@ YY_RULE_SETUP
 case 108:
 /* rule 108 can match eol */
 YY_RULE_SETUP
-#line 449 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 471 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
@@ -2076,7 +2098,7 @@ YY_RULE_SETUP
 case 109:
 /* rule 109 can match eol */
 YY_RULE_SETUP
-#line 454 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 476 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
@@ -2087,14 +2109,14 @@ YY_RULE_SETUP
 
 case 110:
 YY_RULE_SETUP
-#line 462 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 484 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RBRACE;
 	YY_BREAK
 
 
 case 111:
 YY_RULE_SETUP
-#line 466 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 488 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				STRBUF_START(L_lloc.end);
 				yy_pop_state();
@@ -2103,41 +2125,41 @@ YY_RULE_SETUP
 	YY_BREAK
 case 112:
 YY_RULE_SETUP
-#line 471 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 493 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RBRACE;
 	YY_BREAK
 
 
 case 113:
 YY_RULE_SETUP
-#line 475 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 497 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\r", 1);
 	YY_BREAK
 case 114:
 YY_RULE_SETUP
-#line 476 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 498 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 115:
 YY_RULE_SETUP
-#line 477 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 499 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\t", 1);
 	YY_BREAK
 case 116:
 /* rule 116 can match eol */
 YY_RULE_SETUP
-#line 478 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 500 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
 case 117:
 YY_RULE_SETUP
-#line 479 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 501 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("$", 1);
 	YY_BREAK
 case 118:
 /* rule 118 can match eol */
 YY_RULE_SETUP
-#line 480 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 502 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("%s:%d: missing string terminator \"",
 				      L->file, L->line);
@@ -2146,12 +2168,12 @@ YY_RULE_SETUP
 	YY_BREAK
 case 119:
 YY_RULE_SETUP
-#line 485 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 507 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, L_leng);
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
-#line 486 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 508 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2162,12 +2184,12 @@ YY_RULE_SETUP
 case 121:
 /* rule 121 can match eol */
 YY_RULE_SETUP
-#line 492 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 514 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 122:
 YY_RULE_SETUP
-#line 493 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 515 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2179,24 +2201,24 @@ YY_RULE_SETUP
 
 case 123:
 YY_RULE_SETUP
-#line 502 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 524 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\\", 1);
 	YY_BREAK
 case 124:
 YY_RULE_SETUP
-#line 503 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 525 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("'", 1);
 	YY_BREAK
 case 125:
 /* rule 125 can match eol */
 YY_RULE_SETUP
-#line 504 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 526 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 126:
 /* rule 126 can match eol */
 YY_RULE_SETUP
-#line 505 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 527 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("%s:%d: missing string terminator \'",
 				      L->file, L->line);
@@ -2204,21 +2226,21 @@ YY_RULE_SETUP
 			}
 	YY_BREAK
 case 127:
-#line 511 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 533 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 case 128:
 YY_RULE_SETUP
-#line 511 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 533 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, L_leng);
 	YY_BREAK
 case 129:
 /* rule 129 can match eol */
 YY_RULE_SETUP
-#line 512 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 534 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 130:
 YY_RULE_SETUP
-#line 513 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 535 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2230,34 +2252,34 @@ YY_RULE_SETUP
 
 case 131:
 YY_RULE_SETUP
-#line 522 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 544 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\r", 1);
 	YY_BREAK
 case 132:
 YY_RULE_SETUP
-#line 523 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 545 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 133:
 YY_RULE_SETUP
-#line 524 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 546 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\t", 1);
 	YY_BREAK
 case 134:
 /* rule 134 can match eol */
 YY_RULE_SETUP
-#line 525 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 547 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
 case 135:
 YY_RULE_SETUP
-#line 526 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 548 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("$", 1);
 	YY_BREAK
 case 136:
 /* rule 136 can match eol */
 YY_RULE_SETUP
-#line 527 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 549 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("%s:%d: missing string terminator `",
 				      L->file, L->line);
@@ -2266,12 +2288,12 @@ YY_RULE_SETUP
 	YY_BREAK
 case 137:
 YY_RULE_SETUP
-#line 532 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 554 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, L_leng);
 	YY_BREAK
 case 138:
 YY_RULE_SETUP
-#line 533 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 555 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2281,7 +2303,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 139:
 YY_RULE_SETUP
-#line 539 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 561 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2293,12 +2315,12 @@ YY_RULE_SETUP
 
 case 140:
 YY_RULE_SETUP
-#line 548 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 570 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\\", 1);
 	YY_BREAK
 case 141:
 YY_RULE_SETUP
-#line 549 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 571 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("'", 1);
 	YY_BREAK
 case 142:
@@ -2306,7 +2328,7 @@ case 142:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 550 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 572 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (strcmp(L_text, here_delim)) {
 					STRBUF_ADD(L_text, L_leng);
@@ -2327,7 +2349,7 @@ case 143:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 563 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 585 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/*
 				 * This is an error check -- look for a
@@ -2360,29 +2382,29 @@ YY_RULE_SETUP
 case 144:
 /* rule 144 can match eol */
 YY_RULE_SETUP
-#line 591 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 613 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, 1);
 	YY_BREAK
 
 
 case 145:
 YY_RULE_SETUP
-#line 595 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 617 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 146:
 YY_RULE_SETUP
-#line 596 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 618 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\t", 1);
 	YY_BREAK
 case 147:
 YY_RULE_SETUP
-#line 597 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 619 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
 case 148:
 YY_RULE_SETUP
-#line 598 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 620 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2395,7 +2417,7 @@ case 149:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 604 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 626 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (strcmp(L_text, here_delim)) {
 					STRBUF_ADD(L_text, L_leng);
@@ -2416,7 +2438,7 @@ case 150:
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 617 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 639 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/*
 				 * This is an error check -- look for a
@@ -2449,7 +2471,7 @@ YY_RULE_SETUP
 case 151:
 /* rule 151 can match eol */
 YY_RULE_SETUP
-#line 645 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 667 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, 1);
 	YY_BREAK
 
@@ -2457,24 +2479,24 @@ STRBUF_ADD(L_text, 1);
 case 152:
 /* rule 152 can match eol */
 YY_RULE_SETUP
-#line 649 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 671 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 153:
 YY_RULE_SETUP
-#line 650 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 672 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
 case 154:
 YY_RULE_SETUP
-#line 651 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 673 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_pop_state();
 	YY_BREAK
 
 
 case 155:
 YY_RULE_SETUP
-#line 655 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 677 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2484,7 +2506,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 156:
 YY_RULE_SETUP
-#line 661 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 683 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (L_text[1] == re_quote_char) {
 					STRBUF_ADD(L_text+1, 1);
@@ -2495,7 +2517,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 157:
 YY_RULE_SETUP
-#line 668 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 690 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (*(L_text) == re_quote_char) {
 					L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2519,7 +2541,7 @@ YY_RULE_SETUP
 
 case 158:
 YY_RULE_SETUP
-#line 689 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 711 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.s = ckstrdup(L_text);
 				yy_pop_state();
@@ -2528,7 +2550,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 159:
 YY_RULE_SETUP
-#line 694 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 716 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				unput(L_text[0]);
 				undo_yy_user_action();
@@ -2540,7 +2562,7 @@ YY_RULE_SETUP
 
 case 160:
 YY_RULE_SETUP
-#line 702 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 724 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/* This rule matches a char if no other does. */
 				L_err("illegal character '%c'", *L_text);
@@ -2560,17 +2582,17 @@ case YY_STATE_EOF(interpol):
 case YY_STATE_EOF(include):
 case YY_STATE_EOF(here_doc_interp):
 case YY_STATE_EOF(here_doc_nointerp):
-#line 707 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 729 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				unless (include_pop()) yyterminate();
 			}
 	YY_BREAK
 case 161:
 YY_RULE_SETUP
-#line 710 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 732 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 ECHO;
 	YY_BREAK
-#line 2574 "Lscanner.c"
+#line 2596 "Lscanner.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -2799,7 +2821,7 @@ static int yy_get_next_buffer (void)
 
 		/* Read in more data. */
 		YY_INPUT( (&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move]),
-			(yy_n_chars), (size_t) num_to_read );
+			(yy_n_chars), num_to_read );
 
 		YY_CURRENT_BUFFER_LVALUE->yy_n_chars = (yy_n_chars);
 		}
@@ -2975,7 +2997,7 @@ static int yy_get_next_buffer (void)
 				case EOB_ACT_END_OF_FILE:
 					{
 					if ( L_wrap( ) )
-						return EOF;
+						return 0;
 
 					if ( ! (yy_did_buffer_switch_on_eof) )
 						YY_NEW_FILE;
@@ -3303,7 +3325,7 @@ YY_BUFFER_STATE L__scan_buffer  (char * base, yy_size_t  size )
 
 /** Setup the input buffer state to scan a string. The next call to L_lex() will
  * scan from a @e copy of @a str.
- * @param yystr a NUL-terminated string to scan
+ * @param str a NUL-terminated string to scan
  * 
  * @return the newly allocated buffer state object.
  * @note If you want to scan bytes that may contain NUL values, then use
@@ -3598,7 +3620,7 @@ void L_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 710 "/home/rob/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 732 "/Users/rob/bk/bk-tcl86-L-nobison/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 
 void
