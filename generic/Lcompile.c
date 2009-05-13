@@ -309,7 +309,7 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 	 * comment in sym_store().
 	 */
 	frame_push(NULL, NULL, SCRIPT|SEARCH);
-	frame_push(NULL, L->toplev, PROC|TOPLEV|SKIP);
+	frame_push(NULL, L->toplev, FUNC|TOPLEV|SKIP);
 
 	/*
 	 * Before compiling, enter prototypes for all functions into
@@ -484,7 +484,7 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 
 	if (!fun->body || (flags & FN_PROTO_ONLY)) return;
 
-	frame_push(fun, sym->tclname, PROC|SEARCH);
+	frame_push(fun, sym->tclname, FUNC|SEARCH);
 	sym->kind |= L_SYM_FNBODY;
 	L->frame->block = (Ast *)fun;
 
@@ -587,7 +587,7 @@ compile_fnDecl(FnDecl *fun, Decl_f flags)
 }
 
 /*
- * Push a semantic-stack frame.  If flags & PROC, start a new proc
+ * Push a semantic-stack frame.  If flags & FUNC, start a new proc
  * too.  To support the delayed generation of proc prologue code, we
  * allocate two CompileEnv's, one for the proc body and one for its
  * prologue.  You switch between the two with frame_resumePrologue()
@@ -614,7 +614,7 @@ frame_push(void *node, char *name, Frame_f flags)
 	frame->prevFrame = L->frame;
 	L->frame = frame;
 
-	unless (frame->flags & PROC) {
+	unless (frame->flags & FUNC) {
 		frame->block = node;
 		if (frame->prevFrame) {
 			frame->envPtr = frame->prevFrame->envPtr;
@@ -684,7 +684,7 @@ frame_pop()
 	 * the proc.  Splice in any code in the frame->prologueEnvPtr
 	 * CompileEnv.  This is dependent on CompileEnv details.
 	 */
-	if (frame->flags & PROC) {
+	if (frame->flags & FUNC) {
 		CompileEnv	*body = frame->bodyEnvPtr;
 		CompileEnv	*prologue = frame->prologueEnvPtr;
 		int		len = prologue->codeNext - prologue->codeStart;
@@ -746,7 +746,7 @@ frame_pop()
 	/*
 	 * Create the Tcl command and free the old frame.
 	 */
-	if (frame->flags & PROC) {
+	if (frame->flags & FUNC) {
 		TclInitByteCodeObj(proc->bodyPtr, frame->envPtr);
 #ifdef TCL_COMPILE_DEBUG
 		if (getenv("L_DISASSEMBLE")) {
@@ -3532,7 +3532,7 @@ label_lookup(Stmt *stmt, Label_f flags)
 	Tcl_HashEntry	*hPtr = NULL;
 
 	/* Labels are restricted to the enclosing proc's labeltab. */
-	frame = frame_find(PROC);
+	frame = frame_find(FUNC);
 	ASSERT(frame);
 
 	hPtr = Tcl_FindHashEntry(frame->labeltab, name);
@@ -3865,7 +3865,7 @@ sym_lookup(Expr *id, Expr_f flags)
 			// assert class instance var => class outer-most frame
 			ASSERT(!(sym->decl->flags & DECL_CLASS_INST_VAR) ||
 			       (frame->flags & CLS_OUTER));
-			proc_frame = frame_find(TOPLEV|CLS_TOPLEV|PROC);
+			proc_frame = frame_find(TOPLEV|CLS_TOPLEV|FUNC);
 			ASSERT(proc_frame);
 			hPtr = Tcl_CreateHashEntry(proc_frame->symtab, name,
 						   &new);

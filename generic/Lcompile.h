@@ -37,7 +37,7 @@ typedef enum {
 	TOPLEV		= 0x0004,  // is for file top-levels
 	CLS_OUTER	= 0x0008,  // is class outer-most
 	CLS_TOPLEV	= 0x0010,  // is for class top-levels
-	PROC		= 0x0020,  // frame is at top level of a proc
+	FUNC		= 0x0020,  // frame is at top level of a proc
 	LOOP		= 0x0040,  // frame is for a loop
 	SKIP		= 0x0080,  // skip frame when searching enclosing scopes
 	SEARCH		= 0x0100,  //   don't skip this frame
