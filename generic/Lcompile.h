@@ -4,6 +4,7 @@
 #ifndef L_COMPILE_H
 #define L_COMPILE_H
 
+#include <setjmp.h>
 #include "tclInt.h"
 #include "tclCompile.h"
 #include "Last.h"
@@ -112,6 +113,7 @@ typedef struct {
 	int	idx_nesting;	// current depth of nested []'s
 	int	tmpnum;		// for creating tmp variables
 	char	*toplev;	// name of toplevel proc
+	jmp_buf	jmp;		// for syntax error longjmp bail out
 } Lglobal;
 
 /*
@@ -143,7 +145,7 @@ extern char	*ckstrdup(const char *str);
 extern char	*ckstrndup(const char *str, int len);
 extern char	*ckvsprintf(const char *fmt, va_list ap, int len);
 extern void	L_bomb(const char *format, ...);
-extern void	L_err(const char *s, ...);	// yyerror
+extern void	L_err(const char *s, ...);
 extern void	L_errf(void *node, const char *format, ...);
 extern int	L_isUndef(Tcl_Obj *o);
 extern void	L_lex_begReArg();
@@ -158,6 +160,7 @@ extern Tcl_Obj	*L_split(Tcl_Interp *interp, Tcl_Obj *strobj, Tcl_Obj *reobj,
 			 Tcl_Obj *limobj);
 extern Type	*L_struct_lookup(char *tag, int local);
 extern Type	*L_struct_store(char *tag, VarDecl *members);
+extern void	L_synerr(const char *s, ...);	// yyerror
 extern void	L_trace(const char *format, ...);
 extern void	L_typeck_init();
 extern void	L_typeck_assign(Expr *lhs, Expr *rhs);

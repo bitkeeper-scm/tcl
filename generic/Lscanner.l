@@ -407,8 +407,7 @@ include_pop()
 		int	len;
 		char	*p;
 		if (here_delim) {
-			L_err("%s:%d: nested here documents illegal",
-			      L->file, L->line);
+			L_err("nested here documents illegal");
 		}
 		/* point p at the here-document delimeter */
 		for (p = yytext+1; *p != '<'; ++p) ;
@@ -427,8 +426,7 @@ include_pop()
 		int	len;
 		char	*p;
 		if (here_delim) {
-			L_err("%s:%d: nested here documents illegal",
-			      L->file, L->line);
+			L_err("nested here documents illegal");
 		}
 		/* point p at the here-document delimeter */
 		for (p = yytext+1; *p != '<'; ++p) ;
@@ -500,8 +498,7 @@ include_pop()
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
 	"$"		STRBUF_ADD("$", 1);
 	\n		{
-				L_err("%s:%d: missing string terminator \"",
-				      L->file, L->line);
+				L_err("missing string terminator \"");
 				STRBUF_ADD("\n", 1);
 			}
 	[^\\\"$\n]+	STRBUF_ADD(yytext, yyleng);
@@ -525,8 +522,7 @@ include_pop()
 	\\\'		STRBUF_ADD("'", 1);
 	\\\n		STRBUF_ADD("\n", 1);
 	\n		{
-				L_err("%s:%d: missing string terminator \'",
-				      L->file, L->line);
+				L_err("missing string terminator \'");
 				STRBUF_ADD("\n", 1);
 			}
 	\\.		|
@@ -547,8 +543,7 @@ include_pop()
 	\\(.|\n)	STRBUF_ADD(yytext+1, 1);
 	"$"		STRBUF_ADD("$", 1);
 	\n		{
-				L_err("%s:%d: missing string terminator `",
-				      L->file, L->line);
+				L_err("missing string terminator `");
 				STRBUF_ADD("\n", 1);
 			}
 	[^\\`$\n]+	STRBUF_ADD(yytext, yyleng);
@@ -599,9 +594,7 @@ include_pop()
 					STRBUF_ADD(yytext, yyleng);
 				} else {
 					/* delim w/trailing ; found -- error */
-					L_err("%s:%d: ; illegal ; after "
-					      "here document\n",
-					      L->file, L->line);
+					L_err("illegal ; after here document");
 					yy_pop_state();
 					L_lval.s = ckstrdup(STRBUF_STRING());
 					STRBUF_STOP(L_lloc.end);
@@ -653,9 +646,7 @@ include_pop()
 					STRBUF_ADD(yytext, yyleng);
 				} else {
 					/* delim w/trailing ; found -- error */
-					L_err("%s:%d: ; illegal ; after "
-					      "here document\n",
-					      L->file, L->line);
+					L_err("illegal ; after here document");
 					yy_pop_state();
 					L_lval.s = ckstrdup(STRBUF_STRING());
 					STRBUF_STOP(L_lloc.end);

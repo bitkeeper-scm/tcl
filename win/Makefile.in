@@ -305,8 +305,8 @@ GENERIC_OBJS = \
 	tclVar.$(OBJEXT) \
 	tclZlib.$(OBJEXT)
 
-L_OBJS	= Lscanner-regen.$(OBJEXT) \
-	Lgrammar-regen.$(OBJEXT) \
+L_OBJS	= Lscanner-pregen.$(OBJEXT) \
+	Lgrammar-pregen.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
 	LPointerObj.$(OBJEXT) \

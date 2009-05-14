@@ -3,6 +3,7 @@
  */
 #include <stdio.h>
 #include <stdarg.h>
+#include <setjmp.h>
 #include "tclInt.h"
 #include "tclCompile.h"
 #include "tclRegexp.h"
@@ -231,6 +232,12 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	L->script = Tcl_NewObj();
 	Tcl_IncrRefCount(L->script);
 	L->script_len = 0;
+
+	/* L_synerr() longjmps back here on a parser syntax error. */
+	if (setjmp(L->jmp)) {
+		Tcl_SetObjResult(interp, L->errs);
+		return (TCL_ERROR);
+	}
 
 	str = Tcl_GetStringFromObj(objv[objc - 1], &len);
 	ret = L_ParseScript(interp, str, &ast);
@@ -3974,7 +3981,36 @@ L_warnf(void *node, const char *format, ...)
 	}
 }
 
-/* L_err is yyerror and is called by the parser for syntax errs. */
+/*
+ * L_synerr is Bison's yyerror and is called by the parser for syntax
+ * errors.  Bail out by longjumping back to Tcl_LObjCmd, as a way
+ * to work-around a possible compiler bug in our Windows build where
+ * the Bison-generated parser's own internal longjmp causes a crash.
+ */
+void
+L_synerr(const char *format, ...)
+{
+	va_list ap;
+	int	len = 64;
+	char	*buf;
+
+	va_start(ap, format);
+	while (!(buf = ckvsprintf(format, ap, len))) {
+		va_end(ap);
+		va_start(ap, format);
+		len *= 2;
+	}
+	va_end(ap);
+
+	unless (L->errs) {
+		L->errs = Tcl_NewObj();
+	}
+	Tcl_AppendPrintfToObj(L->errs, "%s:%d: L Error: %s\n",
+			      L->file, L->line, buf);
+	ckfree(buf);
+	longjmp(L->jmp, 0);
+}
+
 void
 L_err(const char *format, ...)
 {
