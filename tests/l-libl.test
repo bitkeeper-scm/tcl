@@ -7,6 +7,12 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     testConstraint exec [llength [info commands exec]]
 }
 
+if {$::tcl_platform(platform) eq "windows"} {
+    set _windows 1
+} else {
+    set _windows 0
+}
+
 test basename-1 {test basename} -body {
 #lang L
 void basename1()
@@ -27,27 +33,29 @@ test chdir-1 {test chdir} -setup {
 	file mkdir testdir1
 	file mkdir {test dir 2}
 	file mkdir testdir\{3\}
-	file mkdir {testdir "'4}
+	if {!$_windows} {file mkdir {testdir "'4}}
 	# '"
 } -body {
 #lang L
 void chdir1()
 {
 	unless (chdir("testdir1") == 0) puts("bad 1.1");
-	unless (basename(`pwd`) eq "testdir1") puts("bad 1.2");
+	unless (basename(pwd()) eq "testdir1") puts("bad 1.2");
 	unless (chdir("..") == 0) puts("bad 1.3");
 
 	unless (chdir("test dir 2") == 0) puts("bad 2.1");
-	unless (basename(`pwd`) eq "test dir 2") puts("bad 2.2");
+	unless (basename(pwd()) eq "test dir 2") puts("bad 2.2");
 	unless (chdir("..") == 0) puts("bad 2.3");
 
 	unless (chdir("testdir{3}") == 0) puts("bad 3.1");
-	unless (basename(`pwd`) eq "testdir{3}") puts("bad 3.2");
+	unless (basename(pwd()) eq "testdir{3}") puts("bad 3.2");
 	unless (chdir("..") == 0) puts("bad 3.3");
 
-	unless (chdir("testdir \"\'4") == 0) puts("bad 4.1");
-	unless (basename(`pwd`) eq "testdir \"\'4") puts("bad 4.2");
-	unless (chdir("..") == 0) puts("bad 4.3");
+	unless (platform() eq "windows") {
+		unless (chdir("testdir \"\'4") == 0) puts("bad 4.1");
+		unless (basename(pwd()) eq "testdir \"\'4") puts("bad 4.2");
+		unless (chdir("..") == 0) puts("bad 4.3");
+	}
 
 	unless (chdir("does-not-exist") == -1) puts("bad 10.1");
 }
@@ -56,7 +64,7 @@ chdir1();
 	file delete -force testdir1
 	file delete -force {test dir 2}
 	file delete -force testdir\{3\}
-	file delete -force {testdir "'4}
+	if {!$_windows} {file delete -force {testdir "'4}}
 	# '"
 } -output {}
 
@@ -75,7 +83,7 @@ void caller1()
 caller1();
 } -output {}
 
-test chmod-1 {test chmod} -setup {
+test chmod-1 {test chmod} -constraints tempNotWin -setup {
 	set fname1 [makeFile {test} chmod_test1 .]
 	set fname2 [makeFile {test} {chmod test 2} .]
 	set fname3 [makeFile {test} chmodtest\{3\} .]
@@ -110,7 +118,7 @@ chmod1 $fname4
 	  removeFile $fname4
 } -output {}
 
-test chown-1 {test chown} -setup {
+test chown-1 {test chown} -constraints tempNotWin -setup {
 	set fname1 [makeFile {test} chown_test1 .]
 	set fname2 [makeFile {test} {chown test 2} .]
 	set fname3 [makeFile {test} chowntest\{3\} .]
@@ -172,8 +180,11 @@ void dirname1()
 	unless (dirname("with spaces/to/f ile") eq "with spaces/to") {
 		puts("bad 6");
 	}
-	unless (dirname("with \"\'quotes/to/f ile") eq "with \"\'quotes/to") {
-		puts("bad 7");
+	unless (platform() eq "windows") {
+		unless (dirname("with \"\'quotes/to/f ile") eq
+			"with \"\'quotes/to") {
+			puts("bad 7");
+		}
 	}
 }
 dirname1();
@@ -197,7 +208,7 @@ test exists-1 {test exists} -setup {
 	set fname1 [makeFile {test} exists_test1 .]
 	set fname2 [makeFile {test} {exists test 2} .]
 	set fname3 [makeFile {test} existstest\{3\} .]
-	set fname4 [makeFile {test} {exists test \"\'4} .]
+	if {!$_windows} {set fname4 [makeFile {test} {exists test \"\'4} .]}
 } -body {
 #lang L
 void exists1(string nm)
@@ -210,12 +221,12 @@ if (exists("does-not-exist")) puts("bad 2");
 exists1 $fname1
 exists1 $fname2
 exists1 $fname3
-exists1 $fname4
+if {!$_windows} {exists1 $fname4}
 } -cleanup {
-	  removeFile $fname1
-	  removeFile $fname2
-	  removeFile $fname3
-	  removeFile $fname4
+	removeFile $fname1
+	removeFile $fname2
+	removeFile $fname3
+	if {!$_windows} {removeFile $fname4}
 } -output {}
 
 test fclose-1 {test fclose errors} -body {
@@ -280,7 +291,7 @@ void file1(string nm)
 file1("filetest1");
 file1("file test 2");
 file1("file test {3}");
-file1("file test \"4\'");
+unless (platform() eq "windows") file1("file test \"4\'");
 } -output {}
 
 test file-2 {test fopen/fclose/fprintf/fgetline errors} -setup {
@@ -321,16 +332,16 @@ test ftype-1 {test ftpye} -setup {
 	set fname1 [makeFile {test} ftype_test1 .]
 	set fname2 [makeFile {test} {ftype test 2} .]
 	set fname3 [makeFile {test} ftypetest\{3\} .]
-	set fname4 [makeFile {test} {ftype test \"\'4} .]
+	if {!$_windows} {set fname4 [makeFile {test} {ftype test \"\'4} .]}
 	set fdirname1 ftypedir1
 	set fdirname2 {ftype dir 2}
 	set fdirname3 ftypedir\{3\}
-	set fdirname4 {ftypedir "'4}
+	if {!$_windows} {set fdirname4 {ftypedir "'4}}
 	# '"
 	file mkdir $fdirname1
 	file mkdir $fdirname2
 	file mkdir $fdirname3
-	file mkdir $fdirname4
+	if {!$_windows} {file mkdir $fdirname4}
 } -body {
 #lang L
 void ftype1(string nm, string t)
@@ -341,20 +352,20 @@ void ftype1(string nm, string t)
 ftype1 $fname1 file
 ftype1 $fname2 file
 ftype1 $fname3 file
-ftype1 $fname4 file
+if {!$_windows} {ftype1 $fname4 file}
 ftype1 $fdirname1 directory
 ftype1 $fdirname2 directory
 ftype1 $fdirname3 directory
-ftype1 $fdirname4 directory
+if {!$_windows} {ftype1 $fdirname4 directory}
 } -cleanup {
 	removeFile $fname1
 	removeFile $fname2
 	removeFile $fname3
-	removeFile $fname4
+	if {!$_windows} {removeFile $fname4}
 	file delete -force $fdirname1
 	file delete -force $fdirname2
 	file delete -force $fdirname3
-	file delete -force $fdirname4
+	if {!$_windows} {file delete -force $fdirname4}
 } -output {}
 
 test ftype-2 {test ftype errors} -setup {
@@ -409,25 +420,32 @@ test is-1 {test isdouble/isdir/isinteger/isreg/islink} -setup {
 	set fdirname1 istestdir1
 	set fdirname2 {is test dir2}
 	set fdirname3 istestdir\{3\}
-	set fdirname4 {istestdir "' 4}
+	if {!$_windows} {set fdirname4 {istestdir "' 4}}
 	# '"
 	file mkdir $fdirname1
 	file mkdir $fdirname2
 	file mkdir $fdirname3
-	file mkdir $fdirname4
+	if {!$_windows} {file mkdir $fdirname4}
 	set fname1 [makeFile {test} istestfile1 .]
 	set fname2 [makeFile {test} {is test file 2} .]
 	set fname3 [makeFile {test} istestfile\{3\} .]
-	set fname4 [makeFile {test} {is test file \"\'4} .]
-	set flink1 islink1
-	set flink2 {is link 2}
-	set flink3 islink\{3\}
-	set flink4 {is link \"\'4}
-	file delete -force $flink1 $flink2 $flink3 $flink4
-	file link $flink1 $fname1
-	file link $flink2 $fname1
-	file link $flink3 $fname1
-	file link $flink4 $fname1
+	if {!$_windows} {set fname4 [makeFile {test} {is test file \"\'4} .]}
+	if {!$_windows} {
+		set flink1 islink1
+		set flink2 {is link 2}
+		set flink3 islink\{3\}
+		set flink4 {is link \"\'4}
+		file delete -force $flink1 $flink2 $flink3 $flink4
+		file link $flink1 $fname1
+		file link $flink2 $fname1
+		file link $flink3 $fname1
+		file link $flink4 $fname1
+	} else {
+		set flink1 ""
+		set flink2 ""
+		set flink3 ""
+		set flink4 ""
+	}
 	file delete -force "does not exist"
 } -body {
 #lang L
@@ -442,27 +460,32 @@ void is1(string dirnm, string filenm, string linknm)
 
 	unless (isdir(dirnm)) puts("bad 3.1");
 	unless (isreg(filenm)) puts("bad 4.1");
-	unless (islink(linknm)) puts("bad 5.1");
+	unless (platform() eq "windows") {
+		unless (islink(linknm)) puts("bad 5.1");
+	}
 
 	if (isdir("does not exist")) puts("bad 10.1");
 	if (isreg("does not exist")) puts("bad 10.2");
-	if (islink("does not exist")) puts("bad 10.3");
+	unless (platform() eq "windows") {
+		if (islink("does not exist")) puts("bad 10.3");
+	}
 }
 #lang tcl
 is1 $fdirname1 $fname1 $flink1
 is1 $fdirname2 $fname2 $flink2
 is1 $fdirname3 $fname3 $flink3
-is1 $fdirname4 $fname4 $flink4
+if {!$_windows} {is1 $fdirname4 $fname4 $flink4}
 } -cleanup {
-	file delete -force $flink1 $flink2 $flink3 $flink4
-	file delete -force $fdirname1 $fdirname2 $fdirname3 $fdirname4
+	if {!$_windows} {file delete -force $flink1 $flink2 $flink3 $flink4}
+	file delete -force $fdirname1 $fdirname2 $fdirname3
+	if {!$_windows} {file delete -force $fdirname4}
 	removeFile $fname1
 	removeFile $fname2
 	removeFile $fname3
-	removeFile $fname4
+	if {!$_windows} {removeFile $fname4}
 } -output {}
 
-test link-1 {test link} -setup {
+test link-1 {test link} -constraints tempNotWin -setup {
 	set fname [makeFile {123456} linktest .]
 	file delete -force linktest2
 } -body {
@@ -500,17 +523,23 @@ void mkdir1()
 	unless (mkdir(f1) == 0) puts("bad 1.1");
 	unless (mkdir(f2) == 0) puts("bad 1.2");
 	unless (mkdir(f3) == 0) puts("bad 1.3");
-	unless (mkdir(f4) == 0) puts("bad 1.4");
+	unless (platform() eq "windows") {
+		unless (mkdir(f4) == 0) puts("bad 1.4");
+	}
 
 	unless (ftype(f1) eq "directory") puts("bad 2.1");
 	unless (ftype(f2) eq "directory") puts("bad 2.2");
 	unless (ftype(f3) eq "directory") puts("bad 2.3");
-	unless (ftype(f4) eq "directory") puts("bad 2.4");
+	unless (platform() eq "windows") {
+		unless (ftype(f4) eq "directory") puts("bad 2.4");
+	}
 
 	unlink(f1);
 	unlink(f2);
 	unlink(f3);
-	unlink(f4);
+	unless (platform() eq "windows") {
+		unlink(f4);
+	}
 
 	/* Check that the entire path is created. */
 	unless (mkdir("path/to/the/file") == 0) puts("bad 3.1");
@@ -626,7 +655,7 @@ test rename-1 {test rename} -setup {
 	set fname1 [makeFile {test} rename_test1 .]
 	set fname2 [makeFile {test} {rename test 2} .]
 	set fname3 [makeFile {test} renametest\{3\} .]
-	set fname4 [makeFile {test} {rename test \"\'4} .]
+	if {!$_windows} {set fname4 [makeFile {test} {rename test \"\'4} .]}
 } -body {
 #lang L
 void rename1(string old)
@@ -649,7 +678,7 @@ void rename1(string old)
 rename1 $fname1
 rename1 $fname2
 rename1 $fname3
-rename1 $fname4
+if {!$_windows} {rename1 $fname4}
 } -output {}
 
 test rename-2 {test rename errors} -setup {
@@ -676,13 +705,13 @@ test rmdir-1 {test rmdir} -setup {
 	set fdirname1 rmdir1
 	set fdirname2 {rm dir 2}
 	set fdirname3 rmdir\{3\}
-	set fdirname4 {rmdir "' 4}
+	if {!$_windows} {set fdirname4 {rmdir "' 4}}
 	# '"
 	set fdirname5 rmdir_nonempty
 	file mkdir $fdirname1
 	file mkdir $fdirname2
 	file mkdir $fdirname3
-	file mkdir $fdirname4
+	if {!$_windows} {file mkdir $fdirname4}
 	file mkdir $fdirname5
 	file delete -force "does not exist"
 	set fname [makeFile {test} file rmdir_nonempty]
@@ -702,10 +731,11 @@ void rmdir1b(string nm)
 rmdir1a $fdirname1
 rmdir1a $fdirname2
 rmdir1a $fdirname3
-rmdir1a $fdirname4
+if {!$_windows} {rmdir1a $fdirname4}
 rmdir1b $fdirname5
 } -cleanup {
-	file delete -force $fdirname1 $fdirname2 $fdirname3 $fdirname4
+	file delete -force $fdirname1 $fdirname2 $fdirname3
+	if {!$_windows} {file delete -force $fdirname4}
 	file delete -force $fname $fdirname5
 } -output {}
 
@@ -713,7 +743,7 @@ test size-1 {test size} -setup {
 	set fname1 [makeFile {123456} size1 .]
 	set fname2 [makeFile {123456} {si ze 2} .]
 	set fname3 [makeFile {123456} size\{3\} .]
-	set fname4 [makeFile {123456} {size "' 4} .]
+	if {!$_windows} {set fname4 [makeFile {123456} {size "' 4} .]}
 	# '"
 	file delete -force "does not exist"
 } -body {
@@ -727,9 +757,10 @@ void size1(string nm)
 size1 $fname1
 size1 $fname2
 size1 $fname3
-size1 $fname4
+if {!$_windows} {size1 $fname4}
 } -cleanup {
-	file delete -force $fname1 $fname2 $fname3 $fname4
+	file delete -force $fname1 $fname2 $fname3
+	if {!$_windows} {file delete -force $fname4}
 } -output {}
 
 test sleep-1 {test sleep} -body {
@@ -788,7 +819,9 @@ test stat-1 {test lstat and stat} -setup {
 	set fname1 [makeFile {123456789012345678901234567890123} statfile1 .]
 	set fname2 [makeFile {123456789012345678901234567890123} {stat file 2} .]
 	set fname3 [makeFile {123456789012345678901234567890123} statfile\{3\} .]
-	set fname4 [makeFile {123456789012345678901234567890123} {stat file \"\' 4} .]
+	if {!$_windows} {
+		set fname4 [makeFile {123456789012345678901234567890123} {stat file \"\' 4} .]
+	}
 	file delete -force "does not exist"
 } -body {
 #lang L
@@ -821,9 +854,10 @@ void stat1(string target)
 stat1 $fname1
 stat1 $fname2
 stat1 $fname3
-stat1 $fname4
+if {!$_windows} {stat1 $fname4}
 } -cleanup {
-	file delete -force $fname1 $fname2 $fname3 $fname4
+	file delete -force $fname1 $fname2 $fname3
+	if {!$_windows} {file delete -force $fname4}
 } -output {}
 
 test strchr-1 {test strchr} -body {
@@ -894,7 +928,7 @@ void strrchr1()
 strrchr1();
 } -output {}
 
-test symlink-1 {test symlink} -setup {
+test symlink-1 {test symlink} -constraints tempNotWin -setup {
 	set fname [makeFile {test} linktest .]
 	file delete -force linktest2
 } -body {
@@ -983,7 +1017,7 @@ test unlink-1 {test lunlink and unlink} -setup {
 	set fname1 [makeFile {test} unlinkfile1 .]
 	set fname2 [makeFile {test} {unlink file 2} .]
 	set fname3 [makeFile {test} unlinkfile\{3\} .]
-	set fname4 [makeFile {test} {unlink file \"\' 4} .]
+	if {!$_windows} {set fname4 [makeFile {test} {unlink file \"\' 4} .]}
 	file delete -force "does not exist"
 } -body {
 #lang L
@@ -996,9 +1030,10 @@ void unlink1(string nm)
 unlink1 $fname1
 unlink1 $fname2
 unlink1 $fname3
-unlink1 $fname4
+if {!$_windows} {unlink1 $fname4}
 } -cleanup {
-	file delete -force $fname1 $fname2 $fname3 $fname4
+	file delete -force $fname1 $fname2 $fname3
+	if {!$_windows} {file delete -force $fname4}
 } -output {}
 
 test warn-1 {test warn} -body {

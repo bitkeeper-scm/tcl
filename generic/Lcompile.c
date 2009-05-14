@@ -4214,7 +4214,8 @@ char *
 ckvsprintf(const char *fmt, va_list ap, int len)
 {
 	char	*buf = ckalloc(len);
-	if (vsnprintf(buf, len, fmt, ap) >= len) {
+	int	ret  = vsnprintf(buf, len, fmt, ap);
+	if ((ret >= len) || (ret < 0)) {
 		ckfree(buf);
 		return (NULL);
 	}

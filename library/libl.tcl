@@ -368,6 +368,15 @@ pclose(FILE f)
 	return (fclose(f));
 }
 
+string
+platform()
+{
+	string	p;
+
+	eval("set p $::tcl_platform(platform)");
+	return (p);
+}
+
 /*
  * If performance becomes a problem, this can be done with a bytecode
  * instead.

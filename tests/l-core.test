@@ -499,36 +499,42 @@ test cmdsubst-1 {test command substitution} -body {
 #lang L
 void cmdsubst_1()
 {
-	string	s1, s2;
+	string	cmd, s1, s2;
 
-	`echo testing1 >foo.txt`;
+	if (platform() eq "windows") {
+		cmd = "sh echo";
+	} else {
+		cmd = "echo";
+	}
+
+	`${cmd} testing1 >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "testing1") puts("bad 1.1");
 	`rm -f foo.txt`;
 
 	s1 = "testing2";
-	`echo ${s1} >foo.txt`;
+	`${cmd} ${s1} >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "testing2") puts("bad 2.1");
 	`rm -f foo.txt`;
 
 	s1 = "testing3";
 	s2 = "xyz";
-	`echo ${s1}${s2} >foo.txt`;
+	`${cmd} ${s1}${s2} >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "testing3xyz") puts("bad 3.1");
 	`rm -f foo.txt`;
 
 	s1 = "testing4";
 	s2 = "pdq";
-	`echo ${s1}-${s2} >foo.txt`;
+	`${cmd} ${s1}-${s2} >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "testing4-pdq") puts("bad 4.1");
 	`rm -f foo.txt`;
 
 	s1 = "testing";
 	s2 = "xyz";
-	`echo ${s1}${5}${s2} ${"zyx"} >foo.txt`;
+	`${cmd} ${s1}${5}${s2} ${"zyx"} >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "testing5xyz zyx") puts("bad 5.1");
 	`rm -f foo.txt`;
@@ -538,7 +544,7 @@ void cmdsubst_1()
 	 * ignored when the compiler splits the command string.
 	 */
 
-	`echo \r\n\t\a$x >foo.txt`;
+	`${cmd} \r\n\t\a$x >foo.txt`;
 	s1 = `cat foo.txt`;
 	unless (s1 eq "a$x") puts("bad 10.1");
 	`rm -f foo.txt`;

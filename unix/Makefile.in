@@ -319,7 +319,8 @@ GENERIC_OBJS = regcomp.o regexec.o regfree.o regerror.o tclAlloc.o \
 OO_OBJS = tclOO.o tclOOBasic.o tclOOCall.o tclOODefineCmds.o tclOOInfo.o \
 	tclOOMethod.o tclOOStubInit.o
 
-L_OBJS = Lscanner.o Lgrammar.o Lcompile.o Last.o LPointerObj.o	Ltypecheck.o
+L_OBJS = Lscanner-pregen.o Lgrammar-pregen.o Lcompile.o Last.o LPointerObj.o \
+	Ltypecheck.o
 
 TOMMATH_OBJS = bncore.o bn_reverse.o bn_fast_s_mp_mul_digs.o \
 	bn_fast_s_mp_sqr.o bn_mp_add.o bn_mp_and.o \
@@ -1332,25 +1333,23 @@ tclTomMathInterface.o: $(GENERIC_DIR)/tclTomMathInterface.c $(MATHHDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/tclTomMathInterface.c
 
 
-Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
+Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) $(GENERIC_DIR)/Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
-Lscanner.o: $(L_HDRS) Lscanner.c
-	$(CC) -c $(CC_SWITCHES) Lscanner.c
+Lscanner-pregen.o: $(L_HDRS) $(GENERIC_DIR)/Lscanner-pregen.c
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lscanner-pregen.c
 
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	@BISON@ -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.h: Lgrammar.c
+Lgrammar-pregen.o: $(GENERIC_DIR)/Lgrammar-pregen.c Lcompile.o $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing $(GENERIC_DIR)/Lgrammar-pregen.c || \
+	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lgrammar-pregen.c
 
-Lgrammar.o: Lgrammar.c Lgrammar.h Lcompile.o $(L_SRCS) $(L_HDRS)
-	$(CC) -c $(CC_SWITCHES) -fno-strict-aliasing Lgrammar.c || \
-	$(CC) -c $(CC_SWITCHES) Lgrammar.c
-
-Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.h $(L_HDRS)
+Lcompile.o: $(GENERIC_DIR)/Lcompile.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Lcompile.c
 
-Ltypecheck.o: $(GENERIC_DIR)/Ltypecheck.c $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
+Ltypecheck.o: $(GENERIC_DIR)/Ltypecheck.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) $(GENERIC_DIR)/Ltypecheck.c
 
 Last.o: $(GENERIC_DIR)/Last.c $(L_HDRS) 

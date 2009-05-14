@@ -305,8 +305,8 @@ GENERIC_OBJS = \
 	tclVar.$(OBJEXT) \
 	tclZlib.$(OBJEXT)
 
-L_OBJS	= Lscanner.$(OBJEXT) \
-	Lgrammar.$(OBJEXT) \
+L_OBJS	= Lscanner-regen.$(OBJEXT) \
+	Lgrammar-regen.$(OBJEXT) \
 	Lcompile.$(OBJEXT) \
 	Last.$(OBJEXT) \
 	LPointerObj.$(OBJEXT) \
@@ -616,21 +616,19 @@ tclStubLib.${OBJEXT}: tclStubLib.c
 tclIOUtil.$(OBJEXT): $(BK_HDRS)
 tclPipe.$(OBJEXT): $(BK_HDRS)
 
-Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) Lgrammar.c
+Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) $(GENERIC_DIR)/Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
-Lscanner.$(OBJEXT): Lscanner.c $(L_HDRS)
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lscanner.c
+Lscanner-pregen.$(OBJEXT): $(GENERIC_DIR)/Lscanner-pregen.c $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lscanner-pregen.c
 
 Lgrammar.c: $(GENERIC_DIR)/Lgrammar.y $(L_HDRS)
 	@BISON@ -pL_ -d -o$@ $(GENERIC_DIR)/Lgrammar.y
 
-Lgrammar.h: Lgrammar.c
+Lgrammar-pregen.$(OBJEXT): $(GENERIC_DIR)/Lgrammar-pregen.c Lcompile.$(OBJEXT) $(L_HDRS)
+	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lgrammar-pregen.c
 
-Lgrammar.$(OBJEXT): Lgrammar.c Lgrammar.h Lcompile.$(OBJEXT) $(L_SRCS) $(L_HDRS)
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ Lgrammar.c
-
-Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(GENERIC_DIR)/Lgrammar.y Lgrammar.h $(L_HDRS)
+Lcompile.$(OBJEXT): $(GENERIC_DIR)/Lcompile.c $(L_HDRS)
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Lcompile.c
 
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
