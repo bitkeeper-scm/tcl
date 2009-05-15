@@ -348,13 +348,6 @@ SC_TCL_CFG_ENCODING
 
 SC_ENABLE_SHARED
 
-#------------------------------------------------------------------------
-#	Add stuff for zlib; note that this is mostly done in the makefile now
-#	as we just assume that the platform hasn't got a usable z.lib
-#------------------------------------------------------------------------
-
-AC_DEFINE(HAVE_ZLIB, 1, [Is there an installed zlib?])
-
 #--------------------------------------------------------------------
 # The statements below define a collection of compile flags.  This
 # macro depends on the value of SHARED_BUILD, and should be called
@@ -362,6 +355,29 @@ AC_DEFINE(HAVE_ZLIB, 1, [Is there an installed zlib?])
 #--------------------------------------------------------------------
 
 SC_CONFIG_CFLAGS
+
+#------------------------------------------------------------------------
+#	Add stuff for zlib; note that this is mostly done in the makefile now
+#	as we just assume that the platform hasn't got a usable z.lib
+#------------------------------------------------------------------------
+
+AS_IF([test "$do64bit" = "yes"], [
+  tcl_ok=no
+], [
+AS_IF([test "${enable_shared+set}" = "set"], [
+  enableval="$enable_shared"
+  tcl_ok=$enableval
+], [
+  tcl_ok=yes
+])
+])
+AS_IF([test "$tcl_ok" = "yes"], [
+  AC_SUBST(ZLIB_DLL_FILE,[\${ZLIB_DLL_FILE}])
+  AC_SUBST(ZLIB_LIBS,[\${ZLIB_DIR}/win32/zdll.lib])
+], [
+  AC_SUBST(ZLIB_OBJS,[\${ZLIB_OBJS}])
+])
+AC_DEFINE(HAVE_ZLIB, 1, [Is there an installed zlib?])
 
 #------------------------------------------------------------------------------
 #       Check if we want to use pcre

@@ -178,7 +178,7 @@ typedef void	   (AuxDataPrintProc)(ClientData clientData,
  */
 
 typedef struct AuxDataType {
-    CONST86 char *name;		/* The name of the type. Types can be
+    const char *name;		/* The name of the type. Types can be
 				 * registered and found by name */
     AuxDataDupProc *dupProc;	/* Callback procedure to invoke when the aux
 				 * data is duplicated (e.g., when the ByteCode
@@ -201,7 +201,7 @@ typedef struct AuxDataType {
  */
 
 typedef struct AuxData {
-    CONST86 AuxDataType *type;		/* Pointer to the AuxData type associated with
+    const AuxDataType *type;		/* Pointer to the AuxData type associated with
 				 * this ClientData. */
     ClientData clientData;	/* The compilation data itself. */
 } AuxData;
@@ -697,7 +697,7 @@ typedef enum InstOperandType {
 } InstOperandType;
 
 typedef struct InstructionDesc {
-    CONST86 char *name;	/* Name of instruction. */
+    const char *name;	/* Name of instruction. */
     int numBytes;		/* Total number of bytes for instruction. */
     int stackEffect;		/* The worst-case balance stack effect of the
 				 * instruction, used for stack requirements
@@ -799,7 +799,7 @@ typedef struct ForeachInfo {
 				 * LAST FIELD IN THE STRUCTURE! */
 } ForeachInfo;
 
-MODULE_SCOPE CONST86 AuxDataType tclForeachInfoType;
+MODULE_SCOPE const AuxDataType tclForeachInfoType;
 
 /*
  * Structure used to hold information about a switch command that is needed
@@ -812,7 +812,7 @@ typedef struct JumptableInfo {
 				 * offsets). */
 } JumptableInfo;
 
-MODULE_SCOPE CONST86 AuxDataType tclJumptableInfoType;
+MODULE_SCOPE const AuxDataType tclJumptableInfoType;
 
 /*
  * Structure used to hold information about a [dict update] command that is
@@ -830,7 +830,7 @@ typedef struct {
 				 * STRUCTURE. */
 } DictUpdateInfo;
 
-MODULE_SCOPE CONST86 AuxDataType tclDictUpdateInfoType;
+MODULE_SCOPE const AuxDataType tclDictUpdateInfoType;
 
 /*
  * ClientData type used by the math operator commands.
@@ -897,7 +897,7 @@ MODULE_SCOPE int	TclCreateAuxData(ClientData clientData,
 			    const AuxDataType *typePtr, CompileEnv *envPtr);
 MODULE_SCOPE int	TclCreateExceptRange(ExceptionRangeType type,
 			    CompileEnv *envPtr);
-MODULE_SCOPE ExecEnv *	TclCreateExecEnv(Tcl_Interp *interp);
+MODULE_SCOPE ExecEnv *	TclCreateExecEnv(Tcl_Interp *interp, int size);
 MODULE_SCOPE Tcl_Obj *  TclCreateLiteral(Interp *iPtr, char *bytes,
 	                    int length, unsigned int hash, int *newPtr,
 	                    Namespace *nsPtr, int flags,
@@ -979,7 +979,7 @@ MODULE_SCOPE int	TclWordKnownAtCompileTime(Tcl_Token *tokenPtr,
 #define LITERAL_NS_SCOPE   0x02
 
 /*
- * Form of TclRegisterLiteral with onHeap == 0. In that case, it is safe to
+ * Form of TclRegisterLiteral with flags == 0. In that case, it is safe to
  * cast away constness, and it is cleanest to do that here, all in one place.
  *
  * int TclRegisterNewLiteral(CompileEnv *envPtr, const char *bytes,
@@ -990,7 +990,7 @@ MODULE_SCOPE int	TclWordKnownAtCompileTime(Tcl_Token *tokenPtr,
 	TclRegisterLiteral(envPtr, (char *)(bytes), length, /*flags*/ 0)
 
 /*
- * Form of TclRegisterNSLiteral with onHeap == 0. In that case, it is safe to
+ * Form of TclRegisterLiteral with flags == LITERAL_NS_SCOPE. In that case, it is safe to
  * cast away constness, and it is cleanest to do that here, all in one place.
  *
  * int TclRegisterNewNSLiteral(CompileEnv *envPtr, const char *bytes,

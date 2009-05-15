@@ -821,6 +821,9 @@ install-binaries: binaries
 	    @INSTALL_STUB_LIB@ ; \
 	fi
 	@EXTRA_INSTALL_BINARIES@
+	@echo "Installing pkg-config file to $(LIB_INSTALL_DIR)/pkgconfig/"
+	@mkdir -p $(LIB_INSTALL_DIR)/pkgconfig
+	@$(INSTALL_DATA) tcl.pc $(LIB_INSTALL_DIR)/pkgconfig/tcl.pc
 
 install-libraries: libraries $(INSTALL_TZDATA) install-msgs
 	@for i in "$(INCLUDE_INSTALL_DIR)" "$(SCRIPT_INSTALL_DIR)"; \
@@ -864,8 +867,8 @@ install-libraries: libraries $(INSTALL_TZDATA) install-msgs
 	    do \
 	    $(INSTALL_DATA) $$i "$(SCRIPT_INSTALL_DIR)"/http1.0; \
 	    done;
-	@echo "Installing package http 2.7.2 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/http/http.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.4/http-2.7.2.tm;
+	@echo "Installing package http 2.8.1 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/http/http.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.6/http-2.8.1.tm;
 	@echo "Installing library opt0.4 directory";
 	@for i in $(TOP_DIR)/library/opt/*.tcl ; \
 	    do \
@@ -873,11 +876,11 @@ install-libraries: libraries $(INSTALL_TZDATA) install-msgs
 	    done;
 	@echo "Installing package msgcat 1.4.2 as a Tcl Module";
 	@$(INSTALL_DATA) $(TOP_DIR)/library/msgcat/msgcat.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.5/msgcat-1.4.2.tm;
-	@echo "Installing package tcltest 2.3.0 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/tcltest/tcltest.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.5/tcltest-2.3.0.tm;
+	@echo "Installing package tcltest 2.3.1 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/tcltest/tcltest.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.5/tcltest-2.3.1.tm;
 
-	@echo "Installing package platform 1.0.3 as a Tcl Module";
-	@$(INSTALL_DATA) $(TOP_DIR)/library/platform/platform.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.4/platform-1.0.3.tm;
+	@echo "Installing package platform 1.0.4 as a Tcl Module";
+	@$(INSTALL_DATA) $(TOP_DIR)/library/platform/platform.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.4/platform-1.0.4.tm;
 	@echo "Installing package platform::shell 1.1.4 as a Tcl Module";
 	@$(INSTALL_DATA) $(TOP_DIR)/library/platform/shell.tcl "$(SCRIPT_INSTALL_DIR)"/../tcl8/8.4/platform/shell-1.1.4.tm;
 
@@ -906,9 +909,6 @@ install-msgs: tclsh
 	    $(TOP_DIR)/library/msgs "$(SCRIPT_INSTALL_DIR)"/msgs
 
 install-doc: doc
-	@if test ! -x $(UNIX_DIR)/installManPage; then \
-	    chmod +x $(UNIX_DIR)/installManPage; \
-	    fi
 	@for i in "$(MAN_INSTALL_DIR)" "$(MAN1_INSTALL_DIR)" "$(MAN3_INSTALL_DIR)" "$(MANN_INSTALL_DIR)" ; \
 	    do \
 	    if [ ! -d "$$i" ] ; then \
@@ -920,17 +920,17 @@ install-doc: doc
 	    done;
 	@echo "Installing and cross-linking top-level (.1) docs";
 	@for i in $(TOP_DIR)/doc/*.1; do \
-	    $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MAN1_INSTALL_DIR)"; \
+	    $(SHELL) $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MAN1_INSTALL_DIR)"; \
 	done
 
 	@echo "Installing and cross-linking C API (.3) docs";
 	@for i in $(TOP_DIR)/doc/*.3; do \
-	    $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MAN3_INSTALL_DIR)"; \
+	    $(SHELL) $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MAN3_INSTALL_DIR)"; \
 	done
 
 	@echo "Installing and cross-linking command (.n) docs";
 	@for i in $(TOP_DIR)/doc/*.n; do \
-	    $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MANN_INSTALL_DIR)"; \
+	    $(SHELL) $(UNIX_DIR)/installManPage $(MAN_FLAGS) $$i "$(MANN_INSTALL_DIR)"; \
 	done
 
 # Optional target to install private headers
@@ -971,7 +971,8 @@ clean: clean-packages
 
 distclean: distclean-packages clean
 	rm -rf Makefile config.status config.cache config.log tclConfig.sh \
-		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework
+		$(PACKAGE).* prototype tclConfig.h *.plist Tcl.framework \
+		tcl.pc
 	cd dltest ; $(MAKE) distclean
 
 depend:
@@ -1900,7 +1901,7 @@ $(MAC_OSX_DIR)/configure: $(MAC_OSX_DIR)/configure.ac $(UNIX_DIR)/configure
 $(UNIX_DIR)/tclConfig.h.in: $(MAC_OSX_DIR)/configure
 	cd $(MAC_OSX_DIR); autoheader; touch $@
 
-dist: $(UNIX_DIR)/configure $(UNIX_DIR)/tclConfig.h.in $(MAC_OSX_DIR)/configure genstubs dist-packages
+dist: $(UNIX_DIR)/configure $(UNIX_DIR)/tclConfig.h.in $(UNIX_DIR)/tcl.pc.in $(MAC_OSX_DIR)/configure genstubs dist-packages
 	rm -rf $(DISTDIR)
 	mkdir -p $(DISTDIR)/unix
 	cp -p $(UNIX_DIR)/*.[ch] $(DISTDIR)/unix
@@ -1911,7 +1912,7 @@ dist: $(UNIX_DIR)/configure $(UNIX_DIR)/tclConfig.h.in $(MAC_OSX_DIR)/configure 
 		$(UNIX_DIR)/tclConfig.sh.in $(UNIX_DIR)/install-sh \
 		$(UNIX_DIR)/README $(UNIX_DIR)/ldAix $(UNIX_DIR)/tcl.spec \
 		$(UNIX_DIR)/installManPage $(UNIX_DIR)/tclConfig.h.in \
-		$(DISTDIR)/unix
+		$(UNIX_DIR)/tcl.pc.in $(DISTDIR)/unix
 	chmod 775 $(DISTDIR)/unix/configure $(DISTDIR)/unix/configure.in
 	chmod 775 $(DISTDIR)/unix/ldAix
 	chmod +x $(DISTDIR)/unix/install-sh

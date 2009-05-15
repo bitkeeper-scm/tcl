@@ -972,13 +972,9 @@ TclLookupSimpleVar(
 			flags, &varNsPtr, &dummy1Ptr, &dummy2Ptr, &tail);
 		if (varNsPtr == NULL) {
 		    *errMsgPtr = badNamespace;
-		    Tcl_SetErrorCode(interp, "TCL", "LOOKUP", "VARNAME",
-			    NULL);
 		    return NULL;
 		} else if (tail == NULL) {
 		    *errMsgPtr = missingName;
-		    Tcl_SetErrorCode(interp, "TCL", "LOOKUP", "VARNAME",
-			    NULL);
 		    return NULL;
 		}
 		if (tail != varName) {
@@ -1001,7 +997,6 @@ TclLookupSimpleVar(
 		}
 	    } else {		/* Var wasn't found and not to create it. */
 		*errMsgPtr = noSuchVar;
-		Tcl_SetErrorCode(interp, "TCL", "LOOKUP", "VARNAME", NULL);
 		return NULL;
 	    }
 	}
@@ -1038,7 +1033,6 @@ TclLookupSimpleVar(
 	    }
 	    if (varPtr == NULL) {
 		*errMsgPtr = noSuchVar;
-		Tcl_SetErrorCode(interp, "TCL", "LOOKUP", "VARNAME", NULL);
 	    }
 	}
     }
@@ -3621,6 +3615,7 @@ TclPtrObjMakeUpvar(
 		myFlags|AVOID_RESOLVERS, /* create */ 1, &errMsg, &index);
 	if (varPtr == NULL) {
 	    TclObjVarErrMsg(interp, myNamePtr, NULL, "create", errMsg, -1);
+	    Tcl_SetErrorCode(interp, "TCL", "LOOKUP", "VARNAME", NULL);
 	    return TCL_ERROR;
 	}
     }
@@ -4082,13 +4077,30 @@ Tcl_UpvarObjCmd(
     Tcl_Obj *const objv[])	/* Argument objects. */
 {
     CallFrame *framePtr;
-    int result;
+    int result, hasLevel;
+    Tcl_Obj *levelObj;
 
     if (objc < 3) {
-    upvarSyntax:
 	Tcl_WrongNumArgs(interp, 1, objv,
 		"?level? otherVar localVar ?otherVar localVar ...?");
 	return TCL_ERROR;
+    }
+
+    if (objc & 1) {
+	/*
+	 * Even number of arguments, so use the default level of "1" by
+	 * passing NULL to TclObjGetFrame.
+	 */
+
+	levelObj = NULL;
+	hasLevel = 0;
+    } else {
+	/*
+	 * Odd number of arguments, so objv[1] must contain the level.
+	 */
+
+	levelObj = objv[1];
+	hasLevel = 1;
     }
 
     /*
@@ -4096,15 +4108,28 @@ Tcl_UpvarObjCmd(
      * linked to.
      */
 
-    result = TclObjGetFrame(interp, objv[1], &framePtr);
+    result = TclObjGetFrame(interp, levelObj, &framePtr);
     if (result == -1) {
 	return TCL_ERROR;
     }
-    objc -= result+1;
-    if ((objc & 1) != 0) {
-	goto upvarSyntax;
+    if ((result == 0) && hasLevel) {
+	/*
+	 * Synthesize an error message since TclObjGetFrame doesn't do this
+	 * for this particular case.
+	 */
+
+	Tcl_AppendResult(interp, "bad level \"", TclGetString(levelObj), "\"",
+		NULL);
+	Tcl_SetErrorCode(interp, "TCL", "VALUE", "LEVEL", NULL);
+	return TCL_ERROR;
     }
-    objv += result+1;
+
+    /*
+     * We've now finished with parsing levels; skip to the variable names.
+     */
+
+    objc -= hasLevel+1;
+    objv += hasLevel+1;
 
     /*
      * Iterate over each (other variable, local variable) pair. Divide the

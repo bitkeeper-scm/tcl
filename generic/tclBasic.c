@@ -32,6 +32,11 @@
 #include <assert.h>
 #endif
 
+
+#define INTERP_STACK_INITIAL_SIZE 2000
+#define CORO_STACK_INITIAL_SIZE    200
+
+
 /*
  * Determine whether we're using IEEE floating point
  */
@@ -132,13 +137,15 @@ static Tcl_NRPostProc	TEOV_RestoreVarFrame;
 static Tcl_NRPostProc	TEOV_RunLeaveTraces;
 static Tcl_NRPostProc	TEOV_Exception;
 static Tcl_NRPostProc	TEOV_Error;
+static Tcl_NRPostProc	TEOV_NotFoundCallback;
+
 static Tcl_NRPostProc	TEOEx_ListCallback;
 static Tcl_NRPostProc	TEOEx_ByteCodeCallback;
 
 static Tcl_NRPostProc   NRRunObjProc;
 
-static Tcl_NRPostProc	AtProcExitCleanup;
-static Tcl_NRPostProc   NRAtProcExitEval;
+static Tcl_NRPostProc	TailcallCleanup;
+static Tcl_NRPostProc   NRTailcallEval;
 
 /*
  * The following structure define the commands in the Tcl core.
@@ -211,6 +218,7 @@ static const CmdInfo builtInCmds[] = {
     {"switch",		Tcl_SwitchObjCmd,	TclCompileSwitchCmd,	NULL,	1},
     {"throw",		Tcl_ThrowObjCmd,	NULL,			NULL,	1},
     {"trace",		Tcl_TraceObjCmd,	NULL,			NULL,	1},
+    {"try",		Tcl_TryObjCmd,		NULL,			TclNRTryObjCmd,	1},
     {"unset",		Tcl_UnsetObjCmd,	NULL,			NULL,	1},
     {"uplevel",		Tcl_UplevelObjCmd,	NULL,			TclNRUplevelObjCmd,	1},
     {"upvar",		Tcl_UpvarObjCmd,	TclCompileUpvarCmd,	NULL,	1},
@@ -619,7 +627,7 @@ Tcl_CreateInterp(void)
      * variable).
      */
 
-    iPtr->execEnvPtr = TclCreateExecEnv(interp);
+    iPtr->execEnvPtr = TclCreateExecEnv(interp, INTERP_STACK_INITIAL_SIZE);
 
     /*
      * TIP #219, Tcl Channel Reflection API support.
@@ -711,7 +719,7 @@ Tcl_CreateInterp(void)
 #endif
     iPtr->pendingObjDataPtr = NULL;
     iPtr->asyncReadyPtr = TclGetAsyncReadyPtr();
-    iPtr->atExitPtr = NULL;
+    iPtr->deferredCallbacks = NULL;
 
     /*
      * Create the core commands. Do it here, rather than calling
@@ -795,14 +803,11 @@ Tcl_CreateInterp(void)
 	    Tcl_DisassembleObjCmd, NULL, NULL);
 
     /*
-     * Create the 'tailcall' command an unsupported command for 'atProcExit'
+     * Create the 'tailcall' command
      */
 
-    Tcl_NRCreateCommand(interp, "tailcall", NULL, TclNRAtProcExitObjCmd,
-	    INT2PTR(TCL_NR_TAILCALL_TYPE), NULL);
-
-    Tcl_NRCreateCommand(interp, "::tcl::unsupported::atProcExit", NULL,
-	    TclNRAtProcExitObjCmd, INT2PTR(TCL_NR_ATEXIT_TYPE), NULL);
+    Tcl_NRCreateCommand(interp, "tailcall", NULL, TclNRTailcallObjCmd,
+	    NULL, NULL);
 
 #ifdef USE_DTRACE
     /*
@@ -4069,14 +4074,21 @@ TclNREvalObjv(
      * will be filled later when the command is found: save its address at
      * objProcPtr.
      *
-     * data[1] stores a marker for use by tailcalls; it will be reset to 0 by
+     * data[1] stores a marker for use by tailcalls; it will be set to 1 by
      * command redirectors (imports, alias, ensembles) so that tailcalls
      * finishes the source command and not just the target.
      */
 
-    TclNRAddCallback(interp, NRCommand, NULL, NULL, NULL, NULL);
+    if (iPtr->evalFlags & TCL_EVAL_REDIRECT) {
+	TclNRAddCallback(interp, NRCommand, NULL, INT2PTR(1), NULL, NULL);
+	iPtr->evalFlags &= ~TCL_EVAL_REDIRECT;
+    } else {
+	TclNRAddCallback(interp, NRCommand, NULL, NULL, NULL, NULL);
+    }
     cmdPtrPtr = (Command **) &(TOP_CB(interp)->data[0]);
 
+    TclNRSpliceDeferred(interp);
+    
     iPtr->numLevels++;
     result = TclInterpReady(interp);
 
@@ -4124,9 +4136,7 @@ TclNREvalObjv(
 
     cmdPtr = TEOV_LookupCmdFromObj(interp, objv[0], lookupNsPtr);
     if (!cmdPtr) {
-    notFound:
-	result = TEOV_NotFound(interp, objc, objv, lookupNsPtr);
-	return result;
+	return TEOV_NotFound(interp, objc, objv, lookupNsPtr);
     }
 
     iPtr->cmdCount++;
@@ -4147,7 +4157,7 @@ TclNREvalObjv(
 
 	result = TEOV_RunEnterTraces(interp, &cmdPtr, objc, objv, lookupNsPtr);
 	if (!cmdPtr) {
-	    goto notFound;
+	    return TEOV_NotFound(interp, objc, objv, lookupNsPtr);
 	}
 	if (result != TCL_OK) {
 	    return result;
@@ -4204,6 +4214,14 @@ TclNREvalObjv(
     return TCL_OK;
 }
 
+void
+TclPushTailcallPoint(
+    Tcl_Interp *interp)
+{
+    TclNRAddCallback(interp, NRCommand, NULL, NULL, NULL, NULL);
+    ((Interp *) interp)->numLevels++;
+}
+
 int
 TclNRRunCallbacks(
     Tcl_Interp *interp,
@@ -4233,7 +4251,6 @@ TclNRRunCallbacks(
 	(void) Tcl_GetObjResult(interp);
     }
 
-  restart:
     while (TOP_CB(interp) != rootPtr) {
 	callbackPtr = TOP_CB(interp);
 
@@ -4256,16 +4273,6 @@ TclNRRunCallbacks(
 	TOP_CB(interp) = callbackPtr->nextPtr;
 	result = procPtr(callbackPtr->data, interp, result);
 	TCLNR_FREE(interp, callbackPtr);
-    }
-    if (iPtr->atExitPtr) {
-	callbackPtr = iPtr->atExitPtr;
-	while (callbackPtr->nextPtr) {
-	    callbackPtr = callbackPtr->nextPtr;
-	}
-	callbackPtr->nextPtr = rootPtr;
-	TOP_CB(iPtr) = iPtr->atExitPtr;
-	iPtr->atExitPtr = NULL;
-	goto restart;
     }
     return result;
 }
@@ -4299,6 +4306,7 @@ NRCommand(
     if (result == TCL_OK && TclLimitReady(iPtr->limit)) {
 	result = Tcl_LimitCheck(interp);
     }
+
     return result;
 }
 
@@ -4340,11 +4348,10 @@ NRCallTEBC(
     switch (type) {
     case TCL_NR_BC_TYPE:
 	return TclExecuteByteCode(interp, data[1]);
-    case TCL_NR_ATEXIT_TYPE:
     case TCL_NR_TAILCALL_TYPE:
-	/* For atProcExit and tailcalls */
+	/* For tailcalls */
 	Tcl_SetResult(interp,
-		"atProcExit/tailcall can only be called from a proc or lambda",
+		"tailcall can only be called from a proc or lambda",
 		TCL_STATIC);
 	return TCL_ERROR;
     case TCL_NR_YIELD_TYPE:
@@ -4507,7 +4514,6 @@ TEOV_NotFound(
     int i, newObjc, handlerObjc;
     Tcl_Obj **newObjv, **handlerObjv;
     CallFrame *varFramePtr = iPtr->varFramePtr;
-    int result = TCL_OK;
     Namespace *currNsPtr = NULL;/* Used to check for and invoke any registered
 				 * unknown command handler for the current
 				 * namespace (TIP 181). */
@@ -4568,28 +4574,54 @@ TEOV_NotFound(
     if (cmdPtr == NULL) {
 	Tcl_AppendResult(interp, "invalid command name \"",
 		TclGetString(objv[0]), "\"", NULL);
-	result = TCL_ERROR;
-    } else {
-	if (lookupNsPtr) {
-	    savedNsPtr = varFramePtr->nsPtr;
-	    varFramePtr->nsPtr = lookupNsPtr;
+	/*
+	 * Release any resources we locked and allocated during the handler call.
+	 */
+	
+	for (i = 0; i < handlerObjc; ++i) {
+	    Tcl_DecrRefCount(newObjv[i]);
 	}
-	result = Tcl_EvalObjv(interp, newObjc, newObjv, TCL_EVAL_NOERR);
-	if (savedNsPtr) {
-	    varFramePtr->nsPtr = savedNsPtr;
-	}
+	TclStackFree(interp, newObjv);
+	return TCL_ERROR;
+    }
+    
+    if (lookupNsPtr) {
+	savedNsPtr = varFramePtr->nsPtr;
+	varFramePtr->nsPtr = lookupNsPtr;
+    }
+    TclNRDeferCallback(interp, TEOV_NotFoundCallback, INT2PTR(handlerObjc), newObjv, savedNsPtr, NULL);
+    iPtr->evalFlags |= TCL_EVAL_REDIRECT;
+    return TclNREvalObjv(interp, newObjc, newObjv, TCL_EVAL_NOERR, NULL);
+}
+
+static int
+TEOV_NotFoundCallback(
+    ClientData data[],
+    Tcl_Interp *interp,
+    int result)
+{
+    Interp *iPtr = (Interp *) interp;
+    int objc = PTR2INT(data[0]);
+    Tcl_Obj **objv = data[1];
+    Namespace *savedNsPtr = data[2];
+    
+    int i;
+    
+    if (savedNsPtr) {
+	iPtr->varFramePtr->nsPtr = savedNsPtr;
     }
 
     /*
      * Release any resources we locked and allocated during the handler call.
      */
 
-    for (i = 0; i < handlerObjc; ++i) {
-	Tcl_DecrRefCount(newObjv[i]);
+    for (i = 0; i < objc; ++i) {
+	Tcl_DecrRefCount(objv[i]);
     }
-    TclStackFree(interp, newObjv);
+    TclStackFree(interp, objv);
+
     return result;
-}
+}    
 
 static int
 TEOV_RunEnterTraces(
@@ -5780,6 +5812,20 @@ TclNREvalObjEx(
 	 * UpdateStringOfList from the internal rep).
 	 */
 
+	/*
+	 * Shimmer protection! Always pass an unshared obj. The caller could
+	 * incr the refCount of objPtr AFTER calling us! To be completely safe
+	 * we always make a copy. The callback takes care od the refCounts for
+	 * both listPtr and objPtr.
+	 *
+	 * FIXME OPT: preserve just the internal rep?
+	 */
+
+	Tcl_IncrRefCount(objPtr);
+	listPtr = TclListObjCopy(interp, objPtr);
+	Tcl_IncrRefCount(listPtr);
+	TclDecrRefCount(objPtr);
+	
 	if (word != INT_MIN) {
 	    /*
 	     * TIP #280 Structures for tracking lines. As we know that this is
@@ -5808,26 +5854,14 @@ TclNREvalObjEx(
 	    eoFramePtr->framePtr = iPtr->framePtr;
 	    eoFramePtr->nextPtr = iPtr->cmdFramePtr;
 
-	    eoFramePtr->cmd.listPtr = objPtr;
+	    eoFramePtr->cmd.listPtr = listPtr;
 	    eoFramePtr->data.eval.path = NULL;
 
 	    iPtr->cmdFramePtr = eoFramePtr;
 	}
 
-	/*
-	 * Shimmer protection! Always pass an unshared obj. The caller could
-	 * incr the refCount of objPtr AFTER calling us! To be completely safe
-	 * we always make a copy. The callback takes care od the refCounts for
-	 * both listPtr and objPtr.
-	 *
-	 * FIXME OPT: preserve just the internal rep?
-	 */
-
-	Tcl_IncrRefCount(objPtr);
-	listPtr = TclListObjCopy(interp, objPtr);
-	Tcl_IncrRefCount(listPtr);
-	TclNRAddCallback(interp, TEOEx_ListCallback, objPtr, eoFramePtr,
-		listPtr, NULL);
+	TclNRDeferCallback(interp, TEOEx_ListCallback, listPtr, eoFramePtr,
+		NULL, NULL);
 
 	ListObjGetElements(listPtr, objc, objv);
 	return TclNREvalObjv(interp, objc, objv, flags, NULL);
@@ -6004,9 +6038,8 @@ TEOEx_ListCallback(
     int result)
 {
     Interp *iPtr = (Interp *) interp;
-    Tcl_Obj *objPtr = data[0];
+    Tcl_Obj *listPtr = data[0];
     CmdFrame *eoFramePtr = data[1];
-    Tcl_Obj *listPtr = data[2];
 
     /*
      * Remove the cmdFrame
@@ -6016,7 +6049,6 @@ TEOEx_ListCallback(
 	iPtr->cmdFramePtr = eoFramePtr->nextPtr;
 	TclStackFree(interp, eoFramePtr);
     }
-    TclDecrRefCount(objPtr);
     TclDecrRefCount(listPtr);
 
     return result;
@@ -6416,7 +6448,12 @@ TclObjInvoke(
      */
 
     iPtr->cmdCount++;
-    result = cmdPtr->objProc(cmdPtr->objClientData, interp, objc, objv);
+    if (cmdPtr->objProc != NULL) {
+	result = cmdPtr->objProc(cmdPtr->objClientData, interp, objc, objv);
+    } else {
+	result = Tcl_NRCallObjProc(interp, cmdPtr->nreProc,
+		cmdPtr->objClientData, objc, objv);
+    }
 
     /*
      * If an error occurred, record information about what was being executed
@@ -8005,85 +8042,103 @@ Tcl_NRCmdSwap(
  */
 
 int
-TclNRAtProcExitObjCmd(
+TclNRTailcallObjCmd(
     ClientData clientData,
     Tcl_Interp *interp,
     int objc,
     Tcl_Obj *const objv[])
 {
     Interp *iPtr = (Interp *) interp;
-    Tcl_Obj *listPtr;
-    Namespace *nsPtr = iPtr->varFramePtr->nsPtr;
-
+    TEOV_callback *tailcallPtr;
+    Tcl_Obj *listPtr, *nsObjPtr;
+    Tcl_Namespace *nsPtr = (Tcl_Namespace *) iPtr->varFramePtr->nsPtr;
+    Tcl_Namespace *ns1Ptr;
+    
     if (objc < 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "command ?arg ...?");
 	return TCL_ERROR;
     }
-
+    
     if (!iPtr->varFramePtr->isProcCallFrame ||	      /* is not a body ... */
 	    (iPtr->framePtr != iPtr->varFramePtr)) {  /* or is upleveled   */
 	Tcl_SetResult(interp,
-		"atProcExit/tailcall can only be called from a proc or lambda",
+		"tailcall can only be called from a proc or lambda",
 		TCL_STATIC);
 	return TCL_ERROR;
     }
 
-    nsPtr->activationCount++;
     listPtr = Tcl_NewListObj(objc-1, objv+1);
     Tcl_IncrRefCount(listPtr);
 
+    nsObjPtr = Tcl_NewStringObj(nsPtr->fullName, -1);
+    if ((TCL_OK != TclGetNamespaceFromObj(interp, nsObjPtr, &ns1Ptr))
+	    || (nsPtr != ns1Ptr)) {
+	Tcl_Panic("Tailcall failed to find the proper namespace");
+    }
+    Tcl_IncrRefCount(nsObjPtr);
+    
     /*
      * Add two callbacks: first the one to actually evaluate the tailcalled
      * command, then the one that signals TEBC to stash the first at its
      * proper place.
+     *
+     * Being lazy: add the callback, then remove it (to exploit the
+     * TclNRAddCallBack macro to build the callback)
      */
 
-    TclNRAddCallback(interp, NRAtProcExitEval, listPtr, nsPtr, NULL, NULL);
-    TclNRAddCallback(interp, NRCallTEBC, clientData, NULL, NULL, NULL);
+    TclNRAddCallback(interp, NRTailcallEval, listPtr, nsObjPtr, NULL, NULL);
+    tailcallPtr = TOP_CB(interp);
+    TOP_CB(interp) = tailcallPtr->nextPtr;
+
+    TclNRAddCallback(interp, NRCallTEBC, INT2PTR(TCL_NR_TAILCALL_TYPE), tailcallPtr, NULL, NULL);
     return TCL_OK;
 }
 
 int
-NRAtProcExitEval(
+NRTailcallEval(
     ClientData data[],
     Tcl_Interp *interp,
     int result)
 {
     Interp *iPtr = (Interp *) interp;
     Tcl_Obj *listPtr = data[0];
-    Namespace *nsPtr = data[1];
+    Tcl_Obj *nsObjPtr = data[1];
+    Tcl_Namespace *nsPtr;
     int objc;
     Tcl_Obj **objv;
 
-    TclNRAddCallback(interp, AtProcExitCleanup, listPtr, NULL, NULL, NULL);
+    TclNRDeferCallback(interp, TailcallCleanup, listPtr, nsObjPtr, NULL, NULL);
     if (result == TCL_OK) {
-	iPtr->lookupNsPtr = nsPtr;
-	ListObjGetElements(listPtr, objc, objv);
-	result = TclNREvalObjv(interp, objc, objv, 0, NULL);
-    }
-
-    nsPtr->activationCount--;
-    if ((nsPtr->flags & NS_DYING)
-	    && (nsPtr->activationCount - (nsPtr == iPtr->globalNsPtr) == 0)) {
-	/*
-	 * FIXME NRE tailcall: is this the proper way to manage this? This is
-	 * like what CallFrames do.
-	 */
-
-	Tcl_DeleteNamespace((Tcl_Namespace *) nsPtr);
+	result = TclGetNamespaceFromObj(interp, nsObjPtr, &nsPtr);
+	if (result == TCL_OK) {
+	    iPtr->lookupNsPtr = (Namespace *) nsPtr;
+	    ListObjGetElements(listPtr, objc, objv);
+	    result = TclNREvalObjv(interp, objc, objv, 0, NULL);
+	}
     }
     return result;
 }
 
 static int
-AtProcExitCleanup(
+TailcallCleanup(
     ClientData data[],
     Tcl_Interp *interp,
     int result)
 {
     Tcl_DecrRefCount((Tcl_Obj *) data[0]);
+    Tcl_DecrRefCount((Tcl_Obj *) data[1]);
     return result;
 }
+
+void
+TclClearTailcall(
+    Tcl_Interp *interp,
+    TEOV_callback *tailcallPtr)
+{
+    TailcallCleanup(tailcallPtr->data, interp, TCL_OK);
+    TCLNR_FREE(interp, tailcallPtr);
+}
+
 
 void
 Tcl_NRAddCallback(
@@ -8451,7 +8506,7 @@ TclNRCoroutineObjCmd(
     }
 
     corPtr = (CoroutineData *) ckalloc(sizeof(CoroutineData));
-    corPtr->eePtr = TclCreateExecEnv(interp);
+    corPtr->eePtr = TclCreateExecEnv(interp, CORO_STACK_INITIAL_SIZE);
     corPtr->callerEEPtr = iPtr->execEnvPtr;
     corPtr->eePtr->corPtr = corPtr;
     corPtr->stackLevel = NULL;
@@ -8484,7 +8539,6 @@ TclNRCoroutineObjCmd(
     TclGetString(cmdObjPtr);
     TclFreeIntRep(cmdObjPtr);
     cmdObjPtr->typePtr = NULL;
-    Tcl_IncrRefCount(cmdObjPtr);
 
     /*
      * Set up the callback in caller execEnv and switch to the new execEnv.

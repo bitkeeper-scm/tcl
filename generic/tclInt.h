@@ -1060,6 +1060,11 @@ typedef struct CallFrame {
 				 * meaning of the value is, which we do not
 				 * specify. */
     LocalCache *localCachePtr;
+    struct TEOV_callback *tailcallPtr;
+                                /* The callback implementing the call to be
+				 * executed by the command that pushed this
+				 * frame. 
+				 */
 } CallFrame;
 
 #define FRAME_IS_PROC	0x1
@@ -2010,10 +2015,13 @@ typedef struct Interp {
 				 * tclOOInt.h and tclOO.c for real definition
 				 * and setup. */
 
-    struct TEOV_callback *atExitPtr;
-				/* Callbacks to be run after a command exited;
-				 * this is only set for atProcExirt or
-				 * tailcalls that fall back out of tebc. */
+    struct TEOV_callback *deferredCallbacks;
+                                /* Callbacks that are set previous to a call
+				 * to some Eval function but that actually
+				 * belong to the command that is about to be
+				 * called - ie, they should be run *before*
+				 * any tailcall is invoked.
+				 */
 
 #ifdef TCL_COMPILE_STATS
     /*
@@ -2082,6 +2090,7 @@ typedef struct InterpList {
 #define TCL_ALLOW_EXCEPTIONS	4
 #define TCL_EVAL_FILE		2
 #define TCL_EVAL_CTX		8
+#define TCL_EVAL_REDIRECT       16
 
 /*
  * Flag bits for Interp structures:
@@ -2591,12 +2600,17 @@ MODULE_SCOPE Tcl_ObjCmdProc TclNRForObjCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRForeachCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRIfObjCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRSourceObjCmd;
+MODULE_SCOPE Tcl_ObjCmdProc TclNRTryObjCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRWhileObjCmd;
 
 MODULE_SCOPE Tcl_NRPostProc TclNRForIterCallback;
-MODULE_SCOPE Tcl_ObjCmdProc TclNRAtProcExitObjCmd;
+MODULE_SCOPE Tcl_ObjCmdProc TclNRTailcallObjCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRCoroutineObjCmd;
 MODULE_SCOPE Tcl_ObjCmdProc TclNRYieldObjCmd;
+
+MODULE_SCOPE void TclClearTailcall(Tcl_Interp *interp,
+	            struct TEOV_callback *tailcallPtr);
+
 
 /*
  *----------------------------------------------------------------
@@ -2606,6 +2620,7 @@ MODULE_SCOPE Tcl_ObjCmdProc TclNRYieldObjCmd;
 
 MODULE_SCOPE int	TclNREvalCmd(Tcl_Interp *interp, Tcl_Obj *objPtr,
 			    int flags);
+MODULE_SCOPE void	TclPushTailcallPoint(Tcl_Interp *interp);
 MODULE_SCOPE void	TclAdvanceLines(int *line, const char *start,
 			    const char *end);
 MODULE_SCOPE void	TclArgumentEnter(Tcl_Interp *interp,
@@ -3135,6 +3150,9 @@ MODULE_SCOPE int	Tcl_TimeObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *const objv[]);
 MODULE_SCOPE int	Tcl_TraceObjCmd(ClientData clientData,
+			    Tcl_Interp *interp, int objc,
+			    Tcl_Obj *const objv[]);
+MODULE_SCOPE int	Tcl_TryObjCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *const objv[]);
 MODULE_SCOPE int	Tcl_UnloadObjCmd(ClientData clientData,
@@ -3840,6 +3858,31 @@ MODULE_SCOPE void	TclDbInitNewObj(Tcl_Obj *objPtr);
 
 /*
  *----------------------------------------------------------------
+ * Macro counterpart of the Tcl_NumUtfChars() function.  To be used
+ * in speed-sensitive points where it pays to avoid a function call
+ * in the common case of counting along a string of all one-byte characters.
+ * The ANSI C "prototype" for this macro is:
+ *
+ * MODULE_SCOPE void	TclNumUtfChars(int numChars, const char *bytes,
+ *				int numBytes);
+ *----------------------------------------------------------------
+ */
+
+#define TclNumUtfChars(numChars, bytes, numBytes) \
+    do { \
+	int count, i = (numBytes); \
+	unsigned char *str = (unsigned char *) (bytes); \
+	while (i && (*str < 0xC0)) { i--; str++; } \
+	count = (numBytes) - i; \
+	if (i) { \
+	    count += Tcl_NumUtfChars((bytes) + count, i); \
+	} \
+	(numChars) = count; \
+    } while (0);
+
+
+/*
+ *----------------------------------------------------------------
  * Macro used by the Tcl core to compare Unicode strings. On big-endian
  * systems we can use the more efficient memcmp, but this would not be
  * lexically correct on little-endian systems. The ANSI C "prototype" for
@@ -4212,6 +4255,33 @@ typedef struct TEOV_callback {
 	callbackPtr->data[3] = (ClientData)(data3);			\
 	callbackPtr->nextPtr = TOP_CB(interp);				\
 	TOP_CB(interp) = callbackPtr;					\
+    }
+
+#define TclNRDeferCallback(interp,postProcPtr,data0,data1,data2,data3) {	\
+	TEOV_callback *callbackPtr;					\
+	TCLNR_ALLOC((interp), (callbackPtr));				\
+	callbackPtr->procPtr = (postProcPtr);				\
+	callbackPtr->data[0] = (ClientData)(data0);			\
+	callbackPtr->data[1] = (ClientData)(data1);			\
+	callbackPtr->data[2] = (ClientData)(data2);			\
+	callbackPtr->data[3] = (ClientData)(data3);			\
+	callbackPtr->nextPtr = ((Interp *)interp)->deferredCallbacks;	\
+	((Interp *)interp)->deferredCallbacks = callbackPtr;		\
+    }
+
+#define TclNRSpliceCallbacks(interp,topPtr) {	\
+	TEOV_callback *bottomPtr = topPtr;	\
+	while (bottomPtr->nextPtr) {		\
+	    bottomPtr = bottomPtr->nextPtr;	\
+	}					\
+	bottomPtr->nextPtr = TOP_CB(interp);	\
+	TOP_CB(interp) = topPtr;		\
+    }
+
+#define TclNRSpliceDeferred(interp)					\
+    if (((Interp *)interp)->deferredCallbacks) {			\
+	TclNRSpliceCallbacks(interp, ((Interp *)interp)->deferredCallbacks); \
+	((Interp *)interp)->deferredCallbacks = NULL;			\
     }
 
 #if NRE_USE_SMALL_ALLOC

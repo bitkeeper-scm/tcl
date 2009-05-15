@@ -180,8 +180,6 @@ typedef struct BottomData {
     TEOV_callback *rootPtr;	/* State when this bytecode execution began: */
     ByteCode *codePtr;		/* constant until it returns                 */
 				/* ------------------------------------------*/
-    TEOV_callback *atExitPtr;	/* This field is used on return FROM here    */
-				/* ------------------------------------------*/
     const unsigned char *pc;	/* These fields are used on return TO this   */
     ptrdiff_t *catchTop;	/* this level: they record the state when  a */
     int cleanup;		/* new codePtr was received for NR execution */
@@ -192,7 +190,6 @@ typedef struct BottomData {
     bottomPtr->prevBottomPtr = oldBottomPtr;	\
     bottomPtr->rootPtr = TOP_CB(iPtr);		\
     bottomPtr->codePtr = codePtr;		\
-    bottomPtr->atExitPtr = NULL
 
 #define NR_DATA_BURY()				\
     bottomPtr->pc = pc;				\
@@ -209,8 +206,6 @@ typedef struct BottomData {
     auxObjList = bottomPtr->auxObjList;			\
     esPtr = iPtr->execEnvPtr->execStackPtr;		\
     tosPtr = esPtr->tosPtr
-
-static Tcl_NRPostProc NRRestoreInterpState;
 
 #define PUSH_AUX_OBJ(objPtr)					\
     objPtr->internalRep.twoPtrValue.ptr2 = auxObjList;		\
@@ -853,16 +848,16 @@ InitByteCodeExecution(
  *----------------------------------------------------------------------
  */
 
-#define TCL_STACK_INITIAL_SIZE 2000
-
 ExecEnv *
 TclCreateExecEnv(
-    Tcl_Interp *interp)		/* Interpreter for which the execution
+    Tcl_Interp *interp,		/* Interpreter for which the execution
 				 * environment is being created. */
+    int size)                   /* the initial stack size, in number of words
+				 * [sizeof(Tcl_Obj*)] */ 
 {
     ExecEnv *eePtr = (ExecEnv *) ckalloc(sizeof(ExecEnv));
     ExecStack *esPtr = (ExecStack *) ckalloc(sizeof(ExecStack)
-	    + (size_t) (TCL_STACK_INITIAL_SIZE-1) * sizeof(Tcl_Obj *));
+	    + (size_t) (size-1) * sizeof(Tcl_Obj *));
 
     eePtr->execStackPtr = esPtr;
     TclNewBooleanObj(eePtr->constants[0], 0);
@@ -878,7 +873,7 @@ TclCreateExecEnv(
     esPtr->prevPtr = NULL;
     esPtr->nextPtr = NULL;
     esPtr->markerPtr = NULL;
-    esPtr->endPtr = &esPtr->stackWords[TCL_STACK_INITIAL_SIZE-1];
+    esPtr->endPtr = &esPtr->stackWords[size-1];
     esPtr->tosPtr = &esPtr->stackWords[-1];
 
     Tcl_MutexLock(&execMutex);
@@ -891,7 +886,6 @@ TclCreateExecEnv(
 
     return eePtr;
 }
-#undef TCL_STACK_INITIAL_SIZE
 
 /*
  *----------------------------------------------------------------------
@@ -1782,22 +1776,6 @@ TclIncrObj(
  *----------------------------------------------------------------------
  */
 
-static int
-NRRestoreInterpState(
-    ClientData data[],
-    Tcl_Interp *interp,
-    int result)
-{
-    /* FIXME
-     * Save the current state somewhere for instrospection of what happened in
-     * the atExit handlers?
-     */
-
-    Tcl_InterpState state = data[0];
-
-    return Tcl_RestoreInterpState(interp, state);
-}
-
 int
 TclExecuteByteCode(
     Tcl_Interp *interp,		/* Token for command interpreter. */
@@ -1895,8 +1873,6 @@ TclExecuteByteCode(
      */
 
     int nested = 0;
-    TEOV_callback *atExitPtr = NULL;
-    int isTailcall = 0;
 
     if (!codePtr) {
 	/*
@@ -1944,65 +1920,25 @@ TclExecuteByteCode(
 
 		codePtr = param;
 		break;
-	    case TCL_NR_ATEXIT_TYPE: {
-		/*
-		 * A request to perform a command at exit: put it in the stack
-		 * and continue exec'ing the current bytecode
-		 */
-
-		TEOV_callback *newPtr = TOP_CB(interp);
-
-		TOP_CB(interp) = newPtr->nextPtr;
-
-#ifdef TCL_COMPILE_DEBUG
-		if (traceInstructions) {
-		    fprintf(stdout, "   atProcExit request received\n");
-		}
-#endif
-		newPtr->nextPtr = bottomPtr->atExitPtr;
-		bottomPtr->atExitPtr = newPtr;
-		oldBottomPtr = bottomPtr;
-		goto returnToCaller;
-	    }
 	    case TCL_NR_TAILCALL_TYPE: {
 		/*
-		 * A request to perform a tailcall: put it at the front of the
-		 * atExit stack and abandon the current bytecode.
+		 * A request to perform a tailcall: just drop this bytecode.
 		 */
 
-		TEOV_callback *newPtr = TOP_CB(interp);
-
-		TOP_CB(interp) = newPtr->nextPtr;
-		isTailcall = 1;
 #ifdef TCL_COMPILE_DEBUG
 		if (traceInstructions) {
 		    fprintf(stdout, "   Tailcall request received\n");
 		}
 #endif
 		if (catchTop != initCatchTop) {
-		    isTailcall = 0;
+		    TclClearTailcall(interp, param);
 		    result = TCL_ERROR;
 		    Tcl_SetResult(interp,"Tailcall called from within a catch environment",
 			    TCL_STATIC);
+		    pc--;
 		    goto checkForCatch;
 		}
-
-		newPtr->nextPtr = NULL;
-		if (!bottomPtr->atExitPtr) {
-		    newPtr->nextPtr = NULL;
-		    bottomPtr->atExitPtr = newPtr;
-		} else {
-		    /*
-		     * There are already atExit callbacks: run last.
-		     */
-
-		    TEOV_callback *tmpPtr = bottomPtr->atExitPtr;
-
-		    while (tmpPtr->nextPtr) {
-			tmpPtr = tmpPtr->nextPtr;
-		    }
-		    tmpPtr->nextPtr = newPtr;
-		}
+		iPtr->varFramePtr->tailcallPtr = param;
 		goto abnormalReturn;
 	    }
 	    case TCL_NR_YIELD_TYPE: { /*[yield] */
@@ -2014,6 +1950,7 @@ TclExecuteByteCode(
 			    TCL_STATIC);
 		    Tcl_SetErrorCode(interp, "COROUTINE_ILLEGAL_YIELD", NULL);
 		    result = TCL_ERROR;
+		    pc--;
 		    goto checkForCatch;
 		}
 		NRE_ASSERT(iPtr->execEnvPtr == corPtr->eePtr);
@@ -2024,6 +1961,7 @@ TclExecuteByteCode(
 			    TCL_STATIC);
 		    Tcl_SetErrorCode(interp, "COROUTINE_CANT_YIELD", NULL);
 		    result = TCL_ERROR;
+		    pc--;
 		    goto checkForCatch;
 		}
 
@@ -2105,11 +2043,26 @@ TclExecuteByteCode(
 	 * reset, now process the return.
 	 */
 
-	/* Disabled the following assertion to solve the trouble reported
-	 * in Tcl Bug 2415422.  Needs review.  */
-	/*NRE_ASSERT(iPtr->cmdFramePtr == bcFramePtr);*/
+	NRE_ASSERT(iPtr->cmdFramePtr == bcFramePtr);
 	iPtr->cmdFramePtr = bcFramePtr->nextPtr;
 
+	/*
+	 * If the CallFrame is marked as tailcalling, keep tailcalling
+	 */
+
+	if (iPtr->varFramePtr->tailcallPtr) {
+	    if (catchTop != initCatchTop) {
+		TclClearTailcall(interp, iPtr->varFramePtr->tailcallPtr);
+		iPtr->varFramePtr->tailcallPtr = NULL;
+		result = TCL_ERROR;
+		Tcl_SetResult(interp,"Tailcall called from within a catch environment",
+			TCL_STATIC);
+		pc--;
+		goto checkForCatch;
+	    }
+	    goto abnormalReturn;
+	}
+    
 	if (iPtr->execEnvPtr->rewind) {
 	    result = TCL_ERROR;
 	    goto abnormalReturn;
@@ -2547,21 +2500,26 @@ TclExecuteByteCode(
 	 */
 
 	if (onlyb) {
-	    for (currPtr = &OBJ_AT_DEPTH(opnd-2); currPtr <= &OBJ_AT_TOS;
-		    currPtr++) {
+	    for (currPtr = &OBJ_AT_DEPTH(opnd-2); 
+		    appendLen >= 0 && currPtr <= &OBJ_AT_TOS; currPtr++) {
 		if ((*currPtr)->bytes != tclEmptyStringRep) {
 		    Tcl_GetByteArrayFromObj(*currPtr, &length);
 		    appendLen += length;
 		}
 	    }
 	} else {
-	    for (currPtr = &OBJ_AT_DEPTH(opnd-2); currPtr <= &OBJ_AT_TOS;
-		    currPtr++) {
+	    for (currPtr = &OBJ_AT_DEPTH(opnd-2);
+		    appendLen >= 0 && currPtr <= &OBJ_AT_TOS; currPtr++) {
 		bytes = TclGetStringFromObj(*currPtr, &length);
 		if (bytes != NULL) {
 		    appendLen += length;
 		}
 	    }
+	}
+
+	if (appendLen < 0) {
+	    /* TODO: convert panic to error ? */
+	    Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
 	}
 
 	/*
@@ -2588,6 +2546,11 @@ TclExecuteByteCode(
 	objResultPtr = OBJ_AT_DEPTH(opnd-1);
 	if (!onlyb) {
 	    bytes = TclGetStringFromObj(objResultPtr, &length);
+	    if (length + appendLen < 0) {
+		/* TODO: convert panic to error ? */
+		Tcl_Panic("max size for a Tcl value (%d bytes) exceeded",
+			INT_MAX);
+	    }
 #if !TCL_COMPILE_DEBUG
 	    if (bytes != tclEmptyStringRep && !Tcl_IsShared(objResultPtr)) {
 		TclFreeIntRep(objResultPtr);
@@ -2620,6 +2583,11 @@ TclExecuteByteCode(
 	    *p = '\0';
 	} else {
 	    bytes = (char *) Tcl_GetByteArrayFromObj(objResultPtr, &length);
+	    if (length + appendLen < 0) {
+		/* TODO: convert panic to error ? */
+		Tcl_Panic("max size for a Tcl value (%d bytes) exceeded",
+			INT_MAX);
+	    }
 #if !TCL_COMPILE_DEBUG
 	    if (!Tcl_IsShared(objResultPtr)) {
 		bytes = (char *) Tcl_SetByteArrayLength(objResultPtr,
@@ -2709,15 +2677,20 @@ TclExecuteByteCode(
 
 	if (moved) {
 	    /*
-	     * Change the global data to point to the new stack.
+	     * Change the global data to point to the new stack: move the
+	     * bottomPtr, recompute the position of every other
+	     * stack-allocated parameter, update the stack pointers.
 	     */
 
 	    bottomPtr = (BottomData *) (((Tcl_Obj **)bottomPtr) + moved);
-	    initCatchTop += moved;
-	    catchTop += moved;
-	    initTosPtr += moved;
-	    tosPtr += moved;
+
+	    bcFramePtr = (CmdFrame *) (bottomPtr + 1);
+	    initCatchTop = ((ptrdiff_t *) (bcFramePtr + 1)) - 1;
+	    initTosPtr = (Tcl_Obj **) (initCatchTop + codePtr->maxExceptDepth);
 	    esPtr = iPtr->execEnvPtr->execStackPtr;
+
+	    catchTop += moved;
+	    tosPtr += moved;
 	}
 
 	/*
@@ -4784,11 +4757,7 @@ TclExecuteByteCode(
 
 	valuePtr = OBJ_AT_TOS;
 
-	if (valuePtr->typePtr == &tclByteArrayType) {
-	    (void) Tcl_GetByteArrayFromObj(valuePtr, &length);
-	} else {
-	    length = Tcl_GetCharLength(valuePtr);
-	}
+	length = Tcl_GetCharLength(valuePtr);
 	TclNewIntObj(objResultPtr, length);
 	TRACE(("%.20s => %d\n", O2S(valuePtr), length));
 	NEXT_INST_F(1, 1, 1);
@@ -4808,21 +4777,9 @@ TclExecuteByteCode(
 	valuePtr = OBJ_UNDER_TOS;
 
 	/*
-	 * If we have a ByteArray object, avoid indexing in the Utf string
-	 * since the byte array contains one byte per character. Otherwise,
-	 * use the Unicode string rep to get the index'th char.
+	 * Get char length to calulate what 'end' means.
 	 */
-
-	if (valuePtr->typePtr == &tclByteArrayType) {
-	    bytes = (char *)Tcl_GetByteArrayFromObj(valuePtr, &length);
-	} else {
-	    /*
-	     * Get Unicode char length to calulate what 'end' means.
-	     */
-
-	    length = Tcl_GetCharLength(valuePtr);
-	}
-
+	length = Tcl_GetCharLength(valuePtr);
 	result = TclGetIntForIndexM(interp, value2Ptr, length - 1, &index);
 	if (result != TCL_OK) {
 	    goto checkForCatch;
@@ -4830,8 +4787,8 @@ TclExecuteByteCode(
 
 	if ((index >= 0) && (index < length)) {
 	    if (valuePtr->typePtr == &tclByteArrayType) {
-		objResultPtr = Tcl_NewByteArrayObj((unsigned char *)
-			(&bytes[index]), 1);
+		objResultPtr = Tcl_NewByteArrayObj(
+			Tcl_GetByteArrayFromObj(valuePtr, &length)+index, 1);
 	    } else if (valuePtr->bytes && length == valuePtr->length) {
 		objResultPtr = Tcl_NewStringObj((const char *)
 			(&valuePtr->bytes[index]), 1);
@@ -8394,6 +8351,19 @@ TclExecuteByteCode(
 
     abnormalReturn:
 	TCL_DTRACE_INST_LAST();
+
+	/*
+	 * Winding down: insure that all pending cleanups are done before
+	 * dropping out of this bytecode. 
+	 */
+	if (TOP_CB(interp) != bottomPtr->rootPtr) {
+	    result = TclNRRunCallbacks(interp, result, bottomPtr->rootPtr, 1);
+	
+	    if (TOP_CB(interp) != bottomPtr->rootPtr) {
+		Tcl_Panic("Abnormal return with busy callback stack");
+	    }
+	}
+	
 	/*
 	 * Clear all expansions and same-level NR calls.
 	 *
@@ -8423,7 +8393,6 @@ TclExecuteByteCode(
     TclArgumentBCRelease((Tcl_Interp*) iPtr,codePtr);
 
     oldBottomPtr = bottomPtr->prevBottomPtr;
-    atExitPtr = bottomPtr->atExitPtr;
     iPtr->cmdFramePtr = bcFramePtr->nextPtr;
     TclStackFree(interp, bottomPtr);	/* free my stack */
 
@@ -8435,7 +8404,7 @@ TclExecuteByteCode(
     if (oldBottomPtr) {
 	/*
 	 * Restore the state to what it was previous to this bytecode, deal
-	 * with atExit handlers and tailcalls.
+	 * with tailcalls.
 	 */
 
 	bottomPtr = oldBottomPtr;	/* back to old bc */
@@ -8446,42 +8415,9 @@ TclExecuteByteCode(
 	NR_DATA_DIG();
 	if (TOP_CB(interp) == bottomPtr->rootPtr) {
 	    /*
-	     * The bytecode is returning, all callbacks were run. Run atExit
-	     * handlers, remove the caller's arguments and keep processing the
-	     * caller.
+	     * The bytecode is returning, all callbacks were run. Remove the
+	     * caller's arguments and keep processing the caller.
 	     */
-
-	    if (atExitPtr) {
-		/*
-		 * Find the last one
-		 */
-
-		TEOV_callback *lastPtr = atExitPtr;
-		while (lastPtr->nextPtr) {
-		    lastPtr = lastPtr->nextPtr;
-		}
-		NRE_ASSERT(lastPtr->nextPtr == NULL);
-		if (!isTailcall) {
-		    /*
-		     * Save the interp state, arrange for restoring it after
-		     * running the callbacks.
-		     */
-
-		    TclNRAddCallback(interp, NRRestoreInterpState,
-			    Tcl_SaveInterpState(interp, result), NULL,
-			    NULL, NULL);
-		}
-
-		/*
-		 * splice in the atExit callbacks and rerun all callbacks
-		 */
-
-		lastPtr->nextPtr = TOP_CB(interp);
-		TOP_CB(interp) = atExitPtr;
-		isTailcall = 0;
-		atExitPtr = NULL;
-		goto rerunCallbacks;
-	    }
 
 	    while (cleanup--) {
 		Tcl_Obj *objPtr = POP_OBJECT();
@@ -8503,7 +8439,6 @@ TclExecuteByteCode(
 		     */
 
 		    goto nonRecursiveCallStart;
-		case TCL_NR_ATEXIT_TYPE:
 		case TCL_NR_TAILCALL_TYPE:
 		    TOP_CB(iPtr) = callbackPtr->nextPtr;
 		    TCLNR_FREE(interp, callbackPtr);
@@ -8517,32 +8452,6 @@ TclExecuteByteCode(
 		    Tcl_Panic("TEBC: TRCB sent us a callback we cannot handle!");
 	    }
 	}
-    }
-
-
-    if (atExitPtr) {
-	if (!isTailcall) {
-	    /*
-	     * Save the interp state, arrange for restoring it after running
-	     * the callbacks. Put the callback at the bottom of the atExit
-	     * stack.
-	     */
-
-	    Tcl_InterpState state = Tcl_SaveInterpState(interp, result);
-	    TEOV_callback *lastPtr = atExitPtr;
-
-	    while (lastPtr->nextPtr) {
-		lastPtr = lastPtr->nextPtr;
-	    }
-	    NRE_ASSERT(lastPtr->nextPtr == NULL);
-
-	    TclNRAddCallback(interp, NRRestoreInterpState, state, NULL,
-		    NULL, NULL);
-	    lastPtr->nextPtr = TOP_CB(iPtr);
-	    TOP_CB(iPtr) = TOP_CB(iPtr)->nextPtr;
-	    lastPtr->nextPtr->nextPtr = NULL;
-	}
-	iPtr->atExitPtr = atExitPtr;
     }
 
     iPtr->execEnvPtr->bottomPtr = NULL;
@@ -9030,7 +8939,7 @@ GetExceptRangeForPc(
 #ifdef TCL_COMPILE_DEBUG
 static const char *
 GetOpcodeName(
-    const unsigned char *pc)		/* Points to the instruction whose name should
+    const unsigned char *pc)	/* Points to the instruction whose name should
 				 * be returned. */
 {
     unsigned char opCode = *pc;

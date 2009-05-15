@@ -564,6 +564,13 @@ InitDefineContext(
     CallFrame *framePtr, **framePtrPtr = &framePtr;
     int result;
 
+    if (namespacePtr == NULL) {
+	Tcl_AppendResult(interp,
+		"cannot process definitions; support namespace deleted",
+		NULL);
+	return TCL_ERROR;
+    }
+
     /* framePtrPtr is needed to satisfy GCC 3.3's strict aliasing rules */
 
     result = TclPushStackFrame(interp, (Tcl_CallFrame **) framePtrPtr,
@@ -594,14 +601,14 @@ TclOOGetDefineCmdContext(
 {
     Interp *iPtr = (Interp *) interp;
 
-    if ((iPtr->framePtr == NULL)
-	    || (iPtr->framePtr->isProcCallFrame != FRAME_IS_OO_DEFINE)) {
+    if ((iPtr->varFramePtr == NULL)
+	    || (iPtr->varFramePtr->isProcCallFrame != FRAME_IS_OO_DEFINE)) {
 	Tcl_AppendResult(interp, "this command may only be called from within"
 		" the context of an ::oo::define or ::oo::objdefine command",
 		NULL);
 	return NULL;
     }
-    return (Tcl_Object) iPtr->framePtr->clientData;
+    return (Tcl_Object) iPtr->varFramePtr->clientData;
 }
 
 /*
