@@ -488,6 +488,7 @@ endif
 
 L_HDRS = \
 	$(GENERIC_DIR)/Lcompile.h \
+	$(GENERIC_DIR)/Lgrammar.h \
 	$(GENERIC_DIR)/Last.h
 
 L_SRCS = \
