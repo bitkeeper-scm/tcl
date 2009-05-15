@@ -64,7 +64,8 @@ mkstemp(
 	 */
 
 	for (b=a ; *b ; b++) {
-	    float r = random() / ((float) RAND_MAX);
+	    long int rand = random() % RAND_MAX;        // IRIX is busted.
+	    float r = rand / (float)RAND_MAX;
 
 	    *b = alphanumerics[(int)(r * alphanumericsLen)];
 	}
