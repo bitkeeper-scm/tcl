@@ -1,12 +1,12 @@
-all: L.1 L.txt
+all: L.1 L.txt L.html
 
-L.man: l.pod pod2man
-	sed s/=proto/=item/ < l.pod > L.pod
+L.man: l.doc pod2man
+	sed s/=proto/=item/ < l.doc > L.pod
 	./pod2man -r L-beta -c 'L Programmers Reference Guide' L.pod L.man
 	rm -f L.pod
 
-L.html: l.pod FORCE
-	./pod2html.l --title='L Programmers Reference Guide' l.pod > L.html
+L.html: l.doc pod2html.l FORCE
+	./pod2html.l --title='L Programmers Reference Guide' l.doc > L.html
 
 L.1: L.man
 	nroff -man L.man > L.1
@@ -22,10 +22,10 @@ clean:
 	rm -rf L.man L.1 L.txt L.ps l.shar L-docs L.html
 	bk clean
 
-shar: l.pod pod2man Makefile
+shar: l.doc pod2man Makefile
 	rm -rf L-docs
 	mkdir L-docs
-	cp l.pod pod2man Makefile L-docs
+	cp l.doc pod2man Makefile L-docs
 	shar L-docs > l.shar
 
 FORCE:
