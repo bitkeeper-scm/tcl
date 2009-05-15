@@ -109,7 +109,7 @@ chdir(_unused string dir)
 int
 chmod(_unused string path, _unused string permissions)
 {
-	if (catch("file attributes $path -permissions $permissions")) {
+	if (catch("file attributes $path -permissions 0$permissions")) {
 		return (-1);
 	} else {
 		return (0);
