@@ -24,8 +24,6 @@
 private void
 undef_freeInternalRep(Tcl_Obj *o)
 {
-	o->bytes  = NULL;
-	o->length = 0;
 }
 
 /*
