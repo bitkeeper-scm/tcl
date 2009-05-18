@@ -4249,7 +4249,14 @@ ckvsprintf(const char *fmt, va_list ap, int len)
 {
 	char	*buf = ckalloc(len);
 	int	ret  = vsnprintf(buf, len, fmt, ap);
-	if ((ret >= len) || (ret < 0)) {
+	/*
+	 * The meaning of the return value depends on the platform.
+	 * Some return the needed length (minus 1), some return -1,
+	 * some truncate the buffer.  For the latter, ret will be
+	 * len-1 and we won't know whether it barely fit or wasn't
+	 * enough, to just fail on that case.
+	 */
+	if ((ret >= (len-1)) || (ret < 0)) {
 		ckfree(buf);
 		return (NULL);
 	}
