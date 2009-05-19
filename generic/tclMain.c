@@ -272,25 +272,38 @@ Tcl_Main(
 
     if (NULL == Tcl_GetStartupScript(NULL)) {
 	/*
-	 * Check whether first 3 args (argv[1] - argv[3]) look like
+	 * Check whether initial args (argv[1] and beyond) look like
 	 * 	-encoding ENCODING FILENAME
 	 * or like
-	 * 	FILENAME
+	 *	[-opt1] [-opt2] ... [-optn] FILENAME
 	 */
+
+	/* Create argv list obj for L. */
+	L->global->argc = 1;
+	L->global->argv = Tcl_NewObj();
+	Tcl_ListObjAppendElement(NULL, L->global->argv,
+				 Tcl_NewStringObj(argv[0], -1));
 
 	if ((argc > 3) && (0 == strcmp("-encoding", argv[1]))
 		&& ('-' != argv[3][0])) {
 	    Tcl_SetStartupScript(Tcl_NewStringObj(argv[3], -1), argv[2]);
 	    argc -= 3;
 	    argv += 3;
-	} else if ((argc > 1) && ('-' != argv[1][0])) {
-	    Tcl_SetStartupScript(Tcl_NewStringObj(argv[1], -1), NULL);
-	    argc--;
-	    argv++;
-	} else if ((argc > 1) && (0 == strncmp("-l", argv[1], 2))) {
-	    L->interactive = 1;
-	    argc--;
-	    argv++;
+	} else if (argc > 1) {
+	    /* Pass over all options to look for a file name. */
+	    int i;
+	    Tcl_Obj *argObj;
+	    for (i = 1; i < argc; ++i) {
+		argObj = Tcl_NewStringObj(argv[i], -1);
+		Tcl_ListObjAppendElement(NULL, L->global->argv, argObj);
+		++L->global->argc;
+		if ('-' != argv[i][0]) {
+		    Tcl_SetStartupScript(argObj, NULL);
+		    argc -= i;
+		    argv += i;
+		    break;
+		}
+	    }
 	}
     }
 
@@ -330,10 +343,6 @@ Tcl_Main(
     Tcl_SetVar(interp, "tcl_interactive", ((path == NULL) && tty) ? "1" : "0",
 	    TCL_GLOBAL_ONLY);
 
-    if (L->interactive) {
-        Tcl_SetVar(interp, "L_interactive", 
-            ((path == NULL) && tty) ? "1" : "0", TCL_GLOBAL_ONLY);
-    }
     /*
      * Invoke application-specific initialization.
      */

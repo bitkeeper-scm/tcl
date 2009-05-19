@@ -136,7 +136,6 @@ void chown1(string nm)
 {
 	FILE	f;
 	string	group, owner;
-	struct stat stat;
 
 	f = fopen(nm, "r");
 	unless (defined(f)) puts("bad 1.1");

@@ -78,9 +78,8 @@ Tcl_ObjType L_undefType = {
 extern void	*L__scan_bytes (const char *bytes, int len);
 extern void	L__delete_buffer(void *buf);
 
-private int	L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **L_ast);
-private int	L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr,
-			       void *ast, int opts);
+private int	L_ParseScript(CONST char *str, Ast **L_ast);
+private int	L_CompileScript(void *ast);
 private void	ast_free(Ast *ast_list);
 private int	compile_assert(Expr *expr);
 private void	compile_assign(Expr *expr);
@@ -145,6 +144,7 @@ private Type	*iscallbyname(VarDecl *formal);
 private int	ispatternfn(char *name, Expr **Foo_star, Expr **bar);
 private Label	*label_lookup(Stmt *stmt, Label_f flags);
 private void	list_mapReverse(Expr *l, int (*fn)(Expr *, Expr_f), int arg);
+private int	parse_options(int ac, Tcl_Obj **av);
 private void	proc_mkArg(Proc *proc, VarDecl *decl);
 private int	push_index(Expr *expr);
 private int	push_lit(Expr *expr);
@@ -161,7 +161,7 @@ private int	tmp_getSingle(char **s);
 private void	track_cmd(int codeOffset, void *node);
 private void	type_free(Type *type_list);
 
-Lglobal	*L;		// per-interp global state
+Linterp	*L;		// per-interp L state
 Type	*L_int;		// pre-defined types
 Type	*L_float;
 Type	*L_string;
@@ -193,15 +193,13 @@ int
 Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	    Tcl_Obj *CONST objv[])
 {
-	int	i, index, len;
-	int	opts = 0;
+	int	argc, len;
 	int	ret = TCL_OK;
 	char	*str;
 	Ast	*ast;
-	static	CONST char *options[] = { "-poly", "-nowarn", NULL };
-	enum	options { L_POLY, L_NOWARN };
+	Tcl_Obj	**argvList;
 
-	/* Extract the L global state from the interp. */
+	/* Extract the L state from the interp. */
 	L = Tcl_GetAssocData(interp, "L", NULL);
 
 	if (objc < 2) {
@@ -209,22 +207,11 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 		return (TCL_ERROR);
 	}
 
-	/* option parsing -- add flags to :opts */
-	for (i = 1; i < objc - 1; i++) {
-		if (Tcl_GetIndexFromObj(interp, objv[i],
-			options, "option", 0, &index) != TCL_OK) {
-			return (TCL_ERROR);
-		}
-		switch((enum options)index) {
-		    case L_POLY:
-			opts |= L_OPT_POLY;
-			break;
-		    case L_NOWARN:
-			opts |= L_OPT_NOWARN;
-			break;
-		    default:
-			L_bomb("bad opt Tcl_GetIndexFromObj should've caught");
-		}
+	/* Parse options from both the Tcl command and the tclsh cmd line. */
+	L->options = parse_options(objc-1, (Tcl_Obj **)objv);
+	if (Tcl_ListObjGetElements(L->interp, L->global->argv, &argc,
+				   &argvList) == TCL_OK) {
+		L->options |= parse_options(argc-1, argvList);
 	}
 
 	L->script = Tcl_NewObj();
@@ -238,10 +225,10 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	}
 
 	str = Tcl_GetStringFromObj(objv[objc - 1], &len);
-	ret = L_ParseScript(interp, str, &ast);
+	ret = L_ParseScript(str, &ast);
 
 	if ((ret == TCL_OK) && ast) {
-		ret = L_CompileScript(interp, NULL, ast, opts);
+		ret = L_CompileScript(ast);
 	}
 
 #ifdef TCL_COMPILE_DEBUG
@@ -254,21 +241,63 @@ Tcl_LObjCmd(ClientData clientData, Tcl_Interp *interp, int objc,
 	return (ret);
 }
 
+private int
+parse_options(int ac, Tcl_Obj **av)
+{
+	int	i, index;
+	int	opts = 0;
+	static	CONST char *options[] = {
+		"--poly",
+		"-poly",
+		"-P",
+		"--nowarn",
+		"-nowarn",
+		"-n",
+		NULL
+	};
+	enum	options {
+		L_POLY_1, L_POLY_2, L_POLY_3,
+		L_NOWARN_1, L_NOWARN_2, L_NOWARN_3
+	};
+
+	for (i = 1; i < ac; ++i) {
+		unless (Tcl_GetIndexFromObj(NULL, av[i], options, NULL, 0,
+					    &index) == TCL_OK) {
+			continue;
+		}
+		switch ((enum options)index) {
+		    case L_POLY_1:
+		    case L_POLY_2:
+		    case L_POLY_3:
+			opts |= L_OPT_POLY;
+			break;
+		    case L_NOWARN_1:
+		    case L_NOWARN_2:
+		    case L_NOWARN_3:
+			opts |= L_OPT_NOWARN;
+			break;
+		    default:
+			ASSERT(0);
+		}
+	}
+	return (opts);
+}
+
 /*
  * Parse an L script into an AST.  Parsing and compiling are broken into two
  * stages in order to support an interactive mode that parses many times
  * before finally compiling.
  */
 private int
-L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **ast_p)
+L_ParseScript(CONST char *str, Ast **ast_p)
 {
 	int	len = strlen(str);
 	void	*lex_buffer;
 
 	L_typeck_init();
 
-	if (((Interp *)interp)->scriptFile) {
-		char *f = Tcl_GetString(((Interp *)interp)->scriptFile);
+	if (((Interp *)L->interp)->scriptFile) {
+		char *f = Tcl_GetString(((Interp *)L->interp)->scriptFile);
 		L->file = ckstrdup(f);
 	} else {
 		L->file = ckstrdup("<stdin>");
@@ -289,7 +318,7 @@ L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **ast_p)
 	L__delete_buffer(lex_buffer);
 
 	if (L->errs) {
-		Tcl_SetObjResult(interp, L->errs);
+		Tcl_SetObjResult(L->interp, L->errs);
 		return (TCL_ERROR);
 	}
 	return (TCL_OK);
@@ -297,7 +326,7 @@ L_ParseScript(Tcl_Interp *interp, CONST char *str, Ast **ast_p)
 
 /* Compile an L AST into Tcl ByteCodes.  The envPtr may be NULL. */
 private int
-L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
+L_CompileScript(void *ast)
 {
 	int	ret = TCL_OK;
 	TopLev	*toplev;
@@ -305,8 +334,7 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 
 	ASSERT(((Ast *)ast)->type == L_NODE_TOPLEVEL);
 
-	L->toplev  = cksprintf("%d%%l_toplevel", ctr++);
-	L->options = opts;
+	L->toplev = cksprintf("%d%%l_toplevel", ctr++);
 
 	/*
 	 * Two frames get pushed, one for private globals that exist
@@ -355,7 +383,7 @@ L_CompileScript(Tcl_Interp *interp, CompileEnv *envPtr, void *ast, int opts)
 	frame_pop();
 
 	if (L->errs) {
-		Tcl_SetObjResult(interp, L->errs);
+		Tcl_SetObjResult(L->interp, L->errs);
 		return (TCL_ERROR);
 	}
 
@@ -842,6 +870,9 @@ compile_varDecl(VarDecl *decl)
 						decl->node.end);
 	}
 	compile_expr(decl->initializer, L_DISCARD);
+	/* Mark var as unused even though it was just initialized. */
+	sym->used_p = FALSE;
+
 	track_cmd(start_off, decl);
 }
 
@@ -943,6 +974,7 @@ compile_return(Stmt *stmt)
 
 	if (isvoidtype(ret_type) && (stmt->u.expr)) {
 		L_errf(stmt, "void function cannot return value");
+		compile_expr(stmt->u.expr, L_DISCARD);
 	} else if (stmt->u.expr) {
 		compile_expr(stmt->u.expr, L_PUSH_VAL);  // return value
 		unless (L_typeck_compat(ret_type, stmt->u.expr->type)) {
@@ -2623,7 +2655,7 @@ compile_foreachArray(ForEach *loop)
 	 * the value list, in tcl terminology.
 	 */
 	for (var = loop->key, num_vars = 0; var; var = var->next, ++num_vars) {
-		unless (sym_lookup(var, L_NOTUSED)) return;  // undeclared var
+		unless (sym_lookup(var, 0)) return;  // undeclared var
 		unless (L_typeck_compat(var->type,
 					loop->expr->type->base_type)) {
 			L_errf(var, "loop index type incompatible with"
@@ -2713,9 +2745,9 @@ compile_foreachHash(ForEach *loop)
 	Jmp	*break_jumps, *continue_jumps, *out_jmp;
 
 	/* Check types and ensure variables are declared etc. */
-	unless ((key = sym_lookup(loop->key, L_NOTUSED))) return;
+	unless ((key = sym_lookup(loop->key, 0))) return;
 	if (loop->value) {
-		unless ((val = sym_lookup(loop->value, L_NOTUSED))) return;
+		unless ((val = sym_lookup(loop->value, 0))) return;
 		unless (L_typeck_compat(val->type,
 					loop->expr->type->base_type)) {
 			L_errf(loop->value, "loop index value type "
@@ -2830,7 +2862,7 @@ compile_foreachString(ForEach *loop)
 	body_off = currOffset(L->frame->envPtr);
 
 	for (id = loop->key; id; id = id->next) {
-		unless (sym_lookup(id, L_NOTUSED)) return;  // undeclared var
+		unless (sym_lookup(id, 0)) return;  // undeclared var
 		unless (L_typeck_compat(id->type, L_string)) {
 			L_errf(id, "loop index not of string type");
 		}
@@ -3956,7 +3988,7 @@ L_trace(const char *format, ...)
 void
 L_warn(char *s)
 {
-	unless (L->frame && (L->options & L_OPT_NOWARN)) {
+	unless (L->options & L_OPT_NOWARN) {
 		fprintf(stderr, "L Warning: %s\n", s);
 	}
 }
@@ -3966,7 +3998,7 @@ L_warnf(void *node, const char *format, ...)
 {
 	va_list	ap;
 
-	unless (L->frame && (L->options & L_OPT_NOWARN)) {
+	unless (L->options & L_OPT_NOWARN) {
 		va_start(ap, format);
 		if (node) {
 			fprintf(stderr, "%s:%d: ",
@@ -4314,13 +4346,16 @@ L_set_declBaseType(VarDecl *decl, Type *base_type)
 void
 TclLInitCompiler(Tcl_Interp *interp)
 {
+	static Lglobal	global;  // L global state
+
 //	putenv("MallocStackLogging=1");
 
-	/* Associate the L global state with this interp. */
-	L = (Lglobal *)ckalloc(sizeof(Lglobal));
-	memset(L, 0, sizeof(Lglobal));
+	/* Associate the L interp state with this interp. */
+	L = (Linterp *)ckalloc(sizeof(Linterp));
+	memset(L, 0, sizeof(Linterp));
 	Tcl_SetAssocData(interp, "L", TclLCleanupCompiler, L);
 
+	L->global = &global;
 	L->interp = interp;
 	frame_push(NULL, NULL, OUTER|SEARCH);
 	L_scope_enter();
@@ -4331,7 +4366,7 @@ TclLCleanupCompiler(ClientData clientData, Tcl_Interp *interp)
 {
 	char	buf[32];
 
-	L = (Lglobal *)clientData;
+	L = (Linterp *)clientData;
 	L_scope_leave();
 	frame_pop();
 	ast_free(L->ast_list);

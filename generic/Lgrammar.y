@@ -406,8 +406,8 @@ stmt:
 	;
 
 unlabeled_stmt:
-	  single_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
-	| compound_stmt		{ $$ = $1; if (L->interactive) YYACCEPT; }
+	  single_stmt
+	| compound_stmt
 	;
 
 single_stmt:

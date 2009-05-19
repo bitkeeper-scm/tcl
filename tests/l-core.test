@@ -35,7 +35,7 @@ test lfile-1.1 {Test autowrapping of .l works} -setup {
 # the #lang L directive... right?
 test lfile-1.2 {Test autowrapping doesn't wrap twice} -setup {
 	set fname [makeFile {#lang L -nowarn
-		void main(int ac, string av[]) {
+		void main() {
 			printf("hi dad\n");
 		}
 	} lfile-1.2.l]
@@ -65,6 +65,172 @@ test parse-1.1 {Test parsing an L script that's just white space} -body {
 
 
 }
+
+test opts-1 {test command options 1} -body {
+#lang L -nowarn
+void opts_1()
+{
+	int	not_used;  // not used warning should be suppressed
+	printf("good");
+}
+opts_1();
+} -output {good}
+
+test opts-2 {test command options 2} -body {
+#lang L --nowarn
+void opts_2()
+{
+	int	not_used;  // not used warning should be suppressed
+	printf("good");
+}
+opts_2();
+} -output {good}
+
+test opts-3 {test command options 3} -body {
+#lang L -n
+void opts_3()
+{
+	int	not_used;  // not used warning should be suppressed
+	printf("good");
+}
+opts_3();
+} -output {good}
+
+test opts-4 {test command options 4} -body {
+#lang L -poly
+void opts_4()
+{
+	string	s = "3";
+	printf("%d", s+1);  // would be an err w/o the -poly
+}
+opts_4();
+} -output {4}
+
+test opts-5 {test command options 5} -body {
+#lang L --poly
+void opts_5()
+{
+	string	s = "3";
+	printf("%d", s+1);  // would be an err w/o the --poly
+}
+opts_5();
+} -output {4}
+
+test opts-6 {test command options 6} -body {
+#lang L -P
+void opts_6()
+{
+	string	s = "3";
+	printf("%d", s+1);  // would be an err w/o the -P
+}
+opts_6();
+} -output {4}
+
+test opts-7 {test -nowarn command-line option} -setup {
+	set file [makeFile {
+			private void f() {
+				int not_used;
+				puts("good");
+			}
+			f();
+		  } opts7.l .]
+} -constraints {
+	exec
+} -body {
+	# The script created above should not compile and run unless
+	# the command-line options are handled correctly.
+	set s1 [exec [interpreter] -nowarn $file]
+	set s2 [exec [interpreter] --nowarn $file]
+	set s3 [exec [interpreter] -n $file]
+	puts $s1
+	puts $s2
+	puts $s3
+} -cleanup {
+	removeFile $file
+} -output "good\ngood\ngood\n"
+
+test opts-8 {test -poly command-line option} -setup {
+	set file [makeFile {
+			private void f() {
+				string s = "3";
+				printf("%d\n", s+1);
+			}
+			f();
+		  } opts8.l .]
+} -constraints {
+	exec
+} -body {
+	# The script created above should not compile and run unless
+	# the command-line options are handled correctly.
+	set s1 [exec [interpreter] -poly $file]
+	set s2 [exec [interpreter] --poly $file]
+	set s3 [exec [interpreter] -P $file]
+	puts $s1
+	puts $s2
+	puts $s3
+} -cleanup {
+	removeFile $file
+} -output "4\n4\n4\n"
+
+test opts-9 {test multiple command-line options} -setup {
+	set file [makeFile {
+			private void f() {
+				int	not_used;
+				string	s = "3";
+				printf("%d\n", s+1);
+			}
+			f();
+		  } opts9.l .]
+} -constraints {
+	exec
+} -body {
+	# The script created above should not compile and run unless
+	# the command-line options are handled correctly.
+	set s1 [exec [interpreter] -poly -nowarn $file]
+	set s2 [exec [interpreter] --poly --nowarn $file]
+	set s3 [exec [interpreter] -P -n $file]
+	puts $s1
+	puts $s2
+	puts $s3
+} -cleanup {
+	removeFile $file
+} -output "4\n4\n4\n"
+
+test opts-10 {test multiple command-line options with app args} -setup {
+	set file [makeFile {
+			void main(int ac, string av[]) {
+				int	i;
+				string	s;
+				for (i = 1; i < ac; ++i) s .= av[i];
+				puts(s);
+			}
+		  } opts10.l .]
+} -constraints {
+	exec
+} -body {
+	# Check the application arguments are correctly passed to the L
+	# main() even in the presence of tclsh command-line args.
+	set s1 [exec [interpreter] $file]
+	set s2 [exec [interpreter] $file arg1]
+	set s3 [exec [interpreter] $file arg1 arg2]
+	set s4 [exec [interpreter] -nowarn $file]
+	set s5 [exec [interpreter] -nowarn $file arg1]
+	set s6 [exec [interpreter] -nowarn $file arg1 arg2]
+	set s7 [exec [interpreter] -nowarn -poly $file]
+	set s8 [exec [interpreter] -nowarn -poly $file arg1]
+	set s9 [exec [interpreter] -nowarn -poly $file arg1 arg2]
+	puts $s1
+	puts $s2
+	puts $s3
+	puts $s4
+	puts $s5
+	puts $s6
+	puts $s7
+	puts $s8
+	puts $s9
+} -cleanup {
+	removeFile $file
+} -output "\narg1\narg1arg2\n\narg1\narg1arg2\n\narg1\narg1arg2\n"
 
 test parse-1.2 {Test parsing an empty L file} -setup {
 	set fName [makeFile {} LFileTest]
@@ -649,7 +815,7 @@ void proc_1_6()
 	int	i;
 	int	n = 100;
 
-	for (i = 0; i < 100; ++i) {
+	for (i = 0; i < n; ++i) {
 		proc_1_6_foo();
 	}
 }
@@ -1000,10 +1166,10 @@ void var_1_3_aux(int i)
 }
 #lang tcl
 var_1_3
-} -output "
+} -output {
 {0 0} {10 20} {20 40} {30 60} {40 80}
 {0 0} {10 20} {20 40} {105 135} {40 80}
-"
+}
 
 test var-1.4 {Test extern variables} -body {
 set tclvar "this is an extern variable"
@@ -1144,7 +1310,7 @@ decl_1_4
 # Test decl-1.5 removed.
 
 test decl-1.6 {Check scoping rule errors for globals and externs} -body {
-#lang L
+#lang L -nowarn
 /*
  * The L scoping rules are as follows:
  *
@@ -1240,7 +1406,7 @@ decl_1_7
 } -output ""
 
 test decl-1.8 {Check illegal variable names} -body {
-#lang L
+#lang L -nowarn
 void _decl_1_8()  // err -- function names cannot begin with _
 {
 	int	_bad;  // err -- locals cannot begin with _
@@ -1321,7 +1487,7 @@ decl_1_11_1();
 } -output "test 2\n"
 
 test decl-1.11.3 {test public/private global declaration errors} -body {
-#lang L
+#lang L -nowarn
 private int decl_1_11_3_priv_first;
 int decl_1_11_3_priv_first;
 
@@ -3284,7 +3450,7 @@ test end-4 {test END usage for array append} -body {
 #lang L
 void end_4()
 {
-	int	e1, e2, i;
+	int	i;
 	int	a[], aa[][];
 
 	a = {0};
@@ -4095,7 +4261,7 @@ test loop-1.2.6 {test foreach over string} -body {
 void loop_1_2_6()
 {
 	int	i;
-	string	a, b, c, d, s;
+	string	a, b, c, d;
 	string	as[];
 	poly	p;
 
@@ -4177,7 +4343,7 @@ void loop_1_2_7()
 }
 
 test loop-1.2.8 {test foreach type errors} -body {
-#lang L
+#lang L -nowarn
 void loop_1_2_8()
 {
 	string	s;
@@ -6798,7 +6964,7 @@ string defined_1_6_foo(string arg)
 }
 void defined_1_6()
 {
-	int	a[], i;
+	int	i;
 
 	if (defined(undef)) puts("bad 0.1");
 
@@ -7971,7 +8137,7 @@ typecheck_5_1
 }
 
 test typecheck-6.1 {type check errors with push built-in} -body {
-#lang L
+#lang L -nowarn
 class typecheck_6_1_cls {}
 void
 typecheck_6_1()
@@ -8040,7 +8206,7 @@ void typecheck_6_2_v() { }
 void
 typecheck_6_2()
 {
-	int	ai[], i;
+	int	ai[];
 	string	as[], s;
 	float	af[], f;
 	int	aa[][], a[];		// array of array, and an array
@@ -8059,6 +8225,8 @@ typecheck_6_2()
 	push(&ai, s);
 	push(&ai, a);
 	push(&ai, aa);
+	push(&ai, as);
+	push(&ai, af);
 	push(&ai, h);
 	push(&ai, ah);
 	push(&ai, st);
@@ -8075,6 +8243,8 @@ typecheck_6_2
 .*:25: L Error: pushing incompatible type onto array
 .*:26: L Error: pushing incompatible type onto array
 .*:27: L Error: pushing incompatible type onto array
+.*:28: L Error: pushing incompatible type onto array
+.*:29: L Error: pushing incompatible type onto array
 }
 
 test typecheck-6.3 {type check push built-in} -body {
@@ -8453,8 +8623,8 @@ test typecheck-10.1 {check type errors in op=} -body {
 void typecheck_10_1()
 {
 	int	i1, i2;
-	string	s1, s2;
-	float	f1, f2;
+	string	s1;
+
 
 	i1 += s1;
 	i1 -= s1;
@@ -8768,7 +8938,7 @@ void bar()
 }
 
 int
-main(int ac, string av[])
+main()
 {
 	bar();
 }
@@ -9733,7 +9903,7 @@ src_mappings_4();
 }
 
 test src-mappings-5 {test bytecode <-> source-file-offset mappings w/here docs} -body {
-#lang L
+#lang L -nowarn
 void src_mappings_5()
 {
 	string s1 = <<END
@@ -10109,7 +10279,7 @@ initializers_2
 } -output {}
 
 test initializers-3 {check variable initializer type errors} -body {
-#lang L
+#lang L -nowarn
 struct initializers_3_s1 {
 	int	i;
 	int	j, k;
@@ -10311,7 +10481,6 @@ void composite_2()
 	 */
 
 	int	i;
-	int	ai[];
 
 	unless (composite_2_join({"a","b","c"}) eq "abc") puts("bad 1");
 
@@ -10481,7 +10650,7 @@ composite_4_main();
 } -output {}
 
 test composite-5 {check composite l-value errors} -body {
-#lang L
+#lang L -nowarn
 int composite_5_f() { return (0); }
 void composite_5()
 {
@@ -10731,7 +10900,6 @@ builtin_1_ssort(string a[])
 }
 void builtin_1()
 {
-	int	i;
 	int	hi{int};
 	int	hs{string};
 	int	hp{poly};
@@ -10789,7 +10957,6 @@ test builtin-3 {check length built-in} -body {
 #lang L
 void builtin_3()
 {
-	int	l;
 	int	a[] = {1,2,3,4};
 	int	h{int} = {1=>1,2=>2,3=>3};
 	poly	p = {1,2,3,4,5,6};
@@ -11999,7 +12166,7 @@ class class_4_2
 }
 
 test class-4.3 {check typedef and struct type scoping in classes 2} -body {
-#lang L
+#lang L -nowarn
 /*
  * Check that typedef and struct names declared inside a class get
  * defined at the global scope, not at the class scope.  This test
@@ -12247,7 +12414,7 @@ class_6_1_main();
 } -output {}
 
 test class-6.2 {check class variable access errors from outside class} -body {
-#lang L
+#lang L -nowarn
 class class_6_2
 {
 	private	string s = "cvar";
@@ -12455,7 +12622,7 @@ void class_6_8_main()
 }
 
 test class-7.1 {check object erroneously declared with same name as class} -body {
-#lang L
+#lang L -nowarn
 class class_7_1 {}
 void class_7_1_main()
 {
@@ -12870,7 +13037,6 @@ void class_8_5_check_n(class_8_5 o[], class_8_5 &oref[], int n)
 }
 void class_8_5_main()
 {
-	int	i;
 	int	n = 10;
 	class_8_5 o1, o2;
 	class_8_5 o[];
@@ -12934,7 +13100,6 @@ test goto-1 {check goto statement} -body {
 void goto_1a()
 {
 	int	i;
-	string	k, v;
 
 	/* Use before define. */
 	goto L1;

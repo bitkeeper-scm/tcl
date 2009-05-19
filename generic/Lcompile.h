@@ -86,18 +86,26 @@ struct scope {
 };
 
 /*
- * Per-interp L global state.  When an interp is created, one of these
- * is allocated for each interp and associated with the interp.
- * Whenever the compiler is entered, it is extracted from the interp.
+ * Global L state.  There is only one of these, reachable via L->global.
  */
 typedef struct {
+	int	argc;
+	Tcl_Obj	*argv;
+} Lglobal;
+
+/*
+ * Per-interp L state.  When an interp is created, one of these is
+ * allocated for each interp and associated with the interp.  Whenever
+ * the compiler is entered, it is extracted from the interp.
+ */
+typedef struct {
+	Lglobal	*global;	// L global state
 	Frame	*frame;		// current semantic stack frame
 	Scope	*curr_scope;
 	Ast	*ast_list;	// list of all AST nodes
 	Type	*type_list;	// list of all type descriptors
 	void	*ast;		// ptr to AST root, set by parser
 	Tcl_Obj	*errs;
-	int	interactive;
 	char	*file;
 	int	line;
 	int	prev_token_len;
@@ -114,7 +122,7 @@ typedef struct {
 	int	tmpnum;		// for creating tmp variables
 	char	*toplev;	// name of toplevel proc
 	jmp_buf	jmp;		// for syntax error longjmp bail out
-} Lglobal;
+} Linterp;
 
 /*
  * Symbol table entry, for variables and functions (typedef and struct
@@ -176,7 +184,7 @@ extern Tcl_Obj **L_undefObjPtrPtr();
 extern void	L_warn(char *s);
 extern void	L_warnf(void *node, const char *format, ...);
 
-extern Lglobal	*L;
+extern Linterp	*L;
 extern Tcl_ObjType L_undefType;
 extern Type	*L_int;
 extern Type	*L_float;

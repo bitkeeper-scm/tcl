@@ -575,7 +575,7 @@ class leak_7_1
 }
 void leak_7_1_main()
 {
-	int		end, i, start, tmp;
+	int		end, i, tmp;
 	leak_7_1	o;
 
 	end = getbytes();
