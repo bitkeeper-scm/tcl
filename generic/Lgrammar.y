@@ -100,7 +100,7 @@ extern int	L_lex (void);
 %token <Typename> T_TYPE
 %token T_WHILE T_FOR T_DO T_STRUCT T_TYPEDEF T_DEFINED
 %token T_POLY T_VOID T_VAR T_STRING T_INT T_FLOAT
-%token T_FOREACH T_IN T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
+%token T_FOREACH T_BREAK T_CONTINUE T_ELLIPSIS T_CLASS
 %token T_SPLIT T_DOTDOT T_INSTANCE T_PRIVATE T_PUBLIC
 %token T_CONSTRUCTOR T_DESTRUCTOR T_EXPAND T_UNUSED T_GOTO
 
@@ -512,13 +512,19 @@ iteration_stmt:
 	;
 
 foreach_stmt:
-	  T_FOREACH "(" id "=>" id T_IN expr ")" stmt
+	  T_FOREACH "(" id "=>" id id expr ")" stmt
 	{
 		$$ = ast_mkForeach($7, $3, $5, $9, @1.beg, @9.end);
+		unless (isid($6, "in")) {
+			L_synerr("syntax error -- expected 'in' in foreach");
+		}
 	}
-	| T_FOREACH "(" id_list T_IN expr ")" stmt
+	| T_FOREACH "(" id_list id expr ")" stmt
 	{
 		$$ = ast_mkForeach($5, $3, NULL, $7, @1.beg, @7.end);
+		unless (isid($4, "in")) {
+			L_synerr("syntax error -- expected 'in' in foreach");
+		}
 	}
 	;
 

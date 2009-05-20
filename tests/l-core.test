@@ -4349,6 +4349,56 @@ void loop_1_2_8()
 .*9: L Error: foreach expression must be array, hash, or string
 }
 
+test loop-1.2.9 {test foreach syntax errors} -body {
+#lang L
+void loop_1_2_9()
+{
+	string	k, v;
+	string	h{string};
+
+	/*
+	 * This test was added after un-reserving the keyword "in",
+	 * used in foreach loops.  In the grammar, "in" was replaced
+	 * with an id.  Verify that using anything other than "in" is
+	 * a syntax error.
+	 */
+
+	foreach (k=>v bad h) ;
+}
+} -returnCodes error -match regexp -result {.*13: L Error: syntax error.*
+}
+
+test loop-1.2.10 {test foreach syntax errors} -body {
+#lang L
+void loop_1_2_10()
+{
+	string	k, v;
+	string	h{string};
+
+	/*
+	 * Second part of above test (we can test only one syntax
+	 * error at a time).
+	 */
+
+	foreach (k bad "xyz") ;
+}
+} -returnCodes error -match regexp -result {.*11: L Error: syntax error.*
+}
+
+test loop-1.2.11 {test that "in" is not reserved} -body {
+#lang L
+void loop_1_2_11()
+{
+	/*
+	 * Verify that "in" is no longer a reserved word.
+	 */
+
+	int	in = 123;
+	unless (in == 123) puts("bad");
+}
+loop_1_2_11();
+} -output {}
+
 test loop-1.3 {continue statements} -body {
 #lang L
 void loop_1_3_for_continue()

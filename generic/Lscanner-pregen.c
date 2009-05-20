@@ -367,8 +367,8 @@ static void yy_fatal_error (yyconst char msg[]  );
 	*yy_cp = '\0'; \
 	(yy_c_buf_p) = yy_cp;
 
-#define YY_NUM_RULES 161
-#define YY_END_OF_BUFFER 162
+#define YY_NUM_RULES 160
+#define YY_END_OF_BUFFER 161
 /* This struct is not used in this scanner,
    but its presence is necessary. */
 struct yy_trans_info
@@ -380,52 +380,52 @@ static yyconst flex_int16_t yy_accept[444] =
     {   0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
         0,    0,    0,    0,    0,    0,    0,    0,    0,    0,
-        0,    0,    0,    0,    0,    0,  162,  160,   96,   96,
-       96,    7,   97,  160,  160,   12,   28,   98,    1,    2,
-       10,    8,    6,    9,   36,   11,   90,   90,   85,   35,
-       82,   34,   80,   86,   87,    4,    5,   30,   87,   99,
-       87,   87,   87,   87,   87,   87,   87,   87,   87,   87,
-       87,   87,   87,   87,   87,   87,   87,    3,   29,  110,
-       31,   87,  159,  161,  158,   96,   96,   11,   87,  157,
-      157,  157,  152,  153,  119,  118,  122,  117,  161,  128,
+        0,    0,    0,    0,    0,    0,  161,  159,   95,   95,
+       95,    7,   96,  159,  159,   12,   28,   97,    1,    2,
+       10,    8,    6,    9,   36,   11,   89,   89,   84,   35,
+       81,   34,   79,   85,   86,    4,    5,   30,   86,   98,
+       86,   86,   86,   86,   86,   86,   86,   86,   86,   86,
+       86,   86,   86,   86,   86,   86,   86,    3,   29,  109,
+       31,   86,  158,  160,  157,   95,   95,   11,   86,  156,
+      156,  156,  151,  152,  118,  117,  121,  116,  160,  127,
 
-      126,  130,  161,  137,  136,  135,  161,  139,   96,    7,
-       97,  161,  161,   12,   28,   98,    1,    2,   10,    8,
-        6,    9,   36,   11,   90,   90,   85,   35,   82,   34,
-       80,   86,   87,    4,  161,    5,   30,   87,   99,   87,
-       87,   87,   87,   87,   87,   87,   87,   87,   87,   87,
-       87,   87,   87,   87,   87,   87,    3,   29,  111,   31,
-       87,  107,  161,  107,  151,  151,  151,  151,  144,  144,
-      144,   96,   96,    0,   79,    0,   95,   95,   89,   17,
-       26,   18,   15,   24,   13,   25,   14,   84,   38,   93,
-       23,  100,    0,   16,    0,   90,    0,    0,   87,   32,
+      125,  129,  160,  136,  135,  134,  160,  138,   95,    7,
+       96,  160,  160,   12,   28,   97,    1,    2,   10,    8,
+        6,    9,   36,   11,   89,   89,   84,   35,   81,   34,
+       79,   85,   86,    4,  160,    5,   30,   86,   98,   86,
+       86,   86,   86,   86,   86,   86,   86,   86,   86,   86,
+       86,   86,   86,   86,   86,   86,    3,   29,  110,   31,
+       86,  106,  160,  106,  150,  150,  150,  150,  143,  143,
+      143,   95,   95,    0,   78,    0,   94,   94,   88,   17,
+       26,   18,   15,   24,   13,   25,   14,   83,   38,   92,
+       23,   99,    0,   16,    0,   89,    0,    0,   86,   32,
 
-       83,    0,    0,   78,   71,    0,   81,   33,   87,    0,
-       87,   20,   87,    0,   87,   87,   87,   87,   87,   54,
-       87,   72,   87,   87,   87,   77,   87,   76,   50,   68,
-       75,   74,   73,   87,   87,   87,   87,   87,   87,   87,
-       87,   87,   87,   87,   19,   27,   68,  158,   96,  108,
-        0,  109,   87,  109,  155,  156,  152,  154,  119,    0,
-      121,  120,  116,  114,  113,  115,  128,    0,  129,  127,
-      125,  124,  123,  137,  138,  134,  132,  131,  133,  112,
-        0,    0,    0,    0,  148,  147,  145,  146,    0,  149,
-        0,    0,  141,  140,    0,  142,    0,    0,   37,   95,
+       82,    0,    0,   77,   70,    0,   80,   33,   86,    0,
+       86,   20,   86,    0,   86,   86,   86,   86,   86,   54,
+       86,   71,   86,   86,   86,   76,   86,   75,   50,   86,
+       74,   73,   72,   86,   86,   86,   86,   86,   86,   86,
+       86,   86,   86,   86,   19,   27,   86,  157,   95,  107,
+        0,  108,   86,  108,  154,  155,  151,  153,  118,    0,
+      120,  119,  115,  113,  112,  114,  127,    0,  128,  126,
+      124,  123,  122,  136,  137,  133,  131,  130,  132,  111,
+        0,    0,    0,    0,  147,  146,  144,  145,    0,  148,
+        0,    0,  140,  139,    0,  141,    0,    0,   37,   94,
 
-       39,   91,   92,   21,    0,    0,  102,    0,    0,   22,
-       88,   87,   87,   87,   87,   87,   87,   87,   87,   87,
-       87,   55,   87,   87,   45,   87,   87,   87,   87,   87,
-       87,   87,   87,   48,   87,   87,   87,    0,  106,    0,
-      150,    0,  143,    0,    0,  101,  103,   87,   87,   87,
-       87,   87,   87,   87,   51,   87,   87,   87,   87,   70,
-       87,   47,   87,   87,   87,   87,   87,   87,   87,   87,
-       43,   87,   87,  106,    0,  104,    0,   87,   60,   40,
-       87,   87,   87,   87,   87,   87,   46,   87,   87,   87,
-       87,   87,   49,   87,   87,   87,   87,   53,   87,    0,
+       39,   90,   91,   21,    0,    0,  101,    0,    0,   22,
+       87,   86,   86,   86,   86,   86,   86,   86,   86,   86,
+       86,   55,   86,   86,   45,   86,   86,   86,   86,   86,
+       86,   86,   86,   48,   86,   86,   86,    0,  105,    0,
+      149,    0,  142,    0,    0,  100,  102,   86,   86,   86,
+       86,   86,   86,   86,   51,   86,   86,   86,   86,   69,
+       86,   47,   86,   86,   86,   86,   86,   86,   86,   86,
+       43,   86,   86,  105,    0,  103,    0,   86,   60,   40,
+       86,   86,   86,   86,   86,   86,   46,   86,   86,   86,
+       86,   86,   49,   86,   86,   86,   86,   53,   86,    0,
 
-        0,   87,   87,   87,   87,   87,   67,   41,   87,   87,
-       87,   64,   42,   44,   56,   87,   52,   87,  105,   69,
-       87,   87,   58,   87,   59,   87,   63,   57,   87,   87,
-       61,   87,   62,    0,    0,   87,   87,    0,   94,   87,
+        0,   86,   86,   86,   86,   86,   67,   41,   86,   86,
+       86,   64,   42,   44,   56,   86,   52,   86,  104,   68,
+       86,   86,   58,   86,   59,   86,   63,   57,   86,   86,
+       61,   86,   62,    0,    0,   86,   86,    0,   93,   86,
        66,   65,    0
     } ;
 
@@ -1762,101 +1762,96 @@ return T_EXPAND;
 case 68:
 YY_RULE_SETUP
 #line 311 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_IN;
+return T_UNUSED;
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
 #line 312 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_UNUSED;
+return T_GOTO;
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
 #line 313 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_GOTO;
+return T_ARROW;
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
 #line 314 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_ARROW;
+return T_EQ;
 	YY_BREAK
 case 72:
 YY_RULE_SETUP
 #line 315 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_EQ;
+return T_NE;
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
 #line 316 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_NE;
+return T_LT;
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
 #line 317 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_LT;
+return T_LE;
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
 #line 318 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_LE;
+return T_GT;
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
 #line 319 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_GT;
+return T_GE;
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
 #line 320 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_GE;
+return T_EQUALEQUAL;
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
 #line 321 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_EQUALEQUAL;
+return T_NOTEQUAL;
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
 #line 322 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_NOTEQUAL;
+return T_GREATER;
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
 #line 323 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_GREATER;
+return T_GREATEREQ;
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
 #line 324 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_GREATEREQ;
+return T_LESSTHAN;
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
 #line 325 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_LESSTHAN;
+return T_LESSTHANEQ;
 	YY_BREAK
 case 83:
 YY_RULE_SETUP
 #line 326 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_LESSTHANEQ;
+return T_POINTS;
 	YY_BREAK
 case 84:
 YY_RULE_SETUP
 #line 327 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_POINTS;
+return T_COLON;
 	YY_BREAK
 case 85:
 YY_RULE_SETUP
 #line 328 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_COLON;
+return T_QUESTION;
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
 #line 329 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-return T_QUESTION;
-	YY_BREAK
-case 87:
-YY_RULE_SETUP
-#line 330 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				Type *t = L_typedef_lookup(L_text);
 				if (t) {
@@ -1869,64 +1864,70 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 88:
+case 87:
 YY_RULE_SETUP
-#line 341 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 340 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.s = ckstrdup(L_text);
 				return T_PATTERN;
 			}
 	YY_BREAK
-case 89:
+case 88:
 YY_RULE_SETUP
-#line 345 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 344 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/* Regular expression submatches */
 				L_lval.s = ckstrdup(L_text);
 				return T_ID;
 			}
 	YY_BREAK
-case 90:
+case 89:
 YY_RULE_SETUP
-#line 350 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 349 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				// XXX - we don't handle constants > 32 bits
 				L_lval.i = atoi(L_text);
 				return T_INT_LITERAL;
 			}
 	YY_BREAK
-case 91:
+case 90:
 YY_RULE_SETUP
-#line 355 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 354 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.i = strtoul(L_text+2, 0, 8);
 				return T_INT_LITERAL;
 			}
 	YY_BREAK
-case 92:
+case 91:
 YY_RULE_SETUP
-#line 359 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 358 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				// XXX - we don't handle constants > 32 bits
 				L_lval.i = strtoul(L_text+2, 0, 16);
 				return T_INT_LITERAL;
 			}
 	YY_BREAK
-case 93:
+case 92:
 YY_RULE_SETUP
-#line 364 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 363 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.f = atof(L_text);
 				return T_FLOAT_LITERAL;
 			}
 	YY_BREAK
-case 94:
+case 93:
 YY_RULE_SETUP
-#line 368 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 367 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				undo_yy_user_action();
 				BEGIN(include);
 			}
+	YY_BREAK
+case 94:
+/* rule 94 can match eol */
+YY_RULE_SETUP
+#line 371 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+
 	YY_BREAK
 case 95:
 /* rule 95 can match eol */
@@ -1935,35 +1936,29 @@ YY_RULE_SETUP
 
 	YY_BREAK
 case 96:
-/* rule 96 can match eol */
 YY_RULE_SETUP
 #line 373 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-
+yy_push_state(str_double); STRBUF_START(L->token_off);
 	YY_BREAK
 case 97:
 YY_RULE_SETUP
 #line 374 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-yy_push_state(str_double); STRBUF_START(L->token_off);
+yy_push_state(str_single); STRBUF_START(L->token_off);
 	YY_BREAK
 case 98:
 YY_RULE_SETUP
 #line 375 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-yy_push_state(str_single); STRBUF_START(L->token_off);
+yy_push_state(str_backtick); STRBUF_START(L->token_off);
 	YY_BREAK
 case 99:
 YY_RULE_SETUP
 #line 376 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-yy_push_state(str_backtick); STRBUF_START(L->token_off);
-	YY_BREAK
-case 100:
-YY_RULE_SETUP
-#line 377 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_push_state(comment);
 	YY_BREAK
-case 101:
-/* rule 101 can match eol */
+case 100:
+/* rule 100 can match eol */
 YY_RULE_SETUP
-#line 378 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 377 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
@@ -1974,10 +1969,10 @@ YY_RULE_SETUP
 	}
 	YY_BREAK
 /* if / is used to delimit the regexp, the m can be omitted */
-case 102:
-/* rule 102 can match eol */
+case 101:
+/* rule 101 can match eol */
 YY_RULE_SETUP
-#line 387 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 386 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(glob_re);
@@ -1988,10 +1983,10 @@ YY_RULE_SETUP
 	}
 	YY_BREAK
 /* a substitution pattern */
-case 103:
-/* rule 103 can match eol */
+case 102:
+/* rule 102 can match eol */
 YY_RULE_SETUP
-#line 396 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 395 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(re_modifier);
 		yy_push_state(subst_re);
@@ -2003,10 +1998,10 @@ YY_RULE_SETUP
 	}
 	YY_BREAK
 /* here document (interpolated), valid only on rhs of an assignment */
-case 104:
-/* rule 104 can match eol */
+case 103:
+/* rule 103 can match eol */
 YY_RULE_SETUP
-#line 406 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 405 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len;
 		char	*p;
@@ -2027,10 +2022,10 @@ YY_RULE_SETUP
 	}
 	YY_BREAK
 /* here document (uninterpolated), valid only on rhs of an assignment */
-case 105:
-/* rule 105 can match eol */
+case 104:
+/* rule 104 can match eol */
 YY_RULE_SETUP
-#line 425 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 424 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len;
 		char	*p;
@@ -2052,10 +2047,10 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
-case 106:
-/* rule 106 can match eol */
+case 105:
+/* rule 105 can match eol */
 YY_RULE_SETUP
-#line 446 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 445 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		int	len = strrchr(L_text, '"') - L_text;
 		char	*name = ckstrndup(L_text, len);
@@ -2069,9 +2064,9 @@ YY_RULE_SETUP
 		BEGIN(INITIAL);
 	}
 	YY_BREAK
-case 107:
+case 106:
 YY_RULE_SETUP
-#line 458 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 457 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		L_err("malformed include");
 		BEGIN(INITIAL);
@@ -2083,20 +2078,20 @@ YY_RULE_SETUP
 	 * A regexp used as a function argument (e.g., in the "split"
 	 * built-in).
 	 */
-case 108:
-/* rule 108 can match eol */
+case 107:
+/* rule 107 can match eol */
 YY_RULE_SETUP
-#line 469 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 468 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
 		re_quote_char = '/';
 	}
 	YY_BREAK
-case 109:
-/* rule 109 can match eol */
+case 108:
+/* rule 108 can match eol */
 YY_RULE_SETUP
-#line 474 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 473 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 		yy_push_state(glob_re);
 		STRBUF_START(L_lloc.end - 1);	// next token starts at the "/"
@@ -2105,72 +2100,72 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
-case 110:
+case 109:
 YY_RULE_SETUP
-#line 482 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 481 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RBRACE;
 	YY_BREAK
 
 
-case 111:
+case 110:
 YY_RULE_SETUP
-#line 486 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 485 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				STRBUF_START(L_lloc.end);
 				yy_pop_state();
 				return T_RIGHT_INTERPOL;
 			}
 	YY_BREAK
-case 112:
+case 111:
 YY_RULE_SETUP
-#line 491 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 490 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 return T_RBRACE;
 	YY_BREAK
 
 
+case 112:
+YY_RULE_SETUP
+#line 494 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD("\r", 1);
+	YY_BREAK
 case 113:
 YY_RULE_SETUP
 #line 495 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\r", 1);
+STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 114:
 YY_RULE_SETUP
 #line 496 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\n", 1);
-	YY_BREAK
-case 115:
-YY_RULE_SETUP
-#line 497 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\t", 1);
 	YY_BREAK
-case 116:
-/* rule 116 can match eol */
+case 115:
+/* rule 115 can match eol */
 YY_RULE_SETUP
-#line 498 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 497 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
-case 117:
+case 116:
 YY_RULE_SETUP
-#line 499 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 498 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("$", 1);
 	YY_BREAK
-case 118:
-/* rule 118 can match eol */
+case 117:
+/* rule 117 can match eol */
 YY_RULE_SETUP
-#line 500 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 499 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("missing string terminator \"");
 				STRBUF_ADD("\n", 1);
 			}
 	YY_BREAK
+case 118:
+YY_RULE_SETUP
+#line 503 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD(L_text, L_leng);
+	YY_BREAK
 case 119:
 YY_RULE_SETUP
 #line 504 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD(L_text, L_leng);
-	YY_BREAK
-case 120:
-YY_RULE_SETUP
-#line 505 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2178,15 +2173,15 @@ YY_RULE_SETUP
 				return T_LEFT_INTERPOL;
 			}
 	YY_BREAK
-case 121:
-/* rule 121 can match eol */
+case 120:
+/* rule 120 can match eol */
 YY_RULE_SETUP
-#line 511 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 510 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
-case 122:
+case 121:
 YY_RULE_SETUP
-#line 512 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 511 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2196,47 +2191,47 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
+case 122:
+YY_RULE_SETUP
+#line 520 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD("\\", 1);
+	YY_BREAK
 case 123:
 YY_RULE_SETUP
 #line 521 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\\", 1);
+STRBUF_ADD("'", 1);
 	YY_BREAK
 case 124:
+/* rule 124 can match eol */
 YY_RULE_SETUP
 #line 522 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("'", 1);
+STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 125:
 /* rule 125 can match eol */
 YY_RULE_SETUP
 #line 523 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\n", 1);
-	YY_BREAK
-case 126:
-/* rule 126 can match eol */
-YY_RULE_SETUP
-#line 524 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("missing string terminator \'");
 				STRBUF_ADD("\n", 1);
 			}
 	YY_BREAK
+case 126:
+#line 528 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 case 127:
-#line 529 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-case 128:
 YY_RULE_SETUP
-#line 529 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 528 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, L_leng);
 	YY_BREAK
-case 129:
-/* rule 129 can match eol */
+case 128:
+/* rule 128 can match eol */
 YY_RULE_SETUP
-#line 530 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 529 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 	YY_BREAK
-case 130:
+case 129:
 YY_RULE_SETUP
-#line 531 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 530 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2246,49 +2241,49 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
+case 130:
+YY_RULE_SETUP
+#line 539 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD("\r", 1);
+	YY_BREAK
 case 131:
 YY_RULE_SETUP
 #line 540 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\r", 1);
+STRBUF_ADD("\n", 1);
 	YY_BREAK
 case 132:
 YY_RULE_SETUP
 #line 541 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\n", 1);
-	YY_BREAK
-case 133:
-YY_RULE_SETUP
-#line 542 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("\t", 1);
 	YY_BREAK
-case 134:
-/* rule 134 can match eol */
+case 133:
+/* rule 133 can match eol */
 YY_RULE_SETUP
-#line 543 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 542 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
-case 135:
+case 134:
 YY_RULE_SETUP
-#line 544 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 543 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("$", 1);
 	YY_BREAK
-case 136:
-/* rule 136 can match eol */
+case 135:
+/* rule 135 can match eol */
 YY_RULE_SETUP
-#line 545 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 544 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_err("missing string terminator `");
 				STRBUF_ADD("\n", 1);
 			}
 	YY_BREAK
+case 136:
+YY_RULE_SETUP
+#line 548 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD(L_text, L_leng);
+	YY_BREAK
 case 137:
 YY_RULE_SETUP
 #line 549 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD(L_text, L_leng);
-	YY_BREAK
-case 138:
-YY_RULE_SETUP
-#line 550 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2296,9 +2291,9 @@ YY_RULE_SETUP
 				return T_LEFT_INTERPOL;
 			}
 	YY_BREAK
-case 139:
+case 138:
 YY_RULE_SETUP
-#line 556 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 555 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_pop_state();
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2308,22 +2303,22 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
+case 139:
+YY_RULE_SETUP
+#line 564 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD("\\", 1);
+	YY_BREAK
 case 140:
 YY_RULE_SETUP
 #line 565 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\\", 1);
-	YY_BREAK
-case 141:
-YY_RULE_SETUP
-#line 566 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD("'", 1);
 	YY_BREAK
-case 142:
+case 141:
 *yy_cp = (yy_hold_char); /* undo effects of setting up L_text */
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 567 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 566 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (strcmp(L_text, here_delim)) {
 					STRBUF_ADD(L_text, L_leng);
@@ -2338,13 +2333,13 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 143:
-/* rule 143 can match eol */
+case 142:
+/* rule 142 can match eol */
 *yy_cp = (yy_hold_char); /* undo effects of setting up L_text */
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 580 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 579 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/*
 				 * This is an error check -- look for a
@@ -2372,32 +2367,32 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 144:
-/* rule 144 can match eol */
+case 143:
+/* rule 143 can match eol */
 YY_RULE_SETUP
-#line 606 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 605 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, 1);
 	YY_BREAK
 
 
+case 144:
+YY_RULE_SETUP
+#line 609 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+STRBUF_ADD("\n", 1);
+	YY_BREAK
 case 145:
 YY_RULE_SETUP
 #line 610 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\n", 1);
+STRBUF_ADD("\t", 1);
 	YY_BREAK
 case 146:
 YY_RULE_SETUP
 #line 611 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD("\t", 1);
+STRBUF_ADD(L_text+1, 1);
 	YY_BREAK
 case 147:
 YY_RULE_SETUP
 #line 612 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-STRBUF_ADD(L_text+1, 1);
-	YY_BREAK
-case 148:
-YY_RULE_SETUP
-#line 613 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2405,12 +2400,12 @@ YY_RULE_SETUP
 				return T_LEFT_INTERPOL;
 			}
 	YY_BREAK
-case 149:
+case 148:
 *yy_cp = (yy_hold_char); /* undo effects of setting up L_text */
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 619 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 618 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (strcmp(L_text, here_delim)) {
 					STRBUF_ADD(L_text, L_leng);
@@ -2425,13 +2420,13 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 150:
-/* rule 150 can match eol */
+case 149:
+/* rule 149 can match eol */
 *yy_cp = (yy_hold_char); /* undo effects of setting up L_text */
 (yy_c_buf_p) = yy_cp -= 1;
 YY_DO_BEFORE_ACTION; /* set up L_text again */
 YY_RULE_SETUP
-#line 632 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 631 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/*
 				 * This is an error check -- look for a
@@ -2459,16 +2454,21 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 151:
-/* rule 151 can match eol */
+case 150:
+/* rule 150 can match eol */
 YY_RULE_SETUP
-#line 658 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 657 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 STRBUF_ADD(L_text, 1);
 	YY_BREAK
 
 
+case 151:
+/* rule 151 can match eol */
+YY_RULE_SETUP
+#line 661 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+
+	YY_BREAK
 case 152:
-/* rule 152 can match eol */
 YY_RULE_SETUP
 #line 662 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 
@@ -2476,18 +2476,13 @@ YY_RULE_SETUP
 case 153:
 YY_RULE_SETUP
 #line 663 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
-
-	YY_BREAK
-case 154:
-YY_RULE_SETUP
-#line 664 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 yy_pop_state();
 	YY_BREAK
 
 
-case 155:
+case 154:
 YY_RULE_SETUP
-#line 668 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 667 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				yy_push_state(interpol);
 				L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2495,9 +2490,9 @@ YY_RULE_SETUP
 				return T_LEFT_INTERPOL;
 			}
 	YY_BREAK
-case 156:
+case 155:
 YY_RULE_SETUP
-#line 674 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 673 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (L_text[1] == re_quote_char) {
 					STRBUF_ADD(L_text+1, 1);
@@ -2506,9 +2501,9 @@ YY_RULE_SETUP
 				}
 			}
 	YY_BREAK
-case 157:
+case 156:
 YY_RULE_SETUP
-#line 681 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 680 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				if (*(L_text) == re_quote_char) {
 					L_lval.s = ckstrdup(STRBUF_STRING());
@@ -2530,18 +2525,18 @@ YY_RULE_SETUP
 	YY_BREAK
 
 
-case 158:
+case 157:
 YY_RULE_SETUP
-#line 702 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 701 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				L_lval.s = ckstrdup(L_text);
 				yy_pop_state();
 				return T_RE_MODIFIER;
 			}
 	YY_BREAK
-case 159:
+case 158:
 YY_RULE_SETUP
-#line 707 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 706 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				unput(L_text[0]);
 				undo_yy_user_action();
@@ -2551,9 +2546,9 @@ YY_RULE_SETUP
 			}
 	YY_BREAK
 
-case 160:
+case 159:
 YY_RULE_SETUP
-#line 715 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 714 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				/* This rule matches a char if no other does. */
 				L_err("illegal character '%c'", *L_text);
@@ -2573,17 +2568,17 @@ case YY_STATE_EOF(interpol):
 case YY_STATE_EOF(include):
 case YY_STATE_EOF(here_doc_interp):
 case YY_STATE_EOF(here_doc_nointerp):
-#line 720 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 719 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 {
 				unless (include_pop()) yyterminate();
 			}
 	YY_BREAK
-case 161:
+case 160:
 YY_RULE_SETUP
-#line 723 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 722 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 ECHO;
 	YY_BREAK
-#line 2587 "Lscanner.c"
+#line 2582 "Lscanner.c"
 
 	case YY_END_OF_BUFFER:
 		{
@@ -3611,7 +3606,7 @@ void L_free (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 723 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
+#line 722 "/Users/rob/bk/bk-tcl86-L-nobison-win/src/gui/tcltk/tcl/generic/Lscanner.l"
 
 
 void
