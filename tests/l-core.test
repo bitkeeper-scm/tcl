@@ -1239,7 +1239,7 @@ void decl_1_0_fun3() { }
 int fdecl_1_0_un4() { }
 void decl_1_0_fun5(int foo) { }
 hash decl_1_0_fun6(hash foo, hash bar[], hash baz[23]) { }
-void decl_1_0_fun7(int foo, float bar, hash baz, string quux, poly quuux, var quuuux) { }
+void decl_1_0_fun7(int foo, float bar, hash baz, string quux, poly quuux) { }
 void decl_1_0_fun8() {
         int foo, bar[], baz[84][42][1];
         string foo1[19], mani[], padmi = "hum";
@@ -1633,7 +1633,7 @@ void if_1_4(void)
 	if (0) puts("1 broken"); else puts("1 even more broken");
 }
 #lang tcl
-} -returnCodes error -match glob -result "*3: L Error: syntax error, unexpected T_ELSE\n"
+} -returnCodes error -match glob -result "*3: L Error: syntax error, unexpected else\n"
 
 
 test unless-1.0 {unless statements} -body {
