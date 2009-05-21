@@ -1630,7 +1630,7 @@ compile_fnCall(Expr *expr)
 private int
 compile_var(Expr *expr, Expr_f flags)
 {
-	int	n = 0;
+	int	n = 1;
 	Sym	*sym;
 
 	ASSERT(expr->op == L_EXPR_ID);
@@ -1643,24 +1643,21 @@ compile_var(Expr *expr, Expr_f flags)
 			L_errf(expr,
 			       "END illegal outside of a string or array index");
 		}
-		n = 1;
 		expr->type = L_int;
 	} else if (!strcmp(expr->u.string, "undef")) {
 		TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
-		n = 1;
 		expr->type = L_poly;
 	} else if (!strcmp(expr->u.string, "__FILE__")) {
 		push_str(expr->node.file);
-		n = 1;
 		expr->type = L_string;
 	} else if (!strcmp(expr->u.string, "__LINE__")) {
 		push_str("%d", expr->node.line);
-		n = 1;
 		expr->type = L_int;
 	} else if ((sym = sym_lookup(expr, flags))) {
 		if (flags & L_PUSH_VAL) {
 			emit_load_scalar(sym->idx);
-			n = 1;
+		} else {
+			n = 0;
 		}
 		expr->type = sym->type;
 	} else {
