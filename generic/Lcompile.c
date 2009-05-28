@@ -1694,12 +1694,13 @@ push_parms(Expr *actuals)
 {
 	int	i = 0;
 	int	widget_flag = FALSE;
+	int	strlen_of_variable = strlen("variable");
 	char	*s;
 	Expr	*a;
 
 	for (i = 0, a = actuals; a; a = a->next, ++i) {
 		if (widget_flag && isaddrof(a)) {
-			push_pointer(a->a);  // L pointer
+			push_pointer(a);
 		} else {
 			compile_expr(a, L_PUSH_VAL);
 		}
@@ -1707,11 +1708,11 @@ push_parms(Expr *actuals)
 		widget_flag = ((a->kind == L_EXPR_CONST) &&
 		    isstring(a) &&
 		    /* has at least the minimum length */
-		    (strlen(s) >= strlen("-variable")) &&
+		    (strlen(s) > strlen_of_variable) &&
 		    /* starts with '-' */
 		    (s[0] == '-') &&
 		    /* ends with "variable" */
-		    !strcmp("variable", s + (strlen(s) - strlen("variable"))));
+		    !strcmp("variable", s + (strlen(s) - strlen_of_variable)));
 	}
 	return (i);
 }
@@ -1719,22 +1720,56 @@ push_parms(Expr *actuals)
 private void
 push_pointer(Expr *expr)
 {
+	Expr	*e = expr->a;
+
 	push_str("::pointer");
 	push_str("new");
-	push_str(expr->u.string);
-	if (expr->kind == L_EXPR_ID) {
-		emit_invoke(3);
-	} else if (expr->op == L_OP_HASH_INDEX) {
-		L_errf(expr, "hash keys are not yet supported by pointers");
-	} else if ((expr->op == L_OP_ARRAY_INDEX) ||
-		   (expr->op == L_OP_DOT) ||
-		   (expr->op == L_OP_POINTS)) {
-		unless (expr->a->kind == L_EXPR_ID) {
-			L_errf(expr, "more than one index is unsupported");
+
+	/*
+	 * Separate out the cases because the following all are legal
+	 * for an L pointer:
+	 *
+	 * &var
+	 * &classname->var
+	 * &object->var
+	 * &array[<expr>]
+	 * &struct.member
+	 * &classname->array[<expr>]
+	 * &classname->struct.member
+	 * &object->array[<expr>]
+	 * &object->struct.member
+	 */
+
+	if ((e->op == L_OP_ARRAY_INDEX) ||
+	    (e->op == L_OP_DOT) ||
+	    (e->op == L_OP_POINTS)) {
+		compile_expr(e->a, L_PUSH_VAL);
+		if (e->a->flags & L_EXPR_DEEP) {
+			L_errf(expr, "multiple indices not supported with &");
+		} else if (isclass(e->a)) {
+			compile_clsInstDeref(e, L_DISCARD);
+			push_str(e->sym->tclname);
+			emit_invoke(3);
+		} else if (!e->a->sym) {
+			// Undeclared var; compile_expr() already issued error.
+		} else if (e->a->sym->decl->flags &
+			   (DECL_GLOBAL_VAR | DECL_LOCAL_VAR | DECL_TEMP)) {
+			emit_pop();
+			push_str(e->a->sym->tclname);
+			push_index(e);
+			emit_invoke(4);
+		} else {
+			L_errf(expr, "illegal operand to &");
 		}
-		push_index(expr);
-		emit_invoke(4);
+	} else {
+		// Handle remaining cases with & operator.
+		compile_expr(expr, L_PUSH_VAL);
+		if (expr->a->sym && (expr->a->sym->decl->flags & DECL_FN)) {
+			L_errf(expr, "illegal operand to &");
+		}
+		emit_invoke(3);
 	}
+	expr->type = L_poly;
 }
 
 private int
@@ -1797,7 +1832,7 @@ compile_unOp(Expr *expr)
 			push_str(expr->a->sym->tclname);
 			expr->type = type_mkNameOf(expr->a->type, PER_INTERP);
 		} else {
-			L_errf(expr, "cannot take reference of argument");
+			L_errf(expr, "illegal operand to &");
 			expr->type = L_poly;
 		}
 		break;

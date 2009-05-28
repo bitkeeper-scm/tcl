@@ -7906,13 +7906,19 @@ TclExecuteByteCode(
 	currTopLevObj = varPtr->value.objPtr;
 	if (currTopLevObj != newTopLevObj) {  // update the local only if needed
 	    /* XXX see if this case should be handled. */
-	    if (!TclIsVarDirectWritable(varPtr)) {
-		Tcl_Panic("!TclIsVarDirectWritable in INST_L_DEEP_WRITE");
+	    if (TclIsVarDirectWritable(varPtr)) {
+		varPtr->value.objPtr = newTopLevObj;
+	    } else {
+		DECACHE_STACK_INFO();
+		if (!TclPtrSetVar(interp, varPtr, NULL, NULL, NULL,
+				  newTopLevObj, TCL_LEAVE_ERR_MSG, idx)) {
+		    Tcl_Panic("could not set var in INST_L_DEEP_WRITE");
+		}
+		CACHE_STACK_INFO();
 	    }
 	    if (currTopLevObj != NULL) {
 		TclDecrRefCount(currTopLevObj);
 	    }
-	    varPtr->value.objPtr = newTopLevObj;
 	} else {
 	    TclDecrRefCount(newTopLevObj);  // drop ref from deepPtr
 	}
