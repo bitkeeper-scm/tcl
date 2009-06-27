@@ -8759,10 +8759,6 @@ typecheck_6_1()
 	push(p, i);
 	push(w, i);
 
-	/* Error -- too many arguments. */
-	push(a, i, j);
-	push(a, i, j, j);
-
 	/* Error -- too few arguments. */
 	push(&a);
 	push();
@@ -8790,17 +8786,15 @@ typecheck_6_1
 .*:22: L Error: first arg to push not an array reference.*
 .*:25: L Error: incorrect # arguments to push
 .*:26: L Error: incorrect # arguments to push
-.*:29: L Error: incorrect # arguments to push
-.*:30: L Error: incorrect # arguments to push
+.*:29: L Error: first arg to push not an array reference.*
+.*:30: L Error: first arg to push not an array reference.*
+.*:31: L Error: first arg to push not an array reference.*
+.*:32: L Error: first arg to push not an array reference.*
 .*:33: L Error: first arg to push not an array reference.*
 .*:34: L Error: first arg to push not an array reference.*
 .*:35: L Error: first arg to push not an array reference.*
 .*:36: L Error: first arg to push not an array reference.*
 .*:37: L Error: first arg to push not an array reference.*
-.*:38: L Error: first arg to push not an array reference.*
-.*:39: L Error: first arg to push not an array reference.*
-.*:40: L Error: first arg to push not an array reference.*
-.*:41: L Error: first arg to push not an array reference.*
 }
 
 test typecheck-6.2 {type check errors with push built-in 2} -body {
@@ -8837,22 +8831,30 @@ typecheck_6_2()
 	push(&ai, ast);
 	push(&ai, w);
 	push(&ai, aw);
+
+	push(&ai, 1, f);
+	push(&ai, s, f);
+	push(&ai, 1, 1, 1, f);
 }
 #lang tcl
 typecheck_6_2
-} -returnCodes {error} -match regexp -result {.*:19: L Error: pushing incompatible type onto array
-.*:21: L Error: pushing incompatible type onto array
-.*:22: L Error: pushing incompatible type onto array
-.*:23: L Error: pushing incompatible type onto array
-.*:24: L Error: pushing incompatible type onto array
-.*:25: L Error: pushing incompatible type onto array
-.*:26: L Error: pushing incompatible type onto array
-.*:27: L Error: pushing incompatible type onto array
-.*:28: L Error: pushing incompatible type onto array
-.*:29: L Error: pushing incompatible type onto array
-.*:30: L Error: pushing incompatible type onto array
-.*:31: L Error: pushing incompatible type onto array
-.*:32: L Error: pushing incompatible type onto array
+} -returnCodes {error} -match regexp -result {.*:19: L Error: arg #2 to push has type incompatible with array
+.*:21: L Error: arg #2 to push has type incompatible with array
+.*:22: L Error: arg #2 to push has type incompatible with array
+.*:23: L Error: arg #2 to push has type incompatible with array
+.*:24: L Error: arg #2 to push has type incompatible with array
+.*:25: L Error: arg #2 to push has type incompatible with array
+.*:26: L Error: arg #2 to push has type incompatible with array
+.*:27: L Error: arg #2 to push has type incompatible with array
+.*:28: L Error: arg #2 to push has type incompatible with array
+.*:29: L Error: arg #2 to push has type incompatible with array
+.*:30: L Error: arg #2 to push has type incompatible with array
+.*:31: L Error: arg #2 to push has type incompatible with array
+.*:32: L Error: arg #2 to push has type incompatible with array
+.*:34: L Error: arg #3 to push has type incompatible with array
+.*:35: L Error: arg #2 to push has type incompatible with array
+.*:35: L Error: arg #3 to push has type incompatible with array
+.*:36: L Error: arg #5 to push has type incompatible with array
 }
 
 test typecheck-6.3 {type check push built-in} -body {
@@ -12171,6 +12173,27 @@ void builtin_12()
 .*8: L Error: void type illegal in predicate
 .*9: L Error: type void illegal
 }
+
+test builtin-13 {check multiple values to push built-in} -body {
+#lang L
+void builtin_13()
+{
+	int	a[];
+
+	push(&a, 1);
+	unless (length(a) == 1) puts("bad 1.1");
+	unless (a[0] == 1) puts("bad 1.2");
+
+	push(&a, 2, 3);
+	unless (length(a) == 3) puts("bad 2.1");
+	unless ((a[1] == 2) && (a[2] == 3)) puts("bad 2.2");
+
+	push(&a, 4, 5, 6);
+	unless (length(a) == 6) puts("bad 3.1");
+	unless ((a[3] == 4) && (a[4] == 5) && (a[5] == 6)) puts("bad 3.2");
+}
+builtin_13();
+} -output {}
 
 test line-file-1 {test __LINE__ and __FILE__} -body {
 #lang L

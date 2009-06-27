@@ -1183,23 +1183,18 @@ compile_split(Expr *expr)
 private int
 compile_push(Expr *expr)
 {
-	int	idx;
+	int	i, idx;
 	Expr	*arg, *array;
 
-	unless (expr->b && expr->b->next && !expr->b->next->next) {
+	unless (expr->b && expr->b->next) {
 		L_errf(expr, "incorrect # arguments to push");
 		goto done;
 	}
 	array = expr->b->a;
 	arg   = expr->b->next;
 	compile_expr(array, L_DISCARD);
-	compile_expr(arg, L_PUSH_VAL);
 	unless (isaddrof(expr->b) && array && (isarray(array)||ispoly(array))) {
 		L_errf(expr, "first arg to push not an array reference (&)");
-		goto done;
-	}
-	unless (L_typeck_compat(array->type->base_type, arg->type)) {
-		L_errf(expr, "pushing incompatible type onto array");
 		goto done;
 	}
 	unless (array->sym) {
@@ -1207,12 +1202,21 @@ compile_push(Expr *expr)
 		goto done;
 	}
 	idx = array->sym->idx;  // local slot # for array
-	if (idx <= 255) {
-		TclEmitInstInt1(INST_LAPPEND_SCALAR1, idx, L->frame->envPtr);
-	} else {
-		TclEmitInstInt4(INST_LAPPEND_SCALAR4, idx, L->frame->envPtr);
+	for (i = 2; arg; arg = arg->next, ++i) {
+		compile_expr(arg, L_PUSH_VAL);
+		unless (L_typeck_compat(array->type->base_type, arg->type)) {
+			L_errf(expr,
+			 "arg #%d to push has type incompatible with array", i);
+		}
+		if (idx <= 255) {
+			TclEmitInstInt1(INST_LAPPEND_SCALAR1, idx,
+					L->frame->envPtr);
+		} else {
+			TclEmitInstInt4(INST_LAPPEND_SCALAR4, idx,
+					L->frame->envPtr);
+		}
+		emit_pop();
 	}
-	emit_pop();
  done:
 	expr->type = L_void;
 	return (0);  // stack effect

@@ -299,7 +299,10 @@ it already has:
     push(&animals, "tiger");
 
 The & means that animals is passed by reference, because it will
-be changed.  This is discussed more later.
+be changed.  This is discussed more later.  You also can push
+more than one element at a time:
+
+    push(&animals, "bear", "mouse", "lemur");
 
 Another way to append:
 
@@ -1450,10 +1453,10 @@ command.  Return the FILE handle on success, or undef on error.
 Format arguments and print to stdout, as in printf(3).
 Return 0 on success, -1 on error.
 
-=proto void push(type &array[], type element)
+=proto void push(type &array[], type element1, type element2, ...)
 
 Push one or more elements onto the end of C<array>.  Equivalent to
-saying array[length(array)] = element.
+saying array[END+1] = element1, array[END+1] = element2, ...
 
 =proto type pop(type &array[])
 
