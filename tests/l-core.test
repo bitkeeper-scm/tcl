@@ -7553,6 +7553,35 @@ undef_4();
 .*12: L Error: illegal l-value in undef\(\)
 }
 
+test undef-5 {check that undefined list goes to defined} -body {
+#lang L
+void undef_5()
+{
+	string	a[] = {"x"};
+
+	a = undef;
+	if (defined(a)) puts("bad 1.1");
+	a[END+1] = "x";
+	unless (defined(a)) puts("bad 1.2");
+
+	a = undef;
+	if (defined(a)) puts("bad 2.1");
+	push(&a, "x");
+	unless (defined(a)) puts("bad 2.2");
+
+	a = undef;
+	if (defined(a)) puts("bad 3.1");
+	a[0] = "x";
+	unless (defined(a)) puts("bad 3.2");
+
+	a = undef;
+	if (defined(a)) puts("bad 4.1");
+	a[10] = "x";
+	unless (defined(a)) puts("bad 4.2");
+}
+undef_5();
+} -output {}
+
 test toplevel-1.0 {Toplevel code in L} -body {
 #lang L
 int toplevel_1_0_i = 2;
