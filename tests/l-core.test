@@ -1172,16 +1172,25 @@ var_1_3
 }
 
 test var-1.4 {Test extern variables} -body {
-set tclvar "this is an extern variable"
+set var_1_4_v1 "extern test 1"
+set var_1_4_v2 "extern test 2"
+namespace eval var_1_4_ns {
+	variable foo "extern test 3"
+}
 #lang L
-extern string tclvar;
+extern string var_1_4_v1;
+extern string ::var_1_4_v2;
+extern string var_1_4_ns::foo;
+extern string ::var_1_4_ns::foo;  // really the same var as var_1_4_ns::foo
 void var_1_4()
 {
-	puts(tclvar);
+	unless (var_1_4_v1 eq "extern test 1") puts("bad 1");
+	unless (::var_1_4_v2 eq "extern test 2") puts("bad 2");
+	unless (var_1_4_ns::foo eq "extern test 3") puts("bad 3");
+	unless (::var_1_4_ns::foo eq "extern test 3") puts("bad 4");
 }
-#lang tcl
-var_1_4
-} -output "this is an extern variable\n"
+var_1_4();
+} -output {}
 
 test var-1.5 {Variable function names} -body {
 #lang L
@@ -1349,8 +1358,6 @@ void decl_1_6()
 		}
 	}
 }
-extern int decl_1_6_extern;
-extern int decl_1_6_extern;  // error -- multiply declared at global scope
 int decl_1_6_g2;  // error -- multiply declared at global scope
 void decl_1_6_bad()
 {
@@ -1362,9 +1369,8 @@ void decl_1_6_bad()
 .*24: L Error: undeclared variable: decl_1_6_extern
 .*33: L Error: multiple declaration of local l
 .*35: L Error: multiple declaration of local l2
-.*40: L Error: multiple declaration of global decl_1_6_extern
-.*41: L Error: multiple declaration of global decl_1_6_g2
-.*44: L Error: externs legal only at global scope
+.*39: L Error: multiple declaration of global decl_1_6_g2
+.*42: L Error: externs legal only at global scope
 }
 
 test decl-1.7 {Check scoping rules for globals and externs} -body {
@@ -1404,6 +1410,25 @@ void decl_1_7()
 #lang tcl
 decl_1_7
 } -output ""
+
+test decl-1.7.5 {check legal multiple extern variable declarations} -body {
+set decl_1_7_5_var "extern test"
+#lang L
+extern string decl_1_7_5_var;
+extern string decl_1_7_5_var;  // legal -- has same type as prior declaration
+void decl_1_7_5()
+{
+	unless (decl_1_7_5_var eq "extern test") puts("bad 1");
+}
+decl_1_7_5();
+} -output {}
+
+test decl-1.7.6 {check illegal multiple extern variable declarations} -body {
+#lang L
+extern string decl_1_7_6_var;
+extern int decl_1_7_6_var;  // err -- not the same type
+} -returnCodes error -match regexp -result {.*2: L Error: extern re-declaration type does not match other declaration
+}
 
 test decl-1.8 {Check illegal variable names} -body {
 #lang L -nowarn

@@ -3863,8 +3863,20 @@ sym_store(VarDecl *decl)
 			if (hPtr) Tcl_DeleteHashEntry(hPtr);
 			L->mains_ast = L->ast;
 		} else if (hPtr) {
-			L_errf(decl, "multiple declaration of global %s", name);
-			return (NULL);
+			if (decl->flags & DECL_EXTERN) {
+				sym = (Sym *)Tcl_GetHashValue(hPtr);
+				if (L_typeck_same(decl->type, sym->type)) {
+					return (sym);
+				}
+				L_errf(decl,
+				       "extern re-declaration type does not "
+				       "match other declaration");
+				return (NULL);
+			} else {
+				L_errf(decl,
+				    "multiple declaration of global %s", name);
+				return (NULL);
+			}
 		}
 		break;
 	    case SCOPE_CLASS:
