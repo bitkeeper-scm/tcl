@@ -12354,6 +12354,50 @@ void class_1_7_main()
 } -returnCodes {error} -match regexp -result {.*14: L Error: . illegal on objects; use -> instead
 }
 
+test class-1.8 {check calling private member functions} -body {
+#lang L
+/*
+ * Check that private member functions can be called from the
+ * constructor and destructor, whether they are declared before or
+ * after the call site.
+ */
+private int cnt1 = 0;
+private int cnt2 = 0;
+class class_1_8
+{
+	private void p1() { ++cnt1; }
+	constructor class_1_8_new()
+	{
+		p1();
+		p2();
+	}
+	destructor class_1_8_delete(class_1_8 self)
+	{
+		p1();
+		p2();
+	}
+	public void class_1_8_foo(class_1_8 self)
+	{
+		p1();
+		p2();
+	}
+	private void p2() { ++cnt2; }
+}
+void class_1_8_main()
+{
+	class_1_8 o = class_1_8_new();
+	unless (cnt1 == 1) puts("bad 1.1");
+	unless (cnt2 == 1) puts("bad 1.2");
+	class_1_8_foo(o);
+	unless (cnt1 == 2) puts("bad 2.1");
+	unless (cnt2 == 2) puts("bad 2.2");
+	class_1_8_delete(o);
+	unless (cnt1 == 3) puts("bad 3.1");
+	unless (cnt2 == 3) puts("bad 3.2");
+}
+class_1_8_main();
+} -output {}
+
 test class-2.1 {check missing class constructor} -body {
 #lang L
 class class_2_1
@@ -12582,7 +12626,7 @@ class class_2_13
 	void class_2_13_new(class_2_13 self) {}  // err
 	private void class_2_13_new(class_2_13 self) {}  // err
 }
-} -returnCodes {error} -match regexp -result {.*4: L Error: function class_2_13_new already declared
+} -returnCodes {error} -match regexp -result {.*3: L Error: does not match other declaration of class_2_13_new
 .*5: L Error: function class_2_13_new already declared
 }
 
@@ -12593,7 +12637,7 @@ class class_2_14
 	void class_2_14_new(class_2_14 self) {}  // err
 	private void class_2_14_new(class_2_14 self) {}  // err
 }
-} -returnCodes {error} -match regexp -result {.*3: L Error: function class_2_14_new already declared
+} -returnCodes {error} -match regexp -result {.*5: L Error: does not match other declaration of class_2_14_new
 .*4: L Error: function class_2_14_new already declared
 }
 

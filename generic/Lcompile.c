@@ -430,10 +430,10 @@ compile_clsDecl(ClsDecl *clsdecl)
 	frame_resumeBody();
 
 	compile_varDecls(clsdecl->clsvars);
-	compile_fnDecl(clsdecl->constructor, FN_PROTO_AND_BODY);
-	compile_fnDecl(clsdecl->destructor, FN_PROTO_AND_BODY);
 	/* Process function decls first, then compile the bodies. */
 	compile_fnDecls(clsdecl->fns, FN_PROTO_ONLY);
+	compile_fnDecl(clsdecl->constructor, FN_PROTO_AND_BODY);
+	compile_fnDecl(clsdecl->destructor, FN_PROTO_AND_BODY);
 	compile_fnDecls(clsdecl->fns, FN_PROTO_AND_BODY);
 
 	frame_pop();
