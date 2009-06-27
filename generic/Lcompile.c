@@ -1556,7 +1556,7 @@ ispatternfn(char *name, Expr **foo, Expr **Foo_star, Expr **opts, int *nopts)
 	*Foo_star = ast_mkId(buf, 0, 0);
 	ckfree(buf);
 
-	/* Build a list of bar,Baz,Blech nodes from barBazBlech. */
+	/* Build a list of bar,baz,blech nodes from barBazBlech. */
 	++p;
 	*opts  = NULL;
 	*nopts = 0;
@@ -1595,12 +1595,12 @@ ispatternfn(char *name, Expr **foo, Expr **Foo_star, Expr **opts, int *nopts)
  * - If Foo_bar happens to be a declared function, handle as above.
  *
  * - If the function Foo_* is defined, change the call to
- *   Foo_*(bar,Baz,Blech,a,b,c).
+ *   Foo_*(bar,baz,blech,a,b,c).
  *
  * - If "a" is not of widget type, change the call to
- *   foo(bar,Baz,Blech,a,b,c).
+ *   foo(bar,baz,blech,a,b,c).
  *
- * - If "a" is a widget type, change the call to *a(bar,Baz,Blech,b,c)
+ * - If "a" is a widget type, change the call to *a(bar,baz,blech,b,c)
  *   where *a means that the value of the argument "a" becomes the
  *   function name.
  */
@@ -2850,6 +2850,16 @@ compile_foreachArray(ForEach *loop)
 			TclUpdateInstInt1AtPc(INST_JUMP1, -jumpBackDist,jumpPc);
 		}
 	}
+
+	/* Set the value variables to undef. */
+	TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
+	for (var = loop->key; var; var = var->next) {
+		Sym *s = sym_lookup(var, 0);
+		ASSERT(s);
+		emit_store_scalar(s->idx);
+	}
+	emit_pop();
+
 	fixup_jmps(break_jumps);
 }
 
@@ -2924,6 +2934,13 @@ compile_foreachHash(ForEach *loop)
 	/* All done.  Cleanup the values that DICT_FIRST/DICT_NEXT left. */
 	emit_pop();
 	emit_pop();
+
+	/* Set key and/or value counters to undef. */
+	TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
+	emit_store_scalar(key->idx);
+	if (val) emit_store_scalar(val->idx);
+	emit_pop();
+
 	fixup_jmps(break_jumps);
 	/* XXX We need to ensure that DICT_DONE happens in the face of
 	   exceptions, so that the refcount on the dict will be
@@ -3008,6 +3025,14 @@ compile_foreachString(ForEach *loop)
 	TclEmitOpcode(INST_LT, L->frame->envPtr);
 	jmp_dist = currOffset(L->frame->envPtr) - body_off;
 	TclEmitInstInt4(INST_JUMP_TRUE4, -jmp_dist, L->frame->envPtr);
+
+	/* Set the loop counters to undef. */
+	TclEmitOpcode(INST_L_PUSH_UNDEF, L->frame->envPtr);
+	for (id = loop->key; id; id = id->next) {
+		emit_store_scalar(id->sym->idx);
+	}
+	emit_pop();
+
 	fixup_jmps(break_jmps);
 }
 

@@ -4289,13 +4289,13 @@ void loop_1_2_6()
 
 	a = "x";
 	foreach (a in "") puts("bad 1.1");
-	unless (a eq "x") puts("bad 1.2");
+	if (defined(a)) puts("bad 1.2");
 
 	/* as[0] has the value undef */
 	a = "x";
 	if (defined(as[0])) puts("bad 2.0");
 	foreach(a in as[0]) puts("bad 2.1");
-	unless (a eq "x") puts("bad 2.2");
+	if (defined(a)) puts("bad 2.2");
 
 	i = 0;
 	foreach(a in "0123456789") {
@@ -4429,6 +4429,66 @@ void loop_1_2_11()
 	unless (in == 123) puts("bad");
 }
 loop_1_2_11();
+} -output {}
+
+test loop-1.2.12 {check that loop counter is undef on foreach loop fall-through} -body {
+#lang L
+void loop_1_2_12()
+{
+	int	i;
+	string	k, s, t, u, v;
+	string	as[];
+	string	ah{string};
+
+	s = "abc";
+	i = 0;
+	t = "xyz";
+	unless (defined(t)) puts("bad 1.1");
+	foreach (t in s) { ++i; }
+	unless (i == 3) puts("bad 1.2");
+	if (defined(t)) puts("bad 1.3");
+
+	s = "abcd";
+	i = 0;
+	t = u = "xyz";
+	unless (defined(t) && defined(u)) puts("bad 2.1");
+	foreach (t,u in s) { ++i; }
+	unless (i == 2) puts("bad 2.2");
+	if (defined(t) || defined(u)) puts("bad 2.3");
+
+	as = { "1", "2", "3" };
+	i = 0;
+	s = "xyz";
+	unless (defined(s)) puts("bad 2.1");
+	foreach (s in as) { ++i; }
+	unless (i == 3) puts("bad 3.2");
+	if (defined(s)) puts("bad 3.3");
+
+	as = { "1", "2", "3", "4" };
+	i = 0;
+	s = t = "xyz";
+	unless (defined(s) && defined(t)) puts("bad 4.1");
+	foreach (s,t in as) { ++i; }
+	unless (i == 2) puts("bad 4.2");
+	if (defined(s) || defined(t)) puts("bad 4.3");
+
+	ah = { "k1"=>"1", "k2"=>"2", "k3"=>"3" };
+	i = 0;
+	k = "xyz";
+	unless (defined(k)) puts("bad 5.1");
+	foreach (k in ah) { ++i; }
+	unless (i == 3) puts("bad 5.2");
+	if (defined(k)) puts("bad 5.3");
+
+	i = 0;
+	k = "xyz";
+	v = "qrs";
+	unless (defined(k) && defined(v)) puts("bad 4.1");
+	foreach (k=>v in ah) { ++i; }
+	unless (i == 3) puts("bad 4.2");
+	if (defined(k) || defined(v)) puts("bad 4.3");
+}
+loop_1_2_12();
 } -output {}
 
 test loop-1.3 {continue statements} -body {
