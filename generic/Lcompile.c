@@ -2371,7 +2371,7 @@ compile_assert(Expr *expr)
 }
 
 /*
- * Change die(fmt, ...args) into die_(__FUNC__, __LINE__, fmt, ...args)
+ * Change die(fmt, ...args) into die_(__FILE__, __LINE__, fmt, ...args)
  */
 private int
 compile_die(Expr *expr)
@@ -2380,7 +2380,7 @@ compile_die(Expr *expr)
 
 	ckfree(expr->a->str);
 	expr->a->str = ckstrdup("die_");
-	arg = ast_mkId("__FUNC__", expr->node.loc, expr->node.loc);
+	arg = ast_mkId("__FILE__", expr->node.loc, expr->node.loc);
 	arg->next = ast_mkId("__LINE__", expr->node.loc, expr->node.loc);
 	arg->next->next = expr->b;
 	expr->b = arg;
@@ -2388,7 +2388,7 @@ compile_die(Expr *expr)
 }
 
 /*
- * Change warn(fmt, ...args) into warn_(__FUNC__, __LINE__, fmt, ...args)
+ * Change warn(fmt, ...args) into warn_(__FILE__, __LINE__, fmt, ...args)
  */
 private int
 compile_warn(Expr *expr)
@@ -2397,7 +2397,7 @@ compile_warn(Expr *expr)
 
 	ckfree(expr->a->str);
 	expr->a->str = ckstrdup("warn_");
-	arg = ast_mkId("__FUNC__", expr->node.loc, expr->node.loc);
+	arg = ast_mkId("__FILE__", expr->node.loc, expr->node.loc);
 	arg->next = ast_mkId("__LINE__", expr->node.loc, expr->node.loc);
 	arg->next->next = expr->b;
 	expr->b = arg;
