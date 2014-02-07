@@ -2626,6 +2626,7 @@ TclObjCommandComplete(
  *
  *----------------------------------------------------------------------
  */
+
 int
 TclIsLocalScalar(
     const char *src,

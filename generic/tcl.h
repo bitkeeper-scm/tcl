@@ -1909,8 +1909,6 @@ typedef struct Tcl_Token {
 				 * (including components of components, etc.).
 				 * The component tokens immediately follow
 				 * this one. */
-    void *data;			/* Any data that the tokens want to pass from
-				 * the parser to the compiler */
 } Tcl_Token;
 
 /*

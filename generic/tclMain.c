@@ -328,7 +328,7 @@ Tcl_MainEx(
 	 * Check whether initial args (argv[1] and beyond) look like
 	 *  -encoding ENCODING FILENAME
 	 * or like
-	 *	[-opt1] [-opt2] ... [-optn] FILENAME
+	 *  [-opt1] [-opt2] ... [-optn] FILENAME
 	 */
 
 	/* Create argv list obj for L. */

@@ -3645,10 +3645,6 @@ MODULE_SCOPE int	TclCompileVariableCmd(Tcl_Interp *interp,
 MODULE_SCOPE int	TclCompileWhileCmd(Tcl_Interp *interp,
 			    Tcl_Parse *parsePtr, Command *cmdPtr,
 			    struct CompileEnv *envPtr);
-MODULE_SCOPE int	TclCompilePtrCmd(Tcl_Interp *interp,
-			    Tcl_Parse *parsePtr, Command *cmdPtr,
-			    struct CompileEnv *envPtr);
-
 MODULE_SCOPE int	TclInvertOpCmd(ClientData clientData,
 			    Tcl_Interp *interp, int objc,
 			    Tcl_Obj *const objv[]);

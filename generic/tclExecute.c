@@ -2756,7 +2756,7 @@ TEBCresume(
 	}
 	NEXT_INST_F(2, 0, 0);
     }
-	
+
     case INST_REVERSE: {
 	Tcl_Obj **a, **b;
 
@@ -3207,7 +3207,7 @@ TEBCresume(
      *	   Start of INST_LOAD instructions.
      *
      * WARNING: more 'goto' here than your doctor recommended! The different
-     * instructions set the value of some variables and then jump to some
+     * instructions set the value of some variables and then jump to somme
      * common execution code.
      */
 
@@ -4392,9 +4392,9 @@ TEBCresume(
 
     case INST_LIST_LENGTH:
 	valuePtr = OBJ_AT_TOS;
-        if (valuePtr->undef) {
-            length = 0;
-        } else if (TclListObjLength(interp, valuePtr, &length) != TCL_OK) {
+	if (valuePtr->undef) {
+	    length = 0;
+	} else if (TclListObjLength(interp, valuePtr, &length) != TCL_OK) {
 	    TRACE_WITH_OBJ(("%.30s => ERROR: ", O2S(valuePtr)),
 		    Tcl_GetObjResult(interp));
 	    goto gotError;
@@ -4729,8 +4729,10 @@ TEBCresume(
 	value2Ptr = OBJ_AT_TOS;
 	valuePtr = OBJ_UNDER_TOS;
 
-	/* L undef never equals anything that's defined. */
-	if (valuePtr->undef ^ value2Ptr->undef) {
+	if (valuePtr == value2Ptr) {
+	    match = 0;
+	} else if (valuePtr->undef ^ value2Ptr->undef) {
+	    /* L undef never equals anything that's defined. */
 	    switch (*pc) {
 		case INST_EQ:
 		case INST_LT:
@@ -4747,7 +4749,7 @@ TEBCresume(
 		    match = 1;
 		    break;
 	    }
-	} else if (valuePtr == value2Ptr) {
+	} else {
 	    /*
 	     * We only need to check (in)equality when we have equal length
 	     * strings.  We can use memcmp in all (n)eq cases because we
@@ -5024,7 +5026,7 @@ TEBCresume(
 
 	/*
 	 * Peep-hole optimisation: if you're about to jump, do jump from here.
-	 * Adjustment is 2 due to the nocase byte.
+	 * Adjustment is 2 due to the cflags byte.
 	 */
 
 	pc += 2;
@@ -5067,8 +5069,20 @@ TEBCresume(
 	valuePtr = OBJ_UNDER_TOS;
 
 	/* L undef never equals anything that's defined. */
-	if (((*pc == INST_EQ) || (*pc == INST_NEQ)) &&
-	    (valuePtr->undef ^ value2Ptr->undef)) {
+	if (valuePtr->undef ^ value2Ptr->undef) {
+	    switch (*pc) {
+		case INST_EQ:
+		case INST_LT:
+		case INST_LE:
+		case INST_GT:
+		case INST_GE:
+		    iResult = 0;
+		    break;
+		case INST_NEQ:
+		default:
+		    iResult = 1;
+		    break;
+	    }
 	    iResult = (*pc == INST_NEQ);
 	    goto foundResult;
 	}
@@ -5869,6 +5883,7 @@ TEBCresume(
 		for (j = 0;  j < numVars;  j++) {
 		    if (valIndex >= listLen) {
 			TclNewObj(valuePtr);
+			valuePtr->undef = 1;
 		    } else {
 			valuePtr = elements[valIndex];
 		    }
@@ -6478,6 +6493,625 @@ TEBCresume(
      *	   End of dictionary-related instructions.
      * -----------------------------------------------------------------
      */
+
+    /*
+     * Opcodes for the L language.
+     */
+
+    case INST_L_INDEX: {
+	/*
+	 * Index into an L array, hash, struct, or string, and return either
+	 * the indexed value or an L "deep pointer".  On entry, the stack is
+	 * (the stack top is on the right):
+	 *
+	 *   <obj | deep-ptr> <idx>
+	 *
+	 * <obj> is the object being indexed in to.  An L deep pointer
+	 * <deep-ptr> from a previous instance of this instruction also can be
+	 * used; this is how multiple levels are indexed.
+	 *
+	 * On exit, the stack configuration depends on what flags are in
+	 * the instruction:
+	 *
+	 *   <elem-val>               if flags & L_PUSH_VAL
+	 *   <deep-ptr>               if flags & L_PUSH_PTR
+	 *   <elem-val> <deep-ptr>    if flags & L_PUSH_VALPTR
+	 *   <deep-ptr> <elem-val>    if flags & L_PUSH_PTRVAL
+	 *   (nothing)                if flags & L_DISCARD
+	 *
+	 * where <elem-val> is the object in <obj> referenced by the given
+	 * index and <deep-ptr> is an object of L_deepPtrType type that only
+	 * this code and the INST_L_DEEP_WRITE bytecode know about.  It is
+	 * basically a pointer to <elem-val> that can be used to index or
+	 * modify the element in-place later.
+	 *
+	 * If flags & L_VALUE, it is assumed that the element is going to be
+	 * written later by INST_L_DEEP_WRITE, so if any part of the path to
+	 * that element is shared, an unshared copy is made.  If this results
+	 * in the top-level object itself getting copied, the new obj gets
+	 * written back into the local variable when the INST_L_DEEP_WRITE is
+	 * done later.  This is possible since the <deep-ptr> encapsulates a
+	 * back-pointer to the top-level object.
+	 */
+
+	Tcl_Obj **elemPtrPtr;
+	Tcl_Obj *idxObj, *objPtr;
+	Tcl_Obj *deepPtrObj = NULL;
+	L_DeepPtr *deepPtr = NULL;
+	int dropRefCnt = 0;
+	unsigned int flags = TclGetUInt4AtPtr(pc+1);
+	int lvalue = (flags & L_LVALUE);
+	int needPtr = (flags & (L_PUSH_PTR | L_PUSH_PTRVAL | L_PUSH_VALPTR));
+
+	// needPtr => L_PUSH_VAL not set
+	ASSERT(!needPtr || !(flags & L_PUSH_VAL));
+
+	/*
+	 * Get the bytecode arguments -- the index and object being indexed in
+	 * to.  If the object is a deep pointer from an earlier instance of
+	 * this bytecode, de-reference it and get the object from inside it.
+	 */
+	idxObj = POP_OBJECT();
+	objPtr = POP_OBJECT();
+	if (L_isDeepPtr(objPtr)) {
+	    deepPtrObj = objPtr;
+	    deepPtr    = L_deepPtrGet(deepPtrObj);
+	    objPtr     = *(deepPtr->elemPtrPtr);
+	    /*
+	     * Enclosing obj ref + deepPtr ref == 2.  Not >2 because in
+	     * previous iterations through here we already ensured the
+	     * sub-object is an un-shared copy.
+	     */
+	    ASSERT (!lvalue || (objPtr->refCount == 2));
+	    ASSERT (!Tcl_IsShared(deepPtrObj));
+	}
+
+	/*
+	 * Drop the stack ref to the object being indexed.  We have to do this
+	 * now, because we might need to modify the object (e.g., to extend an
+	 * array) and list operations on shared objects will fail.  But if the
+	 * stack ref is the only ref (which happens when you index a constant
+	 * or a function's return value), we have to delay it or else the
+	 * object will get deleted.  A little ugly, but there's no way around
+	 * this.
+	 */
+	if (objPtr->refCount == 1) {
+	    ASSERT(deepPtrObj == NULL);
+	    dropRefCnt = 1;
+	} else {
+	    /*
+	     * This drops either the stack ref (deepPtrObj==NULL) or the
+	     * deepPtr ref (objPtr=*elemPtrPtr in that case; this is why
+	     * L_deepPtrSet() and L_deepPtrFree() do not drop the *elemPtrPtr
+	     * ref).
+	     */
+	    Tcl_DecrRefCount(objPtr);
+	}
+
+	/*
+	 * Special handling for l-values: ensure we have an un-shared copy.
+	 * Note that only the top-level object, i.e., the target of the first
+	 * index of a sequence of indices into a nested object, will get
+	 * copied here.  Sub-objects inside the top-level also need to be
+	 * un-shared, but L_deepDive() copies those, so by the time we get
+	 * back around here in the next iteration to index into *them*, they
+	 * won't be shared (the ASSERT below verifies this).
+	 */
+	if (lvalue && Tcl_IsShared(objPtr)) {
+	    ASSERT(deepPtrObj == NULL);
+	    objPtr = Tcl_DuplicateObj(objPtr);
+	    Tcl_IncrRefCount(objPtr);
+	    /*
+	     * We're going to modify an element of this list in-place later,
+	     * so also create an unshared copy of the internal list
+	     * representation.  Tcl_DuplicateObj() does not do this.
+	     */
+	    if (objPtr->typePtr == &tclListType) {
+		TclDuplicateListRep(objPtr);
+	    }
+	    dropRefCnt = 1;
+	}
+
+	/*
+	 * Index into the object.
+	 */
+	elemPtrPtr = L_deepDive(interp, objPtr, idxObj, flags);
+	if (!elemPtrPtr) {
+	    if (dropRefCnt) Tcl_DecrRefCount(objPtr); // drop stack/deepPtr ref
+	    Tcl_DecrRefCount(idxObj);	// drop stack ref
+	    result = TCL_ERROR;
+	    goto checkForCatch;
+	}
+
+	/*
+	 * If flags indicate a deep-ptr is needed, make an L_deepPtrType object
+	 * that refers to the indexed element and stash the top-level object
+	 * pointer and other bookkeeping in there.  The top-level object is
+	 * needed in the INST_L_DEEP_WRITE coming later to update the variable
+	 * being written.  If a deep ptr was already on the stack, recycle it
+	 * (and note that it already points to the top-level object).
+	 */
+	if (needPtr) {
+	    if (deepPtrObj) {
+		L_deepPtrSet(deepPtrObj, flags, objPtr, idxObj, elemPtrPtr);
+	    } else {
+		deepPtrObj = L_deepPtrNew(flags, objPtr, idxObj, elemPtrPtr);
+	    }
+	}
+
+	/*
+	 * Leave the value, deep-pointer, or both on the stack as requested by
+	 * the input flags.
+	 */
+	switch (flags &
+		(L_PUSH_VAL|L_PUSH_PTR|L_PUSH_PTRVAL|L_PUSH_VALPTR|L_DISCARD)) {
+	    case L_PUSH_VAL:
+		PUSH_OBJECT(*elemPtrPtr);
+		L_deepPtrFree(deepPtrObj);
+		TRACE_WITH_OBJ(("L_PUSH_VAL => "), OBJ_AT_TOS);
+		break;
+	    case L_PUSH_PTR:
+		PUSH_OBJECT(deepPtrObj);
+		TRACE_WITH_OBJ(("L_PUSH_PTR => "), OBJ_AT_TOS);
+		break;
+	    case L_PUSH_PTRVAL:
+		PUSH_OBJECT(deepPtrObj);
+		PUSH_OBJECT(*elemPtrPtr);
+		TRACE(("L_PUSH_PTRVAL => \"%.30s\" \"%.30s\"",
+		       O2S(OBJ_UNDER_TOS), O2S(OBJ_AT_TOS)));
+		break;
+	    case L_PUSH_VALPTR:
+		PUSH_OBJECT(*elemPtrPtr);
+		PUSH_OBJECT(deepPtrObj);
+		TRACE(("L_PUSH_VALPTR => \"%.30s\" \"%.30s\"",
+		       O2S(OBJ_UNDER_TOS), O2S(OBJ_AT_TOS)));
+		break;
+	    case L_DISCARD:
+		L_deepPtrFree(deepPtrObj);
+		TRACE(("L_DISCARD => \n"));
+		break;
+	    default:
+		Tcl_Panic("illegal operand to INST_L_INDEX");
+		break;
+	}
+
+	/* Drop the stack refs. */
+	if (dropRefCnt) Tcl_DecrRefCount(objPtr);
+	Tcl_DecrRefCount(idxObj);
+
+	NEXT_INST_F(5, 0, 0);
+    }
+
+    case INST_L_DEEP_WRITE: {
+	/*
+	 * Write to, or delete, an element of a hash/array/struct/string and
+	 * store the top-level hash/array/struct/string object in a local.
+	 * Leave on the stack the old element value, the new element value, or
+	 * nothing, as requested.
+	 *
+	 * Stack on entry (the stack top is on the right):
+	 *
+	 *   [<rval>] <l-deep-ptr> [<arrayIdx>]
+	 *
+	 * <l-deep-ptr>		L deep pointer that is created only by
+	 *			INST_L_INDEX (above).  This "points" to what
+	 *			we're indexing in to or deleting.
+	 * <rval>		Object to assign to the object pointed
+	 *			to by <l-deep-ptr>.  Not present for L_DELETE.
+	 * <arrayIdx>		Array index.  Preset only for L_INSERT_ELT
+	 *			and L_INSERT_LIST.  An index of -1 means
+	 *			append.
+	 *
+	 * Instruction arguments:
+	 *
+	 * opnd1 (one byte): A local index.  The top-level array/hash/struct/
+	 *    string object that is encapsulated in the <l-deep-ptr> is
+	 *    stored in this local.  In older versions of deep dive,
+	 *    this used to be done with an extra bytecode.
+	 *
+	 * opnd2 (four bytes): flags, as follows:
+	 *
+	 *     L_IDX_STRING, L_IDX_ARRAY, L_IDX_HASH, L_INSERT_ELT,
+	 *     L_INSERT_LIST, L_DELETE
+	 *     Indicates what kind of object we're indexing in to and whether
+	 *     we're writing a single element, deleting an element, or
+	 *     inserting an element or another list into a list (array).
+	 *     Mutually exclusive.
+	 *
+	 *     L_PUSH_NEW, L_PUSH_OLD, L_DISCARD
+	 *     Whether to leave the new value, old value, or nothing on the
+	 *     stack. Mutually exclusive.
+	 */
+
+	int	arrayIdx = 0, ret, save;
+	Tcl_Obj *arrayIdxObj, *deepPtrObj, *oldvalObj, *rvalObj = NULL;
+	Tcl_Obj *currTopLevObj, *newTopLevObj;
+	Var	*varPtr;
+	L_DeepPtr *deepPtr;
+	unsigned int flags, idx;
+
+	idx   = TclGetUInt4AtPtr(pc+1);
+	flags = TclGetUInt4AtPtr(pc+5);
+	// assert flags & L_DELETE => !(flags & L_PUSH_NEW)
+	ASSERT(!(flags & L_DELETE) || !(flags & L_PUSH_NEW));
+
+	/* Pop the array index, if present. */
+	if (flags & (L_INSERT_ELT | L_INSERT_LIST)) {
+	    arrayIdxObj = POP_OBJECT();
+	    if (TclGetIntFromObj(NULL, arrayIdxObj, &arrayIdx) != TCL_OK) {
+		Tcl_ResetResult(interp);
+		Tcl_AppendResult(interp, "cannot convert index to integer",
+				 NULL);
+		result = TCL_ERROR;
+		goto checkForCatch;
+	    }
+	    Tcl_DecrRefCount(arrayIdxObj);
+	    if (arrayIdx == -1) arrayIdx = INT_MAX;
+	}
+	/* Pop the other instruction arguments. */
+	deepPtrObj = POP_OBJECT();
+	unless (flags & L_DELETE) rvalObj = POP_OBJECT();
+	deepPtr = L_deepPtrGet(deepPtrObj);
+	ASSERT (!Tcl_IsShared(deepPtrObj));
+	if (deepPtrObj->typePtr == &L_deepPtr2Type) flags |= deepPtr->flags;
+
+	/*
+	 * currTopLevObj is what the local currently points to.  If it was
+	 * shared, newTopLevObj got an unshared copy (made by INST_L_INDEX).
+	 * We will write into the unshared copy in-place and set the var to it
+	 * below.
+	 */
+	varPtr = &(compiledLocals[idx]);
+	while (TclIsVarLink(varPtr)) {
+	    varPtr = varPtr->value.linkPtr;
+	}
+	currTopLevObj = varPtr->value.objPtr;
+	newTopLevObj  = deepPtr->topLevObj;
+
+	/*
+	 * Write or append the new value to the indexed element, or delete the
+	 * indexed element, as requested.
+	 */
+	oldvalObj = *(deepPtr->elemPtrPtr);
+	switch (flags & (L_IDX_STRING|L_INSERT_ELT|L_INSERT_LIST|L_DELETE)) {
+	    case L_IDX_STRING:
+	    case L_IDX_STRING | L_DELETE: {
+		int len, str_idx;
+		Tcl_UniChar *tmp;
+		Tcl_Obj *newStr;
+		Tcl_Obj *target = deepPtr->parentObj;
+
+		/* Check for writing to index beyond string's end. */
+		TclGetIntFromObj(NULL, deepPtr->idxObj, &str_idx);
+		len = Tcl_GetCharLength(target);
+		if (str_idx > len) {
+		    Tcl_ResetResult(interp);
+		    Tcl_AppendResult(interp,
+				"index is more than one past end of string",
+				NULL);
+		    result = TCL_ERROR;
+		    goto checkForCatch;
+		}
+		/* Copy to newStr chars up to but skipping the given index. */
+		newStr = Tcl_GetRange(target, 0, str_idx-1);
+		Tcl_IncrRefCount(newStr);
+		unless (flags & L_DELETE) {
+		    /* Append the rval obj. */
+		    Tcl_AppendObjToObj(newStr, rvalObj);
+		}
+		/* Append to newStr all chars after the given index. */
+		if (str_idx < len) {
+		    Tcl_Obj *r = Tcl_GetRange(target, str_idx+1, len-1);
+		    Tcl_IncrRefCount(r);
+		    Tcl_AppendObjToObj(newStr, r);
+		    Tcl_DecrRefCount(r);
+		}
+		/*
+		 * Assign newStr to target.  Possible target ref counts:
+		 * If a one-level index like s[2] = "x" and s unshared:
+		 *   deepPtr->topLevObj + deepPtr->parentObj + var ref (s)
+		 * If a one-level index like s[2] = "x" and s was shared:
+		 *   deepPtr->topLevObj + deepPtr->parentObj
+		 * (because INST_L_INDEX dup'd but s isn't pointing to it yet)
+		 * Note that a multi-level index like s[0][2] = "x" is
+		 * disallowed by the compiler.
+		 */
+		ASSERT((target->refCount == 2) || (target->refCount == 3));
+		tmp = Tcl_GetUnicodeFromObj(newStr, &len);
+		save = refCnt_save(target);
+		Tcl_SetUnicodeObj(target, tmp, len);
+		refCnt_restore(target, save);
+		Tcl_DecrRefCount(newStr);
+		break;
+	    }
+	    case L_INSERT_ELT:
+	    case L_INSERT_LIST: {
+		int		objc;
+		Tcl_Obj	**objv;
+
+		/*
+		 * oldvalObj has a stack ref and a deepPtr ref, so drop one so
+		 * we can append to it (it must be unshared), then restore it
+		 * (since it's dropped later by L_deepPtrFree()).
+		 */
+		ASSERT(oldvalObj->refCount == 2);
+		ASSERT(rvalObj);
+		Tcl_DecrRefCount(oldvalObj);
+		if (flags & L_INSERT_ELT) {
+		    Tcl_ListObjReplace(interp, oldvalObj, arrayIdx, 0,
+				       1, &rvalObj);
+		} else {
+		    Tcl_ListObjGetElements(interp, rvalObj, &objc, &objv);
+		    Tcl_ListObjReplace(interp, oldvalObj, arrayIdx, 0,
+				       objc, objv);
+		}
+		Tcl_IncrRefCount(oldvalObj);
+		Tcl_IncrRefCount(oldvalObj);
+		break;
+	    }
+	    case L_DELETE:
+		save = refCnt_save(deepPtr->parentObj);
+		if (deepPtr->flags & L_IDX_HASH) {
+		    ret = Tcl_DictObjRemove(interp, deepPtr->parentObj,
+					    deepPtr->idxObj);
+		} else if (deepPtr->flags & L_IDX_ARRAY) {
+		    int i;
+		    TclGetIntFromObj(NULL, deepPtr->idxObj, &i);
+		    ret = Tcl_ListObjReplace(interp, deepPtr->parentObj,
+					     i, 1, 0, NULL);
+		} else {
+		    /* Not array or hash? error! */
+		    ret = TCL_ERROR;
+		}
+		refCnt_restore(deepPtr->parentObj, save);
+		if (ret != TCL_OK) {
+		    Tcl_Panic("err deleting element in INST_L_DEEP_WRITE");
+		}
+		break;
+	    default:
+		*(deepPtr->elemPtrPtr) = rvalObj;
+		Tcl_IncrRefCount(rvalObj);	 // add parent obj ref
+		ASSERT(oldvalObj->refCount >= 2);
+		Tcl_DecrRefCount(oldvalObj); // drop old parent obj ref
+		break;
+	}
+
+	/*
+	 * If the local pointed to a shared object when it was indexed, the
+	 * INST_L_INDEX code made an un-shared copy of the obj and cached it
+	 * in deepPtr.  In that case, update the local to point to the
+	 * un-shared copy.
+	 */
+	if (currTopLevObj != newTopLevObj) {  // update only if needed
+	    if (TclIsVarDirectWritable(varPtr)) {
+		varPtr->value.objPtr = newTopLevObj;
+		Tcl_IncrRefCount(newTopLevObj);		// add new var ref
+		Tcl_DecrRefCount(currTopLevObj);	// lose old var ref
+	    } else {
+		DECACHE_STACK_INFO();
+		if (!TclPtrSetVar(interp, varPtr, NULL, NULL, NULL,
+				  newTopLevObj, TCL_LEAVE_ERR_MSG, idx)) {
+		    Tcl_Panic("could not set var in INST_L_DEEP_WRITE");
+		}
+		CACHE_STACK_INFO();
+	    }
+	}
+
+	switch (flags & (L_PUSH_OLD|L_PUSH_NEW|L_DISCARD)) {
+	    case L_PUSH_OLD:
+		PUSH_OBJECT(oldvalObj);
+		TRACE_WITH_OBJ(("L_PUSH_OLD => "), OBJ_AT_TOS);
+		break;
+	    case L_PUSH_NEW:
+		PUSH_OBJECT(rvalObj);
+		TRACE_WITH_OBJ(("L_PUSH_NEW => "), OBJ_AT_TOS);
+		break;
+	    case L_DISCARD:
+		TRACE(("L_DISCARD =>\n"));
+		break;
+	    default:
+		Tcl_Panic("Bad flags to INST_L_DEEP_WRITE");
+		break;
+	}
+
+	Tcl_DecrRefCount(oldvalObj);	// drop old deepPtr ref
+	if (rvalObj) Tcl_DecrRefCount(rvalObj);	// drop stack ref
+	L_deepPtrFree(deepPtrObj);
+
+	ASSERT(!Tcl_IsShared(newTopLevObj));
+
+#ifndef TCL_COMPILE_DEBUG
+	/* Peephole optimization. */
+	if (*(pc+6) == INST_POP) {
+	    tosPtr--;
+	    NEXT_INST_F(10, 0, 0);
+	}
+#endif
+	NEXT_INST_F(9, 0, 0);
+    }
+
+    case INST_L_SPLIT: {
+	int n;
+	Tcl_Obj *strObj = NULL;
+	Tcl_Obj *delimObj = NULL;
+	Tcl_Obj *limitObj = NULL;
+	unsigned int opnd = TclGetUInt4AtPtr(pc+1);
+
+	if (opnd & L_SPLIT_LIM) {
+	    ASSERT(opnd & (L_SPLIT_RE | L_SPLIT_STR));
+	    delimObj = OBJ_AT_DEPTH(2);
+	    strObj   = OBJ_AT_DEPTH(1);
+	    limitObj = OBJ_AT_DEPTH(0);
+	    n = 3;
+	} else if (opnd & (L_SPLIT_RE | L_SPLIT_STR)) {
+	    delimObj = OBJ_AT_DEPTH(1);
+	    strObj   = OBJ_AT_DEPTH(0);
+	    n = 2;
+	} else {
+	    strObj   = OBJ_AT_DEPTH(0);
+	    n = 1;
+	}
+	objResultPtr = L_split(interp, strObj, delimObj, limitObj, opnd);
+	if (!objResultPtr) {
+	    result = TCL_ERROR;
+	    goto checkForCatch;
+	}
+	TRACE_WITH_OBJ(("0x%x => ", opnd), objResultPtr);
+	NEXT_INST_V(5, n, 1);
+    }
+
+    case INST_L_DEFINED: {
+	objResultPtr = constants[(OBJ_AT_TOS)->undef == 0];
+	TRACE_WITH_OBJ(("=> "), objResultPtr);
+	NEXT_INST_F(1, 1, 1);
+    }
+
+    case INST_MARK_UNDEF: {
+	(OBJ_AT_TOS)->undef = 1;
+	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_PUSH_LIST_SIZE: {
+	int length;
+	Tcl_Obj *valuePtr;
+	L_DeepPtr *deepPtr;
+
+	valuePtr = OBJ_AT_TOS;
+
+	if (L_isDeepPtr(valuePtr)) {
+	    deepPtr = L_deepPtrGet(valuePtr);
+	    valuePtr = *deepPtr->elemPtrPtr;
+	}
+
+	result = TclListObjLength(interp, valuePtr, &length);
+	if (result == TCL_OK) {
+	    L_sizes_push(length - 1);
+	    TRACE(("%.20s => %d on L sizes stack\n", O2S(valuePtr), length));
+	    NEXT_INST_F(1, 0, 0);
+	} else {
+	    TRACE_WITH_OBJ(("%.30s => ERROR: ", O2S(valuePtr)),
+		    Tcl_GetObjResult(interp));
+	    goto checkForCatch;
+	}
+    }
+
+    case INST_L_PUSH_STR_SIZE: {
+	int length;
+	Tcl_Obj *valuePtr;
+	L_DeepPtr *deepPtr;
+
+	valuePtr = OBJ_AT_TOS;
+
+	if (L_isDeepPtr(valuePtr)) {
+	    deepPtr = L_deepPtrGet(valuePtr);
+	    valuePtr = *deepPtr->elemPtrPtr;
+	}
+
+	Tcl_GetUnicodeFromObj(valuePtr, &length);
+	L_sizes_push(length - 1);
+	TRACE(("%.20s => %d on L sizes stack\n", O2S(valuePtr), length));
+	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_READ_SIZE: {
+	int length = L_sizes_top();
+	objResultPtr = Tcl_NewIntObj(length);
+	TRACE(("=> %d\n", length));
+	NEXT_INST_F(1, 0, 1);
+    }
+
+    case INST_L_POP_SIZE: {
+	L_sizes_pop();
+	NEXT_INST_F(1, 0, 0);
+    }
+
+    case INST_L_PUSH_UNDEF: {
+	objResultPtr = *L_undefObjPtrPtr();
+	NEXT_INST_F(1, 0, 1);
+    }
+
+    case INST_L_LINDEX_STK: {
+	int listc;
+	Tcl_Obj *list = OBJ_AT_TOS;
+	Tcl_Obj **listv;
+	unsigned int i = TclGetUInt1AtPtr(pc+1);
+
+	result = TclListObjGetElements(interp, list, &listc, &listv);
+	if (result != TCL_OK) {
+	    goto checkForCatch;
+	}
+	if ((i >= 0) && (i < listc)) {
+	    objResultPtr = listv[i];
+	} else {
+	    objResultPtr = *L_undefObjPtrPtr();
+	}
+	NEXT_INST_F(2, 0, 1);
+    }
+
+    case INST_L_LIST_INSERT: {
+	int index, objc;
+	Tcl_Obj **objv;
+	Tcl_Obj *listPtr;
+	Tcl_Obj *indexPtr = POP_OBJECT();
+	Tcl_Obj *elemPtr = OBJ_AT_TOS;
+	unsigned int opnd = TclGetUInt4AtPtr(pc+1);
+	unsigned int flags = TclGetUInt4AtPtr(pc+5);
+	Var *varPtr = &(compiledLocals[opnd]);
+
+	while (TclIsVarLink(varPtr)) {
+	    varPtr = varPtr->value.linkPtr;
+	}
+	listPtr = varPtr->value.objPtr;
+	if (Tcl_IsShared(listPtr)) {
+	    listPtr = Tcl_DuplicateObj(listPtr);
+	    TclPtrSetVar(interp, varPtr, NULL, NULL, NULL, listPtr, 0, opnd);
+	}
+	if (TclGetIntFromObj(NULL, indexPtr, &index) != TCL_OK) {
+	    Tcl_ResetResult(interp);
+	    Tcl_AppendResult(interp, "cannot convert index to integer", NULL);
+	    result = TCL_ERROR;
+	    goto checkForCatch;
+	}
+	Tcl_DecrRefCount(indexPtr);
+	if (index == -1) index = INT_MAX;  // -1 means append
+	if (flags & L_INSERT_ELT) {
+	    result = Tcl_ListObjReplace(interp, listPtr, index, 0, 1, &elemPtr);
+	} else {
+	    ASSERT(flags & L_INSERT_LIST);
+	    Tcl_ListObjGetElements(interp, elemPtr, &objc, &objv);
+	    result = Tcl_ListObjReplace(interp, listPtr, index, 0, objc, objv);
+	}
+	if (result != TCL_OK) {
+	    goto checkForCatch;
+	}
+	NEXT_INST_F(9, 1, 0);
+    }
+
+    case INST_UNSET_LOCAL: {
+	unsigned int opnd = TclGetUInt4AtPtr(pc+1);
+	Var *varPtr = &compiledLocals[opnd];
+	Var *linkPtr;
+
+	/*
+	 * This is intended to delete L's local temp variables, which are
+	 * always scalars and never traced.
+	 */
+	if (TclIsVarLink(varPtr)) {
+	    linkPtr = varPtr->value.linkPtr;
+	    if (TclIsVarInHash(linkPtr)) {
+		VarHashRefCount(linkPtr)--;
+		if (TclIsVarUndefined(linkPtr)) {
+		    TclCleanupVar(linkPtr, NULL);
+		}
+	    }
+	    TclSetVarScalar(varPtr);
+	    varPtr->value.linkPtr = NULL;
+	} else unless (TclIsVarUndefined(varPtr)) {
+	    TclDecrRefCount(varPtr->value.objPtr);
+	    TclSetVarUndefined(varPtr);
+	}
+	NEXT_INST_F(5, 0, 0);
+    }
 
     default:
 	Tcl_Panic("TclNRExecuteByteCode: unrecognized opCode %u", *pc);
@@ -7390,7 +8024,312 @@ ExecuteExtendedBinaryMathOp(
 	    }
 	}
 
-	// XXX to do -- merge abandonded here.
+	/*
+	 * We refuse to accept exponent arguments that exceed one mp_digit
+	 * which means the max exponent value is 2**28-1 = 0x0fffffff =
+	 * 268435455, which fits into a signed 32 bit int which is within the
+	 * range of the long int type. This means any numeric Tcl_Obj value
+	 * not using TCL_NUMBER_LONG type must hold a value larger than we
+	 * accept.
+	 */
+
+	if (type2 != TCL_NUMBER_LONG) {
+	    Tcl_SetResult(interp, "exponent too large", TCL_STATIC);
+	    return GENERAL_ARITHMETIC_ERROR;
+	}
+
+	if (type1 == TCL_NUMBER_LONG) {
+	    if (l1 == 2) {
+		/*
+		 * Reduce small powers of 2 to shifts.
+		 */
+
+		if ((unsigned long) l2 < CHAR_BIT * sizeof(long) - 1) {
+		    LONG_RESULT(1L << l2);
+		}
+#if !defined(TCL_WIDE_INT_IS_LONG)
+		if ((unsigned long)l2 < CHAR_BIT*sizeof(Tcl_WideInt) - 1) {
+		    WIDE_RESULT(((Tcl_WideInt) 1) << l2);
+		}
+#endif
+		goto overflowExpon;
+	    }
+	    if (l1 == -2) {
+		int signum = oddExponent ? -1 : 1;
+
+		/*
+		 * Reduce small powers of 2 to shifts.
+		 */
+
+		if ((unsigned long) l2 < CHAR_BIT * sizeof(long) - 1) {
+		    LONG_RESULT(signum * (1L << l2));
+		}
+#if !defined(TCL_WIDE_INT_IS_LONG)
+		if ((unsigned long)l2 < CHAR_BIT*sizeof(Tcl_WideInt) - 1){
+		    WIDE_RESULT(signum * (((Tcl_WideInt) 1) << l2));
+		}
+#endif
+		goto overflowExpon;
+	    }
+#if (LONG_MAX == 0x7fffffff)
+	    if (l2 - 2 < (long)MaxBase32Size
+		    && l1 <= MaxBase32[l2 - 2]
+		    && l1 >= -MaxBase32[l2 - 2]) {
+		/*
+		 * Small powers of 32-bit integers.
+		 */
+
+		lResult = l1 * l1;		/* b**2 */
+		switch (l2) {
+		case 2:
+		    break;
+		case 3:
+		    lResult *= l1;		/* b**3 */
+		    break;
+		case 4:
+		    lResult *= lResult;		/* b**4 */
+		    break;
+		case 5:
+		    lResult *= lResult;		/* b**4 */
+		    lResult *= l1;		/* b**5 */
+		    break;
+		case 6:
+		    lResult *= l1;		/* b**3 */
+		    lResult *= lResult;		/* b**6 */
+		    break;
+		case 7:
+		    lResult *= l1;		/* b**3 */
+		    lResult *= lResult;		/* b**6 */
+		    lResult *= l1;		/* b**7 */
+		    break;
+		case 8:
+		    lResult *= lResult;		/* b**4 */
+		    lResult *= lResult;		/* b**8 */
+		    break;
+		}
+		LONG_RESULT(lResult);
+	    }
+
+	    if (l1 - 3 >= 0 && l1 -2 < (long)Exp32IndexSize
+		    && l2 - 2 < (long)(Exp32ValueSize + MaxBase32Size)) {
+		base = Exp32Index[l1 - 3]
+			+ (unsigned short) (l2 - 2 - MaxBase32Size);
+		if (base < Exp32Index[l1 - 2]) {
+		    /*
+		     * 32-bit number raised to intermediate power, done by
+		     * table lookup.
+		     */
+
+		    LONG_RESULT(Exp32Value[base]);
+		}
+	    }
+	    if (-l1 - 3 >= 0 && -l1 - 2 < (long)Exp32IndexSize
+		    && l2 - 2 < (long)(Exp32ValueSize + MaxBase32Size)) {
+		base = Exp32Index[-l1 - 3]
+			+ (unsigned short) (l2 - 2 - MaxBase32Size);
+		if (base < Exp32Index[-l1 - 2]) {
+		    /*
+		     * 32-bit number raised to intermediate power, done by
+		     * table lookup.
+		     */
+
+		    lResult = (oddExponent) ?
+			    -Exp32Value[base] : Exp32Value[base];
+		    LONG_RESULT(lResult);
+		}
+	    }
+#endif
+	}
+#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
+	if (type1 == TCL_NUMBER_LONG) {
+	    w1 = l1;
+#ifndef NO_WIDE_TYPE
+	} else if (type1 == TCL_NUMBER_WIDE) {
+	    w1 = *((const Tcl_WideInt *) ptr1);
+#endif
+	} else {
+	    goto overflowExpon;
+	}
+	if (l2 - 2 < (long)MaxBase64Size
+		&& w1 <=  MaxBase64[l2 - 2]
+		&& w1 >= -MaxBase64[l2 - 2]) {
+	    /*
+	     * Small powers of integers whose result is wide.
+	     */
+
+	    wResult = w1 * w1;		/* b**2 */
+	    switch (l2) {
+	    case 2:
+		break;
+	    case 3:
+		wResult *= l1;		/* b**3 */
+		break;
+	    case 4:
+		wResult *= wResult;	/* b**4 */
+		break;
+	    case 5:
+		wResult *= wResult;	/* b**4 */
+		wResult *= w1;		/* b**5 */
+		break;
+	    case 6:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		break;
+	    case 7:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		wResult *= w1;		/* b**7 */
+		break;
+	    case 8:
+		wResult *= wResult;	/* b**4 */
+		wResult *= wResult;	/* b**8 */
+		break;
+	    case 9:
+		wResult *= wResult;	/* b**4 */
+		wResult *= wResult;	/* b**8 */
+		wResult *= w1;		/* b**9 */
+		break;
+	    case 10:
+		wResult *= wResult;	/* b**4 */
+		wResult *= w1;		/* b**5 */
+		wResult *= wResult;	/* b**10 */
+		break;
+	    case 11:
+		wResult *= wResult;	/* b**4 */
+		wResult *= w1;		/* b**5 */
+		wResult *= wResult;	/* b**10 */
+		wResult *= w1;		/* b**11 */
+		break;
+	    case 12:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		wResult *= wResult;	/* b**12 */
+		break;
+	    case 13:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		wResult *= wResult;	/* b**12 */
+		wResult *= w1;		/* b**13 */
+		break;
+	    case 14:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		wResult *= w1;		/* b**7 */
+		wResult *= wResult;	/* b**14 */
+		break;
+	    case 15:
+		wResult *= w1;		/* b**3 */
+		wResult *= wResult;	/* b**6 */
+		wResult *= w1;		/* b**7 */
+		wResult *= wResult;	/* b**14 */
+		wResult *= w1;		/* b**15 */
+		break;
+	    case 16:
+		wResult *= wResult;	/* b**4 */
+		wResult *= wResult;	/* b**8 */
+		wResult *= wResult;	/* b**16 */
+		break;
+	    }
+	    WIDE_RESULT(wResult);
+	}
+
+	/*
+	 * Handle cases of powers > 16 that still fit in a 64-bit word by
+	 * doing table lookup.
+	 */
+
+	if (w1 - 3 >= 0 && w1 - 2 < (long)Exp64IndexSize
+		&& l2 - 2 < (long)(Exp64ValueSize + MaxBase64Size)) {
+	    base = Exp64Index[w1 - 3]
+		    + (unsigned short) (l2 - 2 - MaxBase64Size);
+	    if (base < Exp64Index[w1 - 2]) {
+		/*
+		 * 64-bit number raised to intermediate power, done by
+		 * table lookup.
+		 */
+
+		WIDE_RESULT(Exp64Value[base]);
+	    }
+	}
+
+	if (-w1 - 3 >= 0 && -w1 - 2 < (long)Exp64IndexSize
+		&& l2 - 2 < (long)(Exp64ValueSize + MaxBase64Size)) {
+	    base = Exp64Index[-w1 - 3]
+		    + (unsigned short) (l2 - 2 - MaxBase64Size);
+	    if (base < Exp64Index[-w1 - 2]) {
+		/*
+		 * 64-bit number raised to intermediate power, done by
+		 * table lookup.
+		 */
+
+		wResult = oddExponent ? -Exp64Value[base] : Exp64Value[base];
+		WIDE_RESULT(wResult);
+	    }
+	}
+#endif
+
+    overflowExpon:
+	Tcl_TakeBignumFromObj(NULL, value2Ptr, &big2);
+	if (big2.used > 1) {
+	    mp_clear(&big2);
+	    Tcl_SetResult(interp, "exponent too large", TCL_STATIC);
+	    return GENERAL_ARITHMETIC_ERROR;
+	}
+	Tcl_TakeBignumFromObj(NULL, valuePtr, &big1);
+	mp_init(&bigResult);
+	mp_expt_d(&big1, big2.dp[0], &bigResult);
+	mp_clear(&big1);
+	mp_clear(&big2);
+	BIG_RESULT(&bigResult);
+    }
+
+    case INST_ADD:
+    case INST_SUB:
+    case INST_MULT:
+    case INST_DIV:
+	if ((type1 == TCL_NUMBER_DOUBLE) || (type2 == TCL_NUMBER_DOUBLE)) {
+	    /*
+	     * At least one of the values is floating-point, so perform
+	     * floating point calculations.
+	     */
+
+	    Tcl_GetDoubleFromObj(NULL, valuePtr, &d1);
+	    Tcl_GetDoubleFromObj(NULL, value2Ptr, &d2);
+
+	    switch (opcode) {
+	    case INST_ADD:
+		dResult = d1 + d2;
+		break;
+	    case INST_SUB:
+		dResult = d1 - d2;
+		break;
+	    case INST_MULT:
+		dResult = d1 * d2;
+		break;
+	    case INST_DIV:
+#ifndef IEEE_FLOATING_POINT
+		if (d2 == 0.0) {
+		    return DIVIDED_BY_ZERO;
+		}
+#endif
+		/*
+		 * We presume that we are running with zero-divide unmasked if
+		 * we're on an IEEE box. Otherwise, this statement might cause
+		 * demons to fly out our noses.
+		 */
+
+		dResult = d1 / d2;
+		break;
+	    default:
+		/* Unused, here to silence compiler warning. */
+		dResult = 0;
+	    }
+
+	doubleResult:
+#ifndef ACCEPT_NAN
+	    /*
+	     * Check now for IEEE floating-point error.
+	     */
 
 	    if (TclIsNaN(dResult)) {
 		TclExprFloatError(interp, dResult);

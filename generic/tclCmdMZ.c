@@ -293,13 +293,13 @@ Tcl_RegexpObjCmd(
 	return TclRegexpClassic(interp, objc, objv, regExpr,
 		all, indices, doinline, offset);
     } else {
-        if (about) {
-            /* XXX: implement PCRE about */
-            return TCL_OK;
-        }
+	if (about) {
+	    /* XXX: implement PCRE about */
+	    return TCL_OK;
+	}
 
-        return TclRegexpPCRE(interp, objc, objv, regExpr,
-                all, indices, doinline, offset);
+	return TclRegexpPCRE(interp, objc, objv, regExpr,
+		all, indices, doinline, offset);
     }
 }
 
