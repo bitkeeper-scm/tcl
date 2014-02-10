@@ -1879,7 +1879,8 @@ TclNREvalFile(
     Interp *iPtr;
     Tcl_Channel chan;
 #ifdef	BK
-    int	oldbk;
+    int	length, oldbk;
+    char *string;
 #endif
 
     if (Tcl_FSGetNormalizedPath(interp, pathPtr) == NULL) {

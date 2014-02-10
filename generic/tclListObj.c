@@ -1988,10 +1988,7 @@ TclDuplicateListRep(Tcl_Obj *objPtr)
     if (listRepPtr->refCount > 1) {
 	oldListRepPtr = listRepPtr;
 	numElems = listRepPtr->elemCount;
-	listRepPtr = NewListIntRep(listRepPtr->maxElemCount, NULL);
-	if (!listRepPtr) {
-	    Tcl_Panic("Not enough memory to allocate list");
-	}
+	listRepPtr = NewListIntRep(listRepPtr->maxElemCount, NULL, 1);
 	oldElems = &oldListRepPtr->elements;
 	elemPtrs = &listRepPtr->elements;
 	for (i=0; i<numElems; i++) {

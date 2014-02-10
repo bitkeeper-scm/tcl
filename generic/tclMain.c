@@ -553,11 +553,11 @@ Tcl_MainEx(
 	     * Check for the #lang comments and sub them out for
 	     * meaningful commands.
 	     */
-	    commandStr = Tcl_GetStringFromObj(commandPtr, &commandLen);
+	    commandStr = Tcl_GetStringFromObj(is.commandPtr, &commandLen);
 	    if (!isL && strncasecmp(commandStr, "#lang l", 7) == 0) {
-		Tcl_SetStringObj(commandPtr, "set ::L 1", -1);
+		Tcl_SetStringObj(is.commandPtr, "set ::L 1", -1);
 	    } else if (isL && strncasecmp(commandStr, "#lang tcl", 9) == 0) {
-		Tcl_SetStringObj(commandPtr, "set('::L',0);", -1);
+		Tcl_SetStringObj(is.commandPtr, "set('::L',0);", -1);
 	    }
 
 	    /*
@@ -581,14 +581,14 @@ Tcl_MainEx(
 
 	    if (isL) {
 	    	LObj = Tcl_NewStringObj("L {", -1);
-		Tcl_AppendObjToObj(LObj, commandPtr);
+		Tcl_AppendObjToObj(LObj, is.commandPtr);
 		if (commandStr[commandLen-1] != ';') {
 		    Tcl_AppendToObj(LObj, ";", -1);
 		}
 		Tcl_AppendToObj(LObj, "}\n", -1);
-		Tcl_DecrRefCount(commandPtr);
-		commandPtr = LObj;
-		Tcl_IncrRefCount(commandPtr);
+		Tcl_DecrRefCount(is.commandPtr);
+		is.commandPtr = LObj;
+		Tcl_IncrRefCount(is.commandPtr);
 	    }
 
 	    /*
