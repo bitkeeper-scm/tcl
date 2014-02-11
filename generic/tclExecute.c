@@ -4735,18 +4735,19 @@ TEBCresume(
 	    /* L undef never equals anything that's defined. */
 	    switch (*pc) {
 		case INST_EQ:
+		case INST_STR_EQ:
 		case INST_LT:
 		case INST_LE:
-		case INST_GT:
-		case INST_GE:
-		case INST_STR_EQ:
-		case INST_STR_CMP:
-		    match = 0;
-		    break;
 		case INST_NEQ:
 		case INST_STR_NEQ:
-		default:
 		    match = 1;
+		    break;
+		case INST_GT:
+		case INST_GE:
+		    match = -1;
+		    break;
+		case INST_STR_CMP:
+		    match = 0;
 		    break;
 	    }
 	} else {
@@ -4779,8 +4780,8 @@ TEBCresume(
 		s2len = Tcl_GetCharLength(value2Ptr);
 		if ((s1len == valuePtr->length)
 			&& (s2len == value2Ptr->length)) {
-		    s1 = valuePtr->bytes;
-		    s2 = value2Ptr->bytes;
+		    s1 = TclGetString(valuePtr);
+		    s2 = TclGetString(value2Ptr);
 		    memCmpFn = memcmp;
 		} else {
 		    s1 = (char *) Tcl_GetUnicode(valuePtr);
