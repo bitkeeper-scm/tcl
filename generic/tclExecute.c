@@ -4729,9 +4729,7 @@ TEBCresume(
 	value2Ptr = OBJ_AT_TOS;
 	valuePtr = OBJ_UNDER_TOS;
 
-	if (valuePtr == value2Ptr) {
-	    match = 0;
-	} else if (valuePtr->undef ^ value2Ptr->undef) {
+	if (valuePtr->undef ^ value2Ptr->undef) {
 	    /* L undef never equals anything that's defined. */
 	    switch (*pc) {
 		case INST_EQ:
@@ -4750,6 +4748,8 @@ TEBCresume(
 		    match = 0;
 		    break;
 	    }
+	} else if (valuePtr == value2Ptr) {
+	    match = 0;
 	} else {
 	    /*
 	     * We only need to check (in)equality when we have equal length
