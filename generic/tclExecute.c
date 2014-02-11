@@ -5071,19 +5071,6 @@ TEBCresume(
 
 	/* L undef never equals anything that's defined. */
 	if (valuePtr->undef ^ value2Ptr->undef) {
-	    switch (*pc) {
-		case INST_EQ:
-		case INST_LT:
-		case INST_LE:
-		case INST_GT:
-		case INST_GE:
-		    iResult = 0;
-		    break;
-		case INST_NEQ:
-		default:
-		    iResult = 1;
-		    break;
-	    }
 	    iResult = (*pc == INST_NEQ);
 	    goto foundResult;
 	}
