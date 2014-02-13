@@ -421,6 +421,20 @@ InstructionDesc const tclInstructionTable[] = {
 	/* Make general variable cease to exist; unparsed variable name is
 	 * stktop; op1 is 1 for errors on problems, 0 otherwise */
 
+    {"dictExpand",       1,    -1,        0,    {OPERAND_NONE}},
+        /* Probe into a dict and extract it (or a subdict of it) into
+         * variables with matched names. Produces list of keys bound as
+         * result. Part of [dict with].
+	 * Stack:  ... dict path => ... keyList */
+    {"dictRecombineStk", 1,    -3,        0,    {OPERAND_NONE}},
+        /* Map variable contents back into a dictionary in a variable. Part of
+         * [dict with].
+	 * Stack:  ... dictVarName path keyList => ... */
+    {"dictRecombineImm", 1,    -2,        1,    {OPERAND_LVT4}},
+        /* Map variable contents back into a dictionary in the local variable
+         * indicated by the LVT index. Part of [dict with].
+	 * Stack:  ... path keyList => ... */
+
     {NULL, 0, 0, 0, {OPERAND_NONE}}
 };
 
@@ -1647,8 +1661,8 @@ TclCompileScript(
 		     * have side effects that rely on the unmodified string.
 		     */
 
-		    Tcl_DStringSetLength(&ds, 0);
-		    Tcl_DStringAppend(&ds, tokenPtr[1].start,tokenPtr[1].size);
+		    TclDStringClear(&ds);
+		    TclDStringAppendToken(&ds, &tokenPtr[1]);
 
 		    cmdPtr = (Command *) Tcl_FindCommand(interp,
 			    Tcl_DStringValue(&ds),
@@ -2030,7 +2044,7 @@ TclCompileTokens(
     for ( ;  count > 0;  count--, tokenPtr++) {
 	switch (tokenPtr->type) {
 	case TCL_TOKEN_TEXT:
-	    Tcl_DStringAppend(&textBuffer, tokenPtr->start, tokenPtr->size);
+	    TclDStringAppendToken(&textBuffer, tokenPtr);
 	    TclAdvanceLines(&envPtr->line, tokenPtr->start,
 		    tokenPtr->start + tokenPtr->size);
 	    break;
@@ -2077,9 +2091,7 @@ TclCompileTokens(
 	     */
 
 	    if (Tcl_DStringLength(&textBuffer) > 0) {
-		int literal = TclRegisterNewLiteral(envPtr,
-			Tcl_DStringValue(&textBuffer),
-			Tcl_DStringLength(&textBuffer));
+		int literal = TclRegisterDStringLiteral(envPtr, &textBuffer);
 
 		TclEmitPush(literal, envPtr);
 		numObjsToConcat++;
@@ -2106,9 +2118,7 @@ TclCompileTokens(
 	    if (Tcl_DStringLength(&textBuffer) > 0) {
 		int literal;
 
-		literal = TclRegisterNewLiteral(envPtr,
-			Tcl_DStringValue(&textBuffer),
-			Tcl_DStringLength(&textBuffer));
+		literal = TclRegisterDStringLiteral(envPtr, &textBuffer);
 		TclEmitPush(literal, envPtr);
 		numObjsToConcat++;
 		Tcl_DStringFree(&textBuffer);
@@ -2131,13 +2141,10 @@ TclCompileTokens(
      */
 
     if (Tcl_DStringLength(&textBuffer) > 0) {
-	int literal;
+	int literal = TclRegisterDStringLiteral(envPtr, &textBuffer);
 
-	literal = TclRegisterNewLiteral(envPtr, Tcl_DStringValue(&textBuffer),
-		Tcl_DStringLength(&textBuffer));
 	TclEmitPush(literal, envPtr);
 	numObjsToConcat++;
-
 	if (numCL) {
 	    TclContinuationsEnter(envPtr->literalArrayPtr[literal].objPtr,
 		    numCL, clPosition);
@@ -2449,8 +2456,16 @@ TclInitByteCodeObj(
 	     * a value contains a literal which is that same value.
 	     * If this is allowed to happen, refcount decrements may not
 	     * reach zero, and memory may leak.  Bugs 467523, 3357771
+	     *
+	     * NOTE:  [Bugs 3392070, 3389764] We make a copy based completely
+	     * on the string value, and do not call Tcl_DuplicateObj() so we
+             * can be sure we do not have any lingering cycles hiding in
+	     * the intrep.
 	     */
-	    codePtr->objArrayPtr[i] = Tcl_DuplicateObj(objPtr);
+	    int numBytes;
+	    const char *bytes = Tcl_GetStringFromObj(objPtr, &numBytes);
+
+	    codePtr->objArrayPtr[i] = Tcl_NewStringObj(bytes, numBytes);
 	    Tcl_IncrRefCount(codePtr->objArrayPtr[i]);
 	    Tcl_DecrRefCount(objPtr);
 	} else {
@@ -3550,6 +3565,7 @@ TclInitAuxDataTypeTable(void)
 
     TclRegisterAuxDataType(&tclForeachInfoType);
     TclRegisterAuxDataType(&tclJumptableInfoType);
+    TclRegisterAuxDataType(&tclDictUpdateInfoType);
 }
 
 /*
@@ -4570,12 +4586,13 @@ RecordByteCodeStats(
 				 * to add to accumulated statistics. */
 {
     Interp *iPtr = (Interp *) *codePtr->interpHandle;
-    register ByteCodeStats *statsPtr = &iPtr->stats;
+    register ByteCodeStats *statsPtr;
 
     if (iPtr == NULL) {
 	/* Avoid segfaulting in case we're called in a deleted interp */
 	return;
     }
+    statsPtr = &(iPtr->stats);
 
     statsPtr->numCompilations++;
     statsPtr->totalSrcBytes += (double) codePtr->numSrcBytes;
