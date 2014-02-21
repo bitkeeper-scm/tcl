@@ -785,9 +785,10 @@ typedef struct ByteCode {
 #define INST_L_LIST_INSERT		178
 #define INST_UNSET_LOCAL		179
 #define INST_MARK_UNDEF			180
+#define INST_DIFFERENT_OBJ		181
 
 /* The last opcode */
-#define LAST_INST_OPCODE		180
+#define LAST_INST_OPCODE		181
 
 /*
  * Table describing the Tcl bytecode instructions: their name (for displaying
