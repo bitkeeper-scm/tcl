@@ -8,7 +8,6 @@
 #include "tclInt.h"
 #include "tclCompile.h"
 #include "Last.h"
-#include "Lver.h"
 
 #ifndef TRUE
 #define TRUE 1

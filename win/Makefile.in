@@ -98,20 +98,11 @@ SRC_DIR			= @srcdir@
 ROOT_DIR		= @srcdir@/..
 TOP_DIR			= $(shell cd @srcdir@/..; pwd -P)
 GENERIC_DIR		= $(TOP_DIR)/generic
-TOMMATH_DIR		= @TOMMATH_DIR@
+TOMMATH_DIR		= $(TOP_DIR)/libtommath
 WIN_DIR			= $(TOP_DIR)/win
 COMPAT_DIR		= $(TOP_DIR)/compat
 PKGS_DIR		= $(TOP_DIR)/pkgs
 ZLIB_DIR		= $(COMPAT_DIR)/zlib
-BK_DIR			= @BK_DIR@
-BK_INCLUDES		= @BK_INCLUDES@
-@BK_LIBS@
-@BK_OBJS@
-@BK_HDRS@
-ifdef BK_DIR
-BK_LIBS			= $(BK_DIR)/tomcrypt/libtomcrypt.a
-TOMMATH_DIR		= $(BK_DIR)/tommath
-endif
 
 # Converts a POSIX path to a Windows native path.
 CYGPATH			= @CYGPATH@
@@ -176,9 +167,7 @@ TCL_EXE			= @TCL_EXE@
 # Setting the VPATH variable to a list of paths will cause the Makefile to
 # look into these paths when resolving .c to .obj dependencies.
 
-# TOMMMATH_DIR should NOT go in the VPATH, as we don't want objects
-# in that directory being reused.
-VPATH = $(GENERIC_DIR):$(WIN_DIR):$(COMPAT_DIR):$(ZLIB_DIR)
+VPATH = $(GENERIC_DIR):$(TOMMATH_DIR):$(WIN_DIR):$(COMPAT_DIR):$(ZLIB_DIR)
 
 AR		= @AR@
 RANLIB		= @RANLIB@
@@ -199,7 +188,7 @@ SHLIB_LD	= @SHLIB_LD@
 SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
 SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_SUFFIX	= @SHLIB_SUFFIX@
-LIBS		= @LIBS@ $(BK_LIBS) @PCRE_LIBS@ @ZLIB_LIBS@
+LIBS		= @LIBS@ @PCRE_LIBS@ @ZLIB_LIBS@
 
 RMDIR		= rm -rf
 MKDIR		= mkdir -p
@@ -210,8 +199,7 @@ COPY		= cp
 CC_SWITCHES = ${CFLAGS} ${CFLAGS_WARNING} ${TCL_SHLIB_CFLAGS} \
 -I"${ZLIB_DIR_NATIVE}" -I"${GENERIC_DIR_NATIVE}" -DTCL_TOMMATH \
 -DMP_PREC=4 -I"${TOMMATH_DIR_NATIVE}" -I"${WIN_DIR_NATIVE}" \
-@PCRE_INCLUDE@ ${AC_FLAGS} ${COMPILE_DEBUG_FLAGS} ${NO_DEPRECATED_FLAGS} \
-${BK_INCLUDES}
+@PCRE_INCLUDE@ ${AC_FLAGS} ${COMPILE_DEBUG_FLAGS} ${NO_DEPRECATED_FLAGS}
 
 CC_OBJNAME = @CC_OBJNAME@
 CC_EXENAME = @CC_EXENAME@
@@ -442,8 +430,7 @@ ZLIB_OBJS = \
 	uncompr.$(OBJEXT) \
 	zutil.$(OBJEXT)
 
-TCL_OBJS = ${GENERIC_OBJS} $(TOMMATH_OBJS) ${WIN_OBJS} @ZLIB_OBJS@ \
-	$(L_OBJS) ${BK_OBJS}
+TCL_OBJS = ${GENERIC_OBJS} $(TOMMATH_OBJS) ${WIN_OBJS} @ZLIB_OBJS@ $(L_OBJS)
 
 TCL_DOCS = "$(ROOT_DIR_NATIVE)"/doc/*.[13n]
 
@@ -451,7 +438,7 @@ all: binaries libraries doc packages
 
 tcltest: $(TCLSH) $(TEST_DLL_FILE)
 
-binaries: $(TCL_STUB_LIB_FILE) @LIBRARIES@ $(DDE_DLL_FILE) $(REG_DLL_FILE) $(TCLSH) $(TCLTEST)
+binaries: $(TCL_STUB_LIB_FILE) @LIBRARIES@ $(DDE_DLL_FILE) $(REG_DLL_FILE) $(TCLSH)
 
 libraries:
 
@@ -561,10 +548,6 @@ tclTomMathStubLib.${OBJEXT}: tclTomMathStubLib.c
 tclOOStubLib.${OBJEXT}: tclOOStubLib.c
 	$(CC) -c $(CC_SWITCHES) -DSTATIC_BUILD @DEPARG@ $(CC_OBJNAME)
 
-# Implicit rule for all object files that will end up in the Tcl library
-tclIOUtil.$(OBJEXT): $(BK_HDRS)
-tclPipe.$(OBJEXT): $(BK_HDRS)
-
 Lscanner.c: $(GENERIC_DIR)/Lscanner.l $(L_HDRS) $(GENERIC_DIR)/Lgrammar.c
 	flex -PL_ -o$@ $(GENERIC_DIR)/Lscanner.l
 
@@ -586,11 +569,10 @@ Lgetopt.$(OBJEXT): $(GENERIC_DIR)/Lgetopt.c $(L_HDRS)
 Last.$(OBJEXT): $(GENERIC_DIR)/Last.c $(L_HDRS) 
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(GENERIC_DIR)/Last.c
 
+# Implicit rule for all object files that will end up in the Tcl library
+
 %.${OBJEXT}: %.c
 	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl @DEPARG@ $(CC_OBJNAME)
-
-$(TOMMATH_OBJS): %.${OBJEXT}: $(TOMMATH_DIR)/%.c
-	$(CC) -c $(CC_SWITCHES) -DBUILD_tcl "$<" -o "$@"
 
 .rc.$(RES):
 	$(RC) @RC_OUT@ $@ @RC_TYPE@ @RC_DEFINES@ @RC_INCLUDE@ "$(GENERIC_DIR_NATIVE)" @RC_INCLUDE@ "$(WIN_DIR_NATIVE)" @DEPARG@
@@ -776,7 +758,6 @@ l-test l-tests test-l test-L:
 
 # Useful target to launch a built tclsh with the proper path,...
 runtest: binaries $(TCLSH) $(TEST_DLL_FILE)
-
 	@TCL_LIBRARY="$(LIBRARY_DIR)"; export TCL_LIBRARY; \
 	./$(TCLSH) $(TESTFLAGS) -load "package ifneeded Tcltest ${VERSION}@TCL_PATCH_LEVEL@ [list load [file normalize ${TEST_DLL_FILE}] Tcltest]; \
 	package ifneeded dde 1.4.0 [list load [file normalize ${DDE_DLL_FILE}] dde]; \

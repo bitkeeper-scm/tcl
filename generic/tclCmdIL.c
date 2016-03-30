@@ -110,10 +110,8 @@ static int		IfConditionCallback(ClientData data[],
 			    Tcl_Interp *interp, int result);
 static int		InfoArgsCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
-#ifdef	INFO_BODY_ENABLED
 static int		InfoBodyCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
-#endif
 static int		InfoCmdCountCmd(ClientData dummy, Tcl_Interp *interp,
 			    int objc, Tcl_Obj *const objv[]);
 static int		InfoCommandsCmd(ClientData dummy, Tcl_Interp *interp,
@@ -165,9 +163,7 @@ static Tcl_Obj *	SelectObjFromSublist(Tcl_Obj *firstPtr,
 
 static const EnsembleImplMap defaultInfoMap[] = {
     {"args",		   InfoArgsCmd,		    TclCompileBasic1ArgCmd, NULL, NULL, 0},
-#ifdef INFO_BODY_ENABLED
     {"body",		   InfoBodyCmd,		    TclCompileBasic1ArgCmd, NULL, NULL, 0},
-#endif
     {"cmdcount",	   InfoCmdCountCmd,	    TclCompileBasic0ArgCmd, NULL, NULL, 0},
     {"commands",	   InfoCommandsCmd,	    TclCompileInfoCommandsCmd, NULL, NULL, 0},
     {"complete",	   InfoCompleteCmd,	    TclCompileBasic1ArgCmd, NULL, NULL, 0},
@@ -521,7 +517,6 @@ InfoArgsCmd(
     return TCL_OK;
 }
 
-#ifdef	INFO_BODY_ENABLED
 /*
  *----------------------------------------------------------------------
  *
@@ -591,7 +586,6 @@ InfoBodyCmd(
     Tcl_SetObjResult(interp, resultPtr);
     return TCL_OK;
 }
-#endif
 
 /*
  *----------------------------------------------------------------------
