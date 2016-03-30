@@ -444,37 +444,6 @@ test opts-8 {test -poly command-line option} -setup {
 	removeFile $file
 } -output "4\n4\n"
 
-test opts-8.1 {test -version command-line option} -setup {
-	set fname [makeFile { puts("opts-8.1 bad"); } opts8.1.l .]
-} -body {
-#lang L --line=1
-void opts_8_1()
-{
-	int	ret;
-	string	cmd, err, out;
-
-	cmd = "\"${eval('interpreter')}\" --version opts8.1.l";
-	ret = system(cmd, undef, &out, &err);
-	unless (ret == 0) puts("bad 1.1");
-	if (err) puts("bad 1.2");
-	if (out =~ /opts-8.1 bad/) puts("bad 1.3");
-	unless (out =~ /L version is/) puts("bad 1.4");
-	unless (out =~ /Built by:/) puts("bad 1.5");
-	unless (out =~ /Built in:/) puts("bad 1.6");
-	unless (out =~ /Built on:/) puts("bad 1.7");
-
-	cmd = "\"${eval('interpreter')}\" -version opts8.1.l";
-	ret = system(cmd, undef, &out, &err);
-	unless (ret == 0) puts("bad 1.1");
-	if (err) puts("bad 1.2");
-	if (out =~ /opts-8.1 bad/) puts("bad 1.3");
-	unless (out =~ /L version is/) puts("bad 1.4");
-	unless (out =~ /Built by:/) puts("bad 1.5");
-	unless (out =~ /Built on:/) puts("bad 1.6");
-}
-opts_8_1();
-} -output {}
-
 test opts-9 {test multiple command-line options} -setup {
 	set file [makeFile {
 			private void f() {
