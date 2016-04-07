@@ -1,0 +1,12 @@
+*.o
+*.so
+*.a
+unix/Makefile
+unix/config.log
+unix/config.status
+unix/dltest.marker
+unix/dltest/Makefile
+unix/tcl.pc
+unix/tclConfig.sh
+unix/tclsh
+unix/tcltest
