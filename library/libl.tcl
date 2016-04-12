@@ -55,9 +55,10 @@ proc %%check_L_fns {} {
 	}
 }
 
-# This loads the Lversion() command created by the build.
+# This loads the Lver() command created by the build.
 if {[file exists [file join $::tcl_library Lver.tcl]]} {
 	source [file join $::tcl_library Lver.tcl]
+	package provide L [Lver]
 }
 
 #lang L
@@ -763,10 +764,10 @@ printf(FMT fmt, ...args)
 }
 
 string
-require(string packageName)
+require(...args)
 {
 	try {
-		return (Package_require(packageName));
+		return (Package_require((expand)args));
 	} catch {
 		return (undef);
 	}

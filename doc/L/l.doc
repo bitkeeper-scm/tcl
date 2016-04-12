@@ -2111,9 +2111,11 @@ Rename a file.
 Return 0 on success, -1 on error.
 
 =proto string require(string packageName)
+=proto string require(string packageName, string version)
 
 Find and load the given Tcl package packageName.  Return the version
 string of the package loaded on success, and undef on error.
+The second form is used when only when the given version is acceptable.
 
 =proto int rmdir(string dir)
 

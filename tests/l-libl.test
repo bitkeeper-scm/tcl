@@ -1892,6 +1892,19 @@ void require1()
 require1();
 } -output {}
 
+test require-2 {test package version number} -body {
+#lang L --line=1
+void require2()
+{
+	string	v = Lver();
+
+	unless (require("L", v) == v) puts("bad 1");
+	if (require("L", (float)v+1.0)) puts("bad 2");
+	if (require("L", (float)v+0.1)) puts("bad 3");
+}
+require2();
+} -output {}
+
 test rmdir-1 {test rmdir} -setup {
 	set fdirname1 rmdir1
 	set fdirname2 {rm dir 2}
