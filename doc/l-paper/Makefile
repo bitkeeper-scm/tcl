@@ -1,8 +1,8 @@
-l.pdf: l.ps l.ms
-	ps2pdf l.ps
+little.pdf: little.ps little.ms
+	ps2pdf $<
 
-l.ps: l.ms references
-	groff -e -R -ms -p -t l.ms > l.ps
+little.ps: little.ms references
+	groff -e -R -ms -p -t $< > $@
 
-g: l.ms references
-	g groff -e -R -ms -p -t l.ms 
+g: little.ms references
+	g groff -e -R -ms -p -t $<

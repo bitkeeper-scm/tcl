@@ -1,31 +1,34 @@
-all: L.1 L.txt L.html
+TITLE="L Programmer's Reference Guide"
 
-L.man: l.doc pod2man
-	sed s/=proto/=item/ < l.doc > L.pod
-	./pod2man -r L-beta -c "L Programmer's Reference Guide" L.pod L.man
-	rm -f L.pod
+all: little.1 little.txt little.html
 
-L.html: l.doc pod2html.l FORCE
-	./pod2html.l --title="L Programmer's Reference Guide" l.doc > L.html
-	-@test -d /home/lm/public_html/ && cp L.html /home/lm/public_html/
+little.man: little.pod pod2man
+	./pod2man -r L-beta -c $(TITLE) $< $@
 
-L.1: L.man
-	nroff -man L.man > L.1
+little.html: little.doc pod2html.l
+	./pod2html.l --title=$(TITLE) $< > $@
 
-L.txt: L.man
-	nroff -man L.man | colcrt - > L.txt
+%.pod: %.doc
+	sed s/=proto/=item/ < $< > $@
 
-x: L.man
-	groff -man L.man > L.ps
-	gv L.ps
+%.1: %.man
+	nroff -man $< > $@
+
+%.txt: %.1
+	colcrt $< > $@
+
+%.ps: %.man
+	groff -man $< > $@
+
+x: little.ps
+	gv little.ps
 
 clean:
-	rm -rf L.man L.1 L.txt L.ps l.shar L-docs L.html
+	rm -rf little.man little.pod little.1 little.txt little.ps \
+	    little.shar L-docs little.html
 
-shar: l.doc pod2man Makefile
+shar: little.doc pod2man Makefile
 	rm -rf L-docs
 	mkdir L-docs
-	cp l.doc pod2man Makefile L-docs
-	shar L-docs > l.shar
-
-FORCE:
+	cp little.doc pod2man Makefile L-docs
+	shar L-docs > little.shar
