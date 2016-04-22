@@ -1,5 +1,12 @@
+ifeq "$(shell uname -s)" "Darwin"
+	PS2PDF	:= pstopdf
+	OUT	= -o $@
+else
+	PS2PDF	:= ps2pdf
+endif
+
 little.pdf: little.ps little.ms
-	ps2pdf $<
+	$(PS2PDF) $(OUT) $<
 
 little.ps: little.ms references
 	groff -e -R -ms -p -t $< > $@
