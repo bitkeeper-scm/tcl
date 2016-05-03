@@ -6,10 +6,10 @@ else
 endif
 
 little.pdf: little.ps little.ms
-	$(PS2PDF) $(OUT) $<
+	-$(PS2PDF) $(OUT) $<
 
 little.ps: little.ms references
-	groff -e -R -ms -p -t $< > $@
+	-groff -e -R -ms -p -t $< > $@
 
 g: little.ms references
 	g groff -e -R -ms -p -t $<

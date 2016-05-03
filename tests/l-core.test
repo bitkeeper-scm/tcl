@@ -1906,13 +1906,7 @@ test cmdsubst-1 {test command substitution} -body {
 #lang L --line=1
 void cmdsubst_1()
 {
-	string	cmd, s1, s2;
-
-	if (platform() eq "windows") {
-		cmd = "sh echo";
-	} else {
-		cmd = "echo";
-	}
+	string	cmd = "echo", s1, s2;
 
 	`${cmd} testing1 >foo.txt`;
 	s1 = `cat foo.txt`;

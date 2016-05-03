@@ -6,7 +6,7 @@ little.man: little.pod pod2man
 	./pod2man -r L-beta -c $(TITLE) $< $@
 
 little.html: little.doc pod2html.l
-	./pod2html.l --title=$(TITLE) $< > $@
+	$(INTERP) ./pod2html.l --title=$(TITLE) $< > $@
 
 %.pod: %.doc
 	sed s/=proto/=item/ < $< > $@
@@ -18,7 +18,7 @@ little.html: little.doc pod2html.l
 	colcrt $< > $@
 
 %.ps: %.man
-	groff -man $< > $@
+	-groff -man $< > $@
 
 x: little.ps
 	gv little.ps
